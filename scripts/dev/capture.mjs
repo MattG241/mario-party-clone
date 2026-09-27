@@ -26,7 +26,7 @@ const SCENARIOS = [
   {
     name: 'turn',
     q: '?quick&humans=1&seed=21&realtime&midgame',
-    steps: [['waitFor', sceneActive('BoardUI'), 60000], ['wait', 11000], ['shot', 'board-turn.png'], ['key', 'Enter'], ['wait', 1600], ['shot', 'board-dial.png'], ['key', 'Enter'], ['wait', 2600], ['shot', 'board-move.png']],
+    steps: [['waitFor', sceneActive('BoardUI'), 60000], ['waitFor', 'window.__GLEAMTRAIL__.debug.awaitRoll === true', 120000], ['wait', 1500], ['shot', 'board-turn.png'], ['key', 'Enter'], ['wait', 1800], ['shot', 'board-dial.png'], ['key', 'Enter'], ['waitFor', 'window.__GLEAMTRAIL__.debug.stepsLeft > 0', 30000], ['wait', 900], ['shot', 'board-move.png']],
   },
   {
     name: 'gleam',

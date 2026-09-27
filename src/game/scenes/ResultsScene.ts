@@ -88,7 +88,7 @@ export class ResultsScene extends Phaser.Scene {
 
   create(): void {
     enterScene(this);
-    applyGrade(this, { glow: 0.35, glowThreshold: 0.8, vignette: 0.2 });
+    applyGrade(this, { vignette: 0.2 });
     audio.playMusic('results');
     const fx = new EffectsManager(this, 800);
     // Warm late-afternoon sky for the podium (the board is day, the title golden hour).

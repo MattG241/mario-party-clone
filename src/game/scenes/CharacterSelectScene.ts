@@ -54,7 +54,7 @@ export class CharacterSelectScene extends Phaser.Scene {
 
   create(): void {
     enterScene(this);
-    applyGrade(this, { glow: 0.35, glowThreshold: 0.8, vignette: 0.2 });
+    applyGrade(this, { vignette: 0.2 });
     this.leaving = false;
     this.slots = [];
     this.chars = [];

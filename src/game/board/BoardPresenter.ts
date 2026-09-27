@@ -17,6 +17,7 @@ import { centerOrigin } from '../util/spriteUtil';
 import type { DialogLineSpec, EventPresentation, FlowIO, JumpKind, MinigameRewardView, PathOption, PreRollDecision, ShopOffer, TargetOption } from './flowTypes';
 import type { BoardNodeDef } from './types';
 import { registeredMinigames } from '../minigames/registry';
+import { setDebugInfo } from '../debug/debug';
 
 const EVENT_COLORS: Record<EventPresentation['kind'], number> = {
   festival: 0xff9a2e,
@@ -132,7 +133,9 @@ export class BoardPresenter implements FlowIO {
         ],
         p.slot,
       );
+      setDebugInfo('awaitRoll', true);
       const b = await this.ui.waitButton(c, ['A', 'Y']);
+      setDebugInfo('awaitRoll', false);
       this.ui.setPrompts([]);
       if (b === null || b === 'A') return { kind: 'roll' };
       const item = await this.ui.itemRadial(p, usable, c);

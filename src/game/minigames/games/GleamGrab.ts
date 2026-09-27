@@ -426,7 +426,7 @@ export class GleamGrabScene extends BaseMinigame {
       for (let j = i + 1; j < this.grabbers.length; j++) {
         const a = this.grabbers[i];
         const b = this.grabbers[j];
-        separate(a, b, 78, CHARACTERS[a.p.characterId].handling.weight, CHARACTERS[b.p.characterId].handling.weight);
+        separate(a, b, 104, CHARACTERS[a.p.characterId].handling.weight, CHARACTERS[b.p.characterId].handling.weight);
       }
     }
     // Pickups (a chip can be snatched just as it lands).
@@ -496,7 +496,9 @@ export class GleamGrabScene extends BaseMinigame {
           const value = d.kind === 'gold' ? 3 : 1;
           // Rivals closer to it make it less attractive.
           const rival = Math.min(...this.grabbers.filter((o) => o !== g).map((o) => dist(o.x, o.y, d.x, d.y)), 9999);
-          const score = value * 300 - dd - (rival < dd ? 120 : 0);
+          // …and so does a chip another CPU is already heading for (they spread out instead of piling up).
+          const claimed = this.players.some((o) => o !== g.p && o.brain.target && dist(o.brain.target.x, o.brain.target.y, d.x, d.y) < 40);
+          const score = value * 300 - dd - (rival < dd ? 120 : 0) - (claimed ? 260 : 0);
           if (score > bestScore) {
             bestScore = score;
             best = d;

@@ -9,6 +9,7 @@ import { PlayerBadge } from '../ui/PlayerBadge';
 import { addText } from '../ui/theme';
 import type { BoardManager } from './BoardManager';
 import type { JumpKind } from './flowTypes';
+import { setDebugInfo } from '../debug/debug';
 
 export const TOKEN_SCALE = 0.6;
 
@@ -128,6 +129,7 @@ export class MovementController {
   }
 
   setCounter(slot: number, n: number | null): void {
+    setDebugInfo('stepsLeft', n ?? 0);
     const tag = this.tags.get(slot);
     if (!tag) return;
     if (n === null || n <= 0) {

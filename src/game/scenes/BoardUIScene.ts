@@ -19,6 +19,7 @@ import { PlayerBadge } from '../ui/PlayerBadge';
 import { PlayerHUD } from '../ui/PlayerHUD';
 import { addText, addTitle } from '../ui/theme';
 import { centerOrigin, standOrigin } from '../util/spriteUtil';
+import { drawCapsule } from '../ui/Screen';
 
 export interface ListOption {
   label: string;
@@ -83,16 +84,12 @@ export class BoardUIScene extends Phaser.Scene {
     this.prompts = new PromptBar(this, GAME_WIDTH / 2, GAME_HEIGHT - 40, [], { size: 40, fontSize: 28 }).setDepth(900);
     // Round pill: compact and translucent, matching the corner HUD.
     this.roundPlaque = this.add.container(GAME_WIDTH / 2, 44).setDepth(600);
-    const g = this.add.graphics();
-    g.fillStyle(0x06141a, 0.25);
-    g.fillRoundedRect(-146, -28, 300, 64, 32);
-    g.fillStyle(0x0c2630, 0.8);
-    g.fillRoundedRect(-150, -32, 300, 64, 32);
-    g.lineStyle(3, COLORS.gold, 0.95);
-    g.strokeRoundedRect(-150, -32, 300, 64, 32);
-    this.roundText = addText(this, 0, -8, 'ROUND 1 / 10', 26, { color: CSS.goldLight, weight: 700 });
-    this.relicText = addText(this, 0, 16, '', 16, { color: CSS.cream, weight: 600 });
-    this.roundPlaque.add([g, this.roundText, this.relicText]);
+    const g = this.add.graphics({ x: -170, y: -34 });
+    drawCapsule(g, 340, 68, COLORS.gold);
+    const relicIcon = this.add.image(-128, 0, 'prism-relic').setScale(0.12);
+    this.roundText = addText(this, 14, -9, 'ROUND 1 / 10', 27, { color: CSS.goldLight, weight: 700, stroke: '#06141a', strokeThickness: 4 });
+    this.relicText = addText(this, 14, 17, '', 16, { color: CSS.cream, weight: 600 });
+    this.roundPlaque.add([g, relicIcon, this.roundText, this.relicText]);
     this.refresh(this.stateRef);
   }
 

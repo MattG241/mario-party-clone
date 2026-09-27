@@ -43,7 +43,7 @@ export class PreloadScene extends Phaser.Scene {
       });
     }
     // Optional rendered sky backdrops (day, and dusk for the final round).
-    for (const v of ['day', 'golden', 'dusk']) this.load.image(`rendered-sky-${v}`, `assets/rendered/sky_${v}.webp`);
+    for (const v of ['day', 'clear', 'golden', 'sunset', 'dusk']) this.load.image(`rendered-sky-${v}`, `assets/rendered/sky_${v}.webp`);
     // Optional rendered hero scenes (title island, minigame arenas).
     this.load.atlas('rendered-orbit-arms', 'assets/rendered/orbit_arms.webp', 'assets/rendered/orbit_arms.json');
     this.load.json('rendered-spaces', 'assets/rendered/spaces/spaces.json');
@@ -51,6 +51,24 @@ export class PreloadScene extends Phaser.Scene {
     this.load.json('rendered-gleam3d', 'assets/rendered/scene_gleam3d.json');
     for (const v of ['title', 'gleam', 'gleam_wall', 'gleam3d', 'gleam3d_wall', 'gleam3d_blur', 'orbit', 'orbit_blur', 'select', 'results']) this.load.image(`rendered-scene-${v}`, `assets/rendered/scene_${v}.webp`);
     this.load.image('rendered-ui-dial', 'assets/rendered/ui_dial.webp');
+    // Arenas and sprites for the later minigames (scripts/art/mg_arenas.py) and the sky islets.
+    for (const v of ['crate', 'crate_wall', 'pond', 'relay', 'totem']) this.load.image(`rendered-scene-${v}`, `assets/rendered/scene_${v}.webp`);
+    this.load.json('rendered-mg-sprites', 'assets/rendered/mg/sprites.json');
+    const mgSprites: [string, string][] = [
+      ['crate', 'crate'],
+      ['crate-gold', 'crate_gold'],
+      ['pad', 'pad'],
+      ['sky-tile', 'sky_tile'],
+      ['mace', 'mace'],
+      ['spring', 'spring'],
+      ['parcel', 'parcel'],
+      ['totem', 'totem'],
+      ['plank', 'plank'],
+      ['tower-wall', 'tower_wall'],
+    ];
+    for (const [key, file] of mgSprites) this.load.image(`rendered-mg-${key}`, `assets/rendered/mg/${file}.webp`);
+    this.load.spritesheet('rendered-mg-log', 'assets/rendered/mg/log.webp', { frameWidth: 180, frameHeight: 180 });
+    for (let k = 0; k < 3; k++) this.load.image(`rendered-islet-${k}`, `assets/rendered/mg/islet_${k}.webp`);
     this.load.on(Phaser.Loader.Events.PROGRESS, (p: number) => this.setProgress(p));
     this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, (file: Phaser.Loader.File) => {
       if (isOptionalAsset(file.key)) return;

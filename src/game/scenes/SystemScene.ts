@@ -8,6 +8,7 @@ import { PromptBar } from '../ui/ControllerPrompt';
 import { drawPanel } from '../ui/Panel';
 import { PlayerBadge } from '../ui/PlayerBadge';
 import { addText } from '../ui/theme';
+import { drawNavyPanel } from '../ui/Screen';
 
 /** Scenes that must pause when a player's controller disconnects. */
 function isGameplayScene(key: string): boolean {
@@ -129,11 +130,11 @@ export class SystemScene extends Phaser.Scene {
     const box = this.add.container(GAME_WIDTH / 2, GAME_HEIGHT / 2).setDepth(800);
     const dim = this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x06141a, 0.72);
     const g = this.add.graphics();
-    drawPanel(g, -560, -210, 1120, 420, { border: COLORS.coral });
+    drawNavyPanel(g, -560, -210, 1120, 420, { border: COLORS.coral, header: { color: COLORS.coral, height: 64 } });
     const badge = new PlayerBadge(this, -430, -110, slot, 40);
-    const title = addText(this, 40, -120, 'Controller disconnected', 54, { color: CSS.ink, weight: 700 });
-    const body = addText(this, 0, 10, `Player ${slot + 1}, reconnect your controller\nor press Enter to continue on the keyboard.`, 36, { color: CSS.ink, weight: 500 });
-    const prompts = new PromptBar(this, 0, 140, [], { size: 40, fontSize: 28, color: CSS.ink });
+    const title = addText(this, 40, -120, 'Controller disconnected', 54, { color: '#ffffff', weight: 700, stroke: '#06141a', strokeThickness: 5 });
+    const body = addText(this, 0, 10, `Player ${slot + 1}, reconnect your controller\nor press Enter to continue on the keyboard.`, 36, { color: CSS.cream, weight: 500 });
+    const prompts = new PromptBar(this, 0, 140, [], { size: 40, fontSize: 28 });
     prompts.setPrompts([{ button: 'A', label: 'Press A on a controller to take over' }], undefined);
     box.add([dim, g, badge, title, body, prompts]);
     this.disconnect = { slot, paused, box };

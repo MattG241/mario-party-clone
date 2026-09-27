@@ -47,3 +47,23 @@ export function drawNavyPanel(g: Phaser.GameObjects.Graphics, x: number, y: numb
   g.lineStyle(4, o.border ?? 0xf2c14e, 1);
   g.strokeRoundedRect(x, y, w, h, r);
 }
+
+/**
+ * HUD capsule: drop shadow, a darker base that shows as a bevel along the bottom, a glossy top and
+ * a rim in the player's colour with a faint inner highlight (reads as a physical pill, not a flat one).
+ */
+export function drawCapsule(g: Phaser.GameObjects.Graphics, w: number, h: number, rim: number): void {
+  const r = h / 2;
+  g.fillStyle(0x06141a, 0.32);
+  g.fillRoundedRect(4, 8, w, h, r);
+  g.fillStyle(0x05161d, 0.94);
+  g.fillRoundedRect(0, 0, w, h, r);
+  g.fillStyle(0x0f2d3a, 0.92);
+  g.fillRoundedRect(1, 1, w - 2, h - 8, (h - 8) / 2);
+  g.fillStyle(0xffffff, 0.1);
+  g.fillRoundedRect(10, 5, w - 20, h * 0.36, { tl: r - 8, tr: r - 8, bl: 8, br: 8 });
+  g.lineStyle(4, rim, 1);
+  g.strokeRoundedRect(0, 0, w, h, r);
+  g.lineStyle(1.5, 0xfff4dc, 0.28);
+  g.strokeRoundedRect(5, 5, w - 10, h - 10, r - 5);
+}

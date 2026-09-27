@@ -7,6 +7,7 @@ import { computeStandings } from '../state/scoring';
 import { centerOrigin } from '../util/spriteUtil';
 import { PlayerBadge } from './PlayerBadge';
 import { addText } from './theme';
+import { drawCapsule } from './Screen';
 
 /** Capsule size (the portrait breaks out of its outer end). */
 const W = 262;
@@ -72,14 +73,7 @@ export class PlayerHUD {
     const glow = s.add.graphics();
     const bg = s.add.graphics();
     // soft shadow, capsule, player-colour rim and a top sheen
-    bg.fillStyle(0x06141a, 0.28);
-    bg.fillRoundedRect(4, 7, W, H, H / 2);
-    bg.fillStyle(0x0c2630, 0.8);
-    bg.fillRoundedRect(0, 0, W, H, H / 2);
-    bg.fillStyle(0xffffff, 0.07);
-    bg.fillRoundedRect(8, 5, W - 16, H * 0.42, { tl: H / 2 - 6, tr: H / 2 - 6, bl: 10, br: 10 });
-    bg.lineStyle(4, color, 0.95);
-    bg.strokeRoundedRect(0, 0, W, H, H / 2);
+    drawCapsule(bg, W, H, color);
 
     // Portrait breaking out of the outer end.
     const pcx = this.lx(f, 40);

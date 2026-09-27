@@ -97,8 +97,10 @@ export const DEFAULT_GRADE: GradeSettings = {
   tint: [1, 0.99, 0.97],
   tilt: 0,
   focusH: 0.22,
-  glow: 0.55,
-  glowThreshold: 0.74,
+  // Off by default: a full-screen bloom is costly on weak GPUs; the rendered art has its bloom
+  // baked in (scripts/art/bloom.py). Scenes can still opt in.
+  glow: 0,
+  glowThreshold: 0.8,
   shadowTint: [0.93, 0.97, 1.08],
   highTint: [1.05, 1.0, 0.93],
 };

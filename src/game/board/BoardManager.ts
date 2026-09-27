@@ -35,6 +35,8 @@ export class BoardManager {
   readonly graph: BoardGraph;
   readonly nodes = new Map<string, NodeView>();
   readonly decorations = new Map<string, Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.Transform>();
+  /** Fork arrows on the ground (grown when the camera pulls back so junctions stay readable). */
+  private chevrons: Phaser.GameObjects.Image[] = [];
   private bridgeLayer!: Phaser.GameObjects.Container;
   private detourLayer!: Phaser.GameObjects.Container;
   private relic!: Phaser.GameObjects.Container;
@@ -165,6 +167,7 @@ export class BoardManager {
         const ang = Math.atan2(b.y - n.y, b.x - n.x);
         const chev = s.add.image(n.x + Math.cos(ang) * 100, n.y + Math.sin(ang) * 78, 'fork-chevron').setRotation(ang).setDepth(DEPTH.spaces - 1).setScale(1.4);
         s.tweens.add({ targets: chev, alpha: { from: 1, to: 0.55 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+        this.chevrons.push(chev);
       }
     }
     // Prism gate
@@ -232,6 +235,12 @@ export class BoardManager {
     plate.add([pg, label]);
     // Gentle idle breathing.
     this.scene.tweens.add({ targets: spr, scaleY: 0.432, duration: 1200 + Math.random() * 400, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+  }
+
+  /** Keep fork arrows readable at any zoom (called every frame with the board camera's zoom). */
+  scaleForZoom(zoom: number): void {
+    const k = 1.4 * Phaser.Math.Clamp(0.9 / zoom, 1, 2);
+    for (const c of this.chevrons) if (Math.abs(c.scaleX - k) > 0.01) c.setScale(k);
   }
 
   npcPose(id: NpcId, pose: string): void {

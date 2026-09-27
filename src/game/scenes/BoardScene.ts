@@ -109,7 +109,7 @@ export class BoardScene extends Phaser.Scene {
     cam.centerOn(ov.centerX, ov.centerY);
     cam.setZoom(this.overviewZoom());
     // Miniature look: a gentle tilt-shift keeps the eye on the middle band where the action is.
-    applyGrade(this, { tilt: 3.2, focusH: 0.2 });
+    applyGrade(this, { tilt: 2.4, focusH: 0.24 });
     this.buildCloudShadows(def.width, def.height);
     this.buildPetals();
     audio.playMusic(isFinalRound(state) ? 'boardFinal' : 'board');
@@ -494,6 +494,7 @@ export class BoardScene extends Phaser.Scene {
   override update(_t: number, delta: number): void {
     if (!this.moves) return;
     this.driftCloudShadows(delta / 1000, this.board.def.width, this.board.def.height);
+    this.board.scaleForZoom(this.cameras.main.zoom);
     this.moves.update();
     if (!this.running || this.pauseOpen) return;
     // Scoreboard while VIEW is held (any human).
