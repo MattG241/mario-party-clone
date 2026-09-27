@@ -54,11 +54,19 @@ export async function runMatch(ctx: FlowContext): Promise<void> {
     if (phase.kind === 'roundStart') {
       const { bridgeRepaired } = expireRoundEffects(s);
       ctx.io.boardChanged();
-      await io.roundStart(s.round, s.config.rounds, isFinalRound(s));
-      if (bridgeRepaired) await runEvent(ctx, 'bridge_repair', null);
-      if (isFinalRound(s)) await io.finalRoundIntro();
-      if (s.config.events === 'chaotic' || isFinalRound(s)) await runGlobalEvent(ctx);
-      s.phase = { kind: 'turn', index: 0 };
+      let skipToMinigame = false;
+      try {
+        await io.roundStart(s.round, s.config.rounds, isFinalRound(s));
+        if (bridgeRepaired) await runEvent(ctx, 'bridge_repair', null);
+        if (isFinalRound(s)) await io.finalRoundIntro();
+        if (s.config.events === 'chaotic' || isFinalRound(s)) await runGlobalEvent(ctx);
+      } catch (e) {
+        // Debug interrupts can land during round-start events too.
+        if (!(e instanceof FlowInterrupt)) throw e;
+        logMatch(s, `Round start interrupted (${e.kind})`);
+        skipToMinigame = e.kind !== 'skipTurn';
+      }
+      s.phase = skipToMinigame ? { kind: 'minigame' } : { kind: 'turn', index: 0 };
       save(ctx);
     } else if (phase.kind === 'turn') {
       const p = s.players[phase.index];

@@ -13,6 +13,9 @@ export const URL_PARAMS = params();
 
 export const DEBUG_ENABLED: boolean = (import.meta.env?.DEV ?? false) || URL_PARAMS.has('debug');
 
+/** Lock game time to wall time even at very low frame rates (automated tests on software GL). */
+export const REALTIME_CLOCK: boolean = URL_PARAMS.has('realtime');
+
 /** Free-form values scenes publish for the F2 overlay. */
 export const debugInfo: Record<string, string | number | boolean> = {};
 

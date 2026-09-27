@@ -91,6 +91,8 @@ export class Character extends Phaser.GameObjects.Container {
       this.addAt(ring, 1);
     }
     this.setScale(opts.scale ?? 1);
+    // Keep the player marker a readable size whatever the character's scale.
+    this.marker?.setScale(Math.min(2.2, 1 / (opts.scale ?? 1)));
     this.sprite.on(Phaser.Animations.Events.ANIMATION_COMPLETE, this.onAnimComplete, this);
     scene.add.existing(this);
     this.play('idle');

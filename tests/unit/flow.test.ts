@@ -304,4 +304,29 @@ describe('full match simulation', () => {
     ctx.interrupt = 'skipTurn';
     await expect(runTurn(ctx, state.players[0])).rejects.toBeInstanceOf(FlowInterrupt);
   });
+
+  it('survives a finish-round interrupt raised during round-start events', async () => {
+    const { ctx, io, state } = setup(4242);
+    state.config.events = 'chaotic';
+    // Request the interrupt the moment the round-start banner shows.
+    const inner = io.roundStart.bind(io);
+    let fired = false;
+    io.roundStart = async (...args: Parameters<typeof inner>) => {
+      if (!fired) {
+        fired = true;
+        ctx.interrupt = 'finishRound';
+      }
+      return inner(...args);
+    };
+    // Snapshot the log when the first minigame starts (the log is capped, so check early).
+    const play = io.playMinigame.bind(io);
+    let firstLog: string[] | null = null;
+    io.playMinigame = async () => {
+      firstLog ??= [...state.log];
+      return play();
+    };
+    await runMatch(ctx);
+    expect(io.finished).toBe(true);
+    expect(firstLog!.some((l) => l.includes('interrupted (finishRound)'))).toBe(true);
+  });
 });

@@ -30,6 +30,7 @@ export const COLORS = {
   coral: 0xff6b5e,
   grass: 0x6cc24a,
   ink: 0x2b2340,
+  stone: 0xa9a59a,
   white: 0xffffff,
   black: 0x000000,
 } as const;

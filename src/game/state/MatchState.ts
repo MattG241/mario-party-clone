@@ -1,4 +1,4 @@
-import { ECONOMY, type CpuLevel, type EventMode, type GameSpeed, type InstructionMode, type RoundCount } from '../constants';
+import { ECONOMY, type CpuLevel, type EventMode, type GameSpeed, type InstructionMode } from '../constants';
 import type { BoardDef } from '../board/types';
 import { CHARACTERS, type CharacterId } from '../data/characters';
 import { ITEM_IDS, type ItemId } from '../data/items';
@@ -46,7 +46,8 @@ export interface BoardState {
 
 export interface MatchConfig {
   boardId: string;
-  rounds: RoundCount;
+  /** 10, 15 or 20 from the menus (debug launches may use any count). */
+  rounds: number;
   cpuDifficulty: CpuLevel;
   instructions: InstructionMode;
   events: EventMode;

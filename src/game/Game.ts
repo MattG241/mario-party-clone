@@ -5,6 +5,8 @@ import { logError } from './debug/debug';
 import { input } from './input/InputManager';
 import { ALL_MINIGAME_SCENES } from './minigames/registry';
 import { settings } from './save/SettingsManager';
+import { session } from './state/Session';
+import { BoardBgScene } from './scenes/BoardBgScene';
 import { BoardScene } from './scenes/BoardScene';
 import { BoardUIScene } from './scenes/BoardUIScene';
 import { BootScene } from './scenes/BootScene';
@@ -25,7 +27,8 @@ import { TitleScene } from './scenes/TitleScene';
 
 declare global {
   interface Window {
-    __GLEAMTRAIL__?: { game: Phaser.Game; ready: boolean; errors: string[] };
+    /** Test / diagnostics hook (read by the Playwright smoke test). */
+    __GLEAMTRAIL__?: { game: Phaser.Game; ready: boolean; errors: string[]; session: typeof session };
   }
 }
 
@@ -40,6 +43,7 @@ export function createGame(parent: HTMLElement): Phaser.Game {
     HowToPlayScene,
     SettingsScene,
     GamepadDebugScene,
+    BoardBgScene,
     BoardScene,
     BoardUIScene,
     MinigameIntroScene,
@@ -71,7 +75,7 @@ export function createGame(parent: HTMLElement): Phaser.Game {
   // Pause music when the tab is hidden.
   game.events.on(Phaser.Core.Events.HIDDEN, () => audio.stopMusic(0.2));
 
-  window.__GLEAMTRAIL__ = { game, ready: false, errors: [] };
+  window.__GLEAMTRAIL__ = { game, ready: false, errors: [], session };
   window.addEventListener('error', (e) => {
     logError(String(e.message));
     window.__GLEAMTRAIL__?.errors.push(String(e.message));

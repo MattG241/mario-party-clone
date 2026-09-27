@@ -900,6 +900,150 @@ put(
 );
 
 // ---------------------------------------------------------------------------------------------
+// Minigame arenas and props (lazy-loaded by each minigame)
+put(
+  'minigames/gleam-grab/plaza_floor.svg',
+  (() => {
+    const W = 1600;
+    const H = 820;
+    const defs = radial('pfloor', [
+      [0, '#fff8e6'],
+      [0.7, '#f2e2bf'],
+      [1, '#e3cc9c'],
+    ]);
+    let b = `<rect x="0" y="0" width="${W}" height="${H}" rx="60" fill="${C.tealDark}"/>`;
+    b += `<rect x="18" y="18" width="${W - 36}" height="${H - 36}" rx="46" fill="url(#pfloor)"/>`;
+    // Tile grid
+    for (let x = 18 + 80; x < W - 18; x += 80) b += `<path d="M${x} 18V${H - 18}" stroke="#d9c49a" stroke-width="3" opacity="0.6"/>`;
+    for (let y = 18 + 80; y < H - 18; y += 80) b += `<path d="M18 ${y}H${W - 18}" stroke="#d9c49a" stroke-width="3" opacity="0.6"/>`;
+    // Spiral mosaic
+    b += `<ellipse cx="${W / 2}" cy="${H / 2}" rx="300" ry="230" fill="${C.teal}" opacity="0.18"/>`;
+    b += `<path d="${spiral(W / 2, H / 2, 10, 260, 3.2, 200)}" stroke="${C.gold}" stroke-width="22" fill="none" stroke-linecap="round" opacity="0.55" transform="translate(${W / 2} ${H / 2}) scale(1 0.78) translate(${-W / 2} ${-H / 2})"/>`;
+    b += `<path d="${spiral(W / 2, H / 2, 10, 260, 3.2, 200)}" stroke="#ffffff" stroke-width="6" fill="none" stroke-linecap="round" opacity="0.4" transform="translate(${W / 2} ${H / 2}) scale(1 0.78) translate(${-W / 2} ${-H / 2})"/>`;
+    // Corner planters
+    for (const [x, y] of [
+      [90, 90],
+      [W - 90, 90],
+      [90, H - 90],
+      [W - 90, H - 90],
+    ]) {
+      b += `<circle cx="${x}" cy="${y}" r="46" fill="${C.woodDark}"/><circle cx="${x}" cy="${y - 8}" r="40" fill="${C.grass}"/><circle cx="${x - 10}" cy="${y - 16}" r="8" fill="${C.coral}"/><circle cx="${x + 12}" cy="${y - 10}" r="7" fill="${C.goldLight}"/>`;
+    }
+    return svg(W, H, b, defs);
+  })(),
+);
+put(
+  'minigames/orbit-dodge/platform.svg',
+  (() => {
+    const W = 1400;
+    const H = 760;
+    const cx = W / 2;
+    const cy = H / 2 - 30;
+    const defs =
+      linear('opRim', [
+        [0, C.goldLight],
+        [0.5, C.gold],
+        [1, C.goldDark],
+      ]) + radial('opTop', [
+        [0, '#fdf6e3'],
+        [0.8, '#d9d2c2'],
+        [1, '#b9b2a2'],
+      ]);
+    let b = `<ellipse cx="${cx}" cy="${cy + 90}" rx="${cx - 10}" ry="${H / 2 - 70}" fill="#3f3d58"/>`;
+    b += `<path d="M10 ${cy}v70a${cx - 10} ${H / 2 - 90} 0 0 0 ${W - 20} 0v-70z" fill="url(#opRim)"/>`;
+    b += `<ellipse cx="${cx}" cy="${cy}" rx="${cx - 10}" ry="${H / 2 - 90}" fill="url(#opRim)"/>`;
+    b += `<ellipse cx="${cx}" cy="${cy}" rx="${cx - 40}" ry="${H / 2 - 110}" fill="url(#opTop)"/>`;
+    for (let i = 0; i < 24; i++) {
+      const a = (i / 24) * Math.PI * 2;
+      b += `<path d="M${f(cx + Math.cos(a) * (cx - 110))} ${f(cy + Math.sin(a) * (H / 2 - 170))}L${f(cx + Math.cos(a) * (cx - 50))} ${f(cy + Math.sin(a) * (H / 2 - 118))}" stroke="${C.stone}" stroke-width="4"/>`;
+    }
+    b += `<g transform="translate(${cx} ${cy}) scale(1 0.5) translate(${-cx} ${-cy})"><path d="${spiral(cx, cy, 20, 420, 3, 220)}" stroke="${C.teal}" stroke-width="18" fill="none" opacity="0.25" stroke-linecap="round"/></g>`;
+    b += `<ellipse cx="${cx}" cy="${cy}" rx="110" ry="56" fill="${C.goldDark}"/><ellipse cx="${cx}" cy="${cy - 8}" rx="96" ry="46" fill="${C.gold}"/>`;
+    return svg(W, H, b, defs);
+  })(),
+);
+put(
+  'minigames/crate-craze/crate.svg',
+  svg(
+    120,
+    120,
+    `<rect x="8" y="14" width="104" height="100" rx="10" fill="#6b4322"/><rect x="12" y="8" width="96" height="96" rx="10" fill="${C.woodLight}"/>` +
+      `<rect x="12" y="8" width="96" height="96" rx="10" fill="none" stroke="${C.woodDark}" stroke-width="6"/>` +
+      `<path d="M16 12L104 100M104 12L16 100" stroke="${C.wood}" stroke-width="10"/>` +
+      `<circle cx="60" cy="56" r="22" fill="${C.cream}" stroke="${C.woodDark}" stroke-width="4"/><path d="${spiral(60, 56, 2, 15, 1.8, 40)}" stroke="${C.teal}" stroke-width="4" fill="none"/>`,
+  ),
+);
+put(
+  'minigames/crate-craze/yard_floor.svg',
+  (() => {
+    const W = 1600;
+    const H = 860;
+    let b = `<rect width="${W}" height="${H}" rx="50" fill="${C.woodDark}"/><rect x="16" y="16" width="${W - 32}" height="${H - 32}" rx="38" fill="#c9a877"/>`;
+    for (let y = 16; y < H - 16; y += 54) b += `<path d="M16 ${y}H${W - 16}" stroke="#a88452" stroke-width="4" opacity="0.7"/>`;
+    const r = rng(9);
+    for (let i = 0; i < 60; i++) b += `<path d="M${f(40 + r() * (W - 80))} ${f(30 + r() * (H - 60))}h${f(20 + r() * 40)}" stroke="#8a6a40" stroke-width="3" opacity="0.5"/>`;
+    return svg(W, H, b);
+  })(),
+);
+put(
+  'minigames/skybridge-scramble/tile.svg',
+  svg(
+    150,
+    110,
+    `<path d="M20 44L75 100L130 44Z" fill="#4a3f55" opacity="0.8"/><rect x="6" y="30" width="138" height="28" rx="12" fill="${C.woodDark}"/>` +
+      `<rect x="6" y="14" width="138" height="40" rx="12" fill="${C.woodLight}"/><rect x="6" y="14" width="138" height="40" rx="12" fill="none" stroke="${C.woodDark}" stroke-width="5"/>` +
+      `<path d="M40 16v36M75 16v36M110 16v36" stroke="${C.wood}" stroke-width="4"/>`,
+  ),
+);
+put(
+  'minigames/totem-tug/totem.svg',
+  (() => {
+    let b = `<rect x="100" y="60" width="60" height="340" rx="14" fill="${C.woodDark}"/><rect x="108" y="60" width="44" height="340" rx="12" fill="${C.wood}"/>`;
+    for (let i = 0; i < 3; i++) {
+      const y = 90 + i * 100;
+      b += `<rect x="40" y="${y}" width="180" height="84" rx="26" fill="${[C.teal, C.coral, C.purple][i]}" stroke="${C.ink}" stroke-opacity="0.3" stroke-width="5"/>`;
+      b += `<circle cx="100" cy="${y + 36}" r="12" fill="#ffffff"/><circle cx="160" cy="${y + 36}" r="12" fill="#ffffff"/><circle cx="100" cy="${y + 38}" r="6" fill="${C.ink}"/><circle cx="160" cy="${y + 38}" r="6" fill="${C.ink}"/>`;
+      b += `<path d="M110 ${y + 62}q20 12 40 0" stroke="${C.ink}" stroke-width="5" fill="none" stroke-linecap="round"/>`;
+    }
+    b += `<path d="${spiral(130, 40, 2, 34, 2, 60)}" stroke="${C.gold}" stroke-width="10" fill="none" stroke-linecap="round"/>`;
+    return svg(260, 420, b);
+  })(),
+);
+put(
+  'minigames/spiral-splash/pad.svg',
+  svg(
+    220,
+    150,
+    `<ellipse cx="110" cy="84" rx="104" ry="56" fill="#1f6f55" opacity="0.6"/><path d="M110 76L214 70A104 56 0 1 1 196 44Z" fill="${C.grass}"/>` +
+      `<path d="M110 76L214 70A104 56 0 1 1 196 44Z" fill="none" stroke="${C.grassDark}" stroke-width="5"/>` +
+      `<path d="M110 76L30 60M110 76L60 118M110 76L160 118M110 76L100 26" stroke="${C.grassLight}" stroke-width="4" opacity="0.7"/>` +
+      `<circle cx="150" cy="52" r="10" fill="${C.coral}"/><circle cx="150" cy="52" r="4" fill="${C.goldLight}"/>`,
+  ),
+);
+put(
+  'minigames/relic-relay/parcel.svg',
+  svg(
+    110,
+    110,
+    `<circle cx="55" cy="55" r="52" fill="${C.purpleLight}" opacity="0.35"/><rect x="18" y="26" width="74" height="64" rx="12" fill="${C.purple}" stroke="${C.purpleDark}" stroke-width="5"/>` +
+      `<rect x="48" y="26" width="14" height="64" fill="${C.gold}"/><rect x="18" y="52" width="74" height="12" fill="${C.gold}"/>` +
+      `<path d="M55 26c-14 -22 -34 -8 -18 4M55 26c14 -22 34 -8 18 4" stroke="${C.gold}" stroke-width="6" fill="none" stroke-linecap="round"/>` +
+      `<path d="M40 40l6 -6" stroke="#ffffff" stroke-width="5" stroke-linecap="round" opacity="0.7"/>`,
+  ),
+);
+put(
+  'minigames/tumble-tower/plank.svg',
+  svg(
+    260,
+    60,
+    `<rect x="4" y="14" width="252" height="40" rx="14" fill="${C.stoneDark}"/><rect x="4" y="6" width="252" height="40" rx="14" fill="${C.stoneLight}"/>` +
+      `<rect x="4" y="6" width="252" height="40" rx="14" fill="none" stroke="${C.stoneDark}" stroke-width="4"/>` +
+      `<path d="M30 12h40M120 30h60M200 14h30" stroke="#ffffff" stroke-width="4" opacity="0.5" stroke-linecap="round"/>` +
+      `<path d="M4 20h252" stroke="${C.grass}" stroke-width="8" opacity="0.8"/>`,
+  ),
+);
+
+// ---------------------------------------------------------------------------------------------
 function main() {
   let count = 0;
   for (const [rel, content] of Object.entries(files)) {

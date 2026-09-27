@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from './constants';
+import { REALTIME_CLOCK } from './debug/debug';
 
 export function makeConfig(parent: HTMLElement, scenes: Phaser.Types.Scenes.SceneType[]): Phaser.Types.Core.GameConfig {
   return {
@@ -27,7 +28,9 @@ export function makeConfig(parent: HTMLElement, scenes: Phaser.Types.Scenes.Scen
       default: 'arcade',
       arcade: { gravity: { x: 0, y: 0 }, debug: false },
     },
-    fps: { target: 60, smoothStep: true },
+    // ?realtime (testing on software-rendered browsers) keeps game time locked to wall time even
+    // at very low frame rates instead of Phaser's hitch smoothing.
+    fps: { target: 60, smoothStep: !REALTIME_CLOCK },
     audio: { noAudio: true },
     disableContextMenu: true,
     banner: false,
