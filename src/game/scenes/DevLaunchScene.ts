@@ -107,7 +107,8 @@ export class DevLaunchScene extends Phaser.Scene {
       for (let i = 0; i < n; i++) id = graph.node(id).next[0] ?? id;
       return id;
     };
-    const spread = [6, 3, 11, 8];
+    // P1 two spaces past the start (by the plaza: a scenic spot for turn screenshots)
+    const spread = [2, 9, 14, 5];
     const chips = [23, 14, 31, 9];
     const relics = [1, 0, 2, 1];
     const items: ItemId[][] = [['wingstep_boots'], ['snare_seed', 'bubble_shield'], [], ['mystery_capsule']];

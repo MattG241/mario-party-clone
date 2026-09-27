@@ -330,7 +330,7 @@ export class CharacterSelectScene extends Phaser.Scene {
       // Characters nobody is pointing at (or has picked) step back into the shade.
       const lit = active || lockedBy !== null || this.slots.every((v) => v.phase === 'empty');
       if (lit) ch.sprite.clearTint();
-      else ch.sprite.setTint(0x7d8196);
+      else ch.sprite.setTint(0x5d6174);
       const plate = this.namePlates[ci];
       this.tweens.add({ targets: plate, scale: active || lockedBy !== null ? 1 : 0.94, duration: 160 });
       // Cursor badges hover above the head, side by side.

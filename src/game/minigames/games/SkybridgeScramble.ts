@@ -2,9 +2,11 @@ import Phaser from 'phaser';
 import { audio } from '../../audio/AudioManager';
 import { Character } from '../../characters/Character';
 import { CSS, GAME_WIDTH } from '../../constants';
+import { CHARACTER_ANIMATIONS } from '../../characters/CharacterAnimations';
 import { CHARACTERS } from '../../data/characters';
 import type { VirtualControls } from '../../input/PlayerInput';
 import { addText } from '../../ui/theme';
+import { centerOrigin } from '../../util/spriteUtil';
 import { BaseMinigame, type MgPlayer } from '../BaseMinigame';
 import { drift, separate, steer, type Mover } from '../common';
 import {
@@ -23,7 +25,6 @@ import {
   ROWS,
   supportingTile,
   TILE_COUNT,
-  TILE_GAP,
   TILE_H,
   TILE_W,
   tileCentre,
@@ -68,6 +69,8 @@ const DEPTH_CLOUD_FRONT = 4000;
 
 // --- Timing ------------------------------------------------------------------------------------
 const WARN_MS = 1200;
+/** The warning shortens a little as the round escalates (down to WARN_MS - this). */
+const WARN_SQUEEZE_MS = 180;
 /** Visual drop (the tile stops being walkable the moment it starts to fall). */
 const DROP_MS = 620;
 const RISE_MS = 700;
@@ -77,10 +80,10 @@ const CAP_MS = 90000;
 /** Escalation: when each pattern family starts, and the banner announcing it. */
 const PHASES: { at: number; kind: Phase; banner?: string }[] = [
   { at: 0, kind: 'random' },
-  { at: 14000, kind: 'lines', banner: 'ROWS & COLUMNS!' },
-  { at: 32000, kind: 'checker', banner: 'CHECKERBOARD!' },
-  { at: 50000, kind: 'wave', banner: 'HERE COMES THE WAVE!' },
-  { at: 70000, kind: 'frenzy', banner: 'SUDDEN DEATH!' },
+  { at: 10000, kind: 'lines', banner: 'ROWS & COLUMNS!' },
+  { at: 22000, kind: 'checker', banner: 'CHECKERBOARD!' },
+  { at: 36000, kind: 'wave', banner: 'HERE COMES THE WAVE!' },
+  { at: 52000, kind: 'frenzy', banner: 'SUDDEN DEATH!' },
 ];
 
 // --- Players -----------------------------------------------------------------------------------
@@ -110,12 +113,15 @@ interface Tile {
   state: TileState;
   /** Time left in the current state (ms). */
   t: number;
+  /** Length of this tile's current warning (ms). */
+  warnMs: number;
   /** Milliseconds until the tile starts to shake (-1 = not scheduled). */
   due: number;
   /** How long it stays down once it has dropped. */
   downMs: number;
-  /** Highlighted as a refuge while a wave rolls. */
+  /** Highlighted as a refuge while a wave rolls (for spareT more ms). */
   spare: boolean;
+  spareT: number;
   img: Phaser.GameObjects.Image;
   crack: Phaser.GameObjects.Image;
   shadow: Phaser.GameObjects.Image;
@@ -149,6 +155,10 @@ interface Hopper extends Mover {
   cushion: Phaser.GameObjects.Image;
   /** CPU route: tile indices still to visit. */
   route: number[];
+  /** CPU call at the current edge (-1 undecided, 0 blunder, 1 handle it). */
+  edge: number;
+  /** CPU has noticed its tile is no longer safe. */
+  alarmed: boolean;
   idle: { x: number; y: number };
 }
 
@@ -517,8 +527,9 @@ export class SkybridgeScrambleScene extends BaseMinigame {
   private countdown!: Phaser.GameObjects.Text;
   private nextPatternIn = 0;
   private phaseIndex = 0;
-  private patternCount = 0;
   private lastKind: PatternKind = 'random';
+  /** Phase whose signature pattern has already been played. */
+  private openedPhase = -1;
   private celebrated = false;
 
   constructor() {
@@ -534,8 +545,8 @@ export class SkybridgeScrambleScene extends BaseMinigame {
     this.streaks = [];
     this.nextPatternIn = 1600;
     this.phaseIndex = 0;
-    this.patternCount = 0;
     this.lastKind = 'random';
+    this.openedPhase = -1;
     this.celebrated = false;
     ensureTextures(this);
     // Sky, then layered clouds drifting far below the platforms.
@@ -559,7 +570,7 @@ export class SkybridgeScrambleScene extends BaseMinigame {
         .setDepth(DEPTH_TILE_SHADOW);
       const tint = TILE_TINTS[(i * 7 + r * 3) % TILE_TINTS.length];
       img.setTint(tint);
-      this.tiles.push({ i, c, r, x, y, state: 'solid', t: 0, due: -1, downMs: 3000, spare: false, img, crack, shadow, ox: 0, oy: 0, crackStage: 0, seed: i * 1.7, tint, base: img.scaleX });
+      this.tiles.push({ i, c, r, x, y, state: 'solid', t: 0, warnMs: WARN_MS, due: -1, downMs: 3000, spare: false, spareT: 0, img, crack, shadow, ox: 0, oy: 0, crackStage: 0, seed: i * 1.7, tint, base: img.scaleX });
     }
     for (let r = 0; r < ROWS; r++) this.rowG.push(this.add.graphics().setDepth(DEPTH_TILE + r * DEPTH_ROW + 3));
     this.banner = addText(this, GAME_WIDTH / 2, 196, '', 70, { color: CSS.goldLight, stroke: '#1b1530', strokeThickness: 10, weight: 700, fixed: true })
@@ -648,6 +659,8 @@ export class SkybridgeScrambleScene extends BaseMinigame {
       ring,
       cushion,
       route: [],
+      edge: -1,
+      alarmed: false,
       idle: { x, y },
     });
     p.score = LIVES;
@@ -691,7 +704,11 @@ export class SkybridgeScrambleScene extends BaseMinigame {
     if (k !== this.phaseIndex) {
       this.phaseIndex = k;
       const b = PHASES[k].banner;
-      if (b) this.showBanner(b);
+      if (b) {
+        this.showBanner(b);
+        // The new pattern family follows its banner almost at once.
+        this.nextPatternIn = Math.min(this.nextPatternIn, 900);
+      }
     }
     return PHASES[k].kind;
   }
@@ -708,8 +725,9 @@ export class SkybridgeScrambleScene extends BaseMinigame {
   private launchPattern(): void {
     const phase = this.currentPhase();
     const free = this.tiles.filter((t) => this.isSafe(t)).length;
-    const first = this.patternCount === 0 || PHASES[this.phaseIndex].at > this.elapsed - 2500;
-    const progress = Math.min(1, this.elapsed / 75000);
+    // Each family opens with its signature pattern (row, checkerboard, wave) so it reads.
+    const first = this.phaseIndex !== this.openedPhase;
+    const progress = Math.min(1, this.elapsed / 60000);
     let kind: PatternKind = 'random';
     let interval = 2000;
     const pick = (opts: PatternKind[]) => {
@@ -735,7 +753,7 @@ export class SkybridgeScrambleScene extends BaseMinigame {
         break;
       case 'frenzy':
         kind = pick(['wave', 'checker', 'stripes', 'rows2', 'ring', 'cross']);
-        interval = 2900;
+        interval = 2500;
         break;
     }
     // Big patterns need a mostly intact floor; otherwise nibble at it with a few random tiles.
@@ -744,9 +762,10 @@ export class SkybridgeScrambleScene extends BaseMinigame {
       kind = 'random';
       interval = 1300;
     }
-    const n = kind === 'random' ? Math.min(6, 2 + Math.floor(this.elapsed / 9000) + (phase === 'frenzy' ? 1 : 0)) : 3;
+    const n = kind === 'random' ? Math.min(7, 2 + Math.floor(this.elapsed / 9000) + (phase === 'frenzy' ? 1 : 0)) : phase === 'frenzy' ? 2 : 3;
+    if (first && (kind !== 'random' || this.phaseIndex === 0)) this.openedPhase = this.phaseIndex;
     const plan = buildPattern(kind, this.rng, n);
-    const minSafe = Math.max(2, Math.min(3, this.alivePlayers.length - 1));
+    const minSafe = phase === 'frenzy' ? 2 : Math.max(2, Math.min(3, this.alivePlayers.length - 1));
     const tiles = guardPattern(plan.tiles, this.busy(), minSafe, this.rng);
     const baseDown = 2600 + progress * 1500;
     const downMs = kind === 'wave' ? 1900 + progress * 500 : kind === 'checker' || kind === 'stripes' || kind === 'rows2' ? 2300 : baseDown;
@@ -757,19 +776,26 @@ export class SkybridgeScrambleScene extends BaseMinigame {
       t.downMs = downMs + this.rng.range(-200, 300);
     });
     if (kind === 'wave') {
-      for (const i of plan.spare) this.tiles[i].spare = true;
+      // Refuges: every tile the wave leaves standing (its spares, plus any the guard kept back).
+      const until = Math.max(0, ...plan.delays) + WARN_MS + DROP_MS + 300;
+      const hit = new Set(tiles);
+      for (const t of this.tiles) {
+        if (hit.has(t.i) || !this.isSafe(t)) continue;
+        t.spare = true;
+        t.spareT = until;
+      }
       audio.play('rumble', { volume: 0.55 });
       this.fx.shake(0.003, 400);
       interval += (Math.max(0, ...plan.delays) + WARN_MS + downMs) * 0.55;
     } else if (tiles.length >= 9) audio.play('rumble', { volume: 0.4 });
     this.lastKind = kind;
-    this.patternCount++;
     this.nextPatternIn = interval;
   }
 
   private startWarn(t: Tile): void {
     t.state = 'warn';
-    t.t = WARN_MS;
+    t.warnMs = WARN_MS - WARN_SQUEEZE_MS * Math.min(1, this.elapsed / 60000);
+    t.t = t.warnMs;
     t.crackStage = 0;
     audio.play('crack', { volume: 0.3, rate: 1.1 + Math.random() * 0.2, throttleMs: 90 });
   }
@@ -780,7 +806,8 @@ export class SkybridgeScrambleScene extends BaseMinigame {
     t.ox = t.oy = 0;
     audio.play('crack', { volume: 0.5, rate: 0.8, throttleMs: 70 });
     audio.play('whoosh', { volume: 0.35, throttleMs: 160 });
-    for (const dx of [-TILE_W * 0.36, TILE_W * 0.36]) this.fx.vfx('smoke', t.x + dx, t.y + TILE_H * 0.42, { scale: 0.26, duration: 460, alpha: 0.75, tint: 0xf1e2c8, depth: t.img.depth + 2, dy: 30 });
+    // One puff of splinter dust per tile (a whole wave dropping at once stays readable).
+    this.fx.vfx('smoke', t.x + this.rng.range(-50, 50), t.y + TILE_H * 0.4, { scale: 0.3, duration: 480, alpha: 0.45, tint: 0xfff6e8, depth: t.img.depth + 2, dy: 36 });
     const spin = (this.rng.chance(0.5) ? -1 : 1) * this.rng.range(4, 9);
     this.tweens.add({ targets: t.img, x: t.x, y: t.y + 470, angle: spin, scale: t.base * 0.9, alpha: 0, duration: DROP_MS * 1.5, ease: 'Quad.In' });
     this.tweens.add({ targets: t.crack, x: t.x, y: t.y + 470, angle: spin, scale: 0.9, alpha: 0, duration: DROP_MS * 1.5, ease: 'Quad.In' });
@@ -802,6 +829,10 @@ export class SkybridgeScrambleScene extends BaseMinigame {
   private updateTiles(dt: number): void {
     const now = this.time.now;
     for (const t of this.tiles) {
+      if (t.spare) {
+        t.spareT -= dt;
+        if (t.spareT <= 0) t.spare = false;
+      }
       if (t.due >= 0) {
         t.due -= dt;
         if (t.due <= 0) {
@@ -813,21 +844,21 @@ export class SkybridgeScrambleScene extends BaseMinigame {
       switch (t.state) {
         case 'warn': {
           t.t -= dt;
-          const k = 1 - Math.max(0, t.t) / WARN_MS;
+          const k = 1 - Math.max(0, t.t) / t.warnMs;
           // Shake harder and flash faster as the drop approaches.
           const amp = 1 + 4.5 * k;
           t.ox = Math.sin(now * 0.07 + t.seed) * amp;
           t.oy = Math.cos(now * 0.09 + t.seed * 2) * amp * 0.35;
           t.img.setPosition(t.x + t.ox, t.y + t.oy).setAngle(Math.sin(now * 0.05 + t.seed) * k * 1.4);
           t.crack.setPosition(t.img.x, t.img.y).setAngle(t.img.angle);
-          const flash = Math.sin((WARN_MS - t.t) * (0.012 + 0.028 * k)) > 0.1;
+          const flash = Math.sin((t.warnMs - t.t) * (0.012 + 0.028 * k)) > 0.1;
           t.img.setTint(flash ? 0xff9f86 : 0xffe6d8);
           const stage = k < 0.3 ? 1 : k < 0.65 ? 2 : 3;
           if (stage !== t.crackStage) {
             t.crackStage = stage;
             t.crack.setAlpha(stage === 1 ? 0.35 : stage === 2 ? 0.7 : 1);
             if (stage > 1) audio.play('crack', { volume: 0.22, rate: 1.3, throttleMs: 90 });
-            if (stage === 3) this.fx.vfx('smoke', t.x + this.rng.range(-60, 60), t.y + TILE_H * 0.45, { scale: 0.16, duration: 320, alpha: 0.6, tint: 0xe8d2b0, depth: t.img.depth + 2 });
+            if (stage === 3 && this.rng.chance(0.35)) this.fx.vfx('smoke', t.x + this.rng.range(-60, 60), t.y + TILE_H * 0.45, { scale: 0.15, duration: 320, alpha: 0.5, tint: 0xfff1dc, depth: t.img.depth + 2 });
           }
           if (t.t <= 0) this.startFall(t);
           break;
@@ -849,7 +880,8 @@ export class SkybridgeScrambleScene extends BaseMinigame {
             t.state = 'solid';
             t.img.setPosition(t.x, t.y).setScale(t.base).setAlpha(1);
             audio.play('pop', { volume: 0.2, rate: 0.7, throttleMs: 120 });
-            for (const dx of [-70, 0, 70]) this.fx.vfx('smoke', t.x + dx, t.y + TILE_H * 0.6, { scale: 0.24, duration: 420, alpha: 0.8, tint: 0xffffff, depth: t.img.depth + 2 });
+            // Wisps of cloud shaken loose as it settles.
+            for (const dx of [-55, 55]) this.fx.vfx('smoke', t.x + dx, t.y + TILE_H * 0.55, { scale: 0.22, duration: 420, alpha: 0.35, blend: 'add', depth: t.img.depth + 2 });
           }
           break;
         case 'solid':
@@ -868,7 +900,7 @@ export class SkybridgeScrambleScene extends BaseMinigame {
       const x = t.x + t.ox - TILE_W / 2;
       const y = t.y + t.oy - TILE_H / 2;
       if (t.state === 'warn') {
-        const k = 1 - Math.max(0, t.t) / WARN_MS;
+        const k = 1 - Math.max(0, t.t) / t.warnMs;
         g.fillStyle(0xff3b1f, 0.1 + 0.16 * k * pulse);
         g.fillRoundedRect(x + 4, y + 4, TILE_W - 8, TILE_H - 8, 10);
         g.lineStyle(5, 0xff4a2a, 0.55 + 0.45 * pulse);
@@ -960,12 +992,18 @@ export class SkybridgeScrambleScene extends BaseMinigame {
     h.ring?.setVisible(false);
     h.c.marker?.setVisible(false);
     h.c.hold('fall');
+    // The fall pose is drawn off-centre in its frame: centre the artwork over the feet.
+    const fallFrame = CHARACTER_ANIMATIONS[h.p.characterId].fall.frames[0];
+    const fo = centerOrigin('actions', fallFrame);
+    h.c.sprite.setOrigin(h.c.isFacingLeft ? 1 - fo.x : fo.x, h.c.sprite.originY);
     // Tuck behind the tile rows in front of the hole so it drops *into* the gap.
-    const r = Math.floor((h.y - GRID_Y0 + TILE_GAP) / PITCH_Y);
+    const r = Math.floor((h.y - GRID_Y0) / PITCH_Y);
     h.c.setDepth(DEPTH_TILE + Math.max(-1, Math.min(ROWS - 1, r)) * DEPTH_ROW + 5);
     h.c.sprite.y = -h.z / h.c.scaleY;
-    const dir = h.c.isFacingLeft ? -1 : 1;
-    this.tweens.add({ targets: h.c, y: h.y + 420, x: h.x + dir * 30, scale: CHAR_SCALE * 0.3, angle: dir * 28, duration: 950, ease: 'Quad.In' });
+    // Off the side of the grid, tumble outwards; through a hole, drop straight down.
+    const dir = h.x < GRID_X0 ? -1 : h.x > GRID_X0 + GRID_W ? 1 : h.c.isFacingLeft ? -1 : 1;
+    const out = h.x < GRID_X0 || h.x > GRID_X0 + GRID_W ? 70 : 20;
+    this.tweens.add({ targets: h.c, y: h.y + 420, x: h.x + dir * out, scale: CHAR_SCALE * 0.3, angle: dir * 28, duration: 950, ease: 'Quad.In' });
     this.tweens.add({ targets: h.c, alpha: 0, delay: 620, duration: 330 });
     audio.play('whoosh', { volume: 0.55, rate: 0.75 });
     this.time.delayedCall(700, () => {
@@ -1182,6 +1220,13 @@ export class SkybridgeScrambleScene extends BaseMinigame {
     }
     const sk = this.skill(p);
     const b = p.brain;
+    // Noticing that the floor underfoot has turned dangerous takes a moment (reaction by skill).
+    const underfoot = this.support(h);
+    const danger = underfoot < 0 || !this.isSafe(this.tiles[underfoot]);
+    if (danger && !h.alarmed) {
+      h.alarmed = true;
+      b.timer = Math.max(b.timer, sk.reaction * (0.6 + Math.random() * 0.8));
+    } else if (!danger) h.alarmed = false;
     b.timer -= dt;
     if (b.timer <= 0) {
       b.timer = sk.think * (0.7 + Math.random() * 0.6);
@@ -1227,20 +1272,28 @@ export class SkybridgeScrambleScene extends BaseMinigame {
     const walk = (i: number) => this.walkable(this.tiles[i]);
     const ahead = supportingTile(h.x + ux * look, h.y + uy * look * Y_SPEED, walk);
     if (!h.supported && h.coyote > 0) {
-      // Floor vanished underfoot: a sharp CPU still gets a jump off.
-      if (Math.random() < sk.accuracy) vc.tap('A');
+      // Floor vanished underfoot: a sharp CPU still gets a jump off (decided once).
+      if (h.coyote <= dt && Math.random() < sk.accuracy * 0.8) vc.tap('A');
       return;
     }
     if (ahead < 0) {
+      // One call per edge: handle it (hop or stop short), or blunder straight on.
+      if (h.edge < 0) h.edge = Math.random() < sk.mistake * 0.6 ? 0 : 1;
       const reach = sp * 0.6;
       const landing = supportingTile(h.x + ux * reach, h.y + uy * reach * Y_SPEED, walk, 0);
       if (landing >= 0 && d > 50) {
-        if (Math.random() >= sk.mistake * 0.5) vc.tap('A');
-      } else if (Math.random() >= sk.mistake) {
+        if (h.edge === 1) vc.tap('A');
+      } else if (h.edge === 1) {
         vc.setMove(0, 0);
         b.timer = Math.min(b.timer, 120);
       }
-    }
+    } else h.edge = -1;
+  }
+
+  /** Would a shove along (dx, dy) push this player off solid ground? */
+  private byDrop(o: Hopper, dx: number, dy: number): boolean {
+    const d = Math.hypot(dx, dy) || 1;
+    return supportingTile(o.x + (dx / d) * 70, o.y + (dy / d) * 70 * Y_SPEED, (i) => this.walkable(this.tiles[i])) < 0;
   }
 
   /** Choose where to stand: stay on a safe tile, or route to the nearest one. */
@@ -1250,7 +1303,16 @@ export class SkybridgeScrambleScene extends BaseMinigame {
     let here = this.support(h);
     if (here < 0) here = nearestTile(h.x, h.y);
     if (safe[here] && !h.route.length) {
-      // Comfortable where it is; sometimes shuffle towards the middle of the tile.
+      // Safe for now. A bolder CPU sometimes goes to shove a rival who's standing by a drop.
+      const aggro = sk.accuracy * (this.elapsed > 20000 ? 0.28 : 0.08);
+      if (h.invuln <= 0 && Math.random() < aggro) {
+        const prey = this.hoppers.find((o) => o !== h && o.state === 'play' && o.invuln <= 0 && Math.abs(o.x - h.x) < TILE_W * 1.2 && Math.abs(o.y - h.y) < TILE_H * 1.1 && this.byDrop(o, o.x - h.x, o.y - h.y));
+        if (prey) {
+          h.idle = { x: prey.x + Math.sign(prey.x - h.x) * 24, y: prey.y + Math.sign(prey.y - h.y) * 10 };
+          return;
+        }
+      }
+      // Otherwise sometimes shuffle towards the middle of the tile.
       if (Math.random() < 0.3) {
         const t = this.tiles[here];
         h.idle = { x: t.x + (Math.random() - 0.5) * 90, y: t.y + (Math.random() - 0.5) * 40 };
@@ -1301,9 +1363,10 @@ export class SkybridgeScrambleScene extends BaseMinigame {
 
   protected finalScores(): { slot: number; score: number; label: string }[] {
     const scores = this.eliminationScores((p) => (this.hopper(p)?.lives ?? 0) * 100);
+    const survivors = this.hoppers.filter((h) => h.p.alive).length;
     return scores.map((s) => {
       const h = this.hoppers.find((x) => x.p.slot === s.slot);
-      if (h && h.p.alive) return { ...s, label: h.lives === 1 ? 'Survived! (1 life)' : `Survived! (${h.lives} lives)` };
+      if (h && h.p.alive && survivors > 1) return { ...s, label: h.lives === 1 ? 'Survived (1 life)' : `Survived (${h.lives} lives)` };
       return s;
     });
   }

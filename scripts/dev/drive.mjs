@@ -18,6 +18,8 @@ const browser = await chromium.launch({
   args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'],
 });
 const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+// Never connect the Vite HMR socket: edits elsewhere in the repo must not reload the page mid-run.
+await page.routeWebSocket(/.*/, () => {});
 const logs = [];
 page.on('console', (m) => {
   if (m.type() === 'error' || m.type() === 'warning') logs.push(`[${m.type()}] ${m.text()}`);
@@ -36,7 +38,7 @@ for (const step of steps) {
     await page.waitForTimeout(b);
     await page.keyboard.up(a);
   } else if (op === 'shot') {
-    await page.screenshot({ path: path.join(outDir, a) });
+    await page.screenshot({ path: path.join(outDir, a), timeout: 240000 });
     console.log(`shot ${a} @ ${((Date.now() - t0) / 1000).toFixed(1)}s`);
   } else if (op === 'waitFor') {
     await page.waitForFunction(a, null, { timeout: b ?? 20000 });

@@ -14,6 +14,7 @@ import { addText, addTitle } from '../../ui/theme';
 import { Random } from '../../util/Random';
 import { standOrigin } from '../../util/spriteUtil';
 import { BaseMinigame, type MgPlayer } from '../BaseMinigame';
+import { buzzerWinner, teamFinalScores, teamOf, type Team } from './TotemTugRules';
 
 // --- Layout (side view). A pre-rendered `rendered-scene-totem` must match these numbers. ---------
 /** Feet line of the pullers = ground line of the festival clearing. */
@@ -60,6 +61,8 @@ const POWER_MULT = 2.4;
 const SOLO_STRENGTH = 2;
 /** Team-mates landing power pulls on the same beat: the second one counts this much more. */
 const SYNC_MULT = 1.5;
+/** Minimum gap between "SYNC!" callouts for an all-CPU team. */
+const SYNC_CALLOUT_MS = 3000;
 /** A lone puller can't sync, so their power pulls get this instead (keeps 1 v 2 even). */
 const SOLO_POWER_BONUS = 1.18;
 /** Small random variation in grip per pull (±). */
@@ -180,6 +183,7 @@ export class TotemTugScene extends BaseMinigame {
   private swayV = 0;
   private wobble = 0;
   private dangerTeam: 0 | 1 | null = null;
+  private syncShownAt: [number, number] = [-9999, -9999];
   private fallbackArt = true;
   private ropeG!: Phaser.GameObjects.Graphics;
   private beatG!: Phaser.GameObjects.Graphics;
@@ -217,6 +221,7 @@ export class TotemTugScene extends BaseMinigame {
     this.swayV = 0;
     this.wobble = 0;
     this.dangerTeam = null;
+    this.syncShownAt = [-9999, -9999];
     this.crowd = [];
     this.plaques = [];
     this.ropePts = [];
@@ -264,13 +269,11 @@ export class TotemTugScene extends BaseMinigame {
   }
 
   /** Which team a player (by launch order) pulls for: 1&2 v 3&4, 1 v 2&3, or 1 v 1. */
-  private teamOf(index: number): 0 | 1 {
-    const n = this.players.length;
-    if (n >= 4) return index < 2 ? 0 : 1;
-    return index === 0 ? 0 : 1;
+  private teamOf(index: number): Team {
+    return teamOf(index, this.players.length);
   }
 
-  private membersOf(team: 0 | 1): number[] {
+  private membersOf(team: Team): number[] {
     return this.players.map((_, i) => i).filter((i) => this.teamOf(i) === team);
   }
 
@@ -494,12 +497,15 @@ export class TotemTugScene extends BaseMinigame {
       this.fx.sparks(hand.x, hand.y, 10);
       this.fx.vfx('impact', hand.x, hand.y, { scale: 0.32, duration: 260, blend: 'add', tint: TEAM_COLORS[u.team] });
       if (sync) {
-        // Both team-mates hit the same beat.
+        // Both team-mates hit the same beat (the callout is rationed so it stays special).
         const mates = this.pullers.filter((m) => m.team === u.team);
         const mx = mates.reduce((a, m) => a + m.c.x, 0) / mates.length;
-        this.fx.floatText(mx, GROUND_Y - 300, 'SYNC!', '#fff4a8', { size: 50, rise: 70, duration: 750, stroke: '#06141a' });
-        this.fx.vfx('goldSwirl', mx, GROUND_Y - 150, { scale: 0.5, duration: 420, blend: 'add', alpha: 0.8 });
-        audio.play('pop', { volume: 0.35, rate: 1.3, throttleMs: 80 });
+        this.fx.vfx('goldSwirl', mx, GROUND_Y - 150, { scale: 0.4, duration: 380, blend: 'add', alpha: 0.7 });
+        if (this.elapsed >= this.syncShownAt[u.team] + SYNC_CALLOUT_MS || mates.some((m) => !m.p.isCpu)) {
+          this.syncShownAt[u.team] = this.elapsed;
+          this.fx.floatText(mx, GROUND_Y - 300, 'SYNC!', '#fff4a8', { size: 48, rise: 70, duration: 700, stroke: '#06141a' });
+          audio.play('pop', { volume: 0.35, rate: 1.3, throttleMs: 80 });
+        }
         for (const m of mates) this.rumble(m.p, 0.3, 0.3, 80);
       } else if (!u.p.isCpu) {
         const label = u.streak >= 3 ? `RHYTHM x${u.streak}!` : u.strength > 1 ? 'POWER x2!' : 'POWER!';
@@ -562,17 +568,13 @@ export class TotemTugScene extends BaseMinigame {
     this.end();
   }
 
-  /** At the buzzer: the side the totem is on wins; dead level falls back to total pull power. */
-  private buzzerWinner(): 0 | 1 | null {
-    if (Math.abs(this.offset) > DRAW_EPS) return this.offset < 0 ? 0 : 1;
-    const total = (t: 0 | 1) => this.pullers.filter((u) => u.team === t).reduce((a, u) => a + u.power, 0);
-    const a = total(0);
-    const b = total(1);
-    return a === b ? null : a > b ? 0 : 1;
+  private tallies() {
+    return this.pullers.map((u) => ({ slot: u.p.slot, team: u.team, power: u.power }));
   }
 
   protected override end(): void {
-    if (this.winner === undefined) this.winner = this.buzzerWinner();
+    // At the buzzer the side the totem is on wins; dead level falls back to total pull power.
+    if (this.winner === undefined) this.winner = buzzerWinner(this.offset, this.tallies(), DRAW_EPS);
     super.end();
     if (!this.celebrated) {
       this.celebrated = true;
@@ -612,7 +614,9 @@ export class TotemTugScene extends BaseMinigame {
     }
     const sideX = CENTER_X + (w === 0 ? -520 : 520);
     this.fx.confetti(sideX, 420, 90);
-    this.tweens.add({ targets: this.totem, y: '-=30', duration: 220, yoyo: true, ease: 'Quad.Out' });
+    const ts = this.totem.scale;
+    this.tweens.add({ targets: this.totem, scale: ts * 1.18, duration: 180, yoyo: true, repeat: 1, ease: 'Quad.Out' });
+    this.fx.sparks(this.headGlow.x, this.headGlow.y, 24);
     const t = addTitle(this, CENTER_X, 340, `${TEAM_NAMES[w]} TEAM WINS!`, 88, TEAM_CSS[w]).setDepth(9400).setScale(0.4);
     this.tweens.add({ targets: t, scale: 1, duration: 320, ease: 'Back.Out' });
     this.plaques[w].glow.setAlpha(1);
@@ -1048,18 +1052,9 @@ export class TotemTugScene extends BaseMinigame {
     return String(Math.round(this.pullers.find((u) => u.p === p)?.power ?? 0));
   }
 
-  /**
-   * Team-mates always share a place: the winning team scores 2, the losers 1. Only when the rope is
-   * dead level and both teams' total pull power is equal does individual pull power split them.
-   */
+  /** Team-mates always share a place (see TotemTugRules.teamFinalScores). */
   protected finalScores(): { slot: number; score: number; label: string }[] {
-    const w = this.winner ?? null;
-    return this.pullers.map((u) => {
-      const pts = Math.round(u.power);
-      if (w === null) return { slot: u.p.slot, score: u.power, label: `Level · ${pts} pts` };
-      const won = u.team === w;
-      return { slot: u.p.slot, score: won ? 2 : 1, label: `${won ? 'Won!' : 'Lost'} · ${pts} pts` };
-    });
+    return teamFinalScores(this.tallies(), this.winner ?? null);
   }
 
   // --- Fallback art ----------------------------------------------------------------------------

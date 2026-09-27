@@ -61,7 +61,7 @@ export function nearestTile(x: number, y: number): number {
 
 /**
  * Tiles a pattern drops, with a per-tile start delay (ms). Waves also name the tiles they spare.
- * `n` sizes the random pattern.
+ * `n` sizes the random pattern (and caps a wave's refuges at two when n <= 2).
  */
 export function buildPattern(kind: PatternKind, rng: Random, n = 3): { tiles: number[]; delays: number[]; spare: number[] } {
   const all = Array.from({ length: TILE_COUNT }, (_, i) => i);
@@ -147,8 +147,8 @@ export function buildPattern(kind: PatternKind, rng: Random, n = 3): { tiles: nu
         if (o.metric === 'manhattan') return dc + dr;
         return Math.floor(Math.max(dc, dr));
       };
-      // Spare two or three refuges, spread apart and not on the wave's first step.
-      const want = rng.chance(0.5) ? 3 : 2;
+      // Spare two or three refuges (exactly two when n <= 2), spread apart and not on the first step.
+      const want = n <= 2 ? 2 : rng.chance(0.5) ? 3 : 2;
       const pool = rng.shuffle(all.filter((i) => dist(i) >= 1));
       for (const i of pool) {
         if (spare.length >= want) break;

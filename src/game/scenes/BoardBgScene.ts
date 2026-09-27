@@ -57,6 +57,9 @@ export class BoardBgScene extends Phaser.Scene {
       [1, 1790, 650, 0.28],
       [2, 1450, 930, 0.4],
       [1, 420, 330, 0.18],
+      // two small ones in the gaps inside the board's loop (seen on the overview)
+      [2, 690, 560, 0.16],
+      [0, 1250, 500, 0.12],
     ];
     for (const [k, x, y, depth] of spots) {
       const key = `rendered-islet-${k}`;
@@ -124,8 +127,8 @@ export class BoardBgScene extends Phaser.Scene {
     for (let i = 0; i < 14; i++) {
       const depth = rnd.realInRange(0.25, 1);
       const c = this.add.container(0, 0);
-      const halo = this.add.image(0, 6, 'fx-dot').setScale(2.2 * depth + 0.6).setTint(0xffb347).setAlpha(0.45).setBlendMode(Phaser.BlendModes.ADD);
-      const body = this.add.image(0, 0, 'sky-lantern').setScale(0.35 + depth * 0.55).setAlpha(0.55 + depth * 0.4);
+      const halo = this.add.image(0, 6, 'fx-dot').setScale(3.2 * depth + 1.2).setTint(0xffb347).setAlpha(0.55).setBlendMode(Phaser.BlendModes.ADD);
+      const body = this.add.image(0, 0, 'sky-lantern').setScale(0.6 + depth * 0.8).setAlpha(0.7 + depth * 0.3);
       c.add([halo, body]);
       this.lanterns.push({ img: c, x: rnd.realInRange(0, GAME_WIDTH), y: rnd.realInRange(0, GAME_HEIGHT + 200), depth, speed: rnd.realInRange(10, 22) * (0.5 + depth), sway: rnd.realInRange(0, Math.PI * 2) });
     }

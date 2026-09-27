@@ -26,22 +26,22 @@ const SCENARIOS = [
   {
     name: 'turn',
     q: '?quick&humans=1&seed=21&realtime&midgame',
-    steps: [['waitFor', sceneActive('BoardUI'), 60000], ['waitFor', 'window.__GLEAMTRAIL__.debug.awaitRoll === true', 120000], ['wait', 1500], ['shot', 'board-turn.png'], ['key', 'Enter'], ['wait', 1800], ['shot', 'board-dial.png'], ['key', 'Enter'], ['waitFor', 'window.__GLEAMTRAIL__.debug.stepsLeft > 0', 30000], ['wait', 900], ['shot', 'board-move.png']],
+    steps: [['waitFor', sceneActive('BoardUI'), 60000], ['waitFor', 'window.__GLEAMTRAIL__.debug.awaitRoll === true', 120000], ['wait', 1500], ['shot', 'board-turn.png'], ['key', 'Enter'], ['waitFor', 'window.__GLEAMTRAIL__.debug.dialShown === true', 60000], ['wait', 700], ['shot', 'board-dial.png'], ['key', 'Enter'], ['waitFor', 'window.__GLEAMTRAIL__.debug.stepsLeft > 0', 30000], ['wait', 900], ['shot', 'board-move.png']],
   },
   {
     name: 'gleam',
     q: '?minigame=gleam-grab&realtime&instructions=on&seed=11',
-    steps: [['waitFor', sceneActive('MinigameIntro'), 60000], ['wait', 5000], ['shot', 'mg-intro.png'], ['key', 'Enter'], ['waitFor', sceneActive('mg-gleam-grab'), 30000], ['wait', 7000], ['down', 'KeyD'], ['wait', 900], ['up', 'KeyD'], ['wait', 2500], ['shot', 'mg-gleam.png']],
+    steps: [['waitFor', sceneActive('MinigameIntro'), 60000], ['wait', 5000], ['shot', 'mg-intro.png'], ['key', 'Enter'], ['waitFor', sceneActive('mg-gleam-grab'), 30000], ['waitFor', "(() => { const s = window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.getScene('mg-gleam-grab'); return !!s && s.sys.isActive() && s.elapsed > 6000; })()", 240000], ['down', 'KeyD'], ['wait', 900], ['up', 'KeyD'], ['waitFor', "(() => { const s = window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.getScene('mg-gleam-grab'); return !!s && s.sys.isActive() && s.elapsed > 12000; })()", 240000], ['shot', 'mg-gleam.png']],
   },
   {
     name: 'orbit',
     q: '?minigame=orbit-dodge&realtime&instructions=off&seed=5',
-    steps: [['waitFor', sceneActive('mg-orbit-dodge'), 60000], ['wait', 9000], ['shot', 'mg-orbit.png']],
+    steps: [['waitFor', sceneActive('mg-orbit-dodge'), 60000], ['waitFor', "(() => { const s = window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.getScene('mg-orbit-dodge'); return !!s && s.sys.isActive() && s.elapsed > 9000; })()", 240000], ['shot', 'mg-orbit.png']],
   },
   {
     name: 'results',
     q: '?minigame=orbit-dodge&realtime&instructions=off&humans=0&seed=5',
-    steps: [['waitFor', sceneActive('Results'), 180000], ['wait', 4500], ['shot', 'results.png']],
+    steps: [['waitFor', sceneActive('Results'), 480000], ['waitFor', 'window.__GLEAMTRAIL__.debug.resultsReady === true', 120000], ['wait', 1200], ['shot', 'results.png']],
   },
 ];
 
@@ -52,6 +52,8 @@ const t0 = Date.now();
 for (const sc of SCENARIOS) {
   if (pick && !pick.has(sc.name)) continue;
   const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+  // Never connect the Vite HMR socket: edits elsewhere in the repo must not reload the page mid-run.
+  await page.routeWebSocket(/.*/, () => {});
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => {
@@ -66,7 +68,7 @@ for (const sc of SCENARIOS) {
       else if (op === 'up') await page.keyboard.up(a);
       else if (op === 'waitFor') await page.waitForFunction(a, null, { timeout: b ?? 30000 });
       else if (op === 'shot') {
-        await page.screenshot({ path: path.join(outDir, a) });
+        await page.screenshot({ path: path.join(outDir, a), timeout: 240000 });
         console.log(`${sc.name}: ${a} @ ${((Date.now() - t0) / 1000).toFixed(0)}s`);
       }
     }

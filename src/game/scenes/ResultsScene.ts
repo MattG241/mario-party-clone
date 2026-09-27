@@ -5,7 +5,7 @@ import { CHARACTERS } from '../data/characters';
 import { COLORS, CSS, GAME_HEIGHT, GAME_WIDTH, PLAYER_COLORS } from '../constants';
 import { EffectsManager } from '../effects/EffectsManager';
 import { input } from '../input/InputManager';
-import type { MinigameLaunch, MinigameResult } from '../minigames/MinigameManager';
+import { minigameInfo, type MinigameLaunch, type MinigameResult } from '../minigames/MinigameManager';
 import { rewardForPlace } from '../state/scoring';
 import { session } from '../state/Session';
 import { PromptBar } from '../ui/ControllerPrompt';
@@ -15,6 +15,7 @@ import { addText, addTitle } from '../ui/theme';
 import { enterScene, goTo } from '../ui/Transition';
 import { randomSeed } from '../util/Random';
 import { applyGrade } from '../effects/GradePipeline';
+import { setDebugInfo } from '../debug/debug';
 
 /** Podium x and height by finishing place (1st in the centre). Must match scripts/art/scenes.py. */
 const PODIUM_X = [960, 600, 1320, 1680];
@@ -182,8 +183,9 @@ export class ResultsScene extends Phaser.Scene {
           this.tweens.add({ targets: rays, angle: 360, duration: 24000, repeat: -1 });
           // Winner banner: the character's name on a gold-rimmed navy ribbon above the podium.
           const winners = ranked.filter((r) => r.place === 1).length;
-          const nm = winners > 1 ? 'TIE!' : `${CHARACTERS[lp.characterId].name.split(' ')[0].toUpperCase()} WINS!`;
-          const ribbon = this.add.container(x, baseY - h - 336).setScale(0.3).setDepth(5);
+          const team = minigameInfo(this.result.id)?.teamGame ?? false;
+          const nm = winners > 1 ? (team ? 'TEAM VICTORY!' : 'TIE!') : `${CHARACTERS[lp.characterId].name.split(' ')[0].toUpperCase()} WINS!`;
+          const ribbon = this.add.container(x, baseY - h - 372).setScale(0.3).setDepth(5);
           const rw = Math.max(300, nm.length * 34 + 90);
           const rg = this.add.graphics();
           rg.fillStyle(0x06141a, 0.35);
@@ -203,8 +205,10 @@ export class ResultsScene extends Phaser.Scene {
       });
     });
     const revealDone = 600 + ranked.length * 450;
+    setDebugInfo('resultsReady', false);
     this.time.delayedCall(revealDone, () => {
       this.canContinue = true;
+      setDebugInfo('resultsReady', true);
       if (board) {
         new PromptBar(this, GAME_WIDTH / 2, GAME_HEIGHT - 40, [{ button: 'A', label: 'Back to the board' }], { size: 40, fontSize: 28 });
       } else {

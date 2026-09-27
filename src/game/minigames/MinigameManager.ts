@@ -96,7 +96,7 @@ export const MINIGAMES: MinigameInfo[] = [
     name: 'Crate Craze',
     tagline: 'Push crates into your own zone!',
     description: 'The festival supplies are everywhere! Shove crates into your coloured corner zone before the time runs out.',
-    instructions: ['Walk into crates to push them', 'A to shove crates (and rivals!) hard', 'X to dash across the yard', 'Most crates in your zone after 60 seconds wins'],
+    instructions: ['Walk into crates to push them — A shoves hard (rivals too!)', 'X dashes across the yard', 'Golden festival crates are heavy but worth 3', 'Most points in your zone after 60 seconds wins'],
     controls: [
       { button: 'STICK', label: 'Move' },
       { button: 'A', label: 'Shove' },
@@ -106,6 +106,8 @@ export const MINIGAMES: MinigameInfo[] = [
     duration: '60 s',
     color: 0x9a6334,
     preview: { texture: 'mg-crate', scale: 0.9 },
+    arena: 'rendered-scene-crate',
+    ruleIcons: [{ texture: 'rendered-mg-crate' }, { texture: 'items', frame: '18' }, { texture: 'rendered-mg-crate-gold' }, { texture: 'prism-relic' }],
     assets: [
       { key: 'mg-crate', path: `${MG}crate-craze/crate.svg`, width: 120, height: 120 },
       { key: 'mg-yard-floor', path: `${MG}crate-craze/yard_floor.svg`, width: 1600, height: 860 },
@@ -134,7 +136,7 @@ export const MINIGAMES: MinigameInfo[] = [
     name: 'Totem Tug',
     tagline: 'Two teams, one spiral totem!',
     description: 'Two teams haul on the spiral totem rope. Alternate LT and RT in rhythm — steady timing beats frantic mashing!',
-    instructions: ['Teams: players 1 & 2 vs players 3 & 4', 'Alternate LT and RT to pull', 'Pull on the glowing beat for power pulls', 'Drag the marker to your side to win'],
+    instructions: ['Two teams — with three players, P1 pulls alone at double strength', 'Alternate LT and RT to pull — mashing one does nothing', 'Pull as the ring turns gold on the beat for power pulls', 'Drag the totem past your line to win'],
     controls: [
       { button: 'LT', label: 'Pull' },
       { button: 'RT', label: 'Pull' },
@@ -152,7 +154,7 @@ export const MINIGAMES: MinigameInfo[] = [
     name: 'Spiral Splash',
     tagline: 'Soak your rivals off the lily pads!',
     description: 'Hop between drifting lily pads and fire water blasts at your rivals. Every hit pushes them back — fall in three times and you are out.',
-    instructions: ['Right stick aims, RT fires a water blast', 'Hits push rivals backwards', 'Stay on the pads! Three splashes and you are out', 'Last dry adventurer wins'],
+    instructions: ['Walk towards a nearby pad to hop across', 'Right stick aims, RT fires a blast that knocks rivals back', 'Three splashes and you are out — pads shrink over time', 'Last dry adventurer wins'],
     controls: [
       { button: 'STICK', label: 'Move' },
       { button: 'RSTICK', label: 'Aim' },
@@ -162,6 +164,8 @@ export const MINIGAMES: MinigameInfo[] = [
     duration: '60 s',
     color: 0x3fc6e8,
     preview: { texture: 'vfx', frame: '9', scale: 0.7 },
+    arena: 'rendered-scene-pond',
+    ruleIcons: [{ texture: 'rendered-mg-pad' }, null, null, { texture: 'prism-relic' }],
     assets: [{ key: 'mg-lily-pad', path: `${MG}spiral-splash/pad.svg`, width: 220, height: 150 }],
   },
   {

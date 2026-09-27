@@ -32,7 +32,7 @@ export const MACE_ROPE = 165;
 export const MACE_AMP = 1.0;
 export const MACE_BALL_R = 26;
 /** Share of the swing along the lane (the rest is across it), so the arc reads on screen. */
-export const MACE_ALONG = 0.3;
+export const MACE_ALONG = 0.25;
 export const MACE_ACROSS = Math.sqrt(1 - MACE_ALONG * MACE_ALONG);
 /** Across-lane reach of the runner's body (world px) for the mace test. */
 export const BODY_DEPTH = 14;
@@ -41,6 +41,7 @@ export const MACE_STRIP = 58;
 /** Spring pad trigger half-width, and the shortest launch distance. */
 export const SPRING_HALF = 34;
 export const SPRING_DIST = 320;
+export const SPRING_MIN_REACH = 200;
 
 export type ObstacleKind = 'log' | 'mace' | 'spring';
 
@@ -74,20 +75,22 @@ export function buildCourse(rng: Random): CourseObstacle[] {
   const first = START_X + 200;
   const last = GOAL_X - 110;
   const total = order.reduce((s, k) => s + widths[k], 0);
-  const slack = last - first - total;
-  // Share the slack out as gaps (a spring sits close to what it lets you fly over).
-  const weights = order.map((_, i) => (i > 0 && order[i - 1] === 'spring' ? 0.45 : 1) * rng.range(0.8, 1.2));
-  const wsum = weights.reduce((a, b) => a + b, 0);
+  // Minimum gaps: a spring sits close to what it lets you fly over, and the landing after that
+  // obstacle gets room to breathe. The remaining slack is shared out at random.
+  const mins: number[] = order.map((_, i) => (i === 0 ? 0 : order[i - 1] === 'spring' ? 30 : i >= 2 && order[i - 2] === 'spring' ? 120 : 60));
+  const slack = Math.max(0, last - first - total - mins.reduce((a, b) => a + b, 0));
+  const weights = order.map((_, i) => (i === 0 ? 0 : order[i - 1] === 'spring' ? 0.15 : rng.range(0.8, 1.2)));
+  const wsum = weights.reduce((a, b) => a + b, 0) || 1;
   let cursor = first;
   const out: CourseObstacle[] = [];
   order.forEach((kind, i) => {
-    cursor += i === 0 ? 0 : (slack * weights[i]) / wsum;
+    cursor += mins[i] + (slack * weights[i]) / wsum;
     const w = widths[kind];
     const x0 = Math.round(cursor);
     const x1 = Math.round(cursor + w);
     const x = Math.round(cursor + w / 2);
     if (kind === 'log') out.push({ kind, x, x0, x1, period: Math.round(rng.range(1300, 1800)), phase: Math.round(rng.range(0, 1200)) });
-    else if (kind === 'mace') out.push({ kind, x, x0, x1, period: Math.round(rng.range(3300, 3900)), phase: Math.round(rng.range(0, 3000)) });
+    else if (kind === 'mace') out.push({ kind, x, x0, x1, period: Math.round(rng.range(3600, 4200)), phase: Math.round(rng.range(0, 3000)) });
     else out.push({ kind, x, x0, x1, period: 0, phase: 0 });
     cursor += w;
   });
@@ -95,7 +98,7 @@ export function buildCourse(rng: Random): CourseObstacle[] {
   out.forEach((o, i) => {
     if (o.kind !== 'spring') return;
     const next = out[i + 1];
-    o.period = Math.round(Math.min(480, Math.max(SPRING_DIST, next ? next.x1 + 60 - o.x : SPRING_DIST)));
+    o.period = Math.round(Math.min(480, Math.max(SPRING_MIN_REACH, next ? next.x1 + 50 - o.x : SPRING_DIST)));
   });
   return out;
 }

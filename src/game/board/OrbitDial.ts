@@ -5,6 +5,7 @@ import { COLORS, CSS, DEPTH, DIAL_MAX, GAME_HEIGHT, GAME_WIDTH } from '../consta
 import type { EffectsManager } from '../effects/EffectsManager';
 import type { Controls } from '../input/Controls';
 import { addText } from '../ui/theme';
+import { setDebugInfo } from '../debug/debug';
 
 /**
  * The Orbit Dial: Gleamtrail's movement device. It hovers above the active character, cycles
@@ -47,6 +48,7 @@ export class OrbitDial {
     token.play('dial');
     audio.play('pop', { rate: 0.8 });
     await new Promise<void>((r) => s.tweens.add({ targets: root, scale: 1, duration: 320, ease: 'Back.Out', onComplete: () => r() }));
+    setDebugInfo('dialShown', true);
     const spinTween = s.tweens.add({ targets: ring, angle: 360, duration: 900, repeat: -1 });
     let value = 1;
     let acc = 0;
@@ -126,6 +128,7 @@ export class OrbitDial {
     }
     token.play('celebrate');
     orbitTween.stop();
+    setDebugInfo('dialShown', false);
     s.tweens.add({ targets: dim, alpha: 0, duration: 320, onComplete: () => dim.destroy() });
     await new Promise<void>((r) =>
       s.tweens.add({

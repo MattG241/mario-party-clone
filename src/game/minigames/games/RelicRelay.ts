@@ -73,8 +73,8 @@ const SPRING_ORIGIN = { x: 0.532, y: 0.69 };
 
 // --- Runners -----------------------------------------------------------------------------------
 const CHAR_SCALE = 0.55;
-const RUN_SPEED = 140;
-const RUN_SPEED_EMPTY = 190;
+const RUN_SPEED = 120;
+const RUN_SPEED_EMPTY = 170;
 const ACCEL = 9;
 const FRICTION = 11;
 const JUMP_V = 880;
@@ -106,8 +106,8 @@ const LOG_LEN = 80;
 const VIEW_K = 0.707;
 const LOG_SPEED = 240;
 /** Logs hurt below this height (top of the spikes). */
-const LOG_HIT_H = 50;
-const LOG_HIT_HALF = 26;
+const LOG_HIT_H = 44;
+const LOG_HIT_HALF = 20;
 const SPRING_VZ = 1120;
 
 // --- Procedural fallback art -------------------------------------------------------------------
@@ -504,7 +504,7 @@ interface Runner {
   parcel: Parcel;
   prompt?: Phaser.GameObjects.Container;
   /** Last mace/log decision the CPU made (so it commits once per hazard). */
-  cpu: { logId: number; logJump: number; maceX: number; maceDir: number; go: boolean; clearT: number; err: number; throwAt: number; wait: number };
+  cpu: { logId: number; logJump: number; logDone: boolean; maceX: number; maceDir: number; go: boolean; clearT: number; err: number; throwAt: number; wait: number };
 }
 
 interface Log {
@@ -547,6 +547,7 @@ export class RelicRelayScene extends BaseMinigame {
   private barG!: Phaser.GameObjects.Graphics;
   private crowd: Phaser.GameObjects.Sprite[] = [];
   private usedLanes: number[] = [];
+  private wrapped = false;
   /** Display scale of the mace ball (rendered art is shrunk to the gameplay size). */
   private maceBase = 1;
   /** Roll frames in the rendered log strip. */
@@ -566,6 +567,7 @@ export class RelicRelayScene extends BaseMinigame {
     this.nextRelease = new Map();
     this.finishedCount = 0;
     this.endAt = -1;
+    this.wrapped = false;
     this.crowd = [];
     this.usedLanes = LANES_FOR[Math.max(1, Math.min(4, this.launch.players.length))];
     this.maceBase = this.textures.exists(ART.mace.key) ? this.artMeta(ART.mace).k : 1;
@@ -722,8 +724,8 @@ export class RelicRelayScene extends BaseMinigame {
     };
     for (const o of this.course) {
       if (o.kind === 'spring') {
-        let sprite: Phaser.GameObjects.Sprite | Phaser.GameObjects.Image;
-        sprite = this.artImage(ART.spring, o.x, y) ?? this.add.sprite(o.x, y + 4, 'props', SPRING_FRAME).setOrigin(SPRING_ORIGIN.x, SPRING_ORIGIN.y).setScale(0.5);
+        const sprite: Phaser.GameObjects.Sprite | Phaser.GameObjects.Image =
+          this.artImage(ART.spring, o.x, y) ?? this.add.sprite(o.x, y + 4, 'props', SPRING_FRAME).setOrigin(SPRING_ORIGIN.x, SPRING_ORIGIN.y).setScale(0.5);
         sprite.setDepth(y - 6);
         kit.springs.push({ s: o, sprite, cool: 0 });
       } else if (o.kind === 'mace') {
@@ -843,7 +845,7 @@ export class RelicRelayScene extends BaseMinigame {
       dustT: 0,
       markerY: c.marker?.y ?? 0,
       parcel: { state: 'held', x, z: 0, vx: 0, vz: 0, bounces: 0, spin: 0, img: pimg, glow, shadow },
-      cpu: { logId: -1, logJump: 0, maceX: -1, maceDir: 0, go: false, clearT: 0, err: 0, throwAt: -1, wait: 0 },
+      cpu: { logId: -1, logJump: 0, logDone: false, maceX: -1, maceDir: 0, go: false, clearT: 0, err: 0, throwAt: -1, wait: 0 },
     };
     if (!p.isCpu) {
       const glyph = makeGlyph(this, 'B', 44, glyphKindFor(p.slot));
@@ -1146,11 +1148,13 @@ export class RelicRelayScene extends BaseMinigame {
     c.shadow?.setScale(1 - Math.min(0.55, r.z / 320));
     c.sprite.setAlpha(r.invuln > 0 && r.stunT <= 0 ? (Math.floor(now / 80) % 2 ? 0.5 : 1) : 1);
     if (Math.abs(r.vx) > 25 && r.act === 'none' && !r.launched) c.face(r.vx < 0);
-    if (!r.carrying && r.stunT <= 0 && r.act === 'none' && r.z <= 0 && !r.finished) {
-      if (moving && c.current !== 'run') c.play('run');
-      else if (!moving && (c.current === 'run' || c.current === 'carry' || c.current === 'crouch')) c.play('idle');
+    if (this.phase !== 'finished') {
+      if (!r.carrying && r.stunT <= 0 && r.act === 'none' && r.z <= 0 && !r.finished) {
+        if (moving && c.current !== 'run') c.play('run');
+        else if (!moving && (c.current === 'run' || c.current === 'carry' || c.current === 'crouch')) c.play('idle');
+      }
+      if (r.carrying && r.stunT <= 0 && r.act === 'none' && !r.finished && c.current !== 'carry' && r.z <= 0) c.hold('carry');
     }
-    if (r.carrying && r.stunT <= 0 && r.act === 'none' && !r.finished && c.current !== 'carry' && r.z <= 0) c.hold('carry');
     // Parcel (anchored at its bottom centre).
     const pc = r.parcel;
     if (pc.state === 'held') {
@@ -1354,7 +1358,7 @@ export class RelicRelayScene extends BaseMinigame {
         sp.cool = Math.max(0, sp.cool - dt);
         if (!r || r.finished || sp.cool > 0 || r.launched) continue;
         const grounded = r.z <= 0 && r.vz <= 0;
-        if (grounded && Math.abs(r.x - sp.s.x) < SPRING_HALF && (r.vx > 20 || r.stunT > 0 || r.act !== 'none')) this.springLaunch(r, sp);
+        if (grounded && r.stunT <= 0 && Math.abs(r.x - sp.s.x) < SPRING_HALF && r.vx > 20) this.springLaunch(r, sp);
       }
       if (!r || r.finished || r.invuln > 0) continue;
       for (const log of this.logs) {
@@ -1441,10 +1445,28 @@ export class RelicRelayScene extends BaseMinigame {
   }
 
   protected override end(): void {
+    const first = !this.wrapped;
+    this.wrapped = true;
     super.end();
+    if (!first) return;
     for (const r of this.runners) {
       r.prompt?.setVisible(false);
-      if (r.finished && r.c.current !== 'victory') r.c.play('victory', { force: true, returnTo: 'celebrate' });
+      r.vx = 0;
+      if (r.finished) {
+        if (r.c.current !== 'victory') r.c.play('victory', { force: true, returnTo: 'celebrate' });
+      } else {
+        // Didn't make it: set the parcel down and sulk.
+        if (r.carrying) {
+          r.carrying = false;
+          r.parcel.state = 'ground';
+          r.parcel.x = r.x + (r.c.isFacingLeft ? -40 : 40);
+          r.parcel.z = 0;
+        }
+        r.z = 0;
+        r.c.sprite.y = 0;
+        r.c.sprite.setAngle(0);
+        r.c.play('disappointed', { force: true, returnTo: 'idle' });
+      }
     }
   }
 
@@ -1472,7 +1494,12 @@ export class RelicRelayScene extends BaseMinigame {
       if (Math.abs(dx) > PICK_RANGE * 0.55) move = Math.sign(dx);
       else {
         move = 0;
-        if (pc.state === 'ground' && grounded) {
+        // Only crouch for it when no log will roll in (or drop out of a crate) during the pick-up.
+        const window = (PICK_MS + 300) / 1000;
+        const logSoon =
+          this.logs.some((l) => l.lane === r.lane && l.dying <= 0 && l.x > r.x - 20 && (l.x - r.x - 42) / LOG_SPEED < window) ||
+          this.course.some((o) => o.kind === 'log' && r.x > o.x0 - 40 && r.x < o.x1 && ((this.nextRelease.get(o) ?? 0) - this.elapsed) / 1000 + (o.x1 - 8 - r.x) / LOG_SPEED < window + 0.2);
+        if (pc.state === 'ground' && grounded && !logSoon) {
           cp.wait += dt;
           if (cp.wait >= sk.reaction * 0.7) {
             cp.wait = 0;
@@ -1497,9 +1524,9 @@ export class RelicRelayScene extends BaseMinigame {
         }
         if (!cp.go) {
           const speed = (r.carrying ? RUN_SPEED : RUN_SPEED_EMPTY) * CHARACTERS[p.characterId].handling.speed;
-          if (strideClear(mace, r.x, r.vx, dir, speed, ACCEL * CHARACTERS[p.characterId].handling.accel, this.elapsed + cp.err)) cp.clearT += dt;
+          if (strideClear(mace, r.x, r.vx, dir, speed, ACCEL * CHARACTERS[p.characterId].handling.accel, this.elapsed + cp.err + dt)) cp.clearT += dt;
           else cp.clearT = 0;
-          if (cp.clearT >= sk.reaction * 0.3) cp.go = true;
+          if (cp.clearT >= sk.reaction * 0.6) cp.go = true;
         }
         if (!cp.go) {
           // Hold just short of the strip.
@@ -1533,25 +1560,37 @@ export class RelicRelayScene extends BaseMinigame {
           best = log;
         }
       }
-      // A log about to drop out of a crate counts too.
+      // A log about to drop out of a crate: dash under the chute if there's time, otherwise hold
+      // back clear of where it lands (it then rolls in head-on and gets jumped).
       for (const o of this.course) {
-        if (o.kind !== 'log') continue;
+        if (o.kind !== 'log' || move <= 0) continue;
         const due = ((this.nextRelease.get(o) ?? 0) - this.elapsed) / 1000;
         const rel = o.x1 - 8 - r.x;
-        if (due > 0 && due < 0.7 && rel > -30 && rel < 60) {
-          move = move < 0 ? move : 0;
-          if (due < 0.25 && Math.random() < sk.accuracy) vc.tap('A');
-        }
+        if (due <= 0 || due > 0.9 || rel < -10 || rel > 170) continue;
+        const passT = (rel + 10) / Math.max(60, r.vx);
+        if (passT < due + 0.1) continue;
+        move = rel > 105 ? 0 : -0.6;
       }
       if (best) {
         const rel = best.x - r.x;
-        if (rel > 0 && move < 0 && rel < 170) move = 0.6;
+        // Meet it head-on: turning to face a log that's catching you up, or stepping into one
+        // while waiting, makes the hop far easier to time (the log is over faster).
+        if (rel > 0 && move <= 0 && rel < 170) move = 0.6;
         if (best.id !== cp.logId) {
           cp.logId = best.id;
-          const wrong = Math.random() < sk.mistake;
-          cp.logJump = wrong ? (Math.random() < 0.5 ? 0.6 : 0.02) : 0.28 + (Math.random() - 0.5) * sk.aimNoise * 0.3;
+          cp.logDone = false;
+          // Aim to be at the top of the hop as the log rolls under (that centres the safe window
+          // whatever the closing speed); timing noise and outright slips scale with skill.
+          const apex = ((r.carrying ? JUMP_V_CARRY : JUMP_V) * CHARACTERS[p.characterId].handling.jump) / GRAVITY;
+          const wrong = Math.random() < sk.mistake * 0.7;
+          cp.logJump = wrong ? (Math.random() < 0.5 ? apex + 0.3 : 0.03) : apex + (Math.random() - 0.5) * sk.aimNoise * 0.2;
         }
-        if (bestT < cp.logJump + 0.04 && bestT > cp.logJump - 0.1) vc.tap('A');
+        // Jump once the time to contact drops to the planned lead (half a frame early, so the
+        // average error is zero at any frame rate).
+        if (!cp.logDone && bestT - dt / 2000 <= cp.logJump) {
+          cp.logDone = true;
+          vc.tap('A');
+        }
       }
       // Carrying into a log run? A bold CPU may lob the parcel over the whole run.
       if (r.carrying && think && move > 0) {
@@ -1563,7 +1602,7 @@ export class RelicRelayScene extends BaseMinigame {
       }
     }
     // Easy CPUs dawdle now and then.
-    if (think && Math.random() < sk.mistake * 0.3) b.wait = 250 + Math.random() * 300;
+    if (think && Math.random() < sk.mistake * 0.5) b.wait = 250 + Math.random() * 350;
     if (b.wait && b.wait > 0) {
       b.wait -= dt;
       move *= 0.3;
@@ -1571,7 +1610,6 @@ export class RelicRelayScene extends BaseMinigame {
     vc.setMove(move, 0);
   }
 
-  /** Is the strip clear for a runner starting now from x at this speed? */
   /** A thrown parcel shouldn't land inside a hazard. */
   private landingClear(x: number): boolean {
     if (x >= GOAL_X + 100) return false;

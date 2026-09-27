@@ -123,6 +123,8 @@ interface Brain {
   moving: boolean;
   noise: number;
   bestD: number;
+  /** Game time of the last real progress (≥ 20 units) pushing the target crate home. */
+  progressAt: number;
   blockedT: number;
   avoid: Crate | null;
   avoidT: number;
@@ -648,6 +650,7 @@ export class CrateCrazeScene extends BaseMinigame {
         moving: false,
         noise: 0,
         bestD: Infinity,
+        progressAt: 0,
         blockedT: 0,
         avoid: null,
         avoidT: 0,
@@ -775,11 +778,17 @@ export class CrateCrazeScene extends BaseMinigame {
     for (const k of this.crates) {
       k.dustT -= dt;
       k.clackT -= dt;
-      // Dust kicked up by fast-sliding crates.
-      if (k.dropT <= 0 && k.dustT <= 0 && Math.hypot(k.vx, k.vy) > 380) {
+      if (k.dropT > 0 || k.dustT > 0) continue;
+      const sp = Math.hypot(k.vx, k.vy);
+      const sy = this.sy(k.y);
+      if (sp > 380) {
+        // Dust kicked up by fast-sliding crates.
         k.dustT = 90;
-        const sy = this.sy(k.y);
         this.fx.vfx('dust', k.x - Math.sign(k.vx) * HALF * 0.6, sy + HALF * DEPTH_K, { scale: 0.2, duration: 320, alpha: 0.5, depth: sy - 1 });
+      } else if (sp > 70 && this.pushers.some((u) => u.touching === k)) {
+        // Scuffs at the base while someone is shoving it along.
+        k.dustT = 280;
+        this.fx.vfx('dust', k.x - (k.vx / sp) * HALF * 0.8, sy + HALF * DEPTH_K - (k.vy / sp) * HALF * 0.5, { scale: 0.14, duration: 300, alpha: 0.45, depth: sy - 1 });
       }
     }
   }
@@ -1297,16 +1306,18 @@ export class CrateCrazeScene extends BaseMinigame {
         if (settled) b.crate = null;
       }
     }
-    // Progress watch on the crate being pushed.
+    // Progress watch on the crate being pushed: jiggling against a jam doesn't count, only real
+    // gains; with none for a while, leave it (a rival may be pushing back, or the zone is blocked).
     if (b.crate && b.goal) {
       const d = Math.hypot(b.crate.x - b.goal.x, b.crate.y - b.goal.y);
-      if (d < b.bestD - 6) {
+      if (d < b.bestD - 20) {
         b.bestD = d;
+        b.progressAt = this.elapsed;
         b.blockedT = 0;
       } else b.blockedT += sk.think;
-      if (b.blockedT > 2400 && b.crate.zone !== slot) {
+      if (this.elapsed - b.progressAt > 2600 && b.crate.zone !== slot) {
         b.avoid = b.crate;
-        b.avoidT = 3000;
+        b.avoidT = 3500;
         b.crate = null;
       }
     }
@@ -1350,6 +1361,7 @@ export class CrateCrazeScene extends BaseMinigame {
     if (best !== b.crate) {
       b.crate = best;
       b.bestD = Infinity;
+      b.progressAt = this.elapsed;
       b.blockedT = 0;
     }
     b.goal = best ? this.pickSlot(zone, best) : null;

@@ -9,26 +9,14 @@ import { drawPlayerShape } from '../../ui/PlayerBadge';
 import { addText } from '../../ui/theme';
 import { Random } from '../../util/Random';
 import { BaseMinigame, type MgPlayer } from '../BaseMinigame';
+import { generateTower, PLAY_X0, PLAY_X1, PX_PER_M, START_Y, SUMMIT_Y, TOWER_H, towerScore, type PlankKind } from './TumbleTowerLayout';
 
-// --- World (side view; world y grows downwards and the camera scrolls up) ---------------------
-/** Walking surface of the ground floor (world y). The view starts at scrollY 0. */
-const START_Y = 980;
-/** Climbable height (100 px = 1 m): the summit ledge sits this far above the floor. */
-const TOWER_H = 5000;
-const PX_PER_M = 100;
-const SUMMIT_Y = START_Y - TOWER_H;
-/** Horizontal play span in front of the tower wall (the wall art's drum spans x 280..1640). */
-const PLAY_X0 = 300;
-const PLAY_X1 = 1620;
+// --- World: the tower layout constants live in TumbleTowerLayout.ts (pure, unit-tested) ---------
 /** Climbers can't leave the tower face. */
 const WALL_L = PLAY_X0 - 30;
 const WALL_R = PLAY_X1 + 30;
-/** Plank rows: vertical spacing (px) and jitter; "grab" rows are too tall to jump — grab the ledge. */
-const ROW_DY = 170;
-const ROW_JITTER = 12;
-const GRAB_STEP_DY = 248;
-const GRAB_ROWS = [6, 12, 18, 23];
-const SUMMIT_W = 900;
+/** The parapet on the tower top rises this far above the summit walkway. */
+const CROWN_RISE = 64;
 /**
  * Plank art (`rendered-mg-plank`, fallback `tw-plank`): 260×60 px, walking surface 20 px from the
  * top (origin 0.5, 1/3), drawn as a 3-slice so the 55 px ends (brackets) keep their shape.
@@ -92,7 +80,7 @@ const GAUGE_X = 1872;
 const GAUGE_Y0 = 1000;
 const GAUGE_Y1 = 250;
 
-type PlatKind = 'ground' | 'static' | 'moving' | 'tipping' | 'crumble' | 'summit';
+type PlatKind = PlankKind;
 type PlatState = 'idle' | 'wobble' | 'swing' | 'hold' | 'return' | 'crack' | 'gone';
 
 interface Plat {
@@ -113,6 +101,8 @@ interface Plat {
   angle: number;
   tipDir: -1 | 1;
   grabRow: boolean;
+  /** On the guaranteed route (rescue bubbles only drop players there). */
+  main: boolean;
   view: Phaser.GameObjects.Container;
   plank: Phaser.GameObjects.NineSlice | null;
 }
@@ -128,6 +118,13 @@ interface Brain {
   willGrab: boolean;
   grabAt: number;
   takeoffY: number;
+  /** Plank jumped from, plank stood on last frame, failed attempts at the current target. */
+  fromPlat: Plat | null;
+  lastOn: Plat | null;
+  fails: number;
+  avoid: Plat | null;
+  avoidUntil: number;
+  pauseUntil: number;
 }
 
 interface Climber {
@@ -152,6 +149,8 @@ interface Climber {
   rescue: Plat | null;
   rescueX: number;
   rescueDX: number;
+  /** Just dropped by a rescue bubble: that landing doesn't count as height reached. */
+  carried: boolean;
   hint: Phaser.GameObjects.Container | null;
   speed: number;
   jumpV: number;
@@ -262,10 +261,11 @@ export class TumbleTowerScene extends BaseMinigame {
       rescue: null,
       rescueX: x,
       rescueDX: 0,
+      carried: false,
       hint,
       speed: RUN_SPEED * h.speed,
-      jumpV: JUMP_V * (1 + (h.jump - 1) * 0.5),
-      ai: { target: null, retarget: 0, jumpAt: -1, holdA: false, aimErr: 0, willGrab: false, grabAt: -1, takeoffY: START_Y },
+      jumpV: JUMP_V * (1 + (h.jump - 1) * 0.3),
+      ai: { target: null, retarget: 0, jumpAt: -1, holdA: false, aimErr: 0, willGrab: false, grabAt: -1, takeoffY: START_Y, fromPlat: null, lastOn: null, fails: 0, avoid: null, avoidUntil: 0, pauseUntil: 0 },
     });
   }
 
@@ -333,7 +333,7 @@ export class TumbleTowerScene extends BaseMinigame {
   }
 
   // --- Tower -----------------------------------------------------------------------------------
-  private addPlat(kind: PlatKind, x: number, y: number, w: number, grabRow = false): Plat {
+  private addPlat(kind: PlatKind, x: number, y: number, w: number, grabRow = false, main = true): Plat {
     const q: Plat = {
       id: this.plats.length,
       kind,
@@ -350,6 +350,7 @@ export class TumbleTowerScene extends BaseMinigame {
       angle: 0,
       tipDir: 1,
       grabRow,
+      main,
       view: this.add.container(x, y).setDepth(kind === 'ground' ? 90 : 100),
       plank: null,
     };
@@ -357,73 +358,14 @@ export class TumbleTowerScene extends BaseMinigame {
     return q;
   }
 
-  /** Seeded zigzag of plank rows from the floor to the summit, plus side branches. */
+  /** Planks from the seeded layout (see TumbleTowerLayout.generateTower). */
   private buildTower(): void {
-    const rng = this.rng;
-    this.addPlat('ground', 960, START_Y, WALL_R - WALL_L + 200);
-    let y = START_Y;
-    let prevX = 960;
-    let prevW = 520;
-    let prevKind: PlatKind = 'ground';
-    let dir: 1 | -1 = rng.chance(0.5) ? 1 : -1;
-    for (let row = 1; row < 60; row++) {
-      const remaining = y - SUMMIT_Y;
-      if (remaining <= 185) break;
-      const grab = GRAB_ROWS.includes(row) && remaining > GRAB_STEP_DY + 200;
-      let dy = grab ? GRAB_STEP_DY : ROW_DY + rng.range(-ROW_JITTER, ROW_JITTER);
-      if (!grab && remaining - dy < 110) dy = remaining - 140;
-      y -= dy;
-      const f = (START_Y - y) / TOWER_H;
-      const w = Math.round(rng.range(240, 310) - f * 50);
-      let kind: PlatKind = 'static';
-      if (!grab && row > 2 && !GRAB_ROWS.includes(row + 1)) {
-        const calm: number = prevKind !== 'static' && prevKind !== 'ground' ? 0.5 : 1;
-        const pm: number = (0.15 + 0.2 * f) * calm;
-        const pt = (0.1 + 0.15 * f) * calm;
-        const pc = (0.06 + 0.12 * f) * calm;
-        const r = rng.next();
-        kind = r < pm ? 'moving' : r < pm + pt ? 'tipping' : r < pm + pt + pc ? 'crumble' : 'static';
-      }
-      let x: number;
-      if (grab) {
-        // Tall step: overlap the plank below so you can stand beside this one's end and grab it.
-        const shift = (prevW + w) / 2 - rng.range(80, 120);
-        x = prevX + dir * shift;
-        if (x - w / 2 < PLAY_X0 || x + w / 2 > PLAY_X1) {
-          dir = dir > 0 ? -1 : 1;
-          x = prevX + dir * shift;
-        }
-      } else {
-        if (rng.chance(0.22)) dir = dir > 0 ? -1 : 1;
-        const shift = rng.range(190, 320);
-        x = prevX + dir * shift;
-        if (x - w / 2 < PLAY_X0 + 10 || x + w / 2 > PLAY_X1 - 10) {
-          dir = dir > 0 ? -1 : 1;
-          x = prevX + dir * shift;
-        }
-      }
-      x = Phaser.Math.Clamp(x, PLAY_X0 + w / 2 + 10, PLAY_X1 - w / 2 - 10);
-      const q = this.addPlat(kind, x, y, w, grab);
-      if (kind === 'moving') {
-        q.amp = Phaser.Math.Clamp(rng.range(90, 170), 40, Math.max(40, Math.min(x - w / 2 - PLAY_X0, PLAY_X1 - x - w / 2)));
-        q.period = rng.range(2.8, 4.4);
-        q.phase = rng.range(0, Math.PI * 2);
-      }
-      // Side branch: an alternative plank across the tower at about the same height.
-      if (!grab && row > 1 && rng.chance(0.42)) {
-        const bw = Math.round(rng.range(200, 250));
-        const side = x < 960 ? 1 : -1;
-        const bx = x + side * rng.range(440, 620);
-        if (bx - bw / 2 > PLAY_X0 && bx + bw / 2 < PLAY_X1) {
-          const bk: PlatKind = rng.chance(0.72) ? 'static' : rng.pick(['tipping', 'crumble'] as PlatKind[]);
-          this.addPlat(bk, bx, y + rng.range(-24, 24), bw);
-        }
-      }
-      prevX = x;
-      prevW = w;
-      prevKind = kind;
+    for (const spec of generateTower(this.rng)) {
+      const q = this.addPlat(spec.kind, spec.x, spec.y, spec.w, spec.grabRow, spec.main);
+      q.amp = spec.amp;
+      q.period = spec.period;
+      q.phase = spec.phase;
     }
-    this.addPlat('summit', 960, SUMMIT_Y, SUMMIT_W);
     for (const q of this.plats) this.buildPlatView(q);
   }
 
@@ -462,24 +404,39 @@ export class TumbleTowerScene extends BaseMinigame {
       return;
     }
     if (q.kind === 'summit') {
-      // The tower's crown: battlements under the ledge, a banner pole above.
-      back.fillStyle(0x7d7262, 1);
-      back.fillRect(-w / 2, 10, w, 120);
-      back.fillStyle(0xd9ccb4, 1);
-      back.fillRect(-w / 2, 0, w, 36);
-      for (let i = 0; i < 12; i++) {
-        const bx = -w / 2 + i * (w / 12);
-        back.fillStyle(i % 2 ? 0xc9bca6 : 0xb8ab94, 1);
-        back.fillRoundedRect(bx + 4, 42, w / 12 - 8, 34, 6);
+      // The tower's top: a battlemented parapet behind the walkway (the wall art stops here).
+      v.setDepth(94);
+      const R = DRUM_R;
+      const x0 = DRUM_X - R - q.x;
+      const merlons = 15;
+      const mw = (2 * R) / merlons;
+      for (let i = 0; i < merlons; i++) {
+        if (i % 2 === 1) continue;
+        const mx = x0 + i * mw;
+        const shade = 0.75 + 0.25 * Math.cos(((i + 0.5) / merlons - 0.5) * Math.PI);
+        const c = Phaser.Display.Color.GetColor(Math.round(226 * shade), Math.round(214 * shade), Math.round(192 * shade));
+        back.fillStyle(0x06141a, 0.2);
+        back.fillRect(mx + 6, -CROWN_RISE + 6, mw, CROWN_RISE);
+        back.fillStyle(c, 1);
+        back.fillRoundedRect(mx, -CROWN_RISE, mw, CROWN_RISE + 10, { tl: 8, tr: 8, bl: 0, br: 0 });
+        back.fillStyle(0xffffff, 0.25);
+        back.fillRect(mx + 4, -CROWN_RISE + 4, mw - 8, 5);
       }
-      back.fillStyle(0x06141a, 0.25);
-      back.fillRect(-w / 2, 128, w, 10);
+      // Parapet wall between the merlons and the walkway slab.
+      back.fillStyle(0xb8ab94, 1);
+      back.fillRect(x0, -CROWN_RISE * 0.45, 2 * R, CROWN_RISE * 0.45 + 4);
+      back.fillStyle(0xe8dcc6, 1);
+      back.fillRect(x0 - 10, 0, 2 * R + 20, 30);
+      back.fillStyle(0x9d907a, 1);
+      back.fillRect(x0 - 10, 30, 2 * R + 20, 14);
+      back.fillStyle(0x06141a, 0.22);
+      back.fillRect(x0, 44, 2 * R, 10);
       front.fillStyle(0xf4b83b, 1);
-      front.fillRect(-w / 2, -2, w, 8);
+      front.fillRect(x0 - 10, -3, 2 * R + 20, 7);
       front.fillStyle(0xffe08a, 1);
-      front.fillRect(-w / 2, -2, w, 3);
+      front.fillRect(x0 - 10, -3, 2 * R + 20, 3);
       v.add([back, front]);
-      this.summitFlag = this.add.graphics().setDepth(95);
+      this.summitFlag = this.add.graphics().setDepth(93);
       return;
     }
     // Supports behind the plank.
@@ -494,11 +451,16 @@ export class TumbleTowerScene extends BaseMinigame {
       back.fillStyle(0xe6fbff, 1);
       back.fillTriangle(-5, 24, 3, 24, -1, 44);
     } else if (q.kind === 'tipping') {
-      // Single pivot: a beam into the wall with a brass hub.
-      back.fillStyle(0x4a2c10, 1);
-      back.fillRect(-9, 18, 18, 60);
-      back.fillStyle(0x7a4f22, 1);
-      back.fillRect(-5, 18, 8, 60);
+      // Single pivot: a fixed beam into the wall (it doesn't turn with the plank) and a brass hub.
+      const beam = this.add.graphics({ x: q.x, y: q.y }).setDepth(99);
+      beam.fillStyle(0x06141a, 0.18);
+      beam.fillRect(-6, 20, 20, 64);
+      beam.fillStyle(0x4a2c10, 1);
+      beam.fillRect(-9, 10, 18, 70);
+      beam.fillStyle(0x7a4f22, 1);
+      beam.fillRect(-5, 10, 8, 70);
+      beam.fillStyle(0x3a3f4a, 1);
+      beam.fillRoundedRect(-16, 72, 32, 14, 4);
     } else {
       for (const s of [-1, 1]) {
         const bx = s * (w / 2 - 44);
@@ -793,7 +755,9 @@ export class TumbleTowerScene extends BaseMinigame {
       this.fx.vfx('dust', cl.x, q.y, { scale: 0.2, duration: 300, alpha: 0.6, depth: 260 });
     }
     const h = START_Y - q.y;
-    if (h > cl.best + 1) {
+    const carried = cl.carried;
+    cl.carried = false;
+    if (h > cl.best + 1 && !carried) {
       const before = Math.floor(cl.best / PX_PER_M);
       cl.best = h;
       cl.bestAt = this.elapsed;
@@ -805,7 +769,7 @@ export class TumbleTowerScene extends BaseMinigame {
         this.fx.sparks(cl.x, q.y - 60, 12);
       }
     }
-    if (q.kind === 'summit') this.reachSummit(cl);
+    if (q.kind === 'summit' && !carried) this.reachSummit(cl);
   }
 
   private reachSummit(cl: Climber): void {
@@ -918,7 +882,7 @@ export class TumbleTowerScene extends BaseMinigame {
     const bottom = top + 1080;
     let best: Plat | null = null;
     for (const q of this.plats) {
-      if (!this.solid(q) || q.kind === 'tipping' || q.kind === 'crumble') continue;
+      if (!q.main || !this.solid(q) || q.kind === 'tipping' || q.kind === 'crumble' || q.kind === 'summit') continue;
       if (q.y > bottom - 150 || q.y < top + 260) continue;
       if (!best || q.y > best.y) best = q;
     }
@@ -977,6 +941,7 @@ export class TumbleTowerScene extends BaseMinigame {
           cl.on = null;
           cl.air = null;
           cl.bubble.setVisible(false);
+          cl.carried = true;
           audio.play('pop', { volume: 0.55, rate: 0.8 });
           this.fx.vfx('splash', cl.x, cl.y - 50, { scale: 0.45, duration: 380, alpha: 0.8, tint: 0xc8f6ff, depth: 330 });
         }
@@ -998,7 +963,10 @@ export class TumbleTowerScene extends BaseMinigame {
 
   private syncVisuals(): void {
     const cam = this.camY;
-    this.wall.tilePositionY = cam / this.wall.tileScaleY;
+    // The wall ends at the tower's top (sky above the parapet).
+    const topY = Phaser.Math.Clamp(SUMMIT_Y - CROWN_RISE * 0.45 - cam, 0, 1080);
+    if (this.wall.y !== topY) this.wall.setPosition(0, topY).setSize(GAME_WIDTH, Math.max(1, 1080 - topY));
+    this.wall.tilePositionY = (cam + topY) / this.wall.tileScaleY;
     this.altTint.setAlpha(Phaser.Math.Clamp(-cam / -CAM_TOP, 0, 1) * 0.55);
     for (const q of this.plats) {
       if (q.kind === 'ground' || q.kind === 'summit') continue;
@@ -1169,20 +1137,39 @@ export class TumbleTowerScene extends BaseMinigame {
     });
   }
 
-  private pickTarget(cl: Climber): Plat | null {
+  /** Where to stand on `cur` to jump up beside one of T's ends and grab it (null: nowhere). */
+  private grabTakeoff(cur: Plat, T: Plat, fromX: number): number | null {
+    const tx = this.platXAt(T, this.clock + 400);
+    const lo = cur.x - cur.w / 2 + 18;
+    const hi = cur.x + cur.w / 2 - 18;
+    let best: number | null = null;
+    for (const x of [tx - T.w / 2 - 30, tx + T.w / 2 + 30]) {
+      if (x < lo || x > hi) continue;
+      if (best === null || Math.abs(x - fromX) < Math.abs(best - fromX)) best = x;
+    }
+    return best;
+  }
+
+  private pickTarget(cl: Climber, allowAvoided = false): Plat | null {
     const cur = cl.on;
     if (!cur) return null;
     const sk = this.skill(cl.p);
-    const usable = (q: Plat) => this.solid(q) && !(q.kind === 'crumble' && q.state === 'crack') && !(q.kind === 'tipping' && q.state !== 'idle');
+    const b = cl.ai;
+    const usable = (q: Plat) =>
+      this.solid(q) && !(q.kind === 'crumble' && q.state === 'crack') && !(q.kind === 'tipping' && q.state !== 'idle') && (allowAvoided || !(q === b.avoid && this.elapsed < b.avoidUntil));
     const cands: { q: Plat; score: number }[] = [];
     for (const q of this.reachable(cl, cur, 40)) {
       if (!usable(q)) continue;
+      const grab = this.grabOnly(cl, q);
+      if (grab && this.grabTakeoff(cur, q, cl.x) === null) continue;
       const rise = cur.y - q.y;
       let score = rise * 1.2 - this.gapBetween(cur, q) * 0.5;
       if (q.kind === 'tipping') score -= 70;
       if (q.kind === 'crumble') score -= 45;
       if (q.kind === 'moving') score -= 25;
-      if (this.grabOnly(cl, q)) score -= 60;
+      if (grab) score -= 110;
+      // Look one step ahead: avoid planks that lead nowhere.
+      if (q.kind !== 'summit' && !this.reachable(cl, q, 40).some((r) => r !== cur)) score -= 180;
       if (q.kind === 'summit') score += 2000;
       score += gauss() * sk.aimNoise * 90;
       cands.push({ q, score });
@@ -1196,7 +1183,7 @@ export class TumbleTowerScene extends BaseMinigame {
         cands.push({ q, score: rise * 0.5 - this.gapBetween(cur, q) * 0.3 + gauss() * sk.aimNoise * 60 });
       }
     }
-    if (cands.length === 0) return null;
+    if (cands.length === 0) return allowAvoided || !b.avoid ? null : this.pickTarget(cl, true);
     if (Math.random() < sk.mistake * 0.5) return cands[Math.floor(Math.random() * cands.length)].q;
     cands.sort((a, b) => b.score - a.score);
     return cands[0].q;
@@ -1216,6 +1203,28 @@ export class TumbleTowerScene extends BaseMinigame {
     b.retarget -= dt;
     let mx = 0;
     let jumpNow = false;
+    if (!cl.on && b.lastOn) {
+      // Just left a plank (jumped or stepped off): that is the height a grab must beat.
+      b.takeoffY = b.lastOn.y;
+      b.fromPlat = b.lastOn;
+    }
+    if (cl.on && cl.on !== b.lastOn && b.lastOn === null) {
+      // Just landed: back where we jumped from means the attempt failed; give up after two.
+      if (b.target && cl.on === b.fromPlat && b.target !== cl.on) {
+        b.fails++;
+        if (b.fails >= 2) {
+          b.avoid = b.target;
+          b.avoidUntil = this.elapsed + 2500;
+          b.target = null;
+          b.fails = 0;
+        }
+      } else b.fails = 0;
+      // Catch breath / look around before the next leap.
+      b.jumpAt = -1;
+      b.retarget = Math.min(b.retarget, 0);
+      b.pauseUntil = this.elapsed + sk.think * (0.8 + Math.random() * 0.8);
+    }
+    b.lastOn = cl.on;
     if (cl.on) {
       const cur = cl.on;
       b.holdA = false;
@@ -1239,20 +1248,22 @@ export class TumbleTowerScene extends BaseMinigame {
         let takeoff: number;
         if (grab) {
           // Stand just outside the tall ledge's end, beside it, and jump straight up.
-          const edgeL = tl - 30;
-          const edgeR = tr + 30;
-          takeoff = Math.abs(edgeL - cl.x) < Math.abs(edgeR - cl.x) && edgeL > cl0 ? edgeL : edgeR < cr0 ? edgeR : edgeL;
-          takeoff = Phaser.Math.Clamp(takeoff, cl0, cr0);
-        } else if (cur.y - T.y < 20) {
-          // Across or down: head off the end nearest the target (the hop is optional).
+          takeoff = this.grabTakeoff(cur, T, cl.x) ?? Phaser.Math.Clamp(tx, cl0, cr0);
+        } else if (cur.y - T.y < -40) {
+          // Clearly lower: just step off the end nearest the target.
           takeoff = tx > cur.x ? cur.x + cur.w / 2 + 40 : cur.x - cur.w / 2 - 40;
+        } else if (cur.y - T.y < 20) {
+          // About level: hop across from the end nearest the target.
+          takeoff = tx > cur.x ? cr0 : cl0;
         } else if (tr > cl0 + 50 && tl < cr0 - 50) {
           takeoff = Phaser.Math.Clamp(tx, Math.max(cl0, tl + 30), Math.min(cr0, tr - 30));
         } else takeoff = tx > cur.x ? cr0 : cl0;
         const dx = takeoff - cl.x;
         mx = Math.abs(dx) > 12 ? Phaser.Math.Clamp(dx / 60, -1, 1) : 0;
         const feasible = grab ? Math.abs(dx) < 26 : this.jumpLands(cl, T);
-        if (feasible || (urgent && Math.random() < 0.08)) {
+        const resting = this.elapsed < b.pauseUntil && !urgent;
+        if (resting) b.jumpAt = -1;
+        else if (feasible || (urgent && Math.random() < 0.08)) {
           if (b.jumpAt < 0) b.jumpAt = this.elapsed + sk.reaction * (0.3 + Math.random() * 0.5) * (urgent ? 0.4 : 1);
         } else if (Math.random() < sk.mistake * 0.012) {
           // Impatient leap that probably falls short.
@@ -1262,9 +1273,10 @@ export class TumbleTowerScene extends BaseMinigame {
           jumpNow = true;
           b.jumpAt = -1;
           b.holdA = true;
-          b.aimErr = gauss() * sk.aimNoise * 45;
+          b.aimErr = gauss() * sk.aimNoise * (b.fails > 0 ? 15 : 45);
           b.willGrab = Math.random() < sk.accuracy + 0.05;
           b.grabAt = -1;
+          b.fromPlat = cur;
         }
       }
     } else {
@@ -1276,7 +1288,7 @@ export class TumbleTowerScene extends BaseMinigame {
       }
       // Catch a ledge above the take-off height if one is in reach (after a short reaction).
       const lg = this.findLedge(cl);
-      if (lg && lg.plat.y < b.takeoffY - 30 && b.willGrab && (cl.vy > -260 || (T && this.grabOnly(cl, T, b.takeoffY)))) {
+      if (lg && lg.plat !== b.fromPlat && lg.plat.y < b.takeoffY - 30 && b.willGrab && (cl.vy > -260 || (T && this.grabOnly(cl, T, b.takeoffY)))) {
         if (b.grabAt < 0) b.grabAt = this.elapsed + sk.reaction * 0.35;
         if (this.elapsed >= b.grabAt) {
           vc.tap('X');
@@ -1310,7 +1322,7 @@ export class TumbleTowerScene extends BaseMinigame {
   protected finalScores(): { slot: number; score: number; label: string }[] {
     return this.climbers.map((cl) => {
       const m = cl.best / PX_PER_M;
-      const score = Math.round(cl.best) * 100000 + Math.max(0, 99999 - Math.floor(cl.bestAt));
+      const score = towerScore(cl.best, cl.bestAt);
       return { slot: cl.p.slot, score, label: cl.state === 'summit' ? `Summit! ${m.toFixed(0)} m` : `${m.toFixed(1)} m` };
     });
   }
@@ -1324,10 +1336,10 @@ export class TumbleTowerScene extends BaseMinigame {
         const ctx = tex.getContext();
         const c = S / 2;
         const body = ctx.createRadialGradient(c - 20, c - 26, 10, c, c, c - 4);
-        body.addColorStop(0, 'rgba(255,255,255,0.08)');
-        body.addColorStop(0.72, 'rgba(180,240,255,0.16)');
-        body.addColorStop(0.92, 'rgba(160,220,255,0.55)');
-        body.addColorStop(1, 'rgba(230,250,255,0.9)');
+        body.addColorStop(0, 'rgba(255,255,255,0.14)');
+        body.addColorStop(0.65, 'rgba(170,236,255,0.26)');
+        body.addColorStop(0.9, 'rgba(120,210,255,0.7)');
+        body.addColorStop(1, 'rgba(235,252,255,1)');
         ctx.fillStyle = body;
         ctx.beginPath();
         ctx.arc(c, c, c - 3, 0, Math.PI * 2);

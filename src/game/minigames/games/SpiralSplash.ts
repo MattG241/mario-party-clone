@@ -60,12 +60,14 @@ const BLAST_SPEED = 950;
 const BLAST_LIFE = 760;
 const BLAST_R = 24;
 const BLAST_CD = 520;
-const KNOCK = 380;
-const HIT_STUN = 230;
+const KNOCK = 400;
+const HIT_STUN = 330;
+/** Drag while knocked back: low, so a hit slides you most of the way to the rim. */
+const KNOCK_DRAG = 3.5;
 const RETICLE_D = 200;
 /** Pads shrink in telegraphed steps (ms since GO), each to this fraction of the previous size. */
 const SHRINK_AT = [15000, 30000, 45000];
-const SHRINK_STEP = 0.9;
+const SHRINK_STEP = 0.93;
 const SHRINK_WARN = 1100;
 const SUBSTEP = 16;
 
@@ -81,6 +83,8 @@ interface Pad extends Disc {
   bob: number;
   dip: number;
   bobY: number;
+  /** Countdown to the next wake ripple at the rim. */
+  wakeT: number;
   root: Phaser.GameObjects.Container;
   disc: Phaser.GameObjects.Container | null;
   top: Phaser.GameObjects.Image;
@@ -184,8 +188,6 @@ export class SpiralSplashScene extends BaseMinigame {
   private rippleT = 0;
   private shotId = 0;
   private finished = false;
-  /** TEMP DEBUG */
-  fallLog: string[] = [];
 
   constructor() {
     super('mg-spiral-splash');
@@ -238,7 +240,7 @@ export class SpiralSplashScene extends BaseMinigame {
       const img = this.add.image(0, 0, 'fx-dot').setBlendMode(Phaser.BlendModes.ADD).setTint(0xe8fbff).setDepth(30).setAlpha(0);
       this.sparkles.push({ img, t: Math.random(), period: 0.8 + Math.random() * 0.9 });
     }
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 22; i++) {
       const img = this.add.image(0, 0, 'fx-ring').setTint(0xe8fbff).setDepth(25).setVisible(false);
       this.ripples.push({ img, t: 1, life: 1, size: 1 });
     }
@@ -321,6 +323,7 @@ export class SpiralSplashScene extends BaseMinigame {
       bob: rnd.range(0, Math.PI * 2),
       dip: 0,
       bobY: 0,
+      wakeT: rnd.range(300, 2000),
       root,
       disc,
       top,
@@ -395,7 +398,7 @@ export class SpiralSplashScene extends BaseMinigame {
         think: 300 + index * 110,
         target: null,
         aimErr: 0,
-        fireWait: 700 + index * 150,
+        fireWait: 1200 + index * 300,
         hopPad: null,
         hopT: 0,
         dodgeT: 0,
@@ -587,7 +590,7 @@ export class SpiralSplashScene extends BaseMinigame {
       return;
     }
     w.teeter = false;
-    if (w.stunT > 0) drift(w, sdt, 5);
+    if (w.stunT > 0) drift(w, sdt, KNOCK_DRAG);
     else {
       const c = w.p.controls;
       const hand = CHARACTERS[w.p.characterId].handling;
@@ -614,10 +617,7 @@ export class SpiralSplashScene extends BaseMinigame {
     }
     const i = padUnder(this.pads, w.x, w.y, FOOT_TOL);
     if (i >= 0) w.pad = this.pads[i];
-    else {
-      this.fallLog.push(`${w.p.slot}@${Math.round(this.elapsed / 100) / 10}:${w.stunT > 0 ? 'knock' : w.teeter ? 'teeter' : 'walk'}${w.p.isCpu ? '' : 'H'} v${Math.round(Math.hypot(w.vx, w.vy))} hop${w.brain.hopPad ? 1 : 0} dodge${w.brain.dodgeT > 0 ? 1 : 0} wander${w.brain.wanderT > 0 ? 1 : 0}`);
-      this.splash(w);
-    }
+    else this.splash(w);
   }
 
   private separateWaders(): void {
@@ -667,10 +667,7 @@ export class SpiralSplashScene extends BaseMinigame {
     audio.play('splash', { volume: 0.12, throttleMs: 60 });
     this.ripple(pad.x, pad.y, (pad.r + 20) / 64, 700);
     // A hop that lands short of the new pad's rim is a splash.
-    if (padUnder(this.pads, w.x, w.y, FOOT_TOL) < 0) {
-      this.fallLog.push(`${w.p.slot}@${Math.round(this.elapsed / 100) / 10}:hopshort`);
-      this.splash(w);
-    }
+    if (padUnder(this.pads, w.x, w.y, FOOT_TOL) < 0) this.splash(w);
   }
 
   private touchDown(w: Wader): void {
@@ -905,6 +902,16 @@ export class SpiralSplashScene extends BaseMinigame {
       const a = Math.sin(sp.t * Math.PI);
       sp.img.setAlpha(0.7 * a).setScale((0.5 + a * 0.9) * 1.1, (0.5 + a * 0.9) * 0.55);
     }
+    // Gentle wake off the trailing rim of each drifting pad.
+    if (this.phase === 'playing') {
+      for (const pad of this.pads) {
+        pad.wakeT -= dt;
+        const sp = Math.hypot(pad.vx, pad.vy);
+        if (pad.wakeT > 0 || sp < 8) continue;
+        pad.wakeT = 1500 + Math.random() * 900;
+        this.ripple(pad.x - (pad.vx / sp) * pad.r * 0.9, pad.y - (pad.vy / sp) * pad.r * 0.9, 0.45, 1100);
+      }
+    }
     this.rippleT -= dt;
     if (this.rippleT <= 0) {
       this.rippleT = 320 + Math.random() * 300;
@@ -1076,8 +1083,10 @@ export class SpiralSplashScene extends BaseMinigame {
       }
     }
     b.target = best;
-    b.holdX = (Math.random() - 0.5) * 0.4;
-    b.holdY = (Math.random() - 0.5) * 0.4;
+    // Stand near the middle (better CPUs hold it tighter).
+    const spread = 0.24 * (1.2 - sk.accuracy);
+    b.holdX = (Math.random() - 0.5) * spread;
+    b.holdY = (Math.random() - 0.5) * spread;
     // Occasional blunder: a few steps in a random direction.
     if (Math.random() < sk.mistake * 0.5) {
       const a = Math.random() * Math.PI * 2;
