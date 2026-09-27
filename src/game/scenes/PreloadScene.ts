@@ -30,7 +30,11 @@ export class PreloadScene extends Phaser.Scene {
     this.startTime = performance.now();
     this.buildScreen();
     this.load.setPath('');
-    for (const key of ATLAS_KEYS) this.load.atlas(key, `assets/atlases/${key}.png`, `assets/atlases/${key}.json`);
+    for (const key of ATLAS_KEYS) {
+      // rendered 3D hero sheets are WebP; the processed 2D sheets are PNG
+      const ext = key.startsWith('hero_') ? 'webp' : 'png';
+      this.load.atlas(key, `assets/atlases/${key}.${ext}`, `assets/atlases/${key}.json`);
+    }
     for (const s of COMMON_SVGS) this.load.svg(s.key, s.path, { width: s.width, height: s.height });
     // Optional pre-rendered environment art: the manifest lists its tiles.
     for (const board of RENDERED_BOARDS) {

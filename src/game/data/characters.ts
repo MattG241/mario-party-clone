@@ -1,3 +1,5 @@
+import { HERO_DATA } from './heroSprites.generated';
+
 // The four playable Gleamtrail characters.
 
 export type CharacterId = 'kip' | 'mossi' | 'tumble' | 'zippa';
@@ -27,6 +29,11 @@ export interface CharacterDef {
   pitch: number;
 }
 
+/** The rendered 3D sheet when it has been generated (scripts/art/characters.py), else the 2D sheet. */
+function heroAtlas(id: CharacterId): string {
+  return HERO_DATA.meta[`hero_${id}`] ? `hero_${id}` : id;
+}
+
 export const CHARACTERS: Record<CharacterId, CharacterDef> = {
   kip: {
     id: 'kip',
@@ -35,7 +42,7 @@ export const CHARACTERS: Record<CharacterId, CharacterDef> = {
     blurb: 'Trail-mapper with a teal scarf and a compass for every island.',
     color: 0x1fa5a0,
     colorCss: '#1fa5a0',
-    atlas: 'kip',
+    atlas: heroAtlas('kip'),
     handling: { speed: 1, accel: 1, weight: 1, jump: 1 },
     pitch: 1,
   },
@@ -46,7 +53,7 @@ export const CHARACTERS: Record<CharacterId, CharacterDef> = {
     blurb: 'Brews sprouting potions and never stops bouncing.',
     color: 0x6cc24a,
     colorCss: '#6cc24a',
-    atlas: 'mossi',
+    atlas: heroAtlas('mossi'),
     handling: { speed: 1.02, accel: 1.06, weight: 0.94, jump: 1.05 },
     pitch: 1.25,
   },
@@ -57,7 +64,7 @@ export const CHARACTERS: Record<CharacterId, CharacterDef> = {
     blurb: 'Gentle giant of the ruins. Slow to start, impossible to budge.',
     color: 0x3fd0e0,
     colorCss: '#3fd0e0',
-    atlas: 'tumble',
+    atlas: heroAtlas('tumble'),
     handling: { speed: 0.95, accel: 0.9, weight: 1.12, jump: 0.94 },
     pitch: 0.7,
   },
@@ -68,7 +75,7 @@ export const CHARACTERS: Record<CharacterId, CharacterDef> = {
     blurb: 'Delivers parcels across the isles faster than the wind.',
     color: 0xd6307a,
     colorCss: '#d6307a',
-    atlas: 'zippa',
+    atlas: heroAtlas('zippa'),
     handling: { speed: 1.06, accel: 1.08, weight: 0.9, jump: 1.04 },
     pitch: 1.4,
   },

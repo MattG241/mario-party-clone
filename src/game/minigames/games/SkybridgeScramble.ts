@@ -993,8 +993,8 @@ export class SkybridgeScrambleScene extends BaseMinigame {
     h.c.marker?.setVisible(false);
     h.c.hold('fall');
     // The fall pose is drawn off-centre in its frame: centre the artwork over the feet.
-    const fallFrame = CHARACTER_ANIMATIONS[h.p.characterId].fall.frames[0];
-    const fo = centerOrigin('actions', fallFrame);
+    const fallDef = CHARACTER_ANIMATIONS[h.p.characterId].fall;
+    const fo = centerOrigin(fallDef.atlas ?? CHARACTERS[h.p.characterId].atlas, fallDef.frames[0]);
     h.c.sprite.setOrigin(h.c.isFacingLeft ? 1 - fo.x : fo.x, h.c.sprite.originY);
     // Tuck behind the tile rows in front of the hole so it drops *into* the gap.
     const r = Math.floor((h.y - GRID_Y0) / PITCH_Y);

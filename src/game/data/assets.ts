@@ -4,8 +4,25 @@
 // (public/assets/atlases/) by `npm run sprites`. Placeholder art lives in
 // public/assets/placeholders/ and can be swapped for final art by replacing the files.
 
-export const ATLAS_KEYS = ['kip', 'mossi', 'tumble', 'zippa', 'boardfx', 'npcs', 'actions', 'vfx', 'items', 'props'] as const;
-export type AtlasKey = (typeof ATLAS_KEYS)[number];
+import { HERO_DATA } from './heroSprites.generated';
+
+const HEROES = ['kip', 'mossi', 'tumble', 'zippa'];
+const HERO_3D = HEROES.filter((h) => HERO_DATA.meta[`hero_${h}`]);
+const HERO_2D = HEROES.filter((h) => !HERO_DATA.meta[`hero_${h}`]);
+
+/**
+ * Atlases to load. Heroes with a rendered 3D sheet (hero_<id>) use it for every animation; any
+ * hero without one falls back to the supplied 2D sheets, which also need the shared action sheets.
+ */
+export const ATLAS_KEYS: string[] = [
+  ...HERO_3D.map((h) => `hero_${h}`),
+  ...HERO_2D,
+  ...(HERO_2D.length ? ['boardfx', 'actions'] : []),
+  'npcs',
+  'vfx',
+  'items',
+  'props',
+];
 
 export interface SvgAsset {
   key: string;

@@ -1,5 +1,8 @@
 // Per-character animation mappings.
 //
+// Heroes with a rendered 3D sheet (scripts/art/characters.py → heroSprites.generated.ts) take every
+// animation from it. The tables below describe the supplied 2D sheets, used as a fallback.
+//
 // Frame numbers refer to the processed atlases (see scripts/sprite-layouts.mjs). They were
 // chosen by inspecting every supplied sheet — adjust them here, never elsewhere in the code.
 //
@@ -17,6 +20,7 @@
 //     12–13 Tumble coins · 14–15 Kip coins · 16 Zippa coins · 17 Zippa loses coins
 //     18–20 Mossi portal · 21–23 Tumble portal · 29 group pose
 import type { CharacterId } from '../data/characters';
+import { HERO_DATA } from '../data/heroSprites.generated';
 
 export type AnimName =
   | 'idle'
@@ -42,7 +46,8 @@ export type AnimName =
   | 'dial'
   | 'coins'
   | 'loseCoins'
-  | 'portal';
+  | 'portal'
+  | 'pull';
 
 export interface AnimDef {
   frames: number[];
@@ -79,6 +84,7 @@ function standard(slot: number, board: BoardAnims): AnimSet {
     wave: { frames: [24, 25, 26, 25, 26], fps: FPS.emote, loop: false },
     victory: { frames: [27, 28, 29, 28, 29], fps: FPS.emote, loop: false },
     crouch: { frames: [9], fps: 3, loop: false },
+    pull: { frames: [9], fps: 3, loop: false },
     ...actionAnims(slot),
     ...board,
   };
@@ -99,7 +105,7 @@ function actionAnims(slot: number): Pick<AnimSet, 'sprint' | 'carry' | 'throw' |
   };
 }
 
-export const CHARACTER_ANIMATIONS: Record<CharacterId, AnimSet> = {
+const SHEET_ANIMATIONS: Record<CharacterId, AnimSet> = {
   kip: standard(0, {
     dial: { frames: [0, 1, 2, 1, 2], fps: 10, loop: false, atlas: 'boardfx' },
     coins: { frames: [14, 15, 14, 15], fps: FPS.emote, loop: false, atlas: 'boardfx' },
@@ -124,6 +130,7 @@ export const CHARACTER_ANIMATIONS: Record<CharacterId, AnimSet> = {
     wave: { frames: [16, 27, 16, 27], fps: 6, loop: false },
     victory: { frames: [27, 28, 29, 28, 29], fps: FPS.emote, loop: false },
     crouch: { frames: [17], fps: 3, loop: false },
+    pull: { frames: [12], fps: 3, loop: false },
     ...actionAnims(2),
     dial: { frames: [16, 27, 27], fps: 6, loop: false },
     coins: { frames: [12, 13, 12, 13], fps: FPS.emote, loop: false, atlas: 'boardfx' },
@@ -136,6 +143,22 @@ export const CHARACTER_ANIMATIONS: Record<CharacterId, AnimSet> = {
     loseCoins: { frames: [17, 17], fps: 2, loop: false, atlas: 'boardfx' },
     portal: { frames: [9, 10, 11], fps: FPS.jump, loop: false },
   }),
+};
+
+/** The rendered 3D sheet's animations (scripts/art/characters.py), when present. */
+function renderedAnims(id: CharacterId): AnimSet | null {
+  const data = HERO_DATA.anims[id];
+  if (!data) return null;
+  const out = {} as AnimSet;
+  for (const [name, a] of Object.entries(data)) out[name as AnimName] = { frames: a.frames, fps: a.fps, loop: a.loop };
+  return out;
+}
+
+export const CHARACTER_ANIMATIONS: Record<CharacterId, AnimSet> = {
+  kip: renderedAnims('kip') ?? SHEET_ANIMATIONS.kip,
+  mossi: renderedAnims('mossi') ?? SHEET_ANIMATIONS.mossi,
+  tumble: renderedAnims('tumble') ?? SHEET_ANIMATIONS.tumble,
+  zippa: renderedAnims('zippa') ?? SHEET_ANIMATIONS.zippa,
 };
 
 /** Phaser animation key for a character + animation. */

@@ -15,6 +15,7 @@ import { Random } from '../../util/Random';
 import { standOrigin } from '../../util/spriteUtil';
 import { BaseMinigame, type MgPlayer } from '../BaseMinigame';
 import { buzzerWinner, teamFinalScores, teamOf, type Team } from './TotemTugRules';
+import { HERO_DATA } from '../../data/heroSprites.generated';
 
 // --- Layout (side view). A pre-rendered `rendered-scene-totem` must match these numbers. ---------
 /** Feet line of the pullers = ground line of the festival clearing. */
@@ -108,7 +109,13 @@ interface PullPose {
   hand: [number, number];
 }
 
-/** Braced pulling pose per character. */
+/** The braced pulling pose: the rendered 3D 'pull' pose when available, else a 2D sheet frame. */
+function pullPose(id: CharacterId): PullPose {
+  const grip = HERO_DATA.points[id]?.pull;
+  return grip ? { anim: 'pull', frame: 0, hand: grip } : PULL_POSE[id];
+}
+
+/** Braced pulling pose per character (2D sheets). */
 const PULL_POSE: Record<CharacterId, PullPose> = {
   kip: { anim: 'crouch', frame: 0, hand: [20, -60] },
   mossi: { anim: 'surprised', frame: 2, hand: [34, -94] },
@@ -293,7 +300,7 @@ export class TotemTugScene extends BaseMinigame {
     const x = CENTER_X + dir * spot;
     const c = new Character(this, x, GROUND_Y + dy, p.characterId, { scale: CHAR_SCALE, slot: p.slot });
     c.face(team === 1);
-    const pose = PULL_POSE[p.characterId];
+    const pose = pullPose(p.characterId);
     c.hold(pose.anim, pose.frame);
     c.setDepth(GROUND_Y + dy);
     p.character = c;

@@ -4,8 +4,8 @@ An original local-multiplayer party game for the browser. Up to four players (co
 keyboard, CPUs fill empty seats) travel a floating-island board, collect Gleam Chips, trade them
 for Prism Relics and battle it out in minigames between rounds.
 
-Built with TypeScript, Vite and Phaser 3. Environment art is pre-rendered from code in Blender
-(see [Art pipeline](#art-pipeline)); characters are 3D-rendered sprite sheets.
+Built with TypeScript, Vite and Phaser 3. Environment art and the four heroes are modelled and
+pre-rendered from code in Blender (see [Art pipeline](#art-pipeline)).
 
 > Gleamtrail is an original game. Its world, characters, rules, art and audio are its own and do
 > not reference or reproduce any existing game franchise.
@@ -133,8 +133,10 @@ they are unit-tested directly; scenes only present them.
 ## Art pipeline
 
 All environment art — the board terrain and landmarks, board spaces, skies, minigame arenas,
-title/select/results stages and gameplay sprites — is modelled and lit in code and rendered with
-Blender's Cycles renderer, then saved as WebP under `public/assets/rendered/`. Nothing needs to be
+title/select/results stages and gameplay sprites — and the four playable heroes are modelled and lit
+in code and rendered with Blender's Cycles renderer, then saved under `public/assets/`. The heroes
+are posed on a small skeleton for every animation and rendered with the board's key light, so they
+share the world's lighting and materials. Nothing needs to be
 re-rendered to run or build the game; the scripts are only needed to change the art.
 
 Setup (Python 3.11 and the `bpy` wheel, no Blender install needed):
@@ -153,6 +155,7 @@ python3.11 -m venv .artenv
 | `scenes.py title\|select\|results\|orbit` | Title island, select and results stages, Orbit Dodge arena |
 | `gleam3d.py` | Gleam Grab arena (perspective) and its floor mapping |
 | `mg_arenas.py yard\|pond\|relay\|totem\|tower\|sprites\|islets\|fg` | Arenas and sprites for the other minigames, sky islets, board foreground foliage |
+| `characters.py` | The four heroes: models (`char_models.py`, `char_<hero>.py`), poses (`char_anims.py`), rendered and packed into `public/assets/atlases/hero_<id>.webp/.json` plus `src/game/data/heroSprites.generated.ts` (`--hero kip --anims idle --preview` for quick looks) |
 | `logo.py` | The extruded 3D title wordmark (`ui_logo.webp`) |
 | `orbit_arms.py`, `ui.py`, `blur_backdrops.py` | Orbit Dodge arm frames, the dial, blurred intro backdrops |
 | `bloom.py` | Bakes a soft highlight bloom into finished renders |

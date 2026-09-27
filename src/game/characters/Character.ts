@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import { PLAYER_COLORS } from '../constants';
 import { CHARACTERS, type CharacterId } from '../data/characters';
-import { SPRITE_META } from '../data/spriteMeta.generated';
+import { HERO_DATA, HERO_FEET } from '../data/heroSprites.generated';
+import { SPRITE_META } from '../data/spriteMeta';
 import { PlayerBadge } from '../ui/PlayerBadge';
 import { animKey, CHARACTER_ANIMATIONS, LOOPING, type AnimName } from './CharacterAnimations';
 
@@ -17,9 +18,13 @@ export function animBaseline(id: CharacterId, anim: AnimName): number {
   const cached = baselineCache.get(k);
   if (cached !== undefined) return cached;
   const def = CHARACTER_ANIMATIONS[id][anim];
-  const meta = SPRITE_META[def.atlas ?? CHARACTERS[id].atlas];
+  const atlas = def.atlas ?? CHARACTERS[id].atlas;
+  const meta = SPRITE_META[atlas];
   let v = 0.8;
-  if (meta) {
+  if (HERO_DATA.meta[atlas]) {
+    // Rendered 3D heroes use a fixed registration: the feet sit at the same point in every frame.
+    v = HERO_FEET.y / HERO_FEET.size;
+  } else if (meta) {
     const bottoms = def.frames.map((f) => {
       const fm = meta.frames[f];
       return fm ? (fm.solid[1] + fm.solid[3]) / fm.h : 0.8;

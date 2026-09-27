@@ -10,6 +10,7 @@ import { drawPlayerShape } from '../../ui/PlayerBadge';
 import { addText } from '../../ui/theme';
 import { standOrigin } from '../../util/spriteUtil';
 import { BaseMinigame, type MgPlayer } from '../BaseMinigame';
+import { HERO_DATA } from '../../data/heroSprites.generated';
 import {
   BODY_DEPTH,
   BODY_HALF,
@@ -1160,7 +1161,8 @@ export class RelicRelayScene extends BaseMinigame {
         pc.x = r.x;
         pc.img.setPosition(r.x, r.y - r.z + c.headY * c.scaleY - 4 + Math.sin(now / 200) * 4).setAngle(0);
       } else {
-        const hold = CARRY_HOLD[r.p.characterId];
+        const grip = HERO_DATA.points[r.p.characterId]?.carry;
+        const hold = grip ? { x: grip[0], y: grip[1] + 18 } : CARRY_HOLD[r.p.characterId];
         const dir = c.isFacingLeft ? -1 : 1;
         const crouch = r.act === 'pick' ? 0.55 : 1;
         pc.x = r.x + dir * hold.x * c.scaleX;

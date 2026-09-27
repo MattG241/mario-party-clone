@@ -1,4 +1,4 @@
-import { SPRITE_META } from '../data/spriteMeta.generated';
+import { SPRITE_META } from '../data/spriteMeta';
 
 /** Origin that makes an atlas frame stand on its visible base (bottom of the solid artwork). */
 export function standOrigin(texture: string, frame: string | number): { x: number; y: number } {
