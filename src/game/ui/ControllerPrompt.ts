@@ -162,12 +162,14 @@ export class PromptBar extends Phaser.GameObjects.Container {
     const kind = glyphKindFor(slot);
     let x = 0;
     const parts: Phaser.GameObjects.Container[] = [];
+    // Light labels sit on a translucent navy pill (the HUD's material) instead of relying on an
+    // outline, which reads as a hollow font at small sizes.
+    const dark = !isLightColor(this.color);
     for (const p of prompts) {
       const item = this.scene.add.container(0, 0);
       const glyph = makeGlyph(this.scene, p.button, this.size, kind);
       glyph.x = glyph.width / 2;
-      const dark = this.color === '#2b2340' || this.color.toLowerCase() === '#2b2340';
-      const label = addText(this.scene, glyph.width + 10, 0, p.label, this.fontSize, dark ? { color: this.color, align: 'left', weight: 600 } : { color: this.color, align: 'left', stroke: '#1b1530', strokeThickness: 4, weight: 600 });
+      const label = addText(this.scene, glyph.width + 10, 0, p.label, this.fontSize, { color: this.color, align: 'left', weight: 700 });
       item.add([glyph, label]);
       const w = glyph.width + 10 + label.width;
       item.setSize(w, this.size);
@@ -176,10 +178,29 @@ export class PromptBar extends Phaser.GameObjects.Container {
       parts.push(item);
     }
     const total = Math.max(0, x - 34);
+    if (!dark && parts.length) {
+      const h = this.size + 18;
+      const pill = this.scene.add.graphics();
+      pill.fillStyle(0x06141a, 0.25);
+      pill.fillRoundedRect(-total / 2 - 22 + 3, -h / 2 + 5, total + 44, h, h / 2);
+      pill.fillStyle(0x0c2630, 0.78);
+      pill.fillRoundedRect(-total / 2 - 22, -h / 2, total + 44, h, h / 2);
+      pill.lineStyle(2, 0xfff4dc, 0.22);
+      pill.strokeRoundedRect(-total / 2 - 22, -h / 2, total + 44, h, h / 2);
+      this.add(pill);
+    }
     for (const p of parts) {
       p.x -= total / 2;
       this.add(p);
     }
     return this;
   }
+}
+
+function isLightColor(css: string): boolean {
+  const m = /^#?([0-9a-f]{6})$/i.exec(css.trim());
+  if (!m) return true;
+  const n = parseInt(m[1], 16);
+  const l = 0.2126 * ((n >> 16) & 255) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255);
+  return l > 140;
 }

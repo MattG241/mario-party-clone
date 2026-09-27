@@ -154,7 +154,7 @@ export class BoardManager {
       for (const to of n.next) {
         const b = this.graph.node(to);
         const ang = Math.atan2(b.y - n.y, b.x - n.x);
-        const chev = s.add.image(n.x + Math.cos(ang) * 84, n.y + Math.sin(ang) * 66, 'fork-chevron').setRotation(ang).setDepth(DEPTH.spaces - 1).setScale(0.9);
+        const chev = s.add.image(n.x + Math.cos(ang) * 100, n.y + Math.sin(ang) * 78, 'fork-chevron').setRotation(ang).setDepth(DEPTH.spaces - 1).setScale(1.4);
         s.tweens.add({ targets: chev, alpha: { from: 1, to: 0.55 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
       }
     }
@@ -178,9 +178,13 @@ export class BoardManager {
     this.placeNpc('mimi', 2020, 1500, 'happy');
     // Relic Keeper + relic
     this.relic = s.add.container(0, 0);
+    // A shaft of crystal light rising from the relic: the goal reads from anywhere on the board.
+    const beam = s.add.image(0, -120, 'fx-beam').setOrigin(0.5, 1).setDisplaySize(170, 1500).setTint(COLORS.crystal).setAlpha(0.42).setBlendMode(Phaser.BlendModes.ADD);
+    const core = s.add.image(0, -120, 'fx-beam').setOrigin(0.5, 1).setDisplaySize(56, 1300).setTint(0xffffff).setAlpha(0.35).setBlendMode(Phaser.BlendModes.ADD);
+    s.tweens.add({ targets: [beam, core], alpha: { from: 0.28, to: 0.5 }, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
     this.relicGlow = s.add.image(0, -150, 'fx-dot').setScale(9).setTint(COLORS.crystal).setAlpha(0.55).setBlendMode(Phaser.BlendModes.ADD);
     const relicImg = s.add.image(0, -150, 'prism-relic').setScale(0.36);
-    this.relic.add([this.relicGlow, relicImg]);
+    this.relic.add([beam, core, this.relicGlow, relicImg]);
     s.tweens.add({ targets: relicImg, y: -166, duration: 1300, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
     s.tweens.add({ targets: this.relicGlow, alpha: { from: 0.35, to: 0.7 }, scale: { from: 8, to: 10 }, duration: 1100, yoyo: true, repeat: -1 });
     this.keeper = s.add.sprite(0, 0, 'npcs', npcFrame('packsprout', 'gift'));
@@ -262,6 +266,28 @@ export class BoardManager {
       chevron(22, 0xffe08a, 0x117a77);
       g.generateTexture('fork-chevron', 56, 40);
       g.destroy();
+    }
+    if (!s.textures.exists('fx-beam')) {
+      // Vertical light shaft: soft horizontal falloff, fading out towards the top.
+      const tex = s.textures.createCanvas('fx-beam', 64, 512);
+      if (tex) {
+        const ctx = tex.getContext();
+        const img = ctx.createImageData(64, 512);
+        for (let y = 0; y < 512; y++) {
+          const v = Math.pow(y / 511, 1.6);
+          for (let x = 0; x < 64; x++) {
+            const u = (x - 31.5) / 32;
+            const a = Math.exp(-u * u * 5) * v;
+            const i = (y * 64 + x) * 4;
+            img.data[i] = 255;
+            img.data[i + 1] = 255;
+            img.data[i + 2] = 255;
+            img.data[i + 3] = Math.round(a * 255);
+          }
+        }
+        ctx.putImageData(img, 0, 0);
+        tex.refresh();
+      }
     }
     if (!s.textures.exists('path-stone')) {
       const g = s.make.graphics({ x: 0, y: 0 }, false);

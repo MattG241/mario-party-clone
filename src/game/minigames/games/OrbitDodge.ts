@@ -5,6 +5,7 @@ import { COLORS, CSS, GAME_WIDTH } from '../../constants';
 import type { VirtualControls } from '../../input/PlayerInput';
 import { makeGlyph, glyphKindFor } from '../../ui/ControllerPrompt';
 import { addText } from '../../ui/theme';
+import { npcFrame, type NpcId } from '../../data/npcs';
 import { standOrigin } from '../../util/spriteUtil';
 import { BaseMinigame, type MgPlayer } from '../BaseMinigame';
 
@@ -71,6 +72,7 @@ export class OrbitDodgeScene extends BaseMinigame {
       // Pre-rendered observatory rooftop (engraved stone, brass rings, crystal lights).
       if (this.textures.exists('rendered-sky-day')) this.add.image(GAME_WIDTH / 2, 540, 'rendered-sky-day').setDisplaySize(GAME_WIDTH * 1.04, 1124).setDepth(-100);
       this.add.image(0, 0, 'rendered-scene-orbit').setOrigin(0).setDepth(-10);
+      this.buildSpectators();
     } else {
       this.add.image(0, 0, 'bg-sky').setOrigin(0).setDisplaySize(GAME_WIDTH, 1080).setDepth(-100);
       this.add.tileSprite(0, 560, GAME_WIDTH, 560, 'bg-clouds-below').setOrigin(0).setDepth(-90);
@@ -84,13 +86,37 @@ export class OrbitDodgeScene extends BaseMinigame {
     if (!rendered) this.add.image(250, 330, 'observatory').setScale(0.26).setDepth(-20).setAlpha(0.9);
   }
 
+  /**
+   * Festival folk cheering from the floating balconies either side of the platform. Deck heights
+   * match ORBIT_BALCONIES / BALCONY_Z in scripts/art/scenes.py (deck y = 380 - 0.55 * 100 * sin 65deg).
+   */
+  private buildSpectators(): void {
+    const deckY = 380 - 0.55 * 100 * Math.sin((65 * Math.PI) / 180);
+    const folk: [NpcId, string, number, number][] = [
+      ['mimi', 'laugh', 185, 6],
+      ['pipper', 'happy', 255, -10],
+      ['packsprout', 'star', 325, 6],
+      ['wrench', 'laugh', 1595, 6],
+      ['ora', 'cheer', 1665, -10],
+      ['mimi', 'happy', 1735, 6],
+    ];
+    folk.forEach(([id, pose, x, dy], i) => {
+      const spr = this.add.sprite(x, deckY + dy, 'npcs', npcFrame(id, pose));
+      const o = standOrigin('npcs', npcFrame(id, pose));
+      spr.setOrigin(o.x, o.y).setScale(0.36).setDepth(-5 + i * 0.01).setFlipX(x > 960);
+      this.tweens.add({ targets: spr, y: deckY + dy - 7, duration: 380 + (i % 3) * 90, yoyo: true, repeat: -1, ease: 'Sine.InOut', delay: i * 80 });
+    });
+  }
+
   protected createPlayer(p: MgPlayer, index: number): void {
     const n = this.players.length;
     const base = Math.PI / 2;
     const angle = base + (index * Math.PI * 2) / n;
     const x = CX + Math.cos(angle) * RX;
     const y = CY + Math.sin(angle) * RY;
-    const c = new Character(this, x, y, p.characterId, { scale: 0.62, slot: p.slot });
+    // Nearer (lower on screen) players are drawn a little larger for depth.
+    const depthK = 0.84 + 0.32 * ((y - (CY - RY)) / (2 * RY));
+    const c = new Character(this, x, y, p.characterId, { scale: 0.62 * depthK, slot: p.slot });
     c.face(x > CX);
     p.character = c;
     const warn = this.add.container(x, y - 250).setDepth(6000).setVisible(false);
@@ -119,63 +145,95 @@ export class OrbitDodgeScene extends BaseMinigame {
     g.clear();
     h.clear();
     const pulse = 0.5 + 0.5 * Math.sin(this.time.now / 110);
+    const rim = (an: number, lift = 0) => ({ x: CX + Math.cos(an) * (RX + 120), y: CY - lift + Math.sin(an) * (RY + 60) });
+    const wedge = (layer: Phaser.GameObjects.Graphics, a0: number, a1: number, lift: number) => {
+      layer.beginPath();
+      layer.moveTo(CX, CY - lift);
+      for (let t = 0; t <= 8; t++) {
+        const p = rim(a0 + (a1 - a0) * (t / 8), lift);
+        layer.lineTo(p.x, p.y);
+      }
+      layer.closePath();
+      layer.fillPath();
+    };
     for (const a of this.arms) {
-      const tipX = CX + Math.cos(a.angle) * (RX + 120);
-      const tipY = CY + Math.sin(a.angle) * (RY + 60);
+      const low = a.type === 'low';
+      const lift = low ? 0 : 150;
+      const tip = rim(a.angle, lift);
+      const base = { x: CX, y: CY - lift };
       const flashing = a.flipIn > 0 && Math.floor(a.flipIn / 120) % 2 === 0;
-      // Motion smear: a fading wedge trailing the sweep so speed and direction read at a glance.
+      const hue = low ? 0xff4a2a : 0xb45cff;
+      const layer = low ? g : h;
       if (this.phase === 'playing') {
-        const lift = a.type === 'high' ? 150 : 0;
+        // Warning wedge on the floor ahead of the sweep: where the arm is about to pass.
+        const ahead = Math.min(0.85, 0.32 * this.omega);
+        for (let k = 0; k < 5; k++) {
+          g.fillStyle(hue, (0.14 + 0.1 * pulse) * (1 - k / 5));
+          wedge(g, a.angle + this.dir * ahead * (k / 5), a.angle + this.dir * ahead * ((k + 1) / 5), 0);
+        }
+        // Motion smear trailing behind so speed and direction read at a glance.
         const trail = Math.min(0.55, 0.12 * this.omega);
-        const layer = a.type === 'high' ? h : g;
         for (let k = 0; k < 4; k++) {
-          const a0 = a.angle - this.dir * trail * ((k + 1) / 4);
-          const a1 = a.angle - this.dir * trail * (k / 4);
-          layer.fillStyle(a.type === 'high' ? 0xc49bff : 0xffc27a, 0.13 * (1 - k / 4));
-          layer.beginPath();
-          layer.moveTo(CX, CY - lift);
-          for (let t = 0; t <= 6; t++) {
-            const an = a0 + (a1 - a0) * (t / 6);
-            layer.lineTo(CX + Math.cos(an) * (RX + 120), CY - lift + Math.sin(an) * (RY + 60));
-          }
-          layer.closePath();
-          layer.fillPath();
+          layer.fillStyle(low ? 0xffc27a : 0xd7b0ff, 0.12 * (1 - k / 4));
+          wedge(layer, a.angle - this.dir * trail * ((k + 1) / 4), a.angle - this.dir * trail * (k / 4), lift);
         }
       }
-      if (a.type === 'low') {
-        // Danger glow, shadow and a spiked log along the ground.
-        g.lineStyle(62, 0xff5a3c, 0.12 + 0.12 * pulse);
-        g.lineBetween(CX, CY, tipX, tipY);
-        g.lineStyle(44, 0x0b1a24, 0.25);
-        g.lineBetween(CX, CY + 12, tipX, tipY + 12);
-        g.lineStyle(36, flashing ? 0xffffff : 0x7a4f28, 1);
-        g.lineBetween(CX, CY, tipX, tipY);
-        g.lineStyle(20, 0xb07a45, 1);
-        g.lineBetween(CX, CY - 4, tipX, tipY - 4);
+      // Ground shadow (for the high arm this is how you read where it is).
+      g.lineStyle(low ? 50 : 30, 0x0b1a24, low ? 0.32 : 0.38);
+      g.lineBetween(CX, CY + 14, rim(a.angle).x, rim(a.angle).y + 14);
+      // Pulsing danger glow, dark outline, saturated body.
+      const w = low ? 34 : 26;
+      layer.lineStyle(w + 40, hue, 0.16 + 0.16 * pulse);
+      layer.lineBetween(base.x, base.y, tip.x, tip.y);
+      layer.lineStyle(w + 10, low ? 0x3b1a0e : 0x2a1446, 1);
+      layer.lineBetween(base.x, base.y, tip.x, tip.y);
+      layer.lineStyle(w, flashing ? 0xffffff : low ? 0xe0532a : 0x7a3fd0, 1);
+      layer.lineBetween(base.x, base.y - 2, tip.x, tip.y - 2);
+      // Hazard stripes along the beam.
+      if (!flashing) {
+        layer.lineStyle(w, low ? 0xffd23f : 0xf0d8ff, 1);
+        for (let i = 0; i < 11; i++) {
+          const t0 = 0.14 + i * 0.078;
+          const t1 = t0 + 0.036;
+          layer.lineBetween(base.x + (tip.x - base.x) * t0, base.y - 2 + (tip.y - base.y) * t0, base.x + (tip.x - base.x) * t1, base.y - 2 + (tip.y - base.y) * t1);
+        }
+      }
+      layer.lineStyle(6, 0xffffff, 0.4);
+      layer.lineBetween(base.x, base.y - w / 2 + 2, tip.x, tip.y - w / 2 + 2);
+      // Glowing leading edge on the side the arm is sweeping towards.
+      const dx = tip.x - base.x;
+      const dy = tip.y - base.y;
+      const len = Math.hypot(dx, dy) || 1;
+      let nx = -dy / len;
+      let ny = dx / len;
+      const sweepX = -Math.sin(a.angle) * this.dir;
+      const sweepY = Math.cos(a.angle) * this.dir;
+      if (nx * sweepX + ny * sweepY < 0) {
+        nx = -nx;
+        ny = -ny;
+      }
+      const off = w / 2 + 5;
+      layer.lineStyle(7, low ? 0xfff27a : 0xff9cf5, 0.55 + 0.45 * pulse);
+      layer.lineBetween(base.x + nx * off, base.y + ny * off, tip.x + nx * off, tip.y + ny * off);
+      if (low) {
         for (let i = 1; i <= 6; i++) {
           const t = 0.22 + i * 0.13;
-          const px = CX + (tipX - CX) * t;
-          const py = CY + (tipY - CY) * t;
-          g.fillStyle(COLORS.gold, 1);
-          g.fillTriangle(px - 9, py - 8, px + 9, py - 8, px, py - 30);
+          const px = CX + (tip.x - CX) * t;
+          const py = CY + (tip.y - CY) * t;
+          g.fillStyle(0x3b1a0e, 1);
+          g.fillTriangle(px - 12, py - 10, px + 12, py - 10, px, py - 38);
+          g.fillStyle(COLORS.goldLight, 1);
+          g.fillTriangle(px - 8, py - 12, px + 8, py - 12, px, py - 32);
         }
       } else {
-        // Ground shadow so you can read where the high arm is.
-        g.lineStyle(26, 0x2b2340, 0.35);
-        g.lineBetween(CX, CY + 8, tipX, tipY + 8);
-        const lift = 150;
-        h.lineStyle(52, 0xd08cff, 0.12 + 0.14 * pulse);
-        h.lineBetween(CX, CY - lift, tipX, tipY - lift);
-        h.lineStyle(26, flashing ? 0xffffff : 0x5e3494, 1);
-        h.lineBetween(CX, CY - lift, tipX, tipY - lift);
-        h.lineStyle(10, 0xc49bff, 1);
-        h.lineBetween(CX, CY - lift - 5, tipX, tipY - lift - 5);
-        h.fillStyle(0x3a3150, 1);
-        h.fillCircle(tipX, tipY - lift, 36);
+        h.fillStyle(0x2a1446, 1);
+        h.fillCircle(tip.x, tip.y, 40);
+        h.fillStyle(0x5e3494, 1);
+        h.fillCircle(tip.x, tip.y, 33);
         h.fillStyle(COLORS.gold, 1);
         for (let i = 0; i < 8; i++) {
           const an = (i / 8) * Math.PI * 2;
-          h.fillTriangle(tipX + Math.cos(an) * 30, tipY - lift + Math.sin(an) * 30, tipX + Math.cos(an + 0.3) * 30, tipY - lift + Math.sin(an + 0.3) * 30, tipX + Math.cos(an + 0.15) * 50, tipY - lift + Math.sin(an + 0.15) * 50);
+          h.fillTriangle(tip.x + Math.cos(an) * 30, tip.y + Math.sin(an) * 30, tip.x + Math.cos(an + 0.3) * 30, tip.y + Math.sin(an + 0.3) * 30, tip.x + Math.cos(an + 0.15) * 54, tip.y + Math.sin(an + 0.15) * 54);
         }
       }
     }

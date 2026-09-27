@@ -42,9 +42,9 @@ export class PreloadScene extends Phaser.Scene {
       });
     }
     // Optional rendered sky backdrops (day, and dusk for the final round).
-    for (const v of ['day', 'dusk']) this.load.image(`rendered-sky-${v}`, `assets/rendered/sky_${v}.webp`);
+    for (const v of ['day', 'golden', 'dusk']) this.load.image(`rendered-sky-${v}`, `assets/rendered/sky_${v}.webp`);
     // Optional rendered hero scenes (title island, minigame arenas).
-    for (const v of ['title', 'gleam', 'orbit', 'select']) this.load.image(`rendered-scene-${v}`, `assets/rendered/scene_${v}.webp`);
+    for (const v of ['title', 'gleam', 'gleam_wall', 'orbit', 'select', 'results']) this.load.image(`rendered-scene-${v}`, `assets/rendered/scene_${v}.webp`);
     this.load.image('rendered-ui-dial', 'assets/rendered/ui_dial.webp');
     this.load.on(Phaser.Loader.Events.PROGRESS, (p: number) => this.setProgress(p));
     this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, (file: Phaser.Loader.File) => {

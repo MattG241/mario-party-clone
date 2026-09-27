@@ -1,11 +1,11 @@
 import Phaser from 'phaser';
 import { audio } from '../audio/AudioManager';
-import { Character } from '../characters/Character';
+import { animHeadTop, Character } from '../characters/Character';
 import { COLORS, CSS, GAME_HEIGHT, GAME_WIDTH, PLAYER_COLORS, PLAYER_SHAPE_NAMES } from '../constants';
 import { CHARACTER_IDS, CHARACTERS } from '../data/characters';
 import { EffectsManager } from '../effects/EffectsManager';
 import { slotForDevice } from '../input/assignment';
-import { deviceLabel, input, type DeviceRef } from '../input/InputManager';
+import { input, type DeviceRef } from '../input/InputManager';
 import { settings } from '../save/SettingsManager';
 import { session } from '../state/Session';
 import { makeGlyph, PromptBar } from '../ui/ControllerPrompt';
@@ -27,6 +27,8 @@ interface SlotView {
 
 const PODIUM_X = [360, 760, 1160, 1560];
 const PODIUM_Y = 560;
+const SLOT_W = 440;
+const SLOT_H = 118;
 
 /**
  * Controller-first lobby: press A to join, pick a character on the podiums, confirm. Every
@@ -61,7 +63,8 @@ export class CharacterSelectScene extends Phaser.Scene {
     audio.playMusic('menu');
     this.renderedStage = this.textures.exists('rendered-scene-select');
     if (this.renderedStage) {
-      if (this.textures.exists('rendered-sky-day')) this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'rendered-sky-day').setDisplaySize(GAME_WIDTH * 1.04, GAME_HEIGHT * 1.04);
+      const skyKey = ['rendered-sky-golden', 'rendered-sky-day'].find((k) => this.textures.exists(k));
+      if (skyKey) this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, skyKey).setDisplaySize(GAME_WIDTH * 1.04, GAME_HEIGHT * 1.04);
       this.add.image(0, 0, 'rendered-scene-select').setOrigin(0);
     } else {
       this.add.image(0, 0, 'bg-sky').setOrigin(0).setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
@@ -71,7 +74,7 @@ export class CharacterSelectScene extends Phaser.Scene {
     this.buildPodiums();
     for (let i = 0; i < 4; i++) this.slots.push(this.buildSlot(i));
     this.startBanner = this.buildStartBanner();
-    this.footer = new PromptBar(this, GAME_WIDTH / 2, GAME_HEIGHT - 26, [], { size: 34, fontSize: 24 });
+    this.footer = new PromptBar(this, GAME_WIDTH / 2, 150, [], { size: 30, fontSize: 21 });
     // Restore players who are already joined (coming back from the setup screen).
     for (const cfg of session.slots) {
       if (cfg.joined && cfg.device && input.device(cfg.device)) {
@@ -94,27 +97,41 @@ export class CharacterSelectScene extends Phaser.Scene {
       this.chars.push(c);
       const plate = this.add.container(x, PODIUM_Y + 150);
       const g = this.add.graphics();
-      drawPanel(g, -170, -44, 340, 88, { radius: 24, borderWidth: 5, engraving: false, border: CHARACTERS[id].color, shadowOffset: 6 });
-      const name = addText(this, 0, -12, CHARACTERS[id].name, 34, { color: CSS.ink, weight: 700 });
-      const role = addText(this, 0, 22, CHARACTERS[id].role, 22, { color: CSS.inkSoft, weight: 500 });
+      g.fillStyle(0x06141a, 0.3);
+      g.fillRoundedRect(-160 + 4, -40 + 7, 320, 80, 40);
+      g.fillStyle(0x0c2630, 0.86);
+      g.fillRoundedRect(-160, -40, 320, 80, 40);
+      g.fillStyle(0xffffff, 0.07);
+      g.fillRoundedRect(-152, -35, 304, 32, { tl: 34, tr: 34, bl: 8, br: 8 });
+      g.lineStyle(4, CHARACTERS[id].color, 1);
+      g.strokeRoundedRect(-160, -40, 320, 80, 40);
+      const name = addText(this, 0, -11, CHARACTERS[id].name.toUpperCase(), 30, { color: CSS.cream, weight: 700 });
+      const role = addText(this, 0, 20, CHARACTERS[id].role, 18, { color: CSS.creamDark, weight: 600 });
       plate.add([g, name, role]);
-      plate.setAlpha(0.75).setScale(0.92);
+      plate.setScale(0.94);
       this.namePlates.push(plate);
     });
   }
 
   private buildSlot(slot: number): SlotView {
-    const w = 430;
-    const h = 250;
+    const w = SLOT_W;
+    const h = SLOT_H;
     const x = 255 + slot * 470;
-    const y = 900;
+    const y = 988;
     const panel = this.add.container(x, y);
     const g = this.add.graphics();
-    drawPanel(g, -w / 2, -h / 2, w, h, { border: PLAYER_COLORS[slot], radius: 28 });
-    const badge = new PlayerBadge(this, -w / 2 + 44, -h / 2 + 44, slot, 26);
-    const label = addText(this, -w / 2 + 84, -h / 2 + 44, `PLAYER ${slot + 1}`, 30, { color: CSS.ink, weight: 700, align: 'left' });
-    const shape = addText(this, w / 2 - 26, -h / 2 + 44, PLAYER_SHAPE_NAMES[slot], 20, { color: CSS.inkSoft, weight: 600, align: 'right' });
-    const content = this.add.container(0, 18);
+    g.fillStyle(0x06141a, 0.3);
+    g.fillRoundedRect(-w / 2 + 4, -h / 2 + 7, w, h, 34);
+    g.fillStyle(0x0c2630, 0.84);
+    g.fillRoundedRect(-w / 2, -h / 2, w, h, 34);
+    g.fillStyle(0xffffff, 0.07);
+    g.fillRoundedRect(-w / 2 + 8, -h / 2 + 5, w - 16, h * 0.4, { tl: 28, tr: 28, bl: 10, br: 10 });
+    g.lineStyle(4, PLAYER_COLORS[slot], 1);
+    g.strokeRoundedRect(-w / 2, -h / 2, w, h, 34);
+    const badge = new PlayerBadge(this, -w / 2 + 40, -h / 2 + 34, slot, 20);
+    const label = addText(this, -w / 2 + 72, -h / 2 + 34, `PLAYER ${slot + 1}`, 22, { color: CSS.cream, weight: 700, align: 'left' });
+    const shape = addText(this, w / 2 - 28, -h / 2 + 34, PLAYER_SHAPE_NAMES[slot], 16, { color: CSS.creamDark, weight: 600, align: 'right' });
+    const content = this.add.container(0, 22);
     panel.add([g, badge, label, shape, content]);
     const cursorBadge = new PlayerBadge(this, 0, 0, slot, 24).setVisible(false).setDepth(50);
     const view: SlotView = { phase: 'empty', device: null, cursor: 0, panel, content, cursorBadge };
@@ -127,43 +144,47 @@ export class CharacterSelectScene extends Phaser.Scene {
     const add = (o: Phaser.GameObjects.GameObject) => v.content.add(o);
     if (v.phase === 'empty') {
       const glyphKind = input.hasGamepad() ? 'gamepad' : 'keyboard';
-      const glyph = makeGlyph(this, 'A', 54, glyphKind);
-      const label = addText(this, 0, -10, 'TO JOIN', 40, { color: CSS.tealDark, weight: 700, align: 'left' });
-      // Centre "[glyph] TO JOIN" as one line using the glyph's real width (key caps are wider).
-      const gw = glyph.width || 60;
-      const total = gw + 18 + label.width;
-      glyph.setPosition(-total / 2 + gw / 2, -10);
-      label.setX(-total / 2 + gw + 18);
+      const glyph = makeGlyph(this, 'A', 40, glyphKind);
+      const label = addText(this, 0, 0, 'TO JOIN', 28, { color: CSS.cream, weight: 700, align: 'left' });
+      const note = addText(this, 0, 0, session.mode === 'board' ? '· or a CPU plays' : '· or a CPU plays', 16, { color: CSS.creamDark, weight: 600, align: 'left' });
+      // Centre "[glyph] TO JOIN · note" as one line using the glyph's real width (key caps are wider).
+      const gw = glyph.width || 44;
+      const total = gw + 12 + label.width + 12 + note.width;
+      glyph.setPosition(-total / 2 + gw / 2, 0);
+      label.setX(-total / 2 + gw + 12);
+      note.setX(label.x + label.width + 12);
       add(glyph);
       add(label);
-      add(addText(this, 0, 74, session.mode === 'board' ? 'Empty slots can be filled by CPUs' : 'Empty slots become CPU players', 20, { color: CSS.inkSoft, weight: 500 }));
+      add(note);
       this.tweens.add({ targets: glyph, scale: { from: 1, to: 1.12 }, duration: 520, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
       return;
     }
-    const icon = this.add.image(-150, -6, v.device?.kind === 'keyboard' ? 'icon-keyboard' : 'icon-controller').setScale(0.42);
+    const icon = this.add.image(-SLOT_W / 2 + 46, 2, v.device?.kind === 'keyboard' ? 'icon-keyboard' : 'icon-controller').setScale(0.26);
     add(icon);
-    add(addText(this, -150, 44, deviceLabel(v.device), 20, { color: CSS.inkSoft, weight: 600 }));
     const id = CHARACTER_IDS[v.cursor];
     if (v.phase === 'choosing') {
-      add(addText(this, 60, -30, CHARACTERS[id].name, 34, { color: CSS.ink, weight: 700 }));
-      add(addText(this, 60, 8, '◀  choose  ▶', 26, { color: CSS.tealDark, weight: 600 }));
-      const bar = new PromptBar(this, 52, 70, [
+      add(addText(this, 18, -8, `◀  ${CHARACTERS[id].name}  ▶`, 26, { color: CSS.cream, weight: 700 }));
+      const bar = new PromptBar(this, 18, 26, [
         { button: 'A', label: 'Pick' },
         { button: 'B', label: 'Leave' },
-      ], { size: 28, fontSize: 20, color: CSS.ink, slot });
+      ], { size: 24, fontSize: 16, color: CSS.creamDark, slot });
+      // The slot panel is already the backing; drop the bar's own pill.
+      bar.list.filter((o) => o instanceof Phaser.GameObjects.Graphics).forEach((o) => o.destroy());
       add(bar);
     } else {
-      const stamp = addText(this, 60, -18, 'READY!', 54, { color: '#ffffff', stroke: CSS.tealDark, strokeThickness: 10, weight: 700, shadow: true });
+      const stamp = addText(this, -30, -2, 'READY!', 38, { color: CSS.goldLight, stroke: '#06141a', strokeThickness: 6, weight: 700 });
       add(stamp);
-      add(addText(this, 60, 34, CHARACTERS[id].name, 26, { color: CSS.ink, weight: 700 }));
-      add(new PromptBar(this, 60, 76, [{ button: 'B', label: 'Change' }], { size: 30, fontSize: 22, color: CSS.ink, slot }));
-      stamp.setScale(1.6).setAngle(-8);
+      add(addText(this, 70, -8, CHARACTERS[id].name, 20, { color: CSS.cream, weight: 700, align: 'left' }));
+      const bar = new PromptBar(this, 120, 20, [{ button: 'B', label: 'Change' }], { size: 22, fontSize: 15, color: CSS.creamDark, slot });
+      bar.list.filter((o) => o instanceof Phaser.GameObjects.Graphics).forEach((o) => o.destroy());
+      add(bar);
+      stamp.setScale(1.6).setAngle(-6);
       this.tweens.add({ targets: stamp, scale: 1, duration: 260, ease: 'Back.Out' });
     }
   }
 
   private buildStartBanner(): Phaser.GameObjects.Container {
-    const c = this.add.container(GAME_WIDTH / 2, 178).setDepth(100).setVisible(false);
+    const c = this.add.container(GAME_WIDTH / 2, 150).setDepth(100).setVisible(false);
     const g = this.add.graphics();
     drawPanel(g, -440, -44, 880, 88, { radius: 40, border: COLORS.gold, fill: COLORS.tealDark, accent: COLORS.goldLight, engraving: false });
     const t = addText(this, 0, -2, 'All set! Press A to continue', 38, { color: CSS.cream, weight: 700 });
@@ -309,14 +330,14 @@ export class CharacterSelectScene extends Phaser.Scene {
       this.tweens.add({ targets: ch, scale: target, duration: 180, ease: 'Back.Out' });
       ch.sprite.setAlpha(lockedBy !== null ? 1 : 1);
       const plate = this.namePlates[ci];
-      this.tweens.add({ targets: plate, alpha: active || lockedBy !== null ? 1 : 0.75, scale: active ? 1 : 0.92, duration: 160 });
+      this.tweens.add({ targets: plate, scale: active || lockedBy !== null ? 1 : 0.94, duration: 160 });
       // Cursor badges hover above the head, side by side.
       owners.forEach((slot, k) => {
         if (this.slots[slot].phase !== 'choosing') return;
         const b = this.slots[slot].cursorBadge;
         const tx = PODIUM_X[ci] + (k - (owners.length - 1) / 2) * 62;
         b.setVisible(this.slots[slot].phase === 'choosing');
-        this.tweens.add({ targets: b, x: tx, y: PODIUM_Y - 330, duration: 140, ease: 'Quad.Out' });
+        this.tweens.add({ targets: b, x: tx, y: PODIUM_Y - 20 + animHeadTop(CHARACTER_IDS[ci]) * 1.12 - 44, duration: 140, ease: 'Quad.Out' });
       });
       if (lockedBy !== null) {
         g.fillStyle(PLAYER_COLORS[lockedBy], 0.5);
@@ -339,6 +360,7 @@ export class CharacterSelectScene extends Phaser.Scene {
   private refreshFooter(): void {
     const ready = this.allReady();
     this.startBanner.setVisible(ready);
+    this.footer.setVisible(!ready);
     const anyJoined = this.slots.some((s) => s.phase !== 'empty');
     this.footer.setPrompts(anyJoined ? [{ button: 'A', label: 'Join / Pick' }, { button: 'B', label: 'Leave' }] : [{ button: 'A', label: 'Join' }, { button: 'B', label: 'Back to title' }]);
   }

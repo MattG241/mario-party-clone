@@ -26,7 +26,7 @@ from lib import PX, board_to_world, col  # noqa: E402
 import bpy  # noqa: E402
 
 p = argparse.ArgumentParser()
-p.add_argument('scene', choices=['title', 'gleam', 'orbit', 'select'])
+p.add_argument('scene', choices=['title', 'gleam', 'orbit', 'select', 'results'])
 p.add_argument('--preview', action='store_true')
 A = p.parse_args(sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else sys.argv[1:])
 
@@ -227,13 +227,83 @@ def plaza_texture(path, region):
     im.save(path)
 
 
+def plaza_texture_v2(path, region, squash=0.64):
+    """Festival flagstones drawn already foreshortened (the floor is seen at ~40 degrees): running
+    bond sandstone with bevels, wear, chips and moss, a gem-studded border and a tesserae spiral."""
+    x0, y0, x1, y1 = region
+    w, h = int(x1 - x0), int(y1 - y0)
+    rnd = random.Random(8)
+    im = Image.new('RGB', (w, h), (104, 80, 62))
+    d = ImageDraw.Draw(im)
+    tw, th = 58, int(58 * squash)
+    pal = [(226, 192, 146), (214, 178, 130), (232, 204, 160), (204, 166, 120), (220, 184, 134), (230, 176, 128), (198, 170, 136)]
+    for row, ty in enumerate(range(-th, h + th, th)):
+        off = (row % 2) * tw // 2 + rnd.randint(-3, 3)
+        for tx in range(-tw, w + tw, tw):
+            c = rnd.choice(pal)
+            jit = rnd.randint(-10, 8)
+            c = tuple(max(0, min(255, v + jit)) for v in c)
+            x_a, y_a, x_b, y_b = tx + off + 2, ty + 2, tx + off + tw - 2, ty + th - 2
+            # front face (darker lip) then the top face
+            d.rounded_rectangle([x_a, y_a + 3, x_b, y_b + 3], radius=6, fill=tuple(int(v * 0.72) for v in c))
+            d.rounded_rectangle([x_a, y_a, x_b, y_b], radius=6, fill=c)
+            d.rounded_rectangle([x_a + 3, y_a + 2, x_b - 8, y_a + 6], radius=3, fill=tuple(min(255, v + 18) for v in c))
+            if rnd.random() < 0.18:  # hairline crack
+                cx0 = rnd.randint(x_a + 6, x_b - 6)
+                pts = [(cx0, y_a + 2)]
+                for k in range(3):
+                    pts.append((pts[-1][0] + rnd.randint(-8, 8), pts[-1][1] + (y_b - y_a) / 3))
+                d.line(pts, fill=tuple(int(v * 0.6) for v in c), width=1)
+            if rnd.random() < 0.12:  # chipped corner
+                cxn = x_a if rnd.random() < 0.5 else x_b - 9
+                d.polygon([(cxn, y_a), (cxn + 9, y_a), (cxn + (0 if cxn == x_a else 9), y_a + 7)], fill=(120, 94, 72))
+    arr = np.asarray(im).astype(np.float32)
+    # moss creeping in from the edges + soft grime variation
+    yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+    edge = np.minimum(np.minimum(xx, w - 1 - xx), np.minimum(yy / squash, (h - 1 - yy) / squash))
+    noise = np.asarray(Image.effect_noise((w // 8 + 1, h // 8 + 1), 60).resize((w, h), Image.BICUBIC), np.float32) / 255.0
+    moss = np.clip((90 - edge) / 90, 0, 1) * np.clip((noise - 0.45) * 3.0, 0, 1)
+    arr = arr * (1 - moss[..., None] * 0.55) + np.array([96, 150, 70], np.float32) * moss[..., None] * 0.55
+    grime = np.asarray(Image.effect_noise((w // 24 + 1, h // 24 + 1), 40).resize((w, h), Image.BICUBIC), np.float32) / 255.0
+    arr *= (0.9 + 0.16 * grime)[..., None]
+    im = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
+    d = ImageDraw.Draw(im)
+    # border band with inlaid crystal studs
+    bw = 30
+    for (bx0, by0, bx1, by1) in [(0, 0, w, int(bw * squash) + 6), (0, h - int(bw * squash) - 6, w, h), (0, 0, bw, h), (w - bw, 0, w, h)]:
+        d.rectangle([bx0, by0, bx1, by1], fill=(122, 92, 70))
+    for k in range(18, w - 18, 52):
+        for yb in (int(bw * squash / 2) + 3, h - int(bw * squash / 2) - 3):
+            d.ellipse([k - 7, yb - 5, k + 7, yb + 5], fill=(40, 120, 140))
+            d.ellipse([k - 5, yb - 4, k + 5, yb + 3], fill=(92, 225, 255))
+    # tesserae spiral mosaic (small tiles following the curve), on a teal disc
+    cx, cy = w / 2, h / 2
+    disc_r = 330
+    for ring in range(0, disc_r, 14):
+        n = max(8, int(ring * math.tau / 14))
+        for k in range(n):
+            a = k / n * math.tau
+            px, py = cx + math.cos(a) * ring, cy + math.sin(a) * ring * squash
+            shade = rnd.randint(-12, 12)
+            base = (38 + shade, 150 + shade, 148 + shade) if ring < disc_r - 26 else (224 + shade, 186 + shade, 90)
+            d.rectangle([px - 5, py - 3, px + 5, py + 3], fill=base)
+    for i in range(900):
+        t = i / 899
+        a = t * 3.2 * math.tau
+        r = 20 + t * 280
+        px, py = cx + math.cos(a) * r, cy + math.sin(a) * r * squash
+        shade = rnd.randint(-14, 10)
+        d.rectangle([px - 7, py - 4, px + 7, py + 4], fill=(246 + min(0, shade), 190 + shade, 72 + shade))
+    im.save(path)
+
+
 def gleam():
-    set_view(52)
+    set_view(40)
     lib.reset(12 if A.preview else 36)
     lights()
     lib.camera_for_region(0, 0, SW, SH, scale=0.5 if A.preview else 1.0)
     tex = os.path.join(OUT, 'plaza_floor.png')
-    plaza_texture(tex, PLAZA)
+    plaza_texture_v2(tex, PLAZA)
     floor_m = ground_image_material('plaza', tex, PLAZA, rough=0.55)
     x0, y0, x1, y1 = PLAZA
     # raised plaza slab
@@ -248,28 +318,32 @@ def gleam():
     sb = lib.MeshBuilder()
     sb.add(top + bot, [(0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)], col('#d8cbb8'))
     sb.build('plaza_sides', side_m, smooth=False)
-    # low curbs with brass-capped posts (front curb lower so it never hides players)
-    curb = lib.MeshBuilder()
-    brass = lib.MeshBuilder()
-    for (ax, ay, bx, by, hh) in [(x0, y0, x1, y0, 0.32), (x0, y0, x0, y1, 0.26), (x1, y0, x1, y1, 0.26), (x0, y1, x1, y1, 0.14)]:
+    # low curbs with brass-capped posts (front curb lower so it never hides players); the back wall
+    # is built separately so it can also be rendered as a front layer over the in-game crowd
+    curb, brass = lib.MeshBuilder(), lib.MeshBuilder()
+    curb_back, brass_back = lib.MeshBuilder(), lib.MeshBuilder()
+    for wi, (ax, ay, bx, by, hh) in enumerate([(x0, y0, x1, y0, 0.46), (x0, y0, x0, y1, 0.24), (x1, y0, x1, y1, 0.24), (x0, y1, x1, y1, 0.12)]):
+        cb, bb = (curb_back, brass_back) if wi == 0 else (curb, brass)
         n = max(2, int(math.hypot(bx - ax, by - ay) / 140))
         for k in range(n + 1):
             t = k / n
             px, py = ax + (bx - ax) * t, ay + (by - ay) * t
             wp = board_to_world(px, py, 0)
             v, f = lib.cylinder((wp.x, wp.y, Z), 0.09, 0.08, hh + 0.12, 10)
-            curb.add(v, f, col('#efe5d8'))
+            cb.add(v, f, col('#efe5d8'))
             bv, bf = lib.blob((wp.x, wp.y, Z + hh + 0.16), 0.08, rough=0.0, subdiv=2)
-            brass.add(bv, bf, col('#e0a93f'))
+            bb.add(bv, bf, col('#e0a93f'))
         a = board_to_world(ax, ay, 0)
         b = board_to_world(bx, by, 0)
         L = (b - a).length
         mid = (a + b) / 2
         ang = math.atan2(b.y - a.y, b.x - a.x)
         v, f = lib.box((mid.x, mid.y, Z + hh / 2), (L, 0.12, hh), rot_z=ang)
-        curb.add(v, f, col('#e3d6c4'))
+        cb.add(v, f, col('#e3d6c4'))
     curb.build('curbs', side_m)
     brass.build('caps', props.mats()['metal'])
+    curb_back.build('curb_back', side_m)
+    brass_back.build('caps_back', props.mats()['metal'])
     # the plaza sits on a floating island
     outline = blob_outline(960, 600, 950, 480, seed=21, lobes=8, wobble=0.06)
     terrain.set_canvas(SW, SH + 600, 4)
@@ -280,23 +354,30 @@ def gleam():
     leaves = lib.MeshBuilder()
     wood = lib.MeshBuilder()
     flowers = lib.MeshBuilder()
-    for (x, y, s) in [(95, 330, 1.2), (80, 700, 1.1), (1830, 330, 1.2), (1845, 720, 1.1), (140, 520, 0.9), (1790, 520, 0.9)]:
+    for (x, y, s) in [(95, 330, 1.15), (70, 860, 1.05), (1830, 330, 1.15), (1850, 860, 1.05)]:
         terrain.tree_round(leaves, wood, x, y, rnd, s)
     for (x, y) in [(130, 900), (1790, 900), (300, 1010), (1620, 1010), (960, 1015)]:
         terrain.bush(leaves, x, y, rnd, 1.2, berries=flowers)
     leaves.build('leaves', lib.attr_mat('leaf', rough=0.78, ao=0.5))
     wood.build('wood', lib.attr_mat('wood', rough=0.8, ao=0.3))
     flowers.build('flowers', lib.attr_mat('flower', rough=0.55))
-    # festival stalls and lanterns along the back
-    props.stall(470, 175, 1.25, stripe=('#ff6b5e', '#fff4dc'))
-    props.stall(1450, 175, 1.25, stripe=('#1fa5a0', '#fff4dc'))
-    props.stall(960, 150, 1.1, stripe=('#8e5cd9', '#fff4dc'))
-    for x in (210, 715, 1205, 1710):
-        props.lantern(x, 228, 1.4)
-    props.bunting(465, 205, 480, 1.35)
-    props.bunting(1455, 205, 480, 1.35)
+    # festival bunting and lanterns along the back (kept low: the HUD owns the top strip);
+    # stalls sit on the island to either side of the plaza
+    for x in (205, 700, 1220, 1715):
+        props.lantern(x, 214, 1.25)
+    props.bunting(452, 212, 490, 1.05)
+    props.bunting(1468, 212, 490, 1.05)
+    props.stall(92, 610, 1.05, stripe=('#ff6b5e', '#fff4dc'))
+    props.stall(1828, 610, 1.05, stripe=('#1fa5a0', '#fff4dc'))
     path = os.path.join(OUT, 'gleam.png')
     lib.render_to(path)
+    # Front layer: only the back wall (everything else held out, so lighting matches exactly).
+    for ob in bpy.context.scene.objects:
+        if ob.type == 'MESH' and ob.name not in ('curb_back', 'caps_back'):
+            ob.is_holdout = True
+    wall = os.path.join(OUT, 'gleam_wall.png')
+    lib.render_to(wall)
+    publish(wall, 'gleam_wall')
     return path
 
 
@@ -383,9 +464,90 @@ def orbit():
         gv, gf = lib.box((c.x + math.cos(a) * (ORBIT_R + 0.12), c.y + math.sin(a) * (ORBIT_R + 0.12), -0.5), (0.22, 0.12, 0.14), rot_z=a + math.pi / 2)
         glow.add(gv, gf, col('#5ce1ff'))
     glow.build('platform_lights', props.mats()['glow'])
+    orbit_ambience(c)
     path = os.path.join(OUT, 'orbit.png')
     lib.render_to(path)
     return path
+
+
+# Spectator balconies for Orbit Dodge (board px of the balcony centre and its deck height in world
+# units). OrbitDodge.ts stands NPCs on these: deck screen y = by - BALCONY_Z * 100 * sin(65deg).
+ORBIT_BALCONIES = [(255, 380), (1665, 380)]
+BALCONY_Z = 0.55
+
+
+def gear(cx, cy, cz, r, teeth, thick, normal_y=True):
+    """Flat brass gear facing the camera (in the XZ plane)."""
+    verts, faces = [], []
+    n = teeth * 4
+    ring = []
+    for k in range(n):
+        a = k / n * math.tau
+        tooth = (k // 2) % 2 == 0
+        rr = r * (1.0 if tooth else 0.86)
+        ring.append((math.cos(a) * rr, math.sin(a) * rr))
+    for yy in (0.0, -thick):
+        verts.append((cx, cy + yy, cz))
+        for (x, z) in ring:
+            verts.append((cx + x, cy + yy, cz + z))
+    m = n + 1
+    for k in range(n):
+        a, b = 1 + k, 1 + (k + 1) % n
+        faces.append((m, m + b, m + a))  # front (towards camera, -Y)
+        faces.append((0, a, b))
+        faces.append((a, b, m + b, m + a))
+    return verts, faces
+
+
+def orbit_ambience(c):
+    mats = props.mats()
+    metal, stone = lib.MeshBuilder(), lib.MeshBuilder()
+    # clockwork visible on the drum below the brass band
+    for (dx, rr, teeth, z) in [(-3.6, 0.9, 12, -1.15), (-2.3, 0.55, 9, -0.95), (2.9, 1.05, 14, -1.25), (4.2, 0.6, 10, -0.9)]:
+        gx = c.x + dx
+        gy = c.y - math.sqrt(max(0.0, (ORBIT_R - 0.5) ** 2 - dx * dx)) - 0.05
+        v, f = gear(gx, gy, z, rr, teeth, 0.08)
+        metal.add(v, f, col('#d9a441'))
+        v, f = lib.blob((gx, gy - 0.1, z), rr * 0.22, rough=0.0, subdiv=2)
+        metal.add(v, f, col('#8a5a1a'))
+    # hanging festival banners around the front of the rim
+    cloth = lib.MeshBuilder()
+    for k in range(9):
+        a = math.pi * (0.12 + 0.76 * k / 8)
+        bx, by = c.x + math.cos(a) * (ORBIT_R + 0.3), c.y - math.sin(a) * (ORBIT_R + 0.3)
+        ang = math.atan2(-math.sin(a), math.cos(a)) + math.pi / 2
+        w2, hh = 0.32, 0.95
+        ca, sa = math.cos(ang), math.sin(ang)
+        pts = [(-w2, 0.0), (w2, 0.0), (w2, -hh), (0.0, -hh - 0.3), (-w2, -hh)]
+        v = [(bx + px * ca, by + px * sa, -0.3 + pz) for (px, pz) in pts]
+        v += [(bx + px * ca - 0.02 * sa, by + px * sa + 0.02 * ca, -0.3 + pz) for (px, pz) in pts]
+        f = [(0, 1, 2, 3, 4), (9, 8, 7, 6, 5)]
+        cloth.add(v, f, col('#1fa5a0' if k % 2 == 0 else '#ff6b5e'))
+        v, f = lib.blob((bx - 0.05 * sa, by + 0.05 * ca - 0.03, -0.3 - 0.45), 0.13, squash=(1.0, 0.4, 1.0), rough=0.0, subdiv=2)
+        metal.add(v, f, col('#f2c14e'))
+    cloth.build('banners', lib.attr_mat('cloth', rough=0.8, sheen=0.4))
+    # floating spectator balconies with railings, lanterns and bunting
+    for (bx, by) in ORBIT_BALCONIES:
+        w = board_to_world(bx, by, 0.0)
+        R = 1.45
+        v, f = lib.lathe([(R + 0.08, BALCONY_Z), (0.0, BALCONY_Z)], 40, (w.x, w.y, 0.0), cap_bottom=False, cap_top=False)
+        stone.add(v, f, col('#f1e7d8'))
+        v, f = lib.lathe([(R + 0.08, BALCONY_Z), (R + 0.08, BALCONY_Z - 0.25), (R - 0.2, BALCONY_Z - 0.6), (0.6, BALCONY_Z - 1.6), (0.15, BALCONY_Z - 2.3)], 40, (w.x, w.y, 0.0), cap_bottom=False, cap_top=False)
+        stone.add(v, f, col('#d8cbb8'))
+        # railing: brass posts and a top rail around the back half (front stays open)
+        rail = []
+        for k in range(15):
+            a = math.pi * (0.05 + 0.9 * k / 14)
+            px, py = w.x + math.cos(a) * R, w.y + math.sin(a) * R
+            v, f = lib.cylinder((px, py, BALCONY_Z), 0.035, 0.035, 0.42, 8)
+            metal.add(v, f, col('#e0a93f'))
+            rail.append((px, py, BALCONY_Z + 0.42))
+        v, f = lib.tube(rail, 0.045, 8)
+        metal.add(v, f, col('#f2c14e'))
+        props.lantern(bx - 105, by - 40, 1.0)
+        props.lantern(bx + 105, by - 40, 1.0)
+    metal.build('ambience_metal', mats['metal'])
+    stone.build('balconies', mats['stone_big'])
 
 
 def publish(path, name):
@@ -477,4 +639,103 @@ def select():
     return path
 
 
-publish({'title': title, 'gleam': gleam, 'orbit': orbit, 'select': select}[A.scene](), A.scene)
+# ------------------------------------------------------------------------------------------
+# Results podium: x and height by finishing place (1st in the centre). Must match ResultsScene.
+RESULT_X = [960, 600, 1320, 1680]
+RESULT_H = [230, 160, 110, 60]
+RESULT_BASE = 880
+RANK_ACCENT = ['#f2c14e', '#d9e2ea', '#d8894a', '#5fb3ad']
+RANK_TOP = ['#fff0c2', '#f2f5f8', '#f8dcc2', '#e8efea']
+
+
+def result_podium(bx, base_y, h_px, rank):
+    P = props.Prop(f'podium_{rank}')
+    c = board_to_world(bx, base_y, 0.0)
+    x, y = c.x, c.y
+    H = h_px / lib.screen_height(1.0)
+    r = 1.28
+    v, f = lib.lathe([(r + 0.14, 0.0), (r + 0.14, 0.1), (r + 0.02, 0.17), (r, 0.2), (r, H - 0.16), (r + 0.09, H - 0.12), (r + 0.09, H - 0.02)], 56, (x, y, 0), cap_top=False)
+    P.b['stone'].add(v, f, col('#efe4d2'))
+    v, f = lib.lathe([(r + 0.09, H - 0.02), (r + 0.09, H), (0.0, H)], 56, (x, y, 0), cap_bottom=False)
+    P.b['paint'].add(v, f, col(RANK_TOP[rank]))
+    acc = col(RANK_ACCENT[rank])
+    for z0, z1, rr in [(0.2, 0.27, r + 0.005), (H - 0.22, H - 0.15, r + 0.005)]:
+        v, f = lib.lathe([(rr, z0), (rr + 0.025, z0), (rr + 0.025, z1), (rr, z1)], 56, (x, y, 0), cap_bottom=False, cap_top=False)
+        P.b['metal'].add(v, f, acc)
+    v, f = lib.lathe([(r - 0.12, H + 0.003), (r + 0.03, H + 0.003)], 56, (x, y, 0), cap_bottom=False, cap_top=False)
+    P.b['metal'].add(v, f, acc)
+    # glowing studs around the lower band
+    for k in range(14):
+        a = k / 14 * math.tau
+        v, f = lib.box((x + math.cos(a) * (r + 0.02), y + math.sin(a) * (r + 0.02), 0.5 if H > 1.0 else 0.34), (0.1, 0.04, 0.12), rot_z=a + math.pi / 2)
+        P.b['glow'].add(v, f, col('#5ce1ff'))
+    # front medallion facing the camera (where the rank numeral sits in-game)
+    if rank < 3:
+        R = 0.5 if rank == 0 else 0.42
+        mz = (h_px * 0.45 + r * PX * lib.COSB) / (PX * lib.SINB)
+        mz = min(max(mz, R + 0.3), H - R - 0.25)
+        # the disc must sit proud of the drum's nearest point (y - r), not just its rim chord
+        fy = y - r + 0.03
+        # enamel disc (triangle fan facing the camera) with a gold tube rim
+        N = 48
+        fz = y - r - 0.05
+        ev = [(x, fz, mz)] + [(x + math.cos(k / N * math.tau) * R, fz, mz + math.sin(k / N * math.tau) * R) for k in range(N)]
+        ef = [(0, 1 + (k + 1) % N, 1 + k) for k in range(N)]
+        base = len(ev)
+        ev += [(x + math.cos(k / N * math.tau) * R, fy, mz + math.sin(k / N * math.tau) * R) for k in range(N)]
+        ef += [(1 + k, 1 + (k + 1) % N, base + (k + 1) % N, base + k) for k in range(N)]
+        lib.mesh_object(f'medal_{rank}', ev, ef, smooth=False, material=lib.simple_mat(f'enamel_{rank}', RANK_ACCENT[rank], rough=0.38))
+        ring = [(x + math.cos(k / N * math.tau) * (R + 0.03), fz, mz + math.sin(k / N * math.tau) * (R + 0.03)) for k in range(N + 1)]
+        v, f = lib.tube(ring, 0.055, 10)
+        P.b['metal'].add(v, f, col('#f2c14e'))
+    return P.build()
+
+
+def festival_stage(base_y, region, trees=True):
+    tex = os.path.join(OUT, f'stage_floor_{int(base_y)}.png')
+    plaza_texture(tex, region)
+    floor_m = ground_image_material('stage', tex, region, rough=0.55)
+    x0, y0, x1, y1 = region
+    top = [tuple(board_to_world(x, y, 0.0)) for (x, y) in [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]]
+    top = [(v[0], v[1], -0.004) for v in top]
+    bot = [tuple(board_to_world(x, y, -0.45)) for (x, y) in [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]]
+    lib.mesh_object('stage_top', top, [(3, 2, 1, 0)], smooth=False, material=floor_m)
+    sb = lib.MeshBuilder()
+    sb.add(top + bot, [(0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)], col('#d8cbb8'))
+    sb.build('stage_sides', props.mats()['stone'], smooth=False)
+    trim = lib.MeshBuilder()
+    a, b = board_to_world(x0, y1, 0), board_to_world(x1, y1, 0)
+    v, f = lib.box(((a.x + b.x) / 2, a.y - 0.02, -0.06), (b.x - a.x, 0.08, 0.12))
+    trim.add(v, f, col('#e0a93f'))
+    trim.build('stage_trim', props.mats()['metal'])
+
+
+def results():
+    set_view(16)
+    lib.reset(12 if A.preview else 36)
+    lights(44, -30)
+    lib.camera_for_region(0, 0, SW, SH, scale=0.5 if A.preview else 1.0)
+    base_y = RESULT_BASE
+    festival_stage(base_y, (40, base_y - 150, 1880, base_y + 70))
+    for rank in range(4):
+        result_podium(RESULT_X[rank], base_y, RESULT_H[rank], rank)
+    # festival backdrop behind the podiums
+    props.bunting(420, base_y - 150, 700, 1.5)
+    props.bunting(1500, base_y - 150, 700, 1.5)
+    for x in (110, 960, 1810):
+        props.lantern(x, base_y - 135, 1.7)
+    props.crystal_gen(250, base_y - 120, 1.0)
+    props.crystal_gen(1670, base_y - 120, 1.0)
+    rnd = random.Random(21)
+    leaves = lib.MeshBuilder()
+    wood = lib.MeshBuilder()
+    for (x, s_) in [(30, 1.6), (1890, 1.6), (380, 1.1), (1540, 1.1)]:
+        terrain.tree_round(leaves, wood, x, base_y - 160, rnd, s_)
+    leaves.build('leaves', lib.attr_mat('leaf', rough=0.78, ao=0.5))
+    wood.build('wood', lib.attr_mat('wood', rough=0.8, ao=0.3))
+    path = os.path.join(OUT, 'results.png')
+    lib.render_to(path)
+    return path
+
+
+publish({'title': title, 'gleam': gleam, 'orbit': orbit, 'select': select, 'results': results}[A.scene](), A.scene)

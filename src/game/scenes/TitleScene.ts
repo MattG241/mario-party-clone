@@ -67,8 +67,9 @@ export class TitleScene extends Phaser.Scene {
 
   private buildBackground(): void {
     this.farIslands = this.cloudsFar = this.cloudsBelow = undefined;
-    if (this.textures.exists('rendered-sky-day')) {
-      this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'rendered-sky-day').setDisplaySize(GAME_WIDTH * 1.04, GAME_HEIGHT * 1.04);
+    const skyKey = ['rendered-sky-golden', 'rendered-sky-day'].find((k) => this.textures.exists(k));
+    if (skyKey) {
+      this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, skyKey).setDisplaySize(GAME_WIDTH * 1.04, GAME_HEIGHT * 1.04);
       return;
     }
     this.add.image(0, 0, 'bg-sky').setOrigin(0).setDisplaySize(GAME_WIDTH, GAME_HEIGHT);

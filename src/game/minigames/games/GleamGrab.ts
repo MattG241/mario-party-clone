@@ -28,8 +28,10 @@ interface Drop {
   state: 'falling' | 'landed' | 'wobble' | 'gone';
   life: number;
   sprite: Phaser.GameObjects.Sprite;
-  shadow: Phaser.GameObjects.Ellipse;
+  shadow: Phaser.GameObjects.Image;
   ring: Phaser.GameObjects.Image;
+  /** Blast radius shown on the floor while a fake capsule wobbles. */
+  zone?: Phaser.GameObjects.Graphics;
 }
 
 const ARENA = { x: 250, y: 290, w: 1420, h: 640 };
@@ -62,6 +64,8 @@ export class GleamGrabScene extends BaseMinigame {
       if (this.textures.exists('rendered-sky-day')) this.add.image(GAME_WIDTH / 2, 540, 'rendered-sky-day').setDisplaySize(GAME_WIDTH * 1.04, 1124).setDepth(-100);
       this.add.image(0, 0, 'rendered-scene-gleam').setOrigin(0).setDepth(-50);
       this.buildCrowd();
+      // The back wall again, drawn over the crowd so the spectators stand behind it.
+      if (this.textures.exists('rendered-scene-gleam_wall')) this.add.image(0, 0, 'rendered-scene-gleam_wall').setOrigin(0).setDepth(250);
       return;
     }
     this.add.image(0, 0, 'bg-sky').setOrigin(0).setDisplaySize(GAME_WIDTH, 1080);
@@ -139,11 +143,14 @@ export class GleamGrabScene extends BaseMinigame {
     else sprite.play('chip-spin');
     if (kind === 'gold') sprite.setTint(0xfff1a0);
     const shadow = this.add
-      .ellipse(px, py, 90, 34, kind === 'capsule' ? 0x5e3494 : 0x0b1a24, kind === 'capsule' ? 0.45 : 0.3)
-      .setScale(0.2)
+      .image(px, py, 'fx-contact')
+      .setScale(0.15, 0.05)
+      .setAlpha(0.3)
       .setDepth(py - 1);
-    // Landing telegraph: a colour-coded ring that closes in on the landing spot as the drop falls.
-    const ringColor = kind === 'capsule' ? 0xb57dff : kind === 'gold' ? 0xffe066 : 0xffc94a;
+    if (kind === 'capsule') shadow.setTint(0x6a1830);
+    // Landing telegraph: a colour-coded ring that closes in on the landing spot as the drop falls
+    // (danger red for fake capsules).
+    const ringColor = kind === 'capsule' ? 0xff4a4a : kind === 'gold' ? 0xffe066 : 0xffc94a;
     const ring = this.add.image(px, py, 'fx-ring').setTint(ringColor).setAlpha(0.2).setScale(1.5, 0.6).setDepth(py - 0.5).setBlendMode(Phaser.BlendModes.ADD);
     this.drops.push({ kind, x: px, y: py, fallT: FALL_MS, fallTotal: FALL_MS, state: 'falling', life: 4500, sprite, shadow, ring });
   }
@@ -155,7 +162,7 @@ export class GleamGrabScene extends BaseMinigame {
         d.fallT -= dt;
         const t = 1 - Math.max(0, d.fallT) / d.fallTotal;
         d.sprite.y = d.y - 700 * (1 - t * t) - 20;
-        d.shadow.setScale(0.2 + t * 0.8);
+        d.shadow.setScale(0.15 + t * 0.62, 0.05 + t * 0.2).setAlpha(0.3 + t * 0.55);
         const rs = 1.5 - t * 0.95;
         const wob = d.kind === 'capsule' ? Math.sin(t * 40) * 0.06 : 0;
         d.ring.setScale(rs + wob, (rs - wob) * 0.4).setAlpha(0.25 + t * 0.7);
@@ -169,7 +176,19 @@ export class GleamGrabScene extends BaseMinigame {
             d.state = 'wobble';
             d.life = 900;
             this.tweens.add({ targets: d.sprite, angle: { from: -14, to: 14 }, duration: 70, yoyo: true, repeat: -1 });
-            d.sprite.setTint(0xffb0b0);
+            d.sprite.setTint(0xff9a9a);
+            // Show the blast radius on the floor while it wobbles.
+            const zone = this.add.graphics({ x: d.x, y: d.y }).setDepth(d.y - 2);
+            zone.fillStyle(0xff3b3b, 0.18);
+            zone.fillEllipse(0, 0, 340, 150);
+            zone.lineStyle(5, 0xff5a4a, 0.9);
+            zone.strokeEllipse(0, 0, 340, 150);
+            zone.lineStyle(3, 0xffffff, 0.5);
+            zone.strokeEllipse(0, 0, 300, 130);
+            zone.setScale(0.3);
+            this.tweens.add({ targets: zone, scale: 1, duration: 180, ease: 'Back.Out' });
+            this.tweens.add({ targets: zone, alpha: { from: 1, to: 0.45 }, duration: 110, yoyo: true, repeat: -1 });
+            d.zone = zone;
           } else d.state = 'landed';
         }
       } else if (d.state === 'landed') {
@@ -190,6 +209,10 @@ export class GleamGrabScene extends BaseMinigame {
     d.sprite.destroy();
     d.shadow.destroy();
     if (d.ring.active) d.ring.destroy();
+    if (d.zone) {
+      this.tweens.killTweensOf(d.zone);
+      d.zone.destroy();
+    }
   }
 
   private burst(d: Drop): void {

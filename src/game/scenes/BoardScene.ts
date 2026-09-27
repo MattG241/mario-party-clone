@@ -7,7 +7,7 @@ import { MovementController } from '../board/MovementController';
 import { OrbitDial } from '../board/OrbitDial';
 import { PathChooser } from '../board/PathChooser';
 import { runMatch } from '../board/TurnManager';
-import { COLORS, CSS, GAME_HEIGHT, GAME_WIDTH } from '../constants';
+import { CAMERA_ZOOM, COLORS, CSS, GAME_HEIGHT, GAME_WIDTH } from '../constants';
 import { findBoard } from '../data/boards';
 import { ITEM_IDS } from '../data/items';
 import { clearDebugInfo, DEBUG_ENABLED, logError, setDebugInfo, URL_PARAMS } from '../debug/debug';
@@ -253,7 +253,7 @@ export class BoardScene extends Phaser.Scene {
   followToken(slot: number): void {
     const cam = this.cameras.main;
     const t = this.moves.token(slot);
-    if (Math.abs(cam.zoom - 0.95) > 0.02) cam.zoomTo(0.95, 350, 'Sine.easeInOut', true);
+    if (Math.abs(cam.zoom - CAMERA_ZOOM.follow) > 0.02) cam.zoomTo(CAMERA_ZOOM.follow, 350, 'Sine.easeInOut', true);
     cam.startFollow(t, false, 0.1, 0.1, 0, 90);
   }
 

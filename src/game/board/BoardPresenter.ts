@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { audio } from '../audio/AudioManager';
-import { COLORS, CSS, PLAYER_COLORS } from '../constants';
+import { CAMERA_ZOOM, COLORS, CSS, PLAYER_COLORS } from '../constants';
 import { CHARACTERS } from '../data/characters';
 import { ITEMS, type ItemId } from '../data/items';
 import type { Controls } from '../input/Controls';
@@ -103,7 +103,7 @@ export class BoardPresenter implements FlowIO {
     this.ui.refresh(this.state);
     this.ui.setPrompts([]);
     const t = this.moves.token(p.slot);
-    await this.scene.focus(t.x, t.y - 80, 0.95, this.dur(650));
+    await this.scene.focus(t.x, t.y - 80, CAMERA_ZOOM.turn, this.dur(650));
     t.play('wave');
     await this.ui.turnBanner(p);
   }
@@ -177,7 +177,7 @@ export class BoardPresenter implements FlowIO {
   async spinDial(p: PlayerState, result: number, bonus: number): Promise<void> {
     const c = this.controls(p);
     const t = this.moves.token(p.slot);
-    await this.scene.focus(t.x, t.y - 160, 1.08, this.dur(420));
+    await this.scene.focus(t.x, t.y - 170, CAMERA_ZOOM.dial, this.dur(420));
     if (c) this.ui.setPrompts([{ button: 'A', label: 'Stop the Orbit Dial!' }], p.slot);
     await this.scene.dial.spin(t, result, bonus, {
       controls: c,

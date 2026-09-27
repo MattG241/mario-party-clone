@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { audio } from '../audio/AudioManager';
-import { Character } from '../characters/Character';
+import { animHeadTop, Character } from '../characters/Character';
 import { COLORS, CSS, GAME_HEIGHT, GAME_WIDTH, PLAYER_COLORS } from '../constants';
 import { EffectsManager } from '../effects/EffectsManager';
 import { input } from '../input/InputManager';
@@ -9,14 +9,29 @@ import { rewardForPlace } from '../state/scoring';
 import { session } from '../state/Session';
 import { PromptBar } from '../ui/ControllerPrompt';
 import { Menu } from '../ui/Menu';
-import { drawPanel } from '../ui/Panel';
 import { PlayerBadge } from '../ui/PlayerBadge';
 import { addText, addTitle } from '../ui/theme';
 import { enterScene, goTo } from '../ui/Transition';
 import { randomSeed } from '../util/Random';
 
-/** Podium heights by place (1st highest). */
-const PODIUM_H = [230, 160, 110, 70];
+/** Podium x and height by finishing place (1st in the centre). Must match scripts/art/scenes.py. */
+const PODIUM_X = [960, 600, 1320, 1680];
+const PODIUM_H = [230, 160, 110, 60];
+const PODIUM_BASE = 880;
+/** Camera elevation of the rendered results stage (degrees). */
+const STAGE_ELEV = 16;
+
+/** Screen y of the rank medallion on a rendered podium (same maths as the Blender scene). */
+function medalY(rank: number, h: number): number {
+  const beta = ((90 - STAGE_ELEV) * Math.PI) / 180;
+  const sinb = Math.sin(beta);
+  const cosb = Math.cos(beta);
+  const H = h / (100 * sinb);
+  const R = rank === 0 ? 0.5 : 0.42;
+  let mz = (h * 0.45 + 1.28 * 100 * cosb) / (100 * sinb);
+  mz = Math.min(Math.max(mz, R + 0.3), H - R - 0.25);
+  return PODIUM_BASE + 1.28 * 100 * cosb - mz * 100 * sinb;
+}
 
 /** A festival drum podium: teal body, cream top with gold rim, the player's colour band. */
 export function drawPodium(g: Phaser.GameObjects.Graphics, x: number, baseY: number, h: number, color: number, gold: boolean): void {
@@ -72,44 +87,63 @@ export class ResultsScene extends Phaser.Scene {
     enterScene(this);
     audio.playMusic('results');
     const fx = new EffectsManager(this, 800);
-    if (this.textures.exists('rendered-sky-day')) {
-      this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'rendered-sky-day').setDisplaySize(GAME_WIDTH * 1.05, GAME_HEIGHT * 1.05).setDepth(-10);
+    const skyKey = ['rendered-sky-golden', 'rendered-sky-day'].find((k) => this.textures.exists(k));
+    if (skyKey) {
+      this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, skyKey).setDisplaySize(GAME_WIDTH * 1.05, GAME_HEIGHT * 1.05).setDepth(-10);
     } else {
       this.add.image(0, 0, 'bg-sky').setOrigin(0).setDisplaySize(GAME_WIDTH, GAME_HEIGHT).setDepth(-10);
       this.add.tileSprite(0, 640, GAME_WIDTH, 560, 'bg-clouds-below').setOrigin(0).setDepth(-10);
     }
-    addTitle(this, GAME_WIDTH / 2, 80, 'RESULTS', 84);
+    addTitle(this, GAME_WIDTH / 2, 74, 'RESULTS', 80);
     const board = this.launchData.mode === 'board';
-    // Order podium columns: 2nd, 1st, 3rd, 4th (by rank index)
     const ranked = [...this.result.placements].sort((a, b) => a.place - b.place || a.slot - b.slot);
-    const columns = [1, 0, 2, 3].filter((i) => i < ranked.length);
-    const xs = ranked.length === 2 ? [760, 1160] : ranked.length === 3 ? [560, 960, 1360] : [460, 820, 1180, 1540];
-    columns.forEach((rankIdx, col) => {
-      const pl = ranked[rankIdx];
+    // The rendered stage has all four podiums; fewer players fall back to drawn podiums.
+    const stage = ranked.length === 4 && this.textures.exists('rendered-scene-results');
+    if (stage) this.add.image(0, 0, 'rendered-scene-results').setOrigin(0).setDepth(-8);
+    const baseY = PODIUM_BASE;
+    ranked.forEach((pl, rankIdx) => {
       const lp = this.launchData.players.find((p) => p.slot === pl.slot)!;
-      const x = xs[col];
-      const h = PODIUM_H[Math.min(3, pl.place - 1)];
-      const baseY = board ? 900 : 860;
-      drawPodium(this.add.graphics(), x, baseY, h, PLAYER_COLORS[pl.slot], pl.place === 1);
+      // Columns follow finishing order; tied places share heights by their place.
+      const x = PODIUM_X[rankIdx];
+      const h = PODIUM_H[rankIdx];
+      if (!stage) drawPodium(this.add.graphics(), x, baseY, h, PLAYER_COLORS[pl.slot], pl.place === 1);
       const suffix = pl.place === 1 ? 'st' : pl.place === 2 ? 'nd' : pl.place === 3 ? 'rd' : 'th';
-      addTitle(this, x, baseY - h / 2 + 30, `${pl.place}${suffix}`, 64, pl.place === 1 ? CSS.goldLight : CSS.cream);
-      const c = new Character(this, x, baseY - h + 10, lp.characterId, { scale: 0.9 });
+      const ry = stage && rankIdx < 3 ? medalY(rankIdx, h) : baseY - h / 2 + 18;
+      addTitle(this, x, ry, `${pl.place}${suffix}`, rankIdx === 0 ? 46 : rankIdx < 3 ? 40 : 34, pl.place === 1 ? CSS.goldLight : CSS.cream);
+      // Player-colour ring on the podium top so each column reads as that player's.
+      const ring = this.add.graphics();
+      ring.lineStyle(5, PLAYER_COLORS[pl.slot], 0.95);
+      ring.strokeEllipse(x, baseY - h + 4, 196, 50);
+      ring.fillStyle(PLAYER_COLORS[pl.slot], 0.22);
+      ring.fillEllipse(x, baseY - h + 4, 196, 50);
+      const c = new Character(this, x, baseY - h + 8, lp.characterId, { scale: rankIdx === 0 ? 0.98 : 0.88 });
       c.setAlpha(0);
-      // Marker centred over the character's head.
-      new PlayerBadge(this, x, baseY - h - 262, pl.slot, 26);
+      // Marker hangs just above this character's head.
+      const badge = new PlayerBadge(this, x, baseY - h + 8 + animHeadTop(lp.characterId) * c.scale - 40, pl.slot, 24);
+      badge.setAlpha(0);
       const scoreLabel = this.result.scores.find((s) => s.slot === pl.slot)?.label ?? '';
-      addText(this, x, baseY + 44, scoreLabel, 28, { color: CSS.cream, weight: 700, stroke: '#1b1530', strokeThickness: 6 });
+      const pill = this.add.graphics();
+      const lw = Math.max(150, scoreLabel.length * 15 + 40);
+      pill.fillStyle(0x0c2630, 0.8);
+      pill.fillRoundedRect(x - lw / 2, baseY + 48, lw, 44, 22);
+      pill.lineStyle(3, PLAYER_COLORS[pl.slot], 0.9);
+      pill.strokeRoundedRect(x - lw / 2, baseY + 48, lw, 44, 22);
+      addText(this, x, baseY + 70, scoreLabel, 24, { color: CSS.cream, weight: 700 });
       if (board) {
         const panel = this.add.graphics();
-        drawPanel(panel, x - 90, baseY + 78, 180, 64, { radius: 24, borderWidth: 4, engraving: false, shadowOffset: 5 });
-        const chip = this.add.sprite(x - 44, baseY + 110, 'items', '0').setScale(0.22).play('chip-spin');
-        addText(this, x + 20, baseY + 110, `+${rewardForPlace(pl.place)}`, 34, { color: CSS.ink, weight: 700 });
+        panel.fillStyle(0x0c2630, 0.85);
+        panel.fillRoundedRect(x - 70, baseY + 100, 140, 48, 24);
+        panel.lineStyle(3, COLORS.gold, 1);
+        panel.strokeRoundedRect(x - 70, baseY + 100, 140, 48, 24);
+        const chip = this.add.sprite(x - 34, baseY + 124, 'items', '0').setScale(0.18).play('chip-spin');
+        addText(this, x + 18, baseY + 124, `+${rewardForPlace(pl.place)}`, 28, { color: CSS.goldLight, weight: 700 });
         void chip;
       }
       // Staggered reveal: 4th → 1st
       const delay = 400 + (ranked.length - 1 - rankIdx) * 450;
       this.time.delayedCall(delay, () => {
         c.setAlpha(1);
+        this.tweens.add({ targets: badge, alpha: 1, duration: 200, delay: 300 });
         c.y -= 200;
         this.tweens.add({ targets: c, y: c.y + 200, duration: 380, ease: 'Bounce.Out' });
         audio.play('land');
@@ -127,6 +161,16 @@ export class ResultsScene extends Phaser.Scene {
         if (pl.place === 1) {
           audio.play('victory');
           fx.confetti(x, baseY - h - 280, 90);
+          // Spotlight from above onto the winner.
+          const beam = this.add.graphics().setDepth(-6).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0);
+          for (let k = 0; k < 6; k++) {
+            beam.fillStyle(0xfff1c4, 0.05);
+            beam.fillTriangle(x - 30 - k * 4, -40, x + 30 + k * 4, -40, x + 170 + k * 22, baseY - h + 20);
+            beam.fillTriangle(x - 30 - k * 4, -40, x - 170 - k * 22, baseY - h + 20, x + 170 + k * 22, baseY - h + 20);
+          }
+          beam.fillStyle(0xfff1c4, 0.16);
+          beam.fillEllipse(x, baseY - h + 8, 360, 80);
+          this.tweens.add({ targets: beam, alpha: 1, duration: 500 });
           // Sunburst behind the winner and a ribbon above.
           const rays = this.add.graphics({ x, y: baseY - h - 120 }).setDepth(-5).setAlpha(0);
           for (let i = 0; i < 18; i++) {

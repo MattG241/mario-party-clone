@@ -2,11 +2,11 @@ import Phaser from 'phaser';
 import { audio } from '../audio/AudioManager';
 import { Character } from '../characters/Character';
 import { CSS, GAME_HEIGHT, GAME_WIDTH, PLAYER_COLORS } from '../constants';
+import { CHARACTERS } from '../data/characters';
 import { input } from '../input/InputManager';
 import { minigameInfo, type MinigameInfo, type MinigameLaunch } from '../minigames/MinigameManager';
 import { glyphKindFor, makeGlyph, PromptBar } from '../ui/ControllerPrompt';
-import { drawPanel } from '../ui/Panel';
-import { PlayerBadge } from '../ui/PlayerBadge';
+import { addPortrait } from '../ui/Portrait';
 import { addText, addTitle } from '../ui/theme';
 import { enterScene, goTo } from '../ui/Transition';
 import { centerOrigin } from '../util/spriteUtil';
@@ -52,89 +52,123 @@ export class MinigameIntroScene extends Phaser.Scene {
       return;
     }
     audio.playMusic('minigame');
-    if (this.textures.exists('rendered-sky-day')) this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'rendered-sky-day').setDisplaySize(GAME_WIDTH * 1.04, GAME_HEIGHT * 1.04);
+    const arenaKey = this.info.arena && this.textures.exists(this.info.arena) ? this.info.arena : null;
+    // Backdrop: the arena itself (or the sky), dimmed under a navy veil so the card reads.
+    if (this.textures.exists('rendered-sky-golden')) this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'rendered-sky-golden').setDisplaySize(GAME_WIDTH * 1.04, GAME_HEIGHT * 1.04);
+    else if (this.textures.exists('rendered-sky-day')) this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'rendered-sky-day').setDisplaySize(GAME_WIDTH * 1.04, GAME_HEIGHT * 1.04);
     else this.add.image(0, 0, 'bg-sky').setOrigin(0).setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
-    const veil = this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, this.info.color, 0.28).setOrigin(0);
-    void veil;
-    // Swirling rays
-    const rays = this.add.graphics({ x: GAME_WIDTH / 2, y: 330 });
+    if (arenaKey) {
+      const bg = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, arenaKey).setScale(1.08);
+      if (this.renderer.type === Phaser.WEBGL) bg.preFX?.addBlur(1, 2, 2, 1.2);
+    }
+    const veil = this.add.graphics();
+    veil.fillGradientStyle(0x0a2230, 0x0a2230, 0x06141a, 0x06141a, 0.62, 0.62, 0.8, 0.8);
+    veil.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    // Swirling rays behind the title
+    const rays = this.add.graphics({ x: GAME_WIDTH / 2, y: 150 });
     for (let i = 0; i < 16; i++) {
       const a0 = (i / 16) * Math.PI * 2;
-      rays.fillStyle(0xffffff, 0.07);
+      rays.fillStyle(this.info.color, 0.08);
       rays.slice(0, 0, 1400, a0, a0 + 0.12, false);
       rays.fillPath();
     }
     this.tweens.add({ targets: rays, angle: 360, duration: 40000, repeat: -1 });
-    const header = addTitle(this, GAME_WIDTH / 2, 90, 'MINIGAME!', 72, CSS.goldLight);
+    const header = addTitle(this, GAME_WIDTH / 2, 62, 'MINIGAME!', 50, CSS.goldLight);
     header.setScale(0.4);
     this.tweens.add({ targets: header, scale: 1, duration: 360, ease: 'Back.Out' });
     audio.play('fanfare');
-    const title = addTitle(this, GAME_WIDTH / 2, 190, this.info.name.toUpperCase(), 104);
+    const title = addTitle(this, GAME_WIDTH / 2, 140, this.info.name.toUpperCase(), 92);
     title.setAlpha(0);
-    this.tweens.add({ targets: title, alpha: 1, y: 200, delay: 250, duration: 300, ease: 'Back.Out' });
-    addText(this, GAME_WIDTH / 2, 280, this.info.tagline, 34, { color: CSS.cream, weight: 600, stroke: '#1b1530', strokeThickness: 6 });
+    this.tweens.add({ targets: title, alpha: 1, y: 146, delay: 250, duration: 300, ease: 'Back.Out' });
+    addText(this, GAME_WIDTH / 2, 214, this.info.tagline, 30, { color: CSS.creamDark, weight: 700 });
 
-    // Card: preview art + instructions
-    const card = this.add.graphics();
-    drawPanel(card, 170, 330, 1580, 420, { radius: 34 });
-    if (this.info.arena && this.textures.exists(this.info.arena)) {
-      this.buildArenaPreview(this.info.arena);
-    } else {
+    // Left: large live preview. Right: rules panel.
+    const PX = 150;
+    const PY = 256;
+    const PW = 860;
+    const PH = 484;
+    if (arenaKey) this.buildArenaPreview(arenaKey, PX, PY, PW, PH);
+    else {
+      const frame = this.add.graphics();
+      frame.fillStyle(0x0c2630, 0.85);
+      frame.fillRoundedRect(PX, PY, PW, PH, 28);
       const pv = this.info.preview;
-      const art = pv.frame !== undefined ? this.add.sprite(420, 540, pv.texture, pv.frame) : this.add.image(420, 540, pv.texture);
+      const art = pv.frame !== undefined ? this.add.sprite(PX + PW / 2, PY + PH / 2, pv.texture, pv.frame) : this.add.image(PX + PW / 2, PY + PH / 2, pv.texture);
       if (pv.frame !== undefined) {
         const o = centerOrigin(pv.texture, pv.frame);
         art.setOrigin(o.x, o.y);
       }
-      if (this.textures.exists(pv.texture)) art.setScale(pv.scale);
-      const glow = this.add.image(420, 540, 'fx-dot').setScale(16).setTint(this.info.color).setAlpha(0.35).setBlendMode(Phaser.BlendModes.ADD);
+      if (this.textures.exists(pv.texture)) art.setScale(pv.scale * 1.4);
+      const glow = this.add.image(PX + PW / 2, PY + PH / 2, 'fx-dot').setScale(20).setTint(this.info.color).setAlpha(0.35).setBlendMode(Phaser.BlendModes.ADD);
       this.children.moveBelow(glow, art);
-      this.tweens.add({ targets: art, y: 525, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+      this.tweens.add({ targets: art, y: art.y - 15, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+      frame.lineStyle(6, this.info.color, 1);
+      frame.strokeRoundedRect(PX, PY, PW, PH, 28);
     }
-    if (mode === 'on') {
-      this.info.instructions.forEach((line, i) => {
-        const y = 400 + i * 62;
-        const dot = this.add.graphics();
-        dot.fillStyle(this.info.color, 1);
-        dot.fillCircle(720, y + 2, 12);
-        addText(this, 750, y, line, 32, { color: CSS.ink, weight: 600, align: 'left', wrap: 950 });
-      });
-    } else {
-      addText(this, 1150, 440, this.info.description, 30, { color: CSS.ink, weight: 500, wrap: 900 });
-    }
-    new PromptBar(this, 1150, 690, this.info.controls, { size: 48, fontSize: 30, color: CSS.ink });
-    addText(this, 1650, 360, `${this.info.players} · ${this.info.duration}`, 22, { color: CSS.inkSoft, weight: 600, align: 'right' });
+    const RX = 1050;
+    const RW = 720;
+    const panel = this.add.graphics();
+    panel.fillStyle(0x06141a, 0.3);
+    panel.fillRoundedRect(RX + 5, PY + 8, RW, PH, 28);
+    panel.fillStyle(0x0c2630, 0.88);
+    panel.fillRoundedRect(RX, PY, RW, PH, 28);
+    panel.fillStyle(0xffffff, 0.06);
+    panel.fillRoundedRect(RX + 10, PY + 8, RW - 20, 64, { tl: 22, tr: 22, bl: 8, br: 8 });
+    panel.lineStyle(4, this.info.color, 1);
+    panel.strokeRoundedRect(RX, PY, RW, PH, 28);
+    addText(this, RX + 34, PY + 40, 'HOW TO PLAY', 26, { color: CSS.goldLight, weight: 700, align: 'left' });
+    addText(this, RX + RW - 30, PY + 40, `${this.info.players}  ·  ${this.info.duration}`, 20, { color: CSS.creamDark, weight: 700, align: 'right' });
+    const lines = mode === 'on' ? this.info.instructions : [this.info.description];
+    lines.forEach((line, i) => {
+      const y = PY + 116 + i * 78;
+      const g = this.add.graphics();
+      g.fillStyle(this.info.color, 1);
+      g.fillCircle(RX + 56, y, 22);
+      g.lineStyle(3, 0xfff4dc, 0.9);
+      g.strokeCircle(RX + 56, y, 22);
+      addText(this, RX + 56, y - 1, String(i + 1), 24, { color: '#ffffff', weight: 700, stroke: '#06141a', strokeThickness: 4 });
+      addText(this, RX + 96, y, line, 25, { color: CSS.cream, weight: 600, align: 'left', wrap: RW - 130 });
+    });
+    const cg = this.add.graphics();
+    cg.fillStyle(0x000000, 0.22);
+    cg.fillRoundedRect(RX + 24, PY + PH - 92, RW - 48, 70, 35);
+    new PromptBar(this, RX + RW / 2, PY + PH - 57, this.info.controls, { size: 42, fontSize: 26, color: CSS.cream }).list
+      .filter((o) => o instanceof Phaser.GameObjects.Graphics)
+      .forEach((o) => o.destroy());
 
-    // Ready check
+    // Ready check: slim capsules with portraits, like the lobby.
     const n = this.launchData.players.length;
     this.launchData.players.forEach((p, i) => {
-      const x = GAME_WIDTH / 2 + (i - (n - 1) / 2) * 400;
-      const y = 900;
+      const x = GAME_WIDTH / 2 + (i - (n - 1) / 2) * 430;
+      const y = 870;
+      const w = 390;
+      const h = 104;
       const g = this.add.graphics();
-      drawPanel(g, x - 170, y - 110, 340, 200, { radius: 26, border: PLAYER_COLORS[p.slot], borderWidth: 5, engraving: false });
-      const c = new Character(this, x - 80, y + 70, p.characterId, { scale: 0.5, shadow: false });
-      c.play('idle');
-      new PlayerBadge(this, x - 128, y - 72, p.slot, 22);
-      const mark = addText(this, x + 60, p.isCpu ? y - 10 : y - 44, p.isCpu ? 'CPU\nREADY' : 'READY?', 34, { color: p.isCpu ? CSS.tealDark : CSS.inkSoft, weight: 700, lineSpacing: -4 });
+      g.fillStyle(0x06141a, 0.3);
+      g.fillRoundedRect(x - w / 2 + 4, y - h / 2 + 7, w, h, h / 2);
+      g.fillStyle(0x0c2630, 0.88);
+      g.fillRoundedRect(x - w / 2, y - h / 2, w, h, h / 2);
+      g.lineStyle(4, PLAYER_COLORS[p.slot], 1);
+      g.strokeRoundedRect(x - w / 2, y - h / 2, w, h, h / 2);
+      const portrait = addPortrait(this, p.characterId, p.slot, 46, { worldX: x - w / 2 + 50, worldY: y });
+      portrait.setPosition(x - w / 2 + 50, y);
+      addText(this, x - w / 2 + 112, y - 22, CHARACTERS[p.characterId].name.split(' ')[0].toUpperCase(), 20, { color: CSS.creamDark, weight: 700, align: 'left' });
+      const mark = addText(this, x - w / 2 + 112, y + 14, p.isCpu ? 'CPU READY' : 'READY?', 30, { color: p.isCpu ? CSS.crystal : CSS.cream, weight: 700, align: 'left' });
       this.readyMarks.set(p.slot, mark);
       this.ready.set(p.slot, p.isCpu);
       if (!p.isCpu) {
         // "Press A" with the glyph for this player's own device.
-        const glyph = makeGlyph(this, 'A', 54, glyphKindFor(p.slot));
-        glyph.setPosition(x + 60, y + 26);
+        const glyph = makeGlyph(this, 'A', 46, glyphKindFor(p.slot));
+        glyph.setPosition(x + w / 2 - 20 - glyph.width / 2, y);
         this.readyGlyphs.set(p.slot, glyph);
         this.tweens.add({ targets: glyph, scale: { from: 1, to: 1.12 }, duration: 500, yoyo: true, repeat: -1 });
       }
     });
-    new PromptBar(this, GAME_WIDTH / 2, GAME_HEIGHT - 34, [{ button: 'A', label: 'Ready!' }], { size: 38, fontSize: 26 });
+    new PromptBar(this, GAME_WIDTH / 2, GAME_HEIGHT - 60, [{ button: 'A', label: 'Ready!' }], { size: 38, fontSize: 26 });
   }
 
   /** Live mini-preview: the rendered arena with this match's characters playing in it. */
-  private buildArenaPreview(key: string): void {
-    const x0 = 200;
-    const y0 = 356;
-    const w = 470;
-    const h = 368;
+  private buildArenaPreview(key: string, x0: number, y0: number, w: number, h: number): void {
     const scale = w / GAME_WIDTH;
     const root = this.add.container(x0, y0);
     const sky = this.textures.exists('rendered-sky-day') ? this.add.image(w / 2, h / 2, 'rendered-sky-day').setDisplaySize(w * 1.2, h * 1.2) : null;
@@ -148,6 +182,8 @@ export class MinigameIntroScene extends Phaser.Scene {
     const frame = this.add.graphics();
     frame.lineStyle(6, this.info.color, 1);
     frame.strokeRoundedRect(x0, y0, w, h, 22);
+    frame.lineStyle(2, 0xfff4dc, 0.5);
+    frame.strokeRoundedRect(x0 + 5, y0 + 5, w - 10, h - 10, 18);
     // characters wandering around the arena (scaled down)
     const cy = (h - GAME_HEIGHT * scale) / 2;
     this.launchData.players.forEach((p, i) => {
@@ -167,7 +203,10 @@ export class MinigameIntroScene extends Phaser.Scene {
         onRepeat: () => c.face(!!(i % 2)),
       });
     });
-    addText(this, x0 + w / 2, y0 + h - 22, 'PREVIEW', 18, { color: CSS.cream, weight: 700, stroke: '#1b1530', strokeThickness: 5 });
+    const chip = this.add.graphics();
+    chip.fillStyle(0x0c2630, 0.85);
+    chip.fillRoundedRect(x0 + 18, y0 + 18, 132, 36, 18);
+    addText(this, x0 + 84, y0 + 36, 'PREVIEW', 18, { color: CSS.cream, weight: 700 });
   }
 
   private start(): void {
