@@ -89,7 +89,7 @@ export function buildCourse(rng: Random): CourseObstacle[] {
     const x0 = Math.round(cursor);
     const x1 = Math.round(cursor + w);
     const x = Math.round(cursor + w / 2);
-    if (kind === 'log') out.push({ kind, x, x0, x1, period: Math.round(rng.range(1300, 1800)), phase: Math.round(rng.range(0, 1200)) });
+    if (kind === 'log') out.push({ kind, x, x0, x1, period: Math.round(rng.range(1150, 1600)), phase: Math.round(rng.range(0, 1100)) });
     else if (kind === 'mace') out.push({ kind, x, x0, x1, period: Math.round(rng.range(3600, 4200)), phase: Math.round(rng.range(0, 3000)) });
     else out.push({ kind, x, x0, x1, period: 0, phase: 0 });
     cursor += w;

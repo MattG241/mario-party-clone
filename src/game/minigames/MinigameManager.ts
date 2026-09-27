@@ -127,7 +127,8 @@ export const MINIGAMES: MinigameInfo[] = [
     players: '1–4 players',
     duration: 'Until one remains',
     color: 0x5ca8ff,
-    preview: { texture: 'props', frame: '1', scale: 0.62 },
+    preview: { texture: 'rendered-mg-sky-tile', scale: 0.9 },
+    ruleIcons: [{ texture: 'rendered-mg-sky-tile' }, null, null, { texture: 'prism-relic' }],
     assets: [{ key: 'mg-sky-tile', path: `${MG}skybridge-scramble/tile.svg`, width: 150, height: 110 }],
   },
   {
@@ -145,6 +146,8 @@ export const MINIGAMES: MinigameInfo[] = [
     duration: '40 s',
     color: 0xff6b5e,
     preview: { texture: 'mg-totem', scale: 0.55 },
+    arena: 'rendered-scene-totem',
+    ruleIcons: [null, { texture: 'rendered-mg-totem' }, null, { texture: 'prism-relic' }],
     teamGame: true,
     assets: [{ key: 'mg-totem', path: `${MG}totem-tug/totem.svg`, width: 260, height: 420 }],
   },
@@ -185,6 +188,8 @@ export const MINIGAMES: MinigameInfo[] = [
     duration: '75 s',
     color: 0xc49bff,
     preview: { texture: 'mg-parcel', scale: 0.8 },
+    arena: 'rendered-scene-relay',
+    ruleIcons: [{ texture: 'rendered-mg-spring' }, { texture: 'rendered-mg-parcel' }, { texture: 'rendered-mg-mace' }, { texture: 'prism-relic' }],
     assets: [{ key: 'mg-parcel', path: `${MG}relic-relay/parcel.svg`, width: 110, height: 110 }],
   },
   {
@@ -202,7 +207,8 @@ export const MINIGAMES: MinigameInfo[] = [
     players: '1–4 players',
     duration: '50 s',
     color: 0x6cc24a,
-    preview: { texture: 'props', frame: '14', scale: 0.62 },
+    preview: { texture: 'rendered-mg-plank', scale: 0.9 },
+    ruleIcons: [{ texture: 'rendered-mg-plank' }, null, null, { texture: 'prism-relic' }],
     assets: [{ key: 'mg-tower-plank', path: `${MG}tumble-tower/plank.svg`, width: 260, height: 60 }],
   },
 ];

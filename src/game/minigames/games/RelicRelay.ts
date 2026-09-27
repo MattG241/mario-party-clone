@@ -42,17 +42,16 @@ import {
 // Layout constants (lane centrelines, start/goal x) and hazard geometry live in relicRelayLogic.ts.
 
 // --- Art contract ------------------------------------------------------------------------------
-/** Optional pre-rendered art and the anchor (normalised origin) each sprite is placed by. */
+/**
+ * Optional pre-rendered art (scripts/art/mg_arenas.py). Sprites are placed by an anchor (normalised
+ * origin): `meta` names their entry in 'rendered-mg-sprites' (mg/sprites.json), whose anchor/scale
+ * win when loaded; ox/oy are the defaults. `size` shrinks a render to the gameplay size used here.
+ */
 const ART = {
   /** Full 1920×1080 course at (0, 0): lanes, hedges, start + goal markers. */
   scene: 'rendered-scene-relay',
   /** Optional overlay drawn above the runners (e.g. the front of an arch). */
   sceneFront: 'rendered-scene-relay_front',
-  /**
-   * Sprites from scripts/art/mg_arenas.py. `meta` names the entry in 'rendered-mg-sprites'
-   * (mg/sprites.json), whose anchor/scale win when loaded; ox/oy are the defaults. `size` shrinks
-   * the render to the gameplay size used here.
-   */
   /** Roll-frame strip (spritesheet); anchor = where the log touches the lane centreline. */
   log: { key: 'rendered-mg-log', meta: 'log', ox: 0.5, oy: 150 / 180, size: 0.72 },
   /** Spiked ball; anchor = centre of the ball (the rope is drawn in code). */
@@ -70,6 +69,9 @@ const TEX_MACE = 'relay-mace';
 /** Fallback spring: the spring-pad frame of the shared props sheet (anchor at the footprint). */
 const SPRING_FRAME = '21';
 const SPRING_ORIGIN = { x: 0.532, y: 0.69 };
+
+/** Race progress bar along the bottom edge (screen px). */
+const TRACK_BAR = { x0: 560, x1: 1360, y: 1026 };
 
 // --- Runners -----------------------------------------------------------------------------------
 const CHAR_SCALE = 0.55;
@@ -102,8 +104,8 @@ const PARCEL_HALF_H = 22;
 const LOG_R = 26;
 /** Length of a log across the lane, on screen. */
 const LOG_LEN = 80;
-/** Heights and across-lane depths on screen (45 degree camera, as the rendered course). */
-const VIEW_K = 0.707;
+/** Heights and across-lane depths shrink by this on screen (45 degree camera, as the course). */
+const VIEW_K = DEPTH_K;
 const LOG_SPEED = 240;
 /** Logs hurt below this height (top of the spikes). */
 const LOG_HIT_H = 44;
@@ -498,8 +500,8 @@ interface Runner {
   launched: boolean;
   finished: boolean;
   place: number;
+  /** Phase of the fake run cycle (bob and rock) for the single-frame carry pose. */
   bob: number;
-  dustT: number;
   markerY: number;
   parcel: Parcel;
   prompt?: Phaser.GameObjects.Container;
@@ -551,7 +553,7 @@ export class RelicRelayScene extends BaseMinigame {
   /** Display scale of the mace ball (rendered art is shrunk to the gameplay size). */
   private maceBase = 1;
   /** Roll frames in the rendered log strip. */
-  private artMetaFrames = 8;
+  private logFrames = 8;
 
   constructor() {
     super('mg-relic-relay');
@@ -572,7 +574,7 @@ export class RelicRelayScene extends BaseMinigame {
     this.usedLanes = LANES_FOR[Math.max(1, Math.min(4, this.launch.players.length))];
     this.maceBase = this.textures.exists(ART.mace.key) ? this.artMeta(ART.mace).k : 1;
     const logMeta = (this.cache.json.get('rendered-mg-sprites') as Record<string, { frames?: number }> | undefined)?.log;
-    this.artMetaFrames = logMeta?.frames ?? (this.textures.exists(ART.log.key) ? Math.max(1, this.textures.get(ART.log.key).frameTotal - 1) : 8);
+    this.logFrames = logMeta?.frames ?? (this.textures.exists(ART.log.key) ? Math.max(1, this.textures.get(ART.log.key).frameTotal - 1) : 8);
     this.course = buildCourse(this.rng);
     for (const o of this.course) if (o.kind === 'log') this.nextRelease.set(o, o.phase);
     if (this.textures.exists(ART.scene)) {
@@ -842,7 +844,6 @@ export class RelicRelayScene extends BaseMinigame {
       finished: false,
       place: 0,
       bob: index * 1.3,
-      dustT: 0,
       markerY: c.marker?.y ?? 0,
       parcel: { state: 'held', x, z: 0, vx: 0, vz: 0, bounces: 0, spin: 0, img: pimg, glow, shadow },
       cpu: { logId: -1, logJump: 0, logDone: false, maceX: -1, maceDir: 0, go: false, clearT: 0, err: 0, throwAt: -1, wait: 0 },
@@ -876,9 +877,7 @@ export class RelicRelayScene extends BaseMinigame {
 
   // --- Track bar ----------------------------------------------------------------------------------
   private buildTrackBar(): void {
-    const x0 = 560;
-    const x1 = 1360;
-    const y = 1026;
+    const { x0, x1, y } = TRACK_BAR;
     const bg = this.add.graphics().setDepth(8000);
     bg.fillStyle(0x06141a, 0.3);
     bg.fillRoundedRect(x0 - 76, y - 30 + 6, x1 - x0 + 152, 64, 32);
@@ -913,9 +912,7 @@ export class RelicRelayScene extends BaseMinigame {
   private drawTrackBar(): void {
     const g = this.barG;
     if (!g) return;
-    const x0 = 560;
-    const x1 = 1360;
-    const y = 1026;
+    const { x0, x1, y } = TRACK_BAR;
     g.clear();
     const sorted = this.runners.slice().sort((a, b) => a.x - b.x);
     sorted.forEach((r, k) => {
@@ -1274,7 +1271,7 @@ export class RelicRelayScene extends BaseMinigame {
       const fade = log.dying > 0 ? log.dying / 260 : 1;
       const sink = log.dying > 0 ? (1 - fade) * 20 : 0;
       if (log.img) {
-        const frames = Math.max(1, this.artMetaFrames);
+        const frames = Math.max(1, this.logFrames);
         const f = Math.floor(((((-log.roll) % (Math.PI / 3)) + Math.PI / 3) % (Math.PI / 3)) / (Math.PI / 3) * frames) % frames;
         log.img.setFrame(f).setPosition(log.x, y - log.z * VIEW_K + sink).setAlpha(fade).setDepth(k.logs.depth);
         continue;
