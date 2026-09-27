@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { audio } from '../audio/AudioManager';
-import { COLORS, CSS, GAME_HEIGHT, GAME_WIDTH } from '../constants';
+import { CSS, GAME_HEIGHT, GAME_WIDTH } from '../constants';
 import { NPCS, npcFrame, type NpcId } from '../data/npcs';
 import type { Controls } from '../input/Controls';
 import { settings } from '../save/SettingsManager';
@@ -40,11 +40,11 @@ export class DialogBox extends Phaser.GameObjects.Container {
     drawPanel(bg, -w / 2, -h / 2, w, h, { radius: 30 });
     this.portrait = scene.add.sprite(-w / 2 + 150, h / 2 - 12, 'npcs', '0').setOrigin(0.5, 0.86).setScale(0.95);
     this.nameG = scene.add.graphics();
-    this.nameText = addText(scene, -w / 2 + 300, -h / 2 + 4, '', 36, { color: CSS.white, weight: 700, align: 'left', stroke: '#1b1530', strokeThickness: 6 });
-    this.roleText = addText(scene, -w / 2 + 300, -h / 2 + 4, '', 22, { color: CSS.goldLight, weight: 600, align: 'left', stroke: '#1b1530', strokeThickness: 4 });
+    this.nameText = addText(scene, -w / 2 + 300, -h / 2 + 4, '', 32, { color: CSS.white, weight: 700, align: 'left' });
+    this.roleText = addText(scene, -w / 2 + 300, -h / 2 + 4, '', 20, { color: 'rgba(255,255,255,0.85)', weight: 600, align: 'left' });
     this.bodyText = addText(scene, -w / 2 + 300, -h / 2 + 50, '', 38, { color: CSS.ink, weight: 600, align: 'left', wrap: w - 360, lineSpacing: 6 });
     this.bodyText.setOrigin(0, 0);
-    this.arrow = addText(scene, w / 2 - 50, h / 2 - 40, '▼', 30, { color: CSS.tealDark, weight: 700 });
+    this.arrow = addText(scene, w / 2 - 50, h / 2 - 40, '▼', 26, { color: '#9aa5b8', weight: 700 });
     this.prompts = new PromptBar(scene, w / 2 - 210, h / 2 + 34, [], { size: 34, fontSize: 24 });
     this.add([bg, this.portrait, this.nameG, this.nameText, this.roleText, this.bodyText, this.arrow, this.prompts]);
     this.setDepth(depth).setVisible(false);
@@ -61,12 +61,9 @@ export class DialogBox extends Phaser.GameObjects.Container {
     const nx = -w / 2 + 290;
     const plaqueW = this.nameText.width + this.roleText.width + 70;
     this.nameG.clear();
-    this.nameG.fillStyle(0x1b1530, 0.35);
-    this.nameG.fillRoundedRect(nx, -125 - 26 + 6, plaqueW, 56, 18);
+    // Speaker name on a pill in the NPC's colour straddling the card's top edge.
     this.nameG.fillStyle(npc.color, 1);
-    this.nameG.fillRoundedRect(nx, -125 - 26, plaqueW, 56, 18);
-    this.nameG.lineStyle(3, COLORS.cream, 1);
-    this.nameG.strokeRoundedRect(nx, -125 - 26, plaqueW, 56, 18);
+    this.nameG.fillRoundedRect(nx, -125 - 26, plaqueW, 52, 26);
     this.nameText.setPosition(nx + 20, -125 + 1);
     this.roleText.setPosition(nx + 36 + this.nameText.width, -125 + 4);
   }

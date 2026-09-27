@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { COLORS } from '../constants';
+import { drawCard, UI } from './Style';
 import { addText } from './theme';
 
 export interface PanelStyle {
@@ -14,31 +14,16 @@ export interface PanelStyle {
   engraving?: boolean;
 }
 
-/** Draw a Gleamtrail panel (cream face, teal edge, gold inner line, spiral engravings). */
+/** Draw a Gleamtrail card: soft white face and shadow; a thin rim only when a colour is given. */
 export function drawPanel(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number, s: PanelStyle = {}): void {
-  const r = s.radius ?? 26;
-  const bw = s.borderWidth ?? 6;
-  const shadowOff = s.shadowOffset ?? 10;
-  if (s.shadow !== false) {
-    g.fillStyle(0x0b2a33, 0.35);
-    g.fillRoundedRect(x + 2, y + shadowOff, w, h, r);
-  }
-  g.fillStyle(s.border ?? COLORS.teal, 1);
-  g.fillRoundedRect(x, y, w, h, r);
-  g.fillStyle(s.fill ?? COLORS.cream, s.fillAlpha ?? 1);
-  g.fillRoundedRect(x + bw, y + bw, w - bw * 2, h - bw * 2, Math.max(4, r - bw));
-  g.lineStyle(2, s.accent ?? COLORS.gold, 0.9);
-  g.strokeRoundedRect(x + bw + 5, y + bw + 5, w - bw * 2 - 10, h - bw * 2 - 10, Math.max(4, r - bw - 4));
-  if (s.engraving !== false && w > 160 && h > 90) {
-    const corners: [number, number, number][] = [
-      [x + bw + 22, y + bw + 22, 0],
-      [x + w - bw - 22, y + bw + 22, Math.PI / 2],
-      [x + w - bw - 22, y + h - bw - 22, Math.PI],
-      [x + bw + 22, y + h - bw - 22, -Math.PI / 2],
-    ];
-    g.lineStyle(3, s.border ?? COLORS.teal, 0.28);
-    for (const [cx, cy, rot] of corners) drawSpiral(g, cx, cy, 2, 11, 1.6, rot);
-  }
+  drawCard(g, x, y, w, h, {
+    radius: s.radius ?? 26,
+    fill: s.fill ?? UI.card,
+    alpha: s.fillAlpha ?? 1,
+    shadow: s.shadow === false ? 0 : 1,
+    border: s.border,
+    borderWidth: s.border !== undefined ? Math.min(4, s.borderWidth ?? 4) : undefined,
+  });
 }
 
 /** Stroke an Archimedean spiral with the current line style. */
@@ -71,11 +56,13 @@ export class Panel extends Phaser.GameObjects.Container {
     drawPanel(this.bg, -w / 2, -h / 2, w, h, opts);
     this.add(this.bg);
     if (opts.title) {
+      // Title on a slim ink tab straddling the card's top edge.
       const plaque = scene.add.graphics();
-      const tw = Math.min(w - 80, Math.max(260, opts.title.length * 24 + 80));
-      drawPanel(plaque, -tw / 2, -h / 2 - 34, tw, 64, { radius: 22, border: opts.titleColor ?? COLORS.tealDark, fill: COLORS.gold, accent: COLORS.cream, engraving: false, shadowOffset: 6 });
+      const tw = Math.min(w - 80, Math.max(240, opts.title.length * 22 + 70));
+      plaque.fillStyle(opts.titleColor ?? UI.ink, 1);
+      plaque.fillRoundedRect(-tw / 2, -h / 2 - 28, tw, 56, 28);
       this.add(plaque);
-      this.titleText = addText(scene, 0, -h / 2 - 3, opts.title, 34, { color: '#2b2340', weight: 700 });
+      this.titleText = addText(scene, 0, -h / 2, opts.title, 30, { color: UI.whiteCss, weight: 700 });
       this.add(this.titleText);
     }
     scene.add.existing(this);

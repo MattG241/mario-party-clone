@@ -165,8 +165,8 @@ export class BoardManager {
       for (const to of n.next) {
         const b = this.graph.node(to);
         const ang = Math.atan2(b.y - n.y, b.x - n.x);
-        const chev = s.add.image(n.x + Math.cos(ang) * 100, n.y + Math.sin(ang) * 78, 'fork-chevron').setRotation(ang).setDepth(DEPTH.spaces - 1).setScale(1.4);
-        s.tweens.add({ targets: chev, alpha: { from: 1, to: 0.75 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+        const chev = s.add.image(n.x + Math.cos(ang) * 100, n.y + Math.sin(ang) * 78, 'fork-chevron').setRotation(ang).setDepth(DEPTH.spaces - 1).setScale(1.3);
+        s.tweens.add({ targets: chev, alpha: { from: 1, to: 0.8 }, duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
         this.chevrons.push(chev);
       }
     }
@@ -283,27 +283,27 @@ export class BoardManager {
   private makeTextures(): void {
     const s = this.scene;
     if (!s.textures.exists('fork-chevron')) {
-      // Cream double chevron with a dark outline, painted on the trail (points along +x).
+      // Bold white double chevron with a soft shadow, painted on the trail (points along +x).
       const g = s.make.graphics({ x: 0, y: 0 }, false);
-      const chevron = (ox: number, fill: number, line: number) => {
-        g.fillStyle(fill, 1);
-        g.lineStyle(5, line, 1);
-        g.beginPath();
-        g.moveTo(ox, 6);
-        g.lineTo(ox + 16, 20);
-        g.lineTo(ox, 34);
-        g.lineTo(ox + 8, 34);
-        g.lineTo(ox + 24, 20);
-        g.lineTo(ox + 8, 6);
-        g.closePath();
-        g.fillPath();
-        g.strokePath();
+      const chevron = (ox: number, oy: number, fill: number, alpha: number) => {
+        g.fillStyle(fill, alpha);
+        g.fillPoints(
+          [
+            { x: ox, y: oy + 4 },
+            { x: ox + 13, y: oy + 4 },
+            { x: ox + 29, y: oy + 21 },
+            { x: ox + 13, y: oy + 38 },
+            { x: ox, y: oy + 38 },
+            { x: ox + 16, y: oy + 21 },
+          ],
+          true,
+        );
       };
-      g.fillStyle(0x0b1a24, 0.3);
-      g.fillEllipse(28, 24, 52, 22);
-      chevron(6, 0xfff8ea, 0x4a2e16);
-      chevron(22, 0xffe7a8, 0x4a2e16);
-      g.generateTexture('fork-chevron', 56, 40);
+      chevron(8, 3, 0x2a1c0e, 0.28);
+      chevron(28, 3, 0x2a1c0e, 0.28);
+      chevron(6, 0, 0xfffaf0, 1);
+      chevron(26, 0, 0xfffaf0, 1);
+      g.generateTexture('fork-chevron', 64, 44);
       g.destroy();
     }
     if (!s.textures.exists('fx-beam')) {
@@ -555,6 +555,19 @@ export class BoardManager {
   }
 
   /** Flash a space (landing feedback). */
+  /**
+   * Spaces with someone standing on them show the plain enamel face (no icon under their feet),
+   * when the icon-less renders are available.
+   */
+  markOccupied(occupied: Set<string>): void {
+    for (const [id, v] of this.nodes) {
+      const base = `rendered-space-${v.def.type}`;
+      if (!this.scene.textures.exists(`${base}-base`) || !v.tile.texture.key.startsWith('rendered-space-')) continue;
+      const want = occupied.has(id) ? `${base}-base` : base;
+      if (v.tile.texture.key !== want) v.tile.setTexture(want);
+    }
+  }
+
   pulseNode(id: string, color: number = COLORS.goldLight): void {
     const v = this.nodes.get(id);
     if (!v) return;

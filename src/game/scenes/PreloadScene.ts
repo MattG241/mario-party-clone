@@ -47,7 +47,10 @@ export class PreloadScene extends Phaser.Scene {
     // Optional rendered hero scenes (title island, minigame arenas).
     this.load.atlas('rendered-orbit-arms', 'assets/rendered/orbit_arms.webp', 'assets/rendered/orbit_arms.json');
     this.load.json('rendered-spaces', 'assets/rendered/spaces/spaces.json');
-    for (const t of ['start', 'gleam', 'festival', 'mischief', 'market', 'portal', 'relic', 'event']) this.load.image(`rendered-space-${t}`, `assets/rendered/spaces/space_${t}.webp`);
+    for (const t of ['start', 'gleam', 'festival', 'mischief', 'market', 'portal', 'relic', 'event']) {
+      this.load.image(`rendered-space-${t}`, `assets/rendered/spaces/space_${t}.webp`);
+      this.load.image(`rendered-space-${t}-base`, `assets/rendered/spaces/space_${t}_base.webp`);
+    }
     this.load.json('rendered-gleam3d', 'assets/rendered/scene_gleam3d.json');
     for (const v of ['title', 'gleam', 'gleam_wall', 'gleam3d', 'gleam3d_wall', 'gleam3d_blur', 'orbit', 'orbit_blur', 'select', 'results']) this.load.image(`rendered-scene-${v}`, `assets/rendered/scene_${v}.webp`);
     this.load.image('rendered-ui-dial', 'assets/rendered/ui_dial.webp');

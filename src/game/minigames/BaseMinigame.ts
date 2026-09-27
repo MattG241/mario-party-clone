@@ -107,7 +107,7 @@ export abstract class BaseMinigame extends Phaser.Scene {
       };
     });
     this.createArena();
-    applyGrade(this, { vignette: 0.2 });
+    applyGrade(this, { vignette: 0.08 });
     this.players.forEach((p, i) => this.createPlayer(p, i));
     this.buildHud();
     this.startCountdown();
@@ -170,7 +170,7 @@ export abstract class BaseMinigame extends Phaser.Scene {
       const portrait = addPortrait(this, p.characterId, p.slot, pr, { flip, worldX: x + lx(34), worldY: y + H / 2 });
       portrait.setPosition(lx(34), H / 2);
       const align = flip ? 'right' : 'left';
-      const name = addText(this, lx(92), 22, CHARACTERS[p.characterId].name.split(' ')[0].toUpperCase(), 19, { color: CSS.creamDark, weight: 700, align });
+      const name = addText(this, lx(92), 22, CHARACTERS[p.characterId].name.split(' ')[0].toUpperCase(), 19, { color: '#dfe5ee', weight: 700, align });
       const parts: Phaser.GameObjects.GameObject[] = [bg, name];
       if (p.isCpu) {
         const tw = 44;
@@ -178,10 +178,10 @@ export abstract class BaseMinigame extends Phaser.Scene {
         const tag = this.add.graphics();
         tag.fillStyle(0xffffff, 0.14);
         tag.fillRoundedRect(tx, 11, tw, 22, 11);
-        parts.push(tag, addText(this, tx + tw / 2, 22, 'CPU', 13, { color: CSS.creamDark, weight: 700 }));
+        parts.push(tag, addText(this, tx + tw / 2, 22, 'CPU', 13, { color: '#dfe5ee', weight: 700 }));
       }
-      const score = addText(this, lx(92), 52, '0', 40, { color: CSS.cream, weight: 700, align, stroke: '#06141a', strokeThickness: 4 });
-      const status = addText(this, lx(W - 46), H / 2, '', 24, { color: CSS.coral, weight: 700, stroke: '#06141a', strokeThickness: 5 });
+      const score = addText(this, lx(92), 52, '0', 40, { color: '#ffffff', weight: 700, align });
+      const status = addText(this, lx(W - 46), H / 2, '', 24, { color: CSS.coral, weight: 700 });
       root.add([...parts, score, status, portrait]);
       const tag: { score: Phaser.GameObjects.Text; root: Phaser.GameObjects.Container; status: Phaser.GameObjects.Text; pips?: Phaser.GameObjects.Graphics; pipKey?: string; pipX: number; flip: boolean } = { score, root, status, pipX: lx(92), flip };
       if (this.hudPips(p)) {
@@ -195,16 +195,14 @@ export abstract class BaseMinigame extends Phaser.Scene {
       const cx = GAME_WIDTH / 2;
       const cy = 62;
       const g = this.add.graphics().setDepth(9000);
-      g.fillStyle(0x06141a, 0.3);
-      g.fillCircle(cx + 4, cy + 7, 60);
-      g.fillStyle(0x0c2630, 0.9);
-      g.fillCircle(cx, cy, 58);
-      g.fillStyle(0xffffff, 0.07);
-      g.fillEllipse(cx, cy - 26, 84, 40);
-      g.lineStyle(5, COLORS.gold, 1);
-      g.strokeCircle(cx, cy, 58);
+      g.fillStyle(0x0a1120, 0.14);
+      g.fillCircle(cx, cy + 4, 56);
+      g.fillStyle(0x121b2b, 0.78);
+      g.fillCircle(cx, cy, 56);
+      g.lineStyle(1.5, 0xffffff, 0.1);
+      g.strokeCircle(cx, cy, 55);
       this.timerArc = this.add.graphics().setDepth(9001);
-      this.timerText = addText(this, cx, cy + 2, String(Math.ceil(this.duration / 1000)), 50, { color: CSS.cream, weight: 700, stroke: '#06141a', strokeThickness: 5 }).setDepth(9002);
+      this.timerText = addText(this, cx, cy + 2, String(Math.ceil(this.duration / 1000)), 48, { color: '#ffffff', weight: 700 }).setDepth(9002);
       this.drawTimerArc(1);
     }
   }
@@ -238,11 +236,11 @@ export abstract class BaseMinigame extends Phaser.Scene {
     const cx = GAME_WIDTH / 2;
     const cy = 62;
     g.clear();
-    g.lineStyle(8, 0x000000, 0.25);
-    g.strokeCircle(cx, cy, 47);
+    g.lineStyle(6, 0xffffff, 0.14);
+    g.strokeCircle(cx, cy, 45);
     if (frac <= 0) return;
     const warn = frac * this.duration <= 5000;
-    g.lineStyle(8, warn ? COLORS.coral : COLORS.crystalLight, 1);
+    g.lineStyle(6, warn ? COLORS.coral : 0xffffff, 1);
     g.beginPath();
     g.arc(cx, cy, 47, -Math.PI / 2, -Math.PI / 2 + frac * Math.PI * 2, false);
     g.strokePath();

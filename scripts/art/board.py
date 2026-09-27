@@ -524,7 +524,7 @@ def lowland_material():
     n2 = m.noise(4.0, 3, 0.5, pos)
     gfac = m.math('ADD', m.math('MULTIPLY', n1.outputs['Fac'], 0.8), m.math('MULTIPLY', n2.outputs['Fac'], 0.35))
     # a touch cooler and softer than the plateau grass (reads as further away)
-    grass = m.ramp(gfac, [(0.28, '#255f35'), (0.42, '#32743f'), (0.55, '#448a49'), (0.68, '#5c9f56'), (0.82, '#7eb46a')])
+    grass = m.ramp(gfac, [(0.28, '#327040'), (0.42, '#40864a'), (0.55, '#529c52'), (0.68, '#69b05e'), (0.82, '#8cc572')])
     patches = m.noise(0.11, 3, 0.5, pos)
     grass = m.mix(m.maprange(patches.outputs['Fac'], 0.56, 0.7), grass, lib.col('#a1bf5c'))
     wave = m.node('ShaderNodeTexWave')
@@ -539,8 +539,8 @@ def lowland_material():
     top = m.maprange(nz, 0.55, 0.8)
     colr = m.mix(top, rock, grass)
     ao = m.ao(0.9, 8)
-    colr = m.mult(colr, m.mix(ao, lib.col('#3c4a52'), lib.col('#ffffff')))
-    colr = m.mix(0.2, colr, lib.col('#b4cfea'))  # height haze
+    colr = m.mult(colr, m.mix(ao, lib.col('#5a6a70'), lib.col('#ffffff')))
+    colr = m.mix(0.13, colr, lib.col('#b8d6ee'))  # height haze
     m.bsdf(colr, 0.85, normal=m.bump(m.math('ADD', rn.outputs['Fac'], m.math('MULTIPLY', gfac, 0.2)), 0.3, 0.08), sheen=0.2)
     return m.mat
 
@@ -599,25 +599,26 @@ def build_lowland(island_info, canopy_clear, mats):
 
     grass, flowers, leaves, wood, rocks, reeds, water = (lib.MeshBuilder() for _ in range(7))
     area = float(lm.sum()) * GRID * GRID
-    for _ in range(int(area / (36 * 36))):
+    # Calm scatter: sparse tufts and a few flower beds, so the valley reads as clean open meadow.
+    for _ in range(int(area / (50 * 50))):
         bx, by = rnd.uniform(20, W - 20), rnd.uniform(20, H - 20)
         if on_low(bx, by, 8) and seen(bx, by):
             grass_tuft(grass, bx, by, rnd, rnd.uniform(0.9, 1.4))
-    for _ in range(int(area / 30000)):
+    for _ in range(int(area / 100000)):
         pt = pick(20)
         if pt:
             flower_bed(flowers, leaves, *pt, rnd)
-    for _ in range(int(area / 30000)):
+    for _ in range(int(area / 55000)):
         pt = pick(16)
         if pt and clear_of_paths(pt[0], pt[1], 40, 0.9):
             bush(leaves, *pt, rnd, rnd.uniform(0.8, 1.3), berries=flowers)
-    for _ in range(int(area / 45000)):
+    for _ in range(int(area / 90000)):
         pt = pick(12)
         if pt:
             rock(rocks, *pt, rnd, rnd.uniform(0.9, 1.8))
     # forests: clumps of round trees and pines (cooler palettes, they sit further away)
     low_pals = [('#1f5f2c', '#5aa84e'), ('#1a5a3a', '#4fa86a'), ('#2a6a24', '#80b843'), ('#245a2a', '#6aa24a')]
-    for _ in range(24):
+    for _ in range(20):
         c = pick(80)
         if not c:
             continue
@@ -724,9 +725,9 @@ def build_lowland(island_info, canopy_clear, mats):
 
 def main():
     sc = lib.reset(SAMPLES)
-    # Lower, warmer key light than before: longer shadows give the diorama a clear light direction.
-    lib.world_light(0.72)
-    lib.sun(energy=3.9, elevation=40, azimuth=-35, angle=2.5, color='#ffe9c9')
+    # A high, soft key over bright sky fill: short gentle shadows and clean, readable colour.
+    lib.world_light(0.82)
+    lib.sun(energy=3.6, elevation=50, azimuth=-35, angle=3.5, color='#fff0d8')
     out = A.out
     os.makedirs(out, exist_ok=True)
 
@@ -807,39 +808,40 @@ def main():
             else:
                 tree_pine(leaves, wood, bx, by, rnd, rnd.uniform(0.85, 1.1))
             n_trees -= 1
-        for _ in range(int(area / (19 * 19))):
+        for _ in range(int(area / (24 * 24))):
             j = rnd.randrange(len(xs))
             bx = xs[j] * GRID + rnd.uniform(0, GRID)
             by = ys[j] * GRID + rnd.uniform(0, GRID)
             if dist_in(dist, bx, by) < 6 or pmask_at(pm, bx, by) > 0.3:
                 continue
             grass_tuft(grass, bx, by, rnd, rnd.uniform(0.8, 1.3))
-        for _ in range(int(area / 20000 * T['flowers'])):
+        # decoration kept deliberately sparse: a few meaningful clusters instead of noise
+        for _ in range(int(area / 20000 * T['flowers'] * 0.45)):
             pt = pick(min_edge=20, path_clear=0.02, node_r=78)
             if pt:
                 flower_bed(flowers, leaves, *pt, rnd)
-        for _ in range(int(area / 16000 * T['bushes'])):
+        for _ in range(int(area / 16000 * T['bushes'] * 0.65)):
             pt = pick(min_edge=12, max_edge=120, path_clear=0.01, node_r=92)
             if pt and canopy_clear(pt[0], pt[1], 40, 60):
                 bush(leaves, *pt, rnd, rnd.uniform(0.7, 1.2), berries=flowers)
-        for _ in range(int(area / 32000 * T['rocks'])):
+        for _ in range(int(area / 32000 * T['rocks'] * 0.6)):
             pt = pick(path_clear=0.08, node_r=70)
             if pt:
                 rock(rocks, *pt, rnd, rnd.uniform(0.8, 1.4))
         # region clutter
-        for _ in range(int(area / 26000 * T.get('mushrooms', 0))):
+        for _ in range(int(area / 26000 * T.get('mushrooms', 0) * 0.5)):
             pt = pick(min_edge=10, path_clear=0.02, node_r=70)
             if pt:
                 mushroom_cluster(flowers, *pt, rnd)
-        for _ in range(int(area / 22000 * T.get('crystals', 0))):
+        for _ in range(int(area / 22000 * T.get('crystals', 0) * 0.5)):
             pt = pick(min_edge=14, path_clear=0.02, node_r=80)
             if pt:
                 crystal_cluster(crystals, *pt, rnd, rnd.uniform(0.8, 1.3))
-        for _ in range(int(area / 45000 * T.get('hay', 0))):
+        for _ in range(int(area / 45000 * T.get('hay', 0) * 0.6)):
             pt = pick(min_edge=24, path_clear=0.01, node_r=95)
             if pt:
                 hay_bale(wood, *pt, rnd)
-        for _ in range(int(area / 40000 * T.get('crates', 0))):
+        for _ in range(int(area / 40000 * T.get('crates', 0) * 0.6)):
             pt = pick(min_edge=18, path_clear=0.01, node_r=90)
             if pt:
                 (crate if rnd.random() < 0.6 else barrel)(wood, *pt, rnd)
@@ -849,7 +851,7 @@ def main():
             if ok:
                 falls_left[theme] -= 1
         # pebbles lining the trails
-        for _ in range(int(area / 2600)):
+        for _ in range(int(area / 4200)):
             pt = pick(path_clear=1.1)
             if not pt:
                 continue

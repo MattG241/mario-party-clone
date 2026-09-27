@@ -3,6 +3,7 @@ import type { Button, KeyAction } from '../input/buttons';
 import { keyLabel } from '../input/buttons';
 import { input } from '../input/InputManager';
 import { settings } from '../save/SettingsManager';
+import { drawSlate } from './Style';
 import { addText, BUTTON_COLORS } from './theme';
 
 export type GlyphKind = 'gamepad' | 'keyboard';
@@ -52,13 +53,14 @@ export function makeGlyph(scene: Phaser.Scene, button: PromptButton, size: numbe
       label = action ? keyLabel(settings.get().keyBindings[action]?.[0] ?? '?') : button;
     }
     const w = Math.max(size * 1.1, label.length * size * 0.42 + size * 0.6);
-    g.fillStyle(0x4b4163, 1);
-    g.fillRoundedRect(-w / 2, -size / 2 + 4, w, size, 8);
-    g.fillStyle(0xfff4dc, 1);
-    g.fillRoundedRect(-w / 2, -size / 2, w, size, 8);
-    g.lineStyle(2, 0x2b2340, 0.8);
-    g.strokeRoundedRect(-w / 2, -size / 2, w, size, 8);
-    c.add(addText(scene, 0, -1, label, size * 0.5, { color: '#2b2340', weight: 700, fixed: true }));
+    // A light keycap with a darker lip: reads on dark HUD pills and on white cards alike.
+    g.fillStyle(0x9aa5b8, 1);
+    g.fillRoundedRect(-w / 2, -size / 2 + 3, w, size, 9);
+    g.fillStyle(0xeef1f6, 1);
+    g.fillRoundedRect(-w / 2, -size / 2, w, size - 1, 9);
+    g.lineStyle(1.5, 0x9aa5b8, 0.8);
+    g.strokeRoundedRect(-w / 2, -size / 2, w, size - 1, 9);
+    c.add(addText(scene, 0, -1, label, size * 0.5, { color: '#1f2940', weight: 700, fixed: true }));
     c.setSize(w, size);
     return c;
   }
@@ -68,13 +70,11 @@ export function makeGlyph(scene: Phaser.Scene, button: PromptButton, size: numbe
     case 'B':
     case 'X':
     case 'Y': {
-      g.fillStyle(0x1b1530, 1);
-      g.fillCircle(0, 3, r);
+      g.fillStyle(0x000000, 0.22);
+      g.fillCircle(0, 2.5, r);
       g.fillStyle(BUTTON_COLORS[button], 1);
       g.fillCircle(0, 0, r);
-      g.lineStyle(2, 0xffffff, 0.9);
-      g.strokeCircle(0, 0, r);
-      c.add(addText(scene, 0, -1, button, size * 0.58, { color: '#ffffff', stroke: '#1b1530', strokeThickness: 3, weight: 700, fixed: true }));
+      c.add(addText(scene, 0, -1, button, size * 0.56, { color: '#ffffff', weight: 700, fixed: true }));
       c.setSize(size, size);
       return c;
     }
@@ -152,7 +152,7 @@ export class PromptBar extends Phaser.GameObjects.Container {
     super(scene, x, y);
     this.size = opts.size ?? 38;
     this.fontSize = opts.fontSize ?? 26;
-    this.color = opts.color ?? '#fff4dc';
+    this.color = opts.color ?? '#ffffff';
     scene.add.existing(this);
     this.setPrompts(prompts, opts.slot);
   }
@@ -162,8 +162,7 @@ export class PromptBar extends Phaser.GameObjects.Container {
     const kind = glyphKindFor(slot);
     let x = 0;
     const parts: Phaser.GameObjects.Container[] = [];
-    // Light labels sit on a translucent navy pill (the HUD's material) instead of relying on an
-    // outline, which reads as a hollow font at small sizes.
+    // Light labels sit on a translucent slate pill (the HUD's material) instead of an outline.
     const dark = !isLightColor(this.color);
     for (const p of prompts) {
       const item = this.scene.add.container(0, 0);
@@ -181,12 +180,7 @@ export class PromptBar extends Phaser.GameObjects.Container {
     if (!dark && parts.length) {
       const h = this.size + 18;
       const pill = this.scene.add.graphics();
-      pill.fillStyle(0x06141a, 0.25);
-      pill.fillRoundedRect(-total / 2 - 22 + 3, -h / 2 + 5, total + 44, h, h / 2);
-      pill.fillStyle(0x0c2630, 0.78);
-      pill.fillRoundedRect(-total / 2 - 22, -h / 2, total + 44, h, h / 2);
-      pill.lineStyle(2, 0xfff4dc, 0.22);
-      pill.strokeRoundedRect(-total / 2 - 22, -h / 2, total + 44, h, h / 2);
+      drawSlate(pill, -total / 2 - 22, -h / 2, total + 44, h, { alpha: 0.66 });
       this.add(pill);
     }
     for (const p of parts) {

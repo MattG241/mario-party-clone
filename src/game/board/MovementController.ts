@@ -115,6 +115,7 @@ export class MovementController {
   }
 
   arrange(state: MatchState, instant = false, except?: number): void {
+    this.board.markOccupied(new Set(state.players.filter((p) => p.slot !== except).map((p) => p.nodeId)));
     for (const p of state.players) {
       if (p.slot === except) continue;
       const c = this.token(p.slot);
@@ -236,6 +237,7 @@ export class MovementController {
   async step(state: MatchState, p: PlayerState, _from: string, to: string, remaining: number): Promise<void> {
     const c = this.token(p.slot);
     const target = this.standPos(state, p.slot, to);
+    this.board.markOccupied(new Set([...state.players.filter((o) => o.slot !== p.slot).map((o) => o.nodeId), to]));
     c.faceToward(target.x);
     if (c.current !== 'run') c.play('run');
     this.setCounter(p.slot, remaining + 1);

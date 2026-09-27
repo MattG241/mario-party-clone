@@ -24,6 +24,7 @@ from PIL import Image, ImageDraw, ImageFilter  # noqa: E402
 
 p = argparse.ArgumentParser()
 p.add_argument('--preview', action='store_true')
+p.add_argument('--base', action='store_true', help='render the pieces without their icons (space_<type>_base.webp)')
 A = p.parse_args(sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else sys.argv[1:])
 
 SCALE = 2.0
@@ -81,7 +82,9 @@ def icon_texture(kind, top, hl):
     d.ellipse([c - S * 0.47, c - S * 0.47, c + S * 0.47, c + S * 0.47], outline=(255, 255, 255, 120), width=int(S * 0.012))
     ink = (43, 35, 64, 255)
     gold, gold_d = (244, 184, 59, 255), (201, 138, 27, 255)
-    if kind == 'gleam':
+    if A.base:
+        pass  # plain enamel face (shown under a character standing on the space)
+    elif kind == 'gleam':
         # a little stack of chips with a plus: "you gain chips" at a glance (no spiral here)
         for k, dy in enumerate([0.16, 0.06, -0.04]):
             cy_ = c + dy * S
@@ -138,7 +141,7 @@ def icon_texture(kind, top, hl):
         d.polygon([(c - S * 0.12, c - S * 0.3), (c + S * 0.24, c - S * 0.18), (c - S * 0.12, c - S * 0.04)], fill=(255, 107, 94, 255))
         star(d, c + S * 0.02, c - S * 0.17, S * 0.05, S * 0.022, 5, (255, 240, 170, 255))
     im = im.resize((IMG, IMG), Image.LANCZOS)
-    path = os.path.join(OUT, f'face_{kind}.png')
+    path = os.path.join(OUT, f'face_{kind}{"_base" if A.base else ""}.png')
     im.save(path)
     return path
 
@@ -186,15 +189,16 @@ for kind in names:
     floor = lib.mesh_object('floor', *lib.lathe([(1.2, 0.0), (0.0, 0.0)], 48, (c.x, c.y, 0.0), cap_bottom=False, cap_top=False), smooth=False,
                             material=lib.simple_mat('floor', '#b8a888'))
     floor.is_shadow_catcher = True
-    path = os.path.join(OUT, f'space_{kind}.png')
+    suffix = '_base' if A.base else ''
+    path = os.path.join(OUT, f'space_{kind}{suffix}.png')
     lib.render_to(path)
     im = Image.open(path).convert('RGBA')
     meta['anchor'] = [(BX - region[0]) * SCALE, (BY - region[1]) * SCALE]
     meta['size'] = [im.width, im.height]
     if not A.preview:
-        im.save(os.path.join(PUB, f'space_{kind}.webp'), 'WEBP', quality=92, method=6)
-    print('space', kind, im.size)
-if not A.preview:
+        im.save(os.path.join(PUB, f'space_{kind}{suffix}.webp'), 'WEBP', quality=92, method=6)
+    print('space', kind, suffix, im.size)
+if not A.preview and not A.base:
     with open(os.path.join(PUB, 'spaces.json'), 'w') as fh:
         json.dump(meta, fh)
     print('wrote spaces', meta)

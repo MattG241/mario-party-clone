@@ -7,7 +7,7 @@ import { MovementController } from '../board/MovementController';
 import { OrbitDial } from '../board/OrbitDial';
 import { PathChooser } from '../board/PathChooser';
 import { runMatch } from '../board/TurnManager';
-import { CAMERA_ZOOM, COLORS, CSS, DEPTH, GAME_HEIGHT, GAME_WIDTH } from '../constants';
+import { CAMERA_ZOOM, COLORS, CSS, GAME_HEIGHT, GAME_WIDTH } from '../constants';
 import { findBoard } from '../data/boards';
 import { ITEM_IDS } from '../data/items';
 import { clearDebugInfo, DEBUG_ENABLED, logError, setDebugInfo, URL_PARAMS } from '../debug/debug';
@@ -108,10 +108,7 @@ export class BoardScene extends Phaser.Scene {
     const ov = this.overviewRect();
     cam.centerOn(ov.centerX, ov.centerY);
     cam.setZoom(this.overviewZoom());
-    // Miniature look: a gentle tilt-shift keeps the eye on the middle band where the action is.
-    applyGrade(this, { tilt: 2.4, focusH: 0.24 });
-    this.buildCloudShadows(def.width, def.height);
-    this.buildPetals();
+    applyGrade(this);
     audio.playMusic(isFinalRound(state) ? 'boardFinal' : 'board');
     this.bg.setIntensity(isFinalRound(state) ? 1 : 0);
     this.moves.setLightTint(isFinalRound(state));
@@ -121,63 +118,6 @@ export class BoardScene extends Phaser.Scene {
     // ?noflow (debug): show the board without running the match (screenshots, art checks).
     if (DEBUG_ENABLED && URL_PARAMS.has('noflow')) return;
     this.time.delayedCall(60, () => void this.startFlow());
-  }
-
-  /** Big soft cloud shadows drifting slowly over the islands (they sell the sunlight and add life). */
-  private cloudShadows: Phaser.GameObjects.Image[] = [];
-
-  private buildCloudShadows(w: number, h: number): void {
-    this.cloudShadows = [];
-    if (!this.textures.exists('fx-shadow')) return;
-    for (let i = 0; i < 4; i++) {
-      const img = this.add
-        .image(((i * 0.29 + 0.1) % 1) * w, ((i * 0.43 + 0.2) % 1) * h, 'fx-shadow')
-        .setScale(9 + (i % 2) * 3, 4.5 + (i % 3))
-        .setAlpha(0.13)
-        .setTint(0x1a2a50)
-        .setDepth(DEPTH.worldFx - 10);
-      this.cloudShadows.push(img);
-    }
-  }
-
-  /** A few festival petals drifting across the view on the breeze (screen-space, above the board). */
-  private buildPetals(): void {
-    if (!this.textures.exists('fx-petal')) {
-      const tex = this.textures.createCanvas('fx-petal', 16, 10);
-      if (tex) {
-        const ctx = tex.getContext();
-        const grd = ctx.createLinearGradient(0, 0, 16, 10);
-        grd.addColorStop(0, '#ffe3ef');
-        grd.addColorStop(1, '#ff9ecb');
-        ctx.fillStyle = grd;
-        ctx.beginPath();
-        ctx.ellipse(8, 5, 7, 4, 0.3, 0, Math.PI * 2);
-        ctx.fill();
-        tex.refresh();
-      }
-    }
-    const em = this.add.particles(0, 0, 'fx-petal', {
-      x: { min: -40, max: GAME_WIDTH + 200 },
-      y: -30,
-      lifespan: 14000,
-      speedX: { min: -70, max: -25 },
-      speedY: { min: 35, max: 70 },
-      rotate: { start: 0, end: 540 },
-      scale: { min: 0.6, max: 1.2 },
-      alpha: { start: 0.95, end: 0.6 },
-      frequency: 650,
-      quantity: 1,
-    });
-    em.setScrollFactor(0).setDepth(DEPTH.worldUi - 5);
-  }
-
-  private driftCloudShadows(dt: number, w: number, h: number): void {
-    for (const [i, c] of this.cloudShadows.entries()) {
-      c.x += (22 + i * 4) * dt;
-      c.y += (7 + i * 2) * dt;
-      if (c.x > w + 900) c.x = -900;
-      if (c.y > h + 500) c.y = -500;
-    }
   }
 
   private rebuildSession(state: MatchState): void {
@@ -491,9 +431,8 @@ export class BoardScene extends Phaser.Scene {
   }
 
   // --- Frame --------------------------------------------------------------------------------------------
-  override update(_t: number, delta: number): void {
+  override update(_t: number, _delta: number): void {
     if (!this.moves) return;
-    this.driftCloudShadows(delta / 1000, this.board.def.width, this.board.def.height);
     this.board.scaleForZoom(this.cameras.main.zoom);
     this.moves.update();
     if (!this.running || this.pauseOpen) return;

@@ -6,8 +6,6 @@ import { CHARACTERS } from '../../data/characters';
 import type { VirtualControls } from '../../input/PlayerInput';
 import { npcFrame, type NpcId } from '../../data/npcs';
 import { centerOrigin, standOrigin } from '../../util/spriteUtil';
-import { addBalloons, addDustMotes, addLightShafts } from '../../effects/Ambience';
-import { SPRITE_META } from '../../data/spriteMeta.generated';
 import { BaseMinigame, type MgPlayer } from '../BaseMinigame';
 import { clampRect, dist, drift, separate, steer, type Mover } from '../common';
 import { QuadMap } from '../../util/QuadMap';
@@ -89,7 +87,6 @@ export class GleamGrabScene extends BaseMinigame {
       if (meta3d.tiers?.length) this.buildStands(meta3d.tiers);
       else this.buildCrowd(meta3d.wallTopY ?? 314, meta3d.backLeftX ?? 300, meta3d.backRightX ?? 1620);
       if (this.textures.exists('rendered-scene-gleam3d_wall')) this.add.image(0, 0, 'rendered-scene-gleam3d_wall').setOrigin(0).setDepth(250);
-      this.addAmbience(meta3d.corners);
       return;
     }
     if (this.textures.exists('rendered-scene-gleam')) {
@@ -114,15 +111,6 @@ export class GleamGrabScene extends BaseMinigame {
       const l = this.add.image(x, y, 'lantern').setScale(0.8);
       this.tweens.add({ targets: l, angle: { from: -6, to: 6 }, duration: 1600, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
     }
-  }
-
-  /** Sun shafts, dust in the light and balloon clusters tied to the back corners of the plaza. */
-  private addAmbience(corners: [number, number][]): void {
-    const back = [...corners].sort((a, b) => a[1] - b[1]).slice(0, 2).sort((a, b) => a[0] - b[0]);
-    addBalloons(this, back[0][0] - 24, back[0][1] - 6, { count: 3, scale: 0.6, depth: 260, seed: 'gleam-l', lift: 150 });
-    addBalloons(this, back[1][0] + 24, back[1][1] - 6, { count: 3, scale: 0.6, depth: 260, seed: 'gleam-r', lift: 150 });
-    addLightShafts(this, { x: 380, y: -140, angle: 27, count: 5, spread: 1100, length: 1500, width: 200, alpha: 0.14, depth: 8000 });
-    addDustMotes(this, 0, 160, GAME_WIDTH, 820, { count: 34, depth: 8001 });
   }
 
   /** Festival folk cheering from behind the back curb (bob, and hop when chips rain). */
@@ -185,31 +173,24 @@ export class GleamGrabScene extends BaseMinigame {
       mimi: ['happy', 'laugh', 'surprised', 'apple'],
     };
     let n = 0;
+    // Small full-figure spectators standing along the benches: evenly spaced, a gentle sway, the
+    // back rows a touch hazier. Fewer and tidier reads better than a packed wall of busts.
     tiers.forEach((t, ti) => {
-      const count = 12 - ti;
+      const count = 10 - ti * 2;
       const step = (t.x1 - t.x0) / count;
       for (let k = 0; k < count; k++) {
         const id = ids[(n * 2 + ti) % ids.length];
-        const pose = poses[id][(n + ti) % 4];
-        const x = t.x0 + (k + 0.5) * step + (((n * 37) % 17) - 8);
+        const pose = poses[id][(n + ti) % 2];
+        const x = t.x0 + (k + 0.5) * step + (((n * 37) % 11) - 5);
         const frame = npcFrame(id, pose);
-        const spr = this.add.sprite(x, t.y, 'npcs', frame);
+        const spr = this.add.sprite(x, t.y - 2, 'npcs', frame);
         const o = standOrigin('npcs', frame);
-        // Seated behind the tier's front board: show the upper body only, a bit smaller than
-        // the players (they are further away), with colour variants so neighbours differ.
-        const sc = 0.36 * t.scale;
-        const fm = SPRITE_META.npcs?.frames[Number(frame)];
-        spr.setOrigin(o.x, o.y).setScale(sc).setDepth(200 - ti + k * 0.001).setFlipX((n + ti) % 2 === 0);
-        if (fm) {
-          const keep = fm.solid[1] + fm.solid[3] * 0.64;
-          spr.setCrop(0, 0, fm.w, keep);
-          spr.y = t.y + fm.solid[3] * 0.36 * sc;
-        }
-        const tints = [0xffffff, 0xffe9e0, 0xe6efff, 0xeeffe6, 0xfff3d6];
-        const haze = ti === 0 ? 1 : ti === 1 ? 0.95 : 0.9;
-        const tc = Phaser.Display.Color.IntegerToColor(tints[(n * 3 + ti) % tints.length]);
-        spr.setTint(Phaser.Display.Color.GetColor(tc.red * haze, tc.green * haze, tc.blue * (haze + (1 - haze) * 0.6)));
-        this.tweens.add({ targets: spr, y: spr.y - 5 - (2 - ti), duration: 360 + ((n * 53) % 5) * 70, yoyo: true, repeat: -1, ease: 'Sine.InOut', delay: (n * 61) % 400 });
+        spr.setOrigin(o.x, o.y).setScale(0.28 * t.scale).setDepth(200 - ti + k * 0.001).setFlipX(x > 960);
+        const haze = ti === 0 ? 0xffffff : ti === 1 ? 0xf1f4fa : 0xe4e9f2;
+        spr.setTint(haze);
+        const shadow = this.add.image(x, t.y, 'fx-contact').setScale(0.55 * t.scale, 0.16 * t.scale).setAlpha(0.5).setDepth(199.9 - ti);
+        void shadow;
+        this.tweens.add({ targets: spr, angle: { from: -2, to: 2 }, duration: 900 + ((n * 53) % 5) * 90, yoyo: true, repeat: -1, ease: 'Sine.InOut', delay: (n * 61) % 500 });
         this.crowd.push(spr);
         n++;
       }
@@ -218,8 +199,8 @@ export class GleamGrabScene extends BaseMinigame {
 
   private crowdCheer(): void {
     for (const [i, spr] of this.crowd.entries()) {
-      const base = spr.scaleX;
-      this.tweens.add({ targets: spr, scaleY: { from: base * 0.86, to: base * 1.1 }, duration: 160, yoyo: true, repeat: 2, delay: i * 30, onComplete: () => spr.setScale(base) });
+      const y = spr.y;
+      this.tweens.add({ targets: spr, y: y - 10, duration: 150, yoyo: true, repeat: 1, delay: i * 25, ease: 'Quad.Out', onComplete: () => spr.setY(y) });
     }
   }
 

@@ -1,9 +1,9 @@
 import Phaser from 'phaser';
 import { audio, type SfxKey } from '../audio/AudioManager';
-import { COLORS, CSS, GAME_WIDTH } from '../constants';
+import { COLORS, GAME_WIDTH } from '../constants';
 import { settings } from '../save/SettingsManager';
-import { drawSpiral } from './Panel';
-import { addText, addTitle } from './theme';
+import { drawCard, UI } from './Style';
+import { addText } from './theme';
 
 export interface BannerOpts {
   title: string;
@@ -14,68 +14,48 @@ export interface BannerOpts {
   size?: number;
   sound?: SfxKey | null;
   depth?: number;
-  /** Extra content drawn on the ribbon (e.g. a player badge). */
-  decorate?: (c: Phaser.GameObjects.Container) => void;
+  /** Extra content drawn on the card (e.g. a player badge); gets the card's size. */
+  decorate?: (c: Phaser.GameObjects.Container, w: number, h: number) => void;
 }
 
-/** Ribbon banner that sweeps in, holds, and sweeps out. Resolves when gone. */
+/**
+ * Announcement card that pops in at the centre, holds and fades away. A white card with an ink
+ * title; the accent colour marks a slim chip above it carrying the subtitle. Resolves when gone.
+ */
 export function showBanner(scene: Phaser.Scene, o: BannerOpts): Promise<void> {
   const y = o.y ?? 470;
-  const size = o.size ?? 96;
+  const size = Math.round((o.size ?? 96) * 0.86);
   const c = scene.add.container(GAME_WIDTH / 2, y).setDepth(o.depth ?? 16000);
-  const h = size * 1.55 + (o.subtitle ? 44 : 0);
-  const w = GAME_WIDTH + 200;
+  const title = addText(scene, 0, 4, o.title, size, { color: UI.inkCss, weight: 700, fixed: true });
+  const w = Math.max(720, title.width + 220);
+  const h = Math.round(size * 1.5);
   const g = scene.add.graphics();
-  const color = o.color ?? COLORS.teal;
-  g.fillStyle(0x0b1a24, 0.35);
-  g.fillRect(-w / 2, -h / 2 + 12, w, h);
-  g.fillStyle(color, 0.96);
-  g.fillRect(-w / 2, -h / 2, w, h);
-  g.fillStyle(0xffffff, 0.14);
-  g.fillRect(-w / 2, -h / 2, w, h * 0.3);
-  g.lineStyle(5, COLORS.gold, 1);
-  g.lineBetween(-w / 2, -h / 2 + 8, w / 2, -h / 2 + 8);
-  g.lineBetween(-w / 2, h / 2 - 8, w / 2, h / 2 - 8);
-  g.lineStyle(4, 0xffffff, 0.22);
-  for (let x = -w / 2 + 80; x < w / 2; x += 260) drawSpiral(g, x, 0, 3, h * 0.28, 1.8, 0);
-  c.add(g);
-  const title = addTitle(scene, 0, o.subtitle ? 18 : 0, o.title, size);
-  c.add(title);
+  drawCard(g, -w / 2, -h / 2, w, h, { radius: 30, shadow: 1.4 });
+  c.add([g, title]);
   if (o.subtitle) {
-    const sub = addText(scene, 0, -h / 2 + 38, o.subtitle, 38, { color: CSS.goldLight, stroke: '#1b1530', strokeThickness: 6, weight: 700 });
-    c.add(sub);
+    const color = o.color ?? COLORS.teal;
+    const sub = addText(scene, 0, -h / 2, o.subtitle, 26, { color: UI.whiteCss, weight: 700, fixed: true });
+    const cw = sub.width + 56;
+    const chip = scene.add.graphics();
+    chip.fillStyle(color, 1);
+    chip.fillRoundedRect(-cw / 2, -h / 2 - 22, cw, 44, 22);
+    c.add([chip, sub]);
   }
-  o.decorate?.(c);
+  o.decorate?.(c, w, h);
   if (o.sound !== null) audio.play(o.sound ?? 'eventAlert');
   const reduced = settings.get().reducedMotion;
   const hold = o.hold ?? 1100;
   return new Promise((resolve) => {
-    if (reduced) {
-      c.setAlpha(0);
-      scene.tweens.add({ targets: c, alpha: 1, duration: 150 });
-      scene.time.delayedCall(hold + 150, () =>
-        scene.tweens.add({
-          targets: c,
-          alpha: 0,
-          duration: 150,
-          onComplete: () => {
-            c.destroy();
-            resolve();
-          },
-        }),
-      );
-      return;
-    }
-    c.x = -GAME_WIDTH;
-    title.setScale(0.6);
-    scene.tweens.add({ targets: c, x: GAME_WIDTH / 2, duration: 380, ease: 'Back.Out' });
-    scene.tweens.add({ targets: title, scale: 1, delay: 180, duration: 320, ease: 'Back.Out' });
-    scene.time.delayedCall(380 + hold, () =>
+    c.setAlpha(0);
+    if (!reduced) c.setScale(0.9);
+    scene.tweens.add({ targets: c, alpha: 1, scale: 1, duration: reduced ? 150 : 220, ease: 'Back.Out' });
+    scene.time.delayedCall(hold + 220, () =>
       scene.tweens.add({
         targets: c,
-        x: GAME_WIDTH * 2,
-        duration: 320,
-        ease: 'Back.In',
+        alpha: 0,
+        scale: reduced ? 1 : 0.96,
+        duration: 180,
+        ease: 'Quad.In',
         onComplete: () => {
           c.destroy();
           resolve();

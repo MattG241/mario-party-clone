@@ -90,19 +90,19 @@ export interface GradeSettings {
 }
 
 export const DEFAULT_GRADE: GradeSettings = {
-  gamma: 1.12,
-  saturation: 1.15,
-  contrast: 1.1,
-  vignette: 0.26,
-  tint: [1, 0.99, 0.97],
+  gamma: 1.08,
+  saturation: 1.12,
+  contrast: 1.08,
+  vignette: 0.1,
+  tint: [1, 1, 0.99],
   tilt: 0,
   focusH: 0.22,
   // Off by default: a full-screen bloom is costly on weak GPUs; the rendered art has its bloom
   // baked in (scripts/art/bloom.py). Scenes can still opt in.
   glow: 0,
   glowThreshold: 0.8,
-  shadowTint: [0.93, 0.97, 1.08],
-  highTint: [1.05, 1.0, 0.93],
+  shadowTint: [0.96, 0.98, 1.04],
+  highTint: [1.03, 1.0, 0.96],
 };
 
 /**

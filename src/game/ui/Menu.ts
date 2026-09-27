@@ -1,8 +1,9 @@
 import Phaser from 'phaser';
 import { audio } from '../audio/AudioManager';
-import { COLORS, CSS } from '../constants';
+import { CSS } from '../constants';
 import type { Controls } from '../input/Controls';
 import { settings } from '../save/SettingsManager';
+import { drawCard, UI } from './Style';
 import { addText, textScale } from './theme';
 
 export interface MenuItem {
@@ -30,7 +31,7 @@ export interface MenuOptions {
   focusFill?: number;
 }
 
-/** A button with physical depth: a dark base under a face that sinks when pressed. */
+/** A clean card button; the focused one is filled with the focus colour and grows slightly. */
 export class MenuButton extends Phaser.GameObjects.Container {
   private base: Phaser.GameObjects.Graphics;
   private face: Phaser.GameObjects.Container;
@@ -87,38 +88,22 @@ export class MenuButton extends Phaser.GameObjects.Container {
   }
 
   private redraw(): void {
-    // Same material as the HUD: navy capsule with a soft sheen; the focused button turns gold.
+    // Clean card buttons: white face with ink text; the focused one turns warm gold.
     const w = this.bw;
     const h = this.bh;
-    const r = Math.min(26, h / 2.2);
+    const r = Math.min(24, h / 2.2);
     this.base.clear();
-    this.base.fillStyle(0x06141a, this.disabled ? 0.25 : 0.4);
-    this.base.fillRoundedRect(-w / 2 + 3, -h / 2 + 8, w, h, r);
     this.faceG.clear();
-    if (this.selected && !this.disabled) {
-      this.faceG.fillStyle(COLORS.goldDark, 1);
-      this.faceG.fillRoundedRect(-w / 2, -h / 2 + 4, w, h, r);
-      this.faceG.fillStyle(this.focusFill, 1);
-      this.faceG.fillRoundedRect(-w / 2, -h / 2, w, h - 4, r);
-      this.faceG.fillStyle(0xffffff, 0.35);
-      this.faceG.fillRoundedRect(-w / 2 + 10, -h / 2 + 5, w - 20, h * 0.3, r * 0.6);
-      this.faceG.lineStyle(3, 0xfff4dc, 1);
-      this.faceG.strokeRoundedRect(-w / 2, -h / 2, w, h, r);
-    } else {
-      this.faceG.fillStyle(this.disabled ? 0x2a3a40 : 0x0c2630, 0.9);
-      this.faceG.fillRoundedRect(-w / 2, -h / 2, w, h, r);
-      this.faceG.fillStyle(0xffffff, 0.07);
-      this.faceG.fillRoundedRect(-w / 2 + 10, -h / 2 + 5, w - 20, h * 0.36, r * 0.6);
-      this.faceG.lineStyle(3, 0xfff4dc, this.disabled ? 0.15 : 0.35);
-      this.faceG.strokeRoundedRect(-w / 2, -h / 2, w, h, r);
-    }
-    this.label.setColor(this.disabled ? '#7d8a8f' : this.selected ? CSS.ink : CSS.cream);
-    this.valueText?.setColor(this.selected ? CSS.tealDark : CSS.crystal);
     this.glow.clear();
-    if (this.selected) {
-      this.glow.lineStyle(8, COLORS.crystal, 1);
-      this.glow.strokeRoundedRect(-w / 2 - 7, -h / 2 - 7, w + 14, h + 20, r + 7);
-    }
+    const focused = this.selected && !this.disabled;
+    drawCard(this.faceG, -w / 2, -h / 2, w, h, {
+      radius: r,
+      fill: focused ? this.focusFill : this.disabled ? UI.cardSoft : UI.card,
+      alpha: this.disabled ? 0.75 : 1,
+      shadow: this.disabled ? 0.4 : focused ? 1.3 : 0.8,
+    });
+    this.label.setColor(this.disabled ? '#a2a9b8' : UI.inkCss);
+    this.valueText?.setColor(focused ? UI.inkCss : '#2a7f9e');
   }
 
   setSelected(sel: boolean, animate = true): void {
@@ -126,23 +111,17 @@ export class MenuButton extends Phaser.GameObjects.Container {
     this.selected = sel;
     this.redraw();
     this.glowTween?.stop();
-    this.glow.setAlpha(1);
     const reduced = settings.get().reducedMotion;
     if (sel) {
-      if (!reduced) {
-        this.glowTween = this.scene.tweens.add({ targets: this.glow, alpha: { from: 1, to: 0.35 }, duration: 650, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
-      }
-      if (animate && !reduced) {
-        this.scene.tweens.add({ targets: this, scale: { from: 1.0, to: 1.07 }, duration: 160, ease: 'Back.Out' });
-        this.scene.tweens.add({ targets: this.face, y: { from: -6, to: 0 }, duration: 220, ease: 'Bounce.Out' });
-      } else this.setScale(1.07);
+      if (animate && !reduced) this.scene.tweens.add({ targets: this, scale: { from: 1.0, to: 1.05 }, duration: 140, ease: 'Back.Out' });
+      else this.setScale(1.05);
     } else {
       this.scene.tweens.add({ targets: this, scale: 1, duration: 120, ease: 'Quad.Out' });
     }
   }
 
   press(): void {
-    this.scene.tweens.add({ targets: this.face, y: 6, duration: 60, yoyo: true, ease: 'Quad.Out' });
+    this.scene.tweens.add({ targets: this.face, scale: 0.96, duration: 60, yoyo: true, ease: 'Quad.Out' });
   }
 
   get isDisabled(): boolean {
@@ -173,7 +152,7 @@ export class Menu extends Phaser.GameObjects.Container {
       fontSize: opts.fontSize ?? 34,
       horizontal: opts.horizontal ?? false,
       wrap: opts.wrap ?? true,
-      focusFill: opts.focusFill ?? COLORS.goldLight,
+      focusFill: opts.focusFill ?? UI.focus,
       onCancel: opts.onCancel,
       onFocus: opts.onFocus,
     };

@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { audio } from '../audio/AudioManager';
 import { Character } from '../characters/Character';
-import { CSS, GAME_HEIGHT, GAME_WIDTH, PLAYER_COLORS } from '../constants';
+import { CSS, GAME_HEIGHT, GAME_WIDTH } from '../constants';
 import { CHARACTERS } from '../data/characters';
 import { input } from '../input/InputManager';
 import { minigameInfo, type MinigameInfo, type MinigameLaunch } from '../minigames/MinigameManager';
@@ -10,7 +10,7 @@ import { addPortrait } from '../ui/Portrait';
 import { addText, addTitle } from '../ui/theme';
 import { enterScene, goTo } from '../ui/Transition';
 import { centerOrigin, solidHeight } from '../util/spriteUtil';
-import { drawNavyPanel } from '../ui/Screen';
+import { drawCard, drawSlate, UI } from '../ui/Style';
 
 /** "MINIGAME!" card: name, instructions, controls, and a ready check for every human. */
 export class MinigameIntroScene extends Phaser.Scene {
@@ -67,23 +67,20 @@ export class MinigameIntroScene extends Phaser.Scene {
     const veil = this.add.graphics();
     veil.fillGradientStyle(0x0a2230, 0x0a2230, 0x06141a, 0x06141a, 0.28, 0.28, 0.5, 0.5);
     veil.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-    // Swirling rays behind the title
-    const rays = this.add.graphics({ x: GAME_WIDTH / 2, y: 150 });
-    for (let i = 0; i < 16; i++) {
-      const a0 = (i / 16) * Math.PI * 2;
-      rays.fillStyle(this.info.color, 0.08);
-      rays.slice(0, 0, 1400, a0, a0 + 0.12, false);
-      rays.fillPath();
-    }
-    this.tweens.add({ targets: rays, angle: 360, duration: 40000, repeat: -1 });
-    const header = addTitle(this, GAME_WIDTH / 2, 62, 'MINIGAME!', 50, CSS.goldLight);
-    header.setScale(0.4);
-    this.tweens.add({ targets: header, scale: 1, duration: 360, ease: 'Back.Out' });
+    // A small "MINIGAME" chip in the game's colour above the title.
+    const header = this.add.container(GAME_WIDTH / 2, 58);
+    const hg = this.add.graphics();
+    const ht = addText(this, 0, 0, 'MINIGAME', 24, { color: '#ffffff', weight: 700, fixed: true });
+    hg.fillStyle(this.info.color, 1);
+    hg.fillRoundedRect(-(ht.width + 48) / 2, -20, ht.width + 48, 40, 20);
+    header.add([hg, ht]);
+    header.setScale(0.6);
+    this.tweens.add({ targets: header, scale: 1, duration: 260, ease: 'Back.Out' });
     audio.play('fanfare');
     const title = addTitle(this, GAME_WIDTH / 2, 140, this.info.name.toUpperCase(), 92);
     title.setAlpha(0);
     this.tweens.add({ targets: title, alpha: 1, y: 146, delay: 250, duration: 300, ease: 'Back.Out' });
-    addText(this, GAME_WIDTH / 2, 214, this.info.tagline, 30, { color: CSS.creamDark, weight: 700 });
+    addText(this, GAME_WIDTH / 2, 214, this.info.tagline, 30, { color: '#ffffff', weight: 700 }).setShadow(0, 2, 'rgba(10,17,32,0.5)', 6, false, true);
 
     // Left: large live preview. Right: rules panel.
     const PX = 150;
@@ -117,21 +114,23 @@ export class MinigameIntroScene extends Phaser.Scene {
     }
     const RX = 1050;
     const RW = 720;
-    // Navy card with a header band in the minigame's colour (the same material as every panel).
+    // White card with a header band in the minigame's colour.
     const panel = this.add.graphics();
-    drawNavyPanel(panel, RX, PY, RW, PH, { header: { color: this.info.color, height: 76 }, border: this.info.color });
-    addText(this, RX + 34, PY + 39, 'HOW TO PLAY', 28, { color: '#ffffff', weight: 700, align: 'left', stroke: '#06141a', strokeThickness: 4 });
-    addText(this, RX + RW - 30, PY + 39, `${this.info.players}  ·  ${this.info.duration}`, 20, { color: '#ffffff', weight: 700, align: 'right', stroke: '#06141a', strokeThickness: 3 });
+    drawCard(panel, RX, PY, RW, PH, { radius: 28 });
+    panel.fillStyle(this.info.color, 1);
+    panel.fillRoundedRect(RX, PY, RW, 76, { tl: 28, tr: 28, bl: 0, br: 0 });
+    addText(this, RX + 34, PY + 39, 'HOW TO PLAY', 28, { color: '#ffffff', weight: 700, align: 'left' });
+    addText(this, RX + RW - 30, PY + 39, `${this.info.players}  ·  ${this.info.duration}`, 20, { color: '#ffffff', weight: 700, align: 'right' });
     const lines = mode === 'on' ? this.info.instructions : [this.info.description];
     lines.forEach((line, i) => {
       const y = PY + 118 + i * 80;
       const g = this.add.graphics();
-      g.fillStyle(0xffffff, 0.06);
+      g.fillStyle(UI.cardSoft, 1);
       g.fillRoundedRect(RX + 22, y - 34, RW - 44, 68, 20);
-      g.fillStyle(0x06141a, 0.5);
-      g.fillCircle(RX + 62, y, 28);
+      g.fillStyle(0xffffff, 1);
+      g.fillCircle(RX + 62, y, 27);
       g.lineStyle(3, this.info.color, 1);
-      g.strokeCircle(RX + 62, y, 28);
+      g.strokeCircle(RX + 62, y, 27);
       const icon = this.info.ruleIcons?.[i];
       if (icon && this.textures.exists(icon.texture)) {
         const img = icon.frame !== undefined ? this.add.image(RX + 62, y, icon.texture, icon.frame) : this.add.image(RX + 62, y, icon.texture);
@@ -140,13 +139,10 @@ export class MinigameIntroScene extends Phaser.Scene {
           img.setOrigin(o.x, o.y);
           img.setScale(40 / solidHeight(icon.texture, icon.frame));
         } else img.setScale(40 / Math.max(img.width, img.height));
-      } else addText(this, RX + 62, y - 1, String(i + 1), 26, { color: '#ffffff', weight: 700, stroke: '#06141a', strokeThickness: 4 });
-      addText(this, RX + 108, y, line, 24, { color: CSS.cream, weight: 600, align: 'left', wrap: RW - 140 });
+      } else addText(this, RX + 62, y - 1, String(i + 1), 26, { color: UI.inkCss, weight: 700 });
+      addText(this, RX + 108, y, line, 24, { color: UI.inkCss, weight: 600, align: 'left', wrap: RW - 140 });
     });
-    const cg = this.add.graphics();
-    cg.fillStyle(0x06141a, 0.45);
-    cg.fillRoundedRect(RX + 24, PY + PH - 92, RW - 48, 70, 35);
-    new PromptBar(this, RX + RW / 2, PY + PH - 57, this.info.controls, { size: 42, fontSize: 26 });
+    new PromptBar(this, RX + RW / 2, PY + PH - 48, this.info.controls, { size: 42, fontSize: 26, color: UI.inkCss });
 
     // Ready check: slim capsules with portraits, like the lobby.
     const n = this.launchData.players.length;
@@ -156,16 +152,11 @@ export class MinigameIntroScene extends Phaser.Scene {
       const w = 390;
       const h = 104;
       const g = this.add.graphics();
-      g.fillStyle(0x06141a, 0.3);
-      g.fillRoundedRect(x - w / 2 + 4, y - h / 2 + 7, w, h, h / 2);
-      g.fillStyle(0x0c2630, 0.88);
-      g.fillRoundedRect(x - w / 2, y - h / 2, w, h, h / 2);
-      g.lineStyle(4, PLAYER_COLORS[p.slot], 1);
-      g.strokeRoundedRect(x - w / 2, y - h / 2, w, h, h / 2);
+      drawCard(g, x - w / 2, y - h / 2, w, h, { radius: h / 2 });
       const portrait = addPortrait(this, p.characterId, p.slot, 46, { worldX: x - w / 2 + 50, worldY: y });
       portrait.setPosition(x - w / 2 + 50, y);
-      addText(this, x - w / 2 + 112, y - 22, CHARACTERS[p.characterId].name.split(' ')[0].toUpperCase(), 20, { color: CSS.creamDark, weight: 700, align: 'left' });
-      const mark = addText(this, x - w / 2 + 112, y + 14, p.isCpu ? 'CPU READY' : 'READY?', 30, { color: p.isCpu ? CSS.crystal : CSS.cream, weight: 700, align: 'left' });
+      addText(this, x - w / 2 + 112, y - 22, CHARACTERS[p.characterId].name.split(' ')[0].toUpperCase(), 20, { color: UI.inkSoftCss, weight: 700, align: 'left' });
+      const mark = addText(this, x - w / 2 + 112, y + 14, p.isCpu ? 'CPU READY' : 'READY?', 30, { color: p.isCpu ? '#2a8f6a' : UI.inkCss, weight: 700, align: 'left' });
       this.readyMarks.set(p.slot, mark);
       this.ready.set(p.slot, p.isCpu);
       if (!p.isCpu) {
@@ -173,7 +164,7 @@ export class MinigameIntroScene extends Phaser.Scene {
         const glyph = makeGlyph(this, 'A', 46, glyphKindFor(p.slot));
         glyph.setPosition(x + w / 2 - 20 - glyph.width / 2, y);
         this.readyGlyphs.set(p.slot, glyph);
-        this.tweens.add({ targets: glyph, scale: { from: 1, to: 1.12 }, duration: 500, yoyo: true, repeat: -1 });
+        this.tweens.add({ targets: glyph, scale: { from: 1, to: 1.06 }, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
       }
     });
     new PromptBar(this, GAME_WIDTH / 2, GAME_HEIGHT - 60, [{ button: 'A', label: 'Ready!' }], { size: 38, fontSize: 26 });
@@ -192,11 +183,13 @@ export class MinigameIntroScene extends Phaser.Scene {
     maskG.fillStyle(0xffffff);
     maskG.fillRoundedRect(x0, y0, w, h, 22);
     root.setMask(maskG.createGeometryMask());
+    // A plain white frame around the live preview, like a photo.
+    const back = this.add.graphics();
+    drawCard(back, x0 - 10, y0 - 10, w + 20, h + 20, { radius: 30 });
+    this.children.moveBelow(back, root);
     const frame = this.add.graphics();
-    frame.lineStyle(6, this.info.color, 1);
+    frame.lineStyle(2, 0x000000, 0.08);
     frame.strokeRoundedRect(x0, y0, w, h, 22);
-    frame.lineStyle(2, 0xfff4dc, 0.5);
-    frame.strokeRoundedRect(x0 + 5, y0 + 5, w - 10, h - 10, 18);
     // characters wandering around the arena (scaled down)
     const cy = (h - GAME_HEIGHT * scale) / 2;
     this.launchData.players.forEach((p, i) => {
@@ -218,9 +211,8 @@ export class MinigameIntroScene extends Phaser.Scene {
     });
     this.previewProps(root, scale, cy);
     const chip = this.add.graphics();
-    chip.fillStyle(0x0c2630, 0.85);
-    chip.fillRoundedRect(x0 + 18, y0 + 18, 132, 36, 18);
-    addText(this, x0 + 84, y0 + 36, 'PREVIEW', 18, { color: CSS.cream, weight: 700 });
+    drawSlate(chip, x0 + 18, y0 + 18, 132, 36, { alpha: 0.7 });
+    addText(this, x0 + 84, y0 + 36, 'PREVIEW', 18, { color: '#ffffff', weight: 700 });
   }
 
   /** The minigame's own objects in the preview (so it illustrates the rules, not just the arena). */

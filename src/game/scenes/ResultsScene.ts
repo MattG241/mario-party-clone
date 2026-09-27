@@ -10,6 +10,7 @@ import { rewardForPlace } from '../state/scoring';
 import { session } from '../state/Session';
 import { PromptBar } from '../ui/ControllerPrompt';
 import { Menu } from '../ui/Menu';
+import { drawCard, UI } from '../ui/Style';
 import { PlayerBadge } from '../ui/PlayerBadge';
 import { addText, addTitle } from '../ui/theme';
 import { enterScene, goTo } from '../ui/Transition';
@@ -89,7 +90,7 @@ export class ResultsScene extends Phaser.Scene {
 
   create(): void {
     enterScene(this);
-    applyGrade(this, { vignette: 0.2 });
+    applyGrade(this, { vignette: 0.08 });
     audio.playMusic('results');
     const fx = new EffectsManager(this, 800);
     // Warm late-afternoon sky for the podium (the board is day, the title golden hour).
@@ -128,21 +129,19 @@ export class ResultsScene extends Phaser.Scene {
       const badge = new PlayerBadge(this, x, baseY - h + 8 + animHeadTop(lp.characterId) * c.scale - 40, pl.slot, 24);
       badge.setAlpha(0);
       const scoreLabel = this.result.scores.find((s) => s.slot === pl.slot)?.label ?? '';
+      // Score on a small white chip with a dot in the player's colour.
       const pill = this.add.graphics();
-      const lw = Math.max(140, scoreLabel.length * 13 + 36);
-      pill.fillStyle(0x0c2630, 0.85);
-      pill.fillRoundedRect(x - lw / 2, baseY + 34, lw, 38, 19);
-      pill.lineStyle(3, PLAYER_COLORS[pl.slot], 0.9);
-      pill.strokeRoundedRect(x - lw / 2, baseY + 34, lw, 38, 19);
-      addText(this, x, baseY + 53, scoreLabel, 21, { color: CSS.cream, weight: 700 });
+      const label = addText(this, x + 9, baseY + 53, scoreLabel, 21, { color: UI.inkCss, weight: 700 });
+      const lw = Math.max(140, label.width + 58);
+      drawCard(pill, x - lw / 2, baseY + 34, lw, 38, { radius: 19, shadow: 0.8 });
+      pill.fillStyle(PLAYER_COLORS[pl.slot], 1);
+      pill.fillCircle(x - label.width / 2 - 8, baseY + 53, 7);
+      label.setDepth(1);
       if (board) {
         const panel = this.add.graphics();
-        panel.fillStyle(0x0c2630, 0.85);
-        panel.fillRoundedRect(x - 70, baseY + 100, 140, 48, 24);
-        panel.lineStyle(3, COLORS.gold, 1);
-        panel.strokeRoundedRect(x - 70, baseY + 100, 140, 48, 24);
+        drawCard(panel, x - 70, baseY + 100, 140, 48, { radius: 24, shadow: 0.8 });
         const chip = this.add.sprite(x - 34, baseY + 124, 'items', '0').setScale(0.18).play('chip-spin');
-        addText(this, x + 18, baseY + 124, `+${rewardForPlace(pl.place)}`, 28, { color: CSS.goldLight, weight: 700 });
+        addText(this, x + 18, baseY + 124, `+${rewardForPlace(pl.place)}`, 28, { color: UI.inkCss, weight: 700 });
         void chip;
       }
       // Staggered reveal: 4th → 1st
@@ -154,48 +153,30 @@ export class ResultsScene extends Phaser.Scene {
         this.tweens.add({ targets: c, y: c.y + 200, duration: 380, ease: 'Bounce.Out' });
         audio.play('land');
         const last = pl.place === ranked.length && ranked.length > 1;
-        const anim = pl.place === 1 ? 'victory' : last ? 'disappointed' : 'celebrate';
         this.time.delayedCall(380, () => {
-          if (last) {
-            // Last place keeps a disappointed pose instead of snapping back to idle.
-            c.play('disappointed', { onComplete: () => c.hold('disappointed', 2) });
-          } else if (pl.place === 1) {
-            c.play('victory');
-            this.time.addEvent({ delay: 2200, loop: true, callback: () => c.play('victory') });
-          } else c.play(anim);
+          // Everyone keeps a pose that fits their placing instead of snapping back to idle.
+          if (last) c.play('disappointed', { onComplete: () => c.hold('disappointed', 2) });
+          else if (pl.place === 1) {
+            const cheer = () => c.play('victory', { onComplete: () => c.hold('victory', 2) });
+            cheer();
+            this.time.addEvent({ delay: 2600, loop: true, callback: cheer });
+          } else c.play('celebrate', { onComplete: () => c.hold('celebrate', 2) });
         });
         if (pl.place === 1) {
           audio.play('victory');
           fx.confetti(x, baseY - h - 280, 90);
-          // Spotlight from above onto the winner.
-          const beam = this.add.graphics().setDepth(-6).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0);
-          for (let k = 0; k < 6; k++) {
-            beam.fillStyle(0xfff1c4, 0.05);
-            beam.fillTriangle(x - 30 - k * 4, -40, x + 30 + k * 4, -40, x + 170 + k * 22, baseY - h + 20);
-            beam.fillTriangle(x - 30 - k * 4, -40, x - 170 - k * 22, baseY - h + 20, x + 170 + k * 22, baseY - h + 20);
-          }
-          beam.fillStyle(0xfff1c4, 0.16);
-          beam.fillEllipse(x, baseY - h + 8, 360, 80);
-          this.tweens.add({ targets: beam, alpha: 1, duration: 500 });
-          // Sunburst behind the winner and a ribbon above.
-          const rays = this.add.image(x, baseY - h - 120, 'fx-rays').setDisplaySize(1180, 1180).setTint(0xffe7a6).setBlendMode(Phaser.BlendModes.ADD).setDepth(-5).setAlpha(0);
-          this.tweens.add({ targets: rays, alpha: 0.6, duration: 400 });
-          this.tweens.add({ targets: rays, angle: 360, duration: 24000, repeat: -1 });
-          // Winner banner: the character's name on a gold-rimmed navy ribbon above the podium.
+          // Winner card: the name in ink on a white card with a slim gold chip above it.
           const winners = ranked.filter((r) => r.place === 1).length;
           const team = minigameInfo(this.result.id)?.teamGame ?? false;
           const nm = winners > 1 ? (team ? 'TEAM VICTORY!' : 'TIE!') : `${CHARACTERS[lp.characterId].name.split(' ')[0].toUpperCase()} WINS!`;
           const ribbon = this.add.container(x, baseY - h - 372).setScale(0.3).setDepth(5);
-          const rw = Math.max(300, nm.length * 34 + 90);
+          const title = addText(this, 0, 0, nm, 52, { color: UI.inkCss, weight: 700, fixed: true });
+          const rw = Math.max(320, title.width + 110);
           const rg = this.add.graphics();
-          rg.fillStyle(0x06141a, 0.35);
-          rg.fillRoundedRect(-rw / 2 + 4, -38 + 7, rw, 76, 38);
-          rg.fillStyle(0x0c2630, 0.94);
-          rg.fillRoundedRect(-rw / 2, -38, rw, 76, 38);
-          rg.lineStyle(4, COLORS.gold, 1);
-          rg.strokeRoundedRect(-rw / 2, -38, rw, 76, 38);
-          ribbon.add(rg);
-          ribbon.add(addTitle(this, 0, -2, nm, 54, CSS.goldLight));
+          drawCard(rg, -rw / 2, -40, rw, 80, { radius: 40, shadow: 1.3 });
+          rg.fillStyle(UI.focus, 1);
+          rg.fillRoundedRect(-44, -54, 88, 26, 13);
+          ribbon.add([rg, title, addText(this, 0, -41, pl.place === 1 && winners === 1 ? '1ST' : 'WIN', 16, { color: UI.inkCss, weight: 700, fixed: true })]);
           this.tweens.add({ targets: ribbon, scale: 1, duration: 360, ease: 'Back.Out' });
           if (!lp.isCpu) {
             input.rumbleSlot(lp.slot, 0.6, 0.6, 150);

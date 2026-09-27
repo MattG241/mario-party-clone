@@ -1,15 +1,15 @@
 import Phaser from 'phaser';
 import { audio } from '../audio/AudioManager';
 import { Character } from '../characters/Character';
-import { COLORS, CSS, GAME_HEIGHT, GAME_WIDTH, SUBTITLE, TITLE } from '../constants';
+import { GAME_HEIGHT, GAME_WIDTH, SUBTITLE, TITLE } from '../constants';
 import { CHARACTER_IDS } from '../data/characters';
 import { EffectsManager } from '../effects/EffectsManager';
 import { input } from '../input/InputManager';
 import { saves } from '../save/SaveManager';
-import { settings } from '../save/SettingsManager';
 import { session } from '../state/Session';
 import { makeGlyph, PromptBar } from '../ui/ControllerPrompt';
 import { Menu } from '../ui/Menu';
+import { drawCard, UI } from '../ui/Style';
 import { addText, addTitle } from '../ui/theme';
 import { enterScene, goTo } from '../ui/Transition';
 import { findBoard } from '../data/boards';
@@ -41,7 +41,7 @@ export class TitleScene extends Phaser.Scene {
 
   create(): void {
     enterScene(this);
-    applyGrade(this, { vignette: 0.2 });
+    applyGrade(this, { vignette: 0.08 });
     this.phase = 'attract';
     this.chars = [];
     this.busy.clear();
@@ -51,23 +51,18 @@ export class TitleScene extends Phaser.Scene {
     this.buildIsland();
     this.buildLogo();
     this.buildMenu();
-    // "Press A to start" plate under the logo (navy pill, gold rim) so it reads over any backdrop.
+    // "Press A to start" on a clean white card under the logo; it breathes gently.
     this.pressText = this.add.container(440, 648).setDepth(600);
     this.pressKind = null;
     this.refreshPressPlate();
-    this.tweens.add({ targets: this.pressText, scale: { from: 1, to: 1.06 }, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+    this.tweens.add({ targets: this.pressText, alpha: { from: 1, to: 0.72 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
     this.prompts = new PromptBar(this, GAME_WIDTH / 2, GAME_HEIGHT - 60, [], { size: 40, fontSize: 28 }).setDepth(600).setVisible(false);
-    this.hint = addText(this, 470, 1030, '', 26, { color: CSS.cream, weight: 500, stroke: '#0b2a33', strokeThickness: 5 }).setDepth(600);
-    this.audioHint = addText(this, GAME_WIDTH - 30, 36, '🔇 Press any key or click to enable sound', 22, { color: CSS.cream, align: 'right', weight: 500, stroke: '#0b2a33', strokeThickness: 5 }).setDepth(600);
+    this.hint = addText(this, 470, 1030, '', 26, { color: '#ffffff', weight: 600 }).setDepth(600).setShadow(0, 2, 'rgba(10,17,32,0.5)', 5, false, true);
+    this.audioHint = addText(this, GAME_WIDTH - 30, 36, '🔇 Press any key or click to enable sound', 22, { color: '#ffffff', align: 'right', weight: 600 })
+      .setDepth(600)
+      .setShadow(0, 2, 'rgba(10,17,32,0.5)', 5, false, true);
     this.time.addEvent({ delay: 2600, loop: true, callback: () => this.direct() });
     this.time.delayedCall(700, () => this.direct());
-    this.time.addEvent({
-      delay: 5200,
-      loop: true,
-      callback: () => {
-        if (!settings.get().reducedMotion) this.fx.confetti(Phaser.Math.Between(900, 1700), Phaser.Math.Between(260, 420), 26);
-      },
-    });
     if (window.__GLEAMTRAIL__) window.__GLEAMTRAIL__.ready = true;
   }
 
@@ -138,34 +133,17 @@ export class TitleScene extends Phaser.Scene {
   }
 
   private buildLogo(): void {
-    // Emblem tucked onto the wordmark so the lockup reads as one piece.
+    // The rendered 3D wordmark (text fallback) with the subtitle in clean white beneath it.
     this.logo = this.add.container(440, 0).setDepth(400);
-    // A warm halo and a navy ribbon under the subtitle anchor the logo against the open sky.
-    const halo = this.add.image(0, 400, 'fx-dot').setScale(34, 20).setTint(0xfff1c8).setAlpha(0.42).setBlendMode(Phaser.BlendModes.ADD);
-    const ribbon = this.add.graphics();
-    ribbon.fillStyle(0x06141a, 0.3);
-    ribbon.fillRoundedRect(-330 + 4, 530 - 30 + 6, 660, 60, 30);
-    ribbon.fillStyle(0x0c2630, 0.88);
-    ribbon.fillRoundedRect(-330, 530 - 30, 660, 60, 30);
-    ribbon.lineStyle(3, COLORS.gold, 1);
-    ribbon.strokeRoundedRect(-330, 530 - 30, 660, 60, 30);
-    for (const sx of [-1, 1]) {
-      ribbon.fillStyle(0x0a2129, 0.9);
-      ribbon.fillTriangle(sx * 330, 506, sx * 330, 554, sx * 372, 530);
-    }
-    const emblem = this.add.image(0, 292, 'emblem').setScale(0.82);
-    // The rendered 3D wordmark (with a shine sweeping across it) when available, else text.
     let title: Phaser.GameObjects.Image | Phaser.GameObjects.Text;
     if (this.textures.exists('rendered-ui-logo')) {
-      const img = this.add.image(0, 444, 'rendered-ui-logo');
-      img.setScale(Math.min(1, 800 / img.width));
-      img.preFX?.addShine(0.35, 0.25, 5);
+      const img = this.add.image(0, 420, 'rendered-ui-logo');
+      img.setScale(Math.min(1, 820 / img.width));
       title = img;
-    } else title = addTitle(this, 0, 440, TITLE, 124);
-    const sub = addText(this, 0, 530, SUBTITLE, 38, { color: CSS.goldLight, weight: 700, stroke: CSS.tealDeep, strokeThickness: 6, fixed: true });
-    this.logo.add([halo, ribbon, emblem, title, sub]);
-    this.tweens.add({ targets: emblem, angle: 360, duration: 24000, repeat: -1 });
-    this.tweens.add({ targets: [emblem, title, sub, ribbon], y: '+=10', duration: 2400, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+    } else title = addTitle(this, 0, 420, TITLE, 124);
+    const sub = addTitle(this, 0, 528, SUBTITLE, 40);
+    this.logo.add([title, sub]);
+    this.tweens.add({ targets: [title, sub], y: '+=8', duration: 2600, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
   }
 
   private buildMenu(): void {
@@ -236,8 +214,8 @@ export class TitleScene extends Phaser.Scene {
     const c = this.pressText;
     c.removeAll(true);
     const glyph = makeGlyph(this, 'A', 50, kind);
-    const pre = addText(this, 0, 0, 'PRESS', 34, { color: CSS.cream, weight: 700, align: 'left' });
-    const post = addText(this, 0, 0, 'TO START', 34, { color: CSS.goldLight, weight: 700, align: 'left' });
+    const pre = addText(this, 0, 0, 'PRESS', 34, { color: UI.inkCss, weight: 700, align: 'left' });
+    const post = addText(this, 0, 0, 'TO START', 34, { color: UI.inkCss, weight: 700, align: 'left' });
     const gw = glyph.width || 50;
     const total = pre.width + 16 + gw + 16 + post.width;
     pre.setX(-total / 2);
@@ -246,14 +224,7 @@ export class TitleScene extends Phaser.Scene {
     const w = total + 70;
     const h = 78;
     const g = this.add.graphics();
-    g.fillStyle(0x06141a, 0.3);
-    g.fillRoundedRect(-w / 2 + 4, -h / 2 + 7, w, h, h / 2);
-    g.fillStyle(0x0c2630, 0.86);
-    g.fillRoundedRect(-w / 2, -h / 2, w, h, h / 2);
-    g.fillStyle(0xffffff, 0.08);
-    g.fillRoundedRect(-w / 2 + 10, -h / 2 + 6, w - 20, h * 0.4, { tl: 30, tr: 30, bl: 8, br: 8 });
-    g.lineStyle(4, COLORS.gold, 1);
-    g.strokeRoundedRect(-w / 2, -h / 2, w, h, h / 2);
+    drawCard(g, -w / 2, -h / 2, w, h, { radius: h / 2, shadow: 1.2 });
     c.add([g, pre, glyph, post]);
   }
 

@@ -82,14 +82,7 @@ export interface CharacterOpts {
   slot?: number;
   marker?: boolean;
   shadow?: boolean;
-  /** Warm rim light on the edges facing the key light (default on). */
-  rim?: boolean;
 }
-
-/** Rim light: colour, strength and offset toward the key light (front-left, above). */
-const RIM_COLOR = 0xfff0cc;
-const RIM_ALPHA = 0.55;
-const RIM_OFFSET = { x: -3, y: -3 };
 
 /**
  * A character standing at the container origin (its feet). Plays named animations; one-shot
@@ -105,8 +98,6 @@ export class Character extends Phaser.GameObjects.Container {
   private onDone: (() => void) | null = null;
   private baseSpriteScale = 1;
   private facingLeft = false;
-  private rim?: Phaser.GameObjects.Sprite;
-  private events?: Phaser.Events.EventEmitter;
   private playId = 0;
   private finished = false;
 
@@ -126,14 +117,6 @@ export class Character extends Phaser.GameObjects.Container {
       this.add(this.shadow);
     }
     this.sprite = scene.add.sprite(0, 0, CHARACTERS[id].atlas, '0');
-    if (opts.rim !== false) {
-      // A light silhouette just up-left of (and behind) the sprite shows as a thin warm rim on
-      // the lit edges, tying the rendered characters into the scene's lighting.
-      this.rim = scene.add.sprite(0, 0, CHARACTERS[id].atlas, '0').setTintFill(RIM_COLOR).setAlpha(RIM_ALPHA);
-      this.add(this.rim);
-      this.events = scene.events;
-      this.events.on(Phaser.Scenes.Events.POST_UPDATE, this.syncRim, this);
-    }
     this.add(this.sprite);
     if (opts.slot !== undefined && opts.marker !== false) {
       this.marker = new PlayerBadge(scene, 0, animHeadTop(id) - 46, opts.slot, 22);
@@ -248,26 +231,7 @@ export class Character extends Phaser.GameObjects.Container {
     });
   }
 
-  /** Keep the rim silhouette on the sprite's current frame, pose and tint state. */
-  private syncRim(): void {
-    const s = this.sprite;
-    const r = this.rim;
-    if (!r || !s || !s.active) return;
-    if (r.texture.key !== s.texture.key || r.frame.name !== s.frame.name) r.setTexture(s.texture.key, s.frame.name);
-    r.setOrigin(s.originX, s.originY).setScale(s.scaleX, s.scaleY).setFlipX(s.flipX).setAngle(s.angle);
-    r.setPosition(s.x + RIM_OFFSET.x, s.y + RIM_OFFSET.y);
-    let lit = 1;
-    if (s.tintFill) lit = 0;
-    else if (s.isTinted) {
-      const t = s.tintTopLeft;
-      lit = (((t >> 16) & 255) * 0.3 + ((t >> 8) & 255) * 0.59 + (t & 255) * 0.11) / 255;
-      lit = lit * lit;
-    }
-    r.setVisible(s.visible && lit > 0.05).setAlpha(RIM_ALPHA * s.alpha * lit);
-  }
-
   override destroy(fromScene?: boolean): void {
-    this.events?.off(Phaser.Scenes.Events.POST_UPDATE, this.syncRim, this);
     this.sprite?.off(Phaser.Animations.Events.ANIMATION_COMPLETE, this.onAnimComplete, this);
     this.onDone = null;
     super.destroy(fromScene);

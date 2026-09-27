@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { COLORS, CSS, GAME_HEIGHT, GAME_WIDTH, PLAYER_COLORS } from '../constants';
+import { COLORS, GAME_HEIGHT, GAME_WIDTH, PLAYER_COLORS } from '../constants';
 import { CHARACTERS } from '../data/characters';
 import { ITEMS, type ItemId } from '../data/items';
 import type { MatchState, PlayerState } from '../state/MatchState';
@@ -7,13 +7,15 @@ import { computeStandings } from '../state/scoring';
 import { centerOrigin } from '../util/spriteUtil';
 import { PlayerBadge } from './PlayerBadge';
 import { addText } from './theme';
-import { drawCapsule } from './Screen';
 
-/** Capsule size (the portrait breaks out of its outer end). */
-const W = 262;
-const H = 84;
-const PAD = 26;
-const PR = 52; // portrait radius
+/** Corner block size (portrait + name + stats); items hang below/above it. */
+const W = 300;
+const H = 104;
+/** Title-safe margins from the screen edges. */
+const MX = 44;
+const MY = 30;
+const PR = 46; // portrait radius
+const PCX = 52; // portrait centre x (from the outer edge)
 
 interface PanelView {
   slot: number;
@@ -35,30 +37,33 @@ interface PanelView {
   itemKey: string;
 }
 
-/** Top-left corner of each slot's HUD: P1 top-left, P2 top-right, P3 bottom-left, P4 bottom-right. */
+/** Top-left corner of each slot's HUD block: P1 top-left, P2 top-right, P3 bottom-left, P4 bottom-right. */
 export function hudCorner(slot: number): { x: number; y: number } {
   const left = slot % 2 === 0;
   const top = slot < 2;
-  return { x: left ? PAD : GAME_WIDTH - PAD - W, y: top ? PAD + 6 : GAME_HEIGHT - PAD - H - 6 };
+  return { x: left ? MX : GAME_WIDTH - MX - W, y: top ? MY : GAME_HEIGHT - MY - H };
 }
 
 /** Medal face / rim colours by place. */
 const MEDAL_COLORS: [number, number][] = [
-  [0xffd45c, 0xc9901f],
-  [0xe8eef3, 0x9aa8b4],
-  [0xf0a868, 0xa8622a],
-  [0xb9b2cc, 0x6f6a86],
+  [0xffd45c, 0xd89b22],
+  [0xe9eef3, 0xa7b2bd],
+  [0xf2ae70, 0xb86d33],
+  [0xc9c3d8, 0x8a84a0],
 ];
 
-/** Stat positions inside the capsule: relic then chips left to right, clear of the portrait end. */
+/** Stat positions (local x): relic then chips left to right, clear of the portrait. */
 function statX(flip: boolean): { relicIcon: number; relicText: number; chipIcon: number; chipText: number } {
-  const x0 = flip ? 26 : 118;
-  return { relicIcon: x0, relicText: x0 + 18, chipIcon: x0 + 70, chipText: x0 + 88 };
+  const x0 = flip ? 40 : 128;
+  return { relicIcon: x0, relicText: x0 + 20, chipIcon: x0 + 78, chipText: x0 + 98 };
 }
 
+const NUM_SHADOW = 'rgba(8,14,28,0.55)';
+
 /**
- * Compact corner HUD: a translucent capsule with the character portrait breaking its outer end,
- * a large rank numeral, relic and chip counts, and owned items as small bubbles.
+ * Corner HUD without a box: a soft dark gradient in the screen corner keeps it legible over the
+ * board, with a ringed portrait, the placing on a medal chip, relic and chip counts in clean white
+ * numerals, and owned items as small bubbles.
  */
 export class PlayerHUD {
   readonly panels = new Map<number, PanelView>();
@@ -67,11 +72,12 @@ export class PlayerHUD {
     private scene: Phaser.Scene,
     state: MatchState,
   ) {
+    ensureCornerTexture(scene);
     for (const p of state.players) this.panels.set(p.slot, this.build(p));
     this.update(state, true);
   }
 
-  /** Local x inside the capsule, mirrored for right-hand panels. */
+  /** Local x inside the block, mirrored for right-hand panels. */
   private lx(v: PanelView | { flip: boolean }, x: number): number {
     return v.flip ? W - x : x;
   }
@@ -83,71 +89,78 @@ export class PlayerHUD {
     const top = p.slot < 2;
     const f = { flip };
     const color = PLAYER_COLORS[p.slot];
+    // Corner gradient (screen space), under everything in the block.
+    const shade = s.add
+      .image(flip ? GAME_WIDTH : 0, top ? 0 : GAME_HEIGHT, 'hud-corner')
+      .setOrigin(flip ? 1 : 0, top ? 0 : 1)
+      .setFlip(flip, !top)
+      .setDepth(499);
+    void shade;
     const root = s.add.container(x, y).setDepth(500);
     const glow = s.add.graphics();
-    const bg = s.add.graphics();
-    // soft shadow, capsule, player-colour rim and a top sheen
-    drawCapsule(bg, W, H, color);
 
-    // Portrait breaking out of the outer end.
-    const pcx = this.lx(f, 40);
-    const pcy = H / 2;
+    // Portrait: character on its colour disc inside a white ring with a slim player-colour ring.
+    const pcx = this.lx(f, PCX);
+    const pcy = H / 2 - 4;
     const portraitRoot = s.add.container(pcx, pcy);
     const disc = s.add.graphics();
-    disc.fillStyle(0x06141a, 0.3);
-    disc.fillCircle(3, 5, PR + 4);
-    disc.fillStyle(0xfff4dc, 1);
-    disc.fillCircle(0, 0, PR + 4);
-    disc.fillStyle(CHARACTERS[p.characterId].color, 0.55);
-    disc.fillCircle(0, 0, PR);
-    disc.fillStyle(0xffffff, 0.25);
-    disc.fillEllipse(-PR * 0.25, -PR * 0.45, PR * 1.1, PR * 0.6);
-    const portrait = s.add.sprite(0, 74, CHARACTERS[p.characterId].atlas, '0');
-    portrait.setOrigin(0.5, 0.62).setScale(0.62).setFlipX(flip);
+    disc.fillStyle(0x0a1120, 0.3);
+    disc.fillCircle(0, 4, PR + 6);
+    disc.fillStyle(0xffffff, 1);
+    disc.fillCircle(0, 0, PR + 6);
+    disc.fillStyle(color, 1);
+    disc.fillCircle(0, 0, PR + 1);
+    disc.fillStyle(CHARACTERS[p.characterId].color, 1);
+    disc.fillCircle(0, 0, PR - 3);
+    disc.fillStyle(0xffffff, 0.22);
+    disc.fillCircle(0, -PR * 0.35, PR * 0.62);
+    const portrait = s.add.sprite(0, 70, CHARACTERS[p.characterId].atlas, '0');
+    portrait.setOrigin(0.5, 0.62).setScale(0.6).setFlipX(flip);
     const maskG = s.make.graphics({ x: 0, y: 0 }, false);
     maskG.fillStyle(0xffffff);
-    maskG.fillCircle(x + pcx, y + pcy, PR);
+    maskG.fillCircle(x + pcx, y + pcy, PR - 3);
     portrait.setMask(maskG.createGeometryMask());
-    const ring = s.add.graphics();
-    ring.lineStyle(6, color, 1);
-    ring.strokeCircle(0, 0, PR + 1);
-    const badge = new PlayerBadge(s, flip ? -PR * 0.78 : PR * 0.78, -PR * 0.62, p.slot, 16);
-    portraitRoot.add([disc, portrait, ring, badge]);
+    const badge = new PlayerBadge(s, flip ? -PR * 0.8 : PR * 0.8, -PR * 0.66, p.slot, 15);
+    portraitRoot.add([disc, portrait, badge]);
 
     // Name + CPU tag
-    const nameX = this.lx(f, 104);
-    const name = addText(s, nameX, 24, CHARACTERS[p.characterId].name.split(' ')[0].toUpperCase(), 21, {
-      color: CSS.cream,
+    const nameX = this.lx(f, 124);
+    const name = addText(s, nameX, 22, CHARACTERS[p.characterId].name.split(' ')[0].toUpperCase(), 22, {
+      color: '#ffffff',
       weight: 700,
       align: flip ? 'right' : 'left',
-    });
+    }).setShadow(0, 2, NUM_SHADOW, 4, false, true);
     const parts: Phaser.GameObjects.GameObject[] = [name];
     if (p.isCpu) {
       const tw = 44;
       const tx = flip ? nameX - name.width - 10 - tw : nameX + name.width + 10;
       const tag = s.add.graphics();
-      tag.fillStyle(0xffffff, 0.14);
-      tag.fillRoundedRect(tx, 12, tw, 24, 12);
-      parts.push(tag, addText(s, tx + tw / 2, 24, 'CPU', 13, { color: CSS.creamDark, weight: 700 }));
+      tag.fillStyle(0x0a1120, 0.4);
+      tag.fillRoundedRect(tx, 11, tw, 22, 11);
+      parts.push(tag, addText(s, tx + tw / 2, 22, 'CPU', 13, { color: '#e6ebf2', weight: 700 }));
     }
     // Relics then chips, in the same left-to-right order in every corner (only the portrait mirrors).
     const sx = statX(flip);
-    const relicIcon = s.add.image(sx.relicIcon, 58, 'prism-relic').setScale(0.15);
-    const relicText = addText(s, sx.relicText, 59, '0', 38, { color: CSS.cream, weight: 700, align: 'left', stroke: '#06141a', strokeThickness: 4 }).setOrigin(0, 0.5);
-    const chipIcon = s.add.sprite(sx.chipIcon, 58, 'items', '0');
+    const relicIcon = s.add.image(sx.relicIcon, 62, 'prism-relic').setScale(0.16);
+    const relicText = addText(s, sx.relicText, 63, '0', 40, { color: '#ffffff', weight: 700, align: 'left' })
+      .setOrigin(0, 0.5)
+      .setShadow(0, 2, NUM_SHADOW, 5, false, true);
+    const chipIcon = s.add.sprite(sx.chipIcon, 62, 'items', '0');
     const co = centerOrigin('items', '0');
-    chipIcon.setOrigin(co.x, co.y).setScale(0.19);
-    const chipsText = addText(s, sx.chipText, 59, '0', 38, { color: CSS.cream, weight: 700, align: 'left', stroke: '#06141a', strokeThickness: 4 }).setOrigin(0, 0.5);
-    // Rank medal on the portrait's outer lower edge (gold / silver / bronze / steel).
-    const medal = s.add.container(flip ? PR * 0.78 : -PR * 0.78, PR * 0.7);
+    chipIcon.setOrigin(co.x, co.y).setScale(0.2);
+    const chipsText = addText(s, sx.chipText, 63, '0', 40, { color: '#ffffff', weight: 700, align: 'left' })
+      .setOrigin(0, 0.5)
+      .setShadow(0, 2, NUM_SHADOW, 5, false, true);
+    // Placing on a medal chip under the portrait (gold / silver / bronze / slate), always on-screen.
+    const medal = s.add.container(0, PR + 6);
     const medalG = s.add.graphics();
     // Starts empty so the first update always draws the medal (a leader's '1st' would otherwise match).
-    const rankText = addText(s, 0, -1, '', 17, { color: '#3a2410', weight: 700 });
+    const rankText = addText(s, 0, -1, '', 20, { color: '#2a1d0c', weight: 700 });
     medal.add([medalG, rankText]);
-    // Owned items as bubbles hanging below (top row) or above (bottom row) the capsule.
-    const items = s.add.container(this.lx(f, 128), top ? H + 26 : -26);
+    // Owned items as bubbles below (top row) or above (bottom row) the stats.
+    const items = s.add.container(this.lx(f, 150), top ? H + 18 : -18);
     portraitRoot.add(medal);
-    root.add([glow, bg, ...parts, relicIcon, relicText, chipIcon, chipsText, items, portraitRoot]);
+    root.add([glow, ...parts, relicIcon, relicText, chipIcon, chipsText, items, portraitRoot]);
     return {
       slot: p.slot,
       flip,
@@ -171,29 +184,29 @@ export class PlayerHUD {
   /** Where a slot's chip counter sits on screen (for flying-chip effects). */
   chipAnchor(slot: number): { x: number; y: number } {
     const { x, y } = hudCorner(slot);
-    return { x: x + statX(slot % 2 === 1).chipIcon, y: y + 58 };
+    return { x: x + statX(slot % 2 === 1).chipIcon, y: y + 62 };
   }
 
   relicAnchor(slot: number): { x: number; y: number } {
     const { x, y } = hudCorner(slot);
-    return { x: x + statX(slot % 2 === 1).relicIcon, y: y + 58 };
+    return { x: x + statX(slot % 2 === 1).relicIcon, y: y + 62 };
   }
 
   setActive(slot: number | null): void {
     for (const v of this.panels.values()) {
       v.glow.clear();
-      this.scene.tweens.killTweensOf(v.glow);
       this.scene.tweens.killTweensOf(v.portraitRoot);
-      v.glow.setAlpha(1);
       const active = v.slot === slot;
-      this.scene.tweens.add({ targets: v.portraitRoot, scale: active ? 1.1 : 1, duration: 220, ease: 'Back.Out' });
+      this.scene.tweens.add({ targets: v.portraitRoot, scale: active ? 1.12 : 1, duration: 200, ease: 'Back.Out' });
       if (active) {
+        // A steady soft halo in the player's colour behind the portrait.
         const c = PLAYER_COLORS[v.slot];
-        v.glow.lineStyle(14, c, 0.28);
-        v.glow.strokeRoundedRect(-7, -7, W + 14, H + 14, H / 2 + 7);
-        v.glow.lineStyle(5, COLORS.crystalLight, 0.95);
-        v.glow.strokeRoundedRect(-4, -4, W + 8, H + 8, H / 2 + 4);
-        this.scene.tweens.add({ targets: v.glow, alpha: { from: 1, to: 0.4 }, duration: 620, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+        const cx = this.lx(v, PCX);
+        const cy = H / 2 - 4;
+        for (let k = 0; k < 4; k++) {
+          v.glow.fillStyle(c, 0.12);
+          v.glow.fillCircle(cx, cy, PR + 12 + k * 6);
+        }
       }
     }
   }
@@ -226,16 +239,12 @@ export class PlayerHUD {
         const mc = MEDAL_COLORS[Math.min(3, st.place - 1)];
         const g = v.medalG;
         g.clear();
-        g.fillStyle(0x06141a, 0.35);
-        g.fillCircle(2, 3, 24);
+        g.fillStyle(0x0a1120, 0.3);
+        g.fillRoundedRect(-30, -14, 60, 32, 16);
         g.fillStyle(mc[1], 1);
-        g.fillCircle(0, 0, 24);
+        g.fillRoundedRect(-30, -17, 60, 32, 16);
         g.fillStyle(mc[0], 1);
-        g.fillCircle(0, -1, 20);
-        g.fillStyle(0xffffff, 0.35);
-        g.fillEllipse(-5, -9, 22, 10);
-        g.lineStyle(2, 0x3a2410, 0.55);
-        g.strokeCircle(0, 0, 24);
+        g.fillRoundedRect(-28, -17, 56, 29, 14.5);
         if (!instant) this.scene.tweens.add({ targets: v.medal, scale: { from: 1.4, to: 1 }, duration: 260, ease: 'Back.Out' });
       }
     }
@@ -263,7 +272,7 @@ export class PlayerHUD {
       onComplete: () => {
         v.shownChips = target;
         v.chipsText.setText(String(target));
-        v.chipsText.setColor(CSS.cream);
+        v.chipsText.setColor('#ffffff');
       },
     });
   }
@@ -276,14 +285,16 @@ export class PlayerHUD {
     const list: { texture: string; frame?: string; scale: number }[] = items.map((id) => ITEMS[id].icon);
     if (shielded) list.push({ texture: 'items', frame: '24', scale: 0.46 });
     list.forEach((icon, i) => {
-      const bx = (v.flip ? -1 : 1) * i * 56;
+      const bx = (v.flip ? -1 : 1) * i * 54;
       const g = this.scene.add.graphics();
-      g.fillStyle(0x06141a, 0.3);
-      g.fillCircle(bx + 2, 3, 25);
-      g.fillStyle(0x0c2630, 0.9);
-      g.fillCircle(bx, 0, 25);
-      g.lineStyle(3, i === items.length ? COLORS.crystal : COLORS.gold, 0.95);
-      g.strokeCircle(bx, 0, 25);
+      g.fillStyle(0x0a1120, 0.25);
+      g.fillCircle(bx, 3, 24);
+      g.fillStyle(0xffffff, 0.96);
+      g.fillCircle(bx, 0, 23);
+      if (i === items.length) {
+        g.lineStyle(3, COLORS.crystal, 1);
+        g.strokeCircle(bx, 0, 21);
+      }
       const img = icon.frame !== undefined ? this.scene.add.sprite(bx, 0, icon.texture, icon.frame) : this.scene.add.image(bx, 0, icon.texture);
       if (icon.frame !== undefined) {
         const o = centerOrigin(icon.texture, icon.frame);
@@ -297,4 +308,24 @@ export class PlayerHUD {
   setVisible(v: boolean): void {
     for (const p of this.panels.values()) p.root.setVisible(v);
   }
+}
+
+/** Soft dark radial falloff for the HUD corners (generated once). */
+function ensureCornerTexture(scene: Phaser.Scene): void {
+  if (scene.textures.exists('hud-corner')) return;
+  const w = 720;
+  const h = 330;
+  const tex = scene.textures.createCanvas('hud-corner', w, h);
+  if (!tex) return;
+  const ctx = tex.getContext();
+  ctx.save();
+  ctx.scale(1, h / w);
+  const grd = ctx.createRadialGradient(0, 0, 0, 0, 0, w);
+  grd.addColorStop(0, 'rgba(8,14,28,0.62)');
+  grd.addColorStop(0.5, 'rgba(8,14,28,0.36)');
+  grd.addColorStop(1, 'rgba(8,14,28,0)');
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, w, w);
+  ctx.restore();
+  tex.refresh();
 }

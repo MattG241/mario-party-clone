@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { audio } from '../audio/AudioManager';
 import { animHeadTop, Character } from '../characters/Character';
-import { COLORS, CSS, GAME_HEIGHT, GAME_WIDTH, PLAYER_COLORS } from '../constants';
+import { GAME_HEIGHT, GAME_WIDTH, PLAYER_COLORS } from '../constants';
 import { CHARACTER_IDS, CHARACTERS } from '../data/characters';
 import { EffectsManager } from '../effects/EffectsManager';
 import { slotForDevice } from '../input/assignment';
@@ -9,11 +9,11 @@ import { input, type DeviceRef } from '../input/InputManager';
 import { settings } from '../save/SettingsManager';
 import { session } from '../state/Session';
 import { makeGlyph, PromptBar } from '../ui/ControllerPrompt';
-import { drawPanel } from '../ui/Panel';
 import { PlayerBadge } from '../ui/PlayerBadge';
 import { addText, addTitle } from '../ui/theme';
 import { enterScene, goTo } from '../ui/Transition';
 import { applyGrade } from '../effects/GradePipeline';
+import { drawCard, UI } from '../ui/Style';
 
 type SlotPhase = 'empty' | 'choosing' | 'ready';
 
@@ -64,7 +64,7 @@ export class CharacterSelectScene extends Phaser.Scene {
 
   create(): void {
     enterScene(this);
-    applyGrade(this, { vignette: 0.2 });
+    applyGrade(this, { vignette: 0.08 });
     this.leaving = false;
     this.slots = [];
     this.chars = [];
@@ -110,16 +110,11 @@ export class CharacterSelectScene extends Phaser.Scene {
       this.chars.push(c);
       const plate = this.add.container(x, PODIUM_Y + 150 * STAGE_K);
       const g = this.add.graphics();
-      g.fillStyle(0x06141a, 0.3);
-      g.fillRoundedRect(-160 + 4, -40 + 7, 320, 80, 40);
-      g.fillStyle(0x0c2630, 0.86);
-      g.fillRoundedRect(-160, -40, 320, 80, 40);
-      g.fillStyle(0xffffff, 0.07);
-      g.fillRoundedRect(-152, -35, 304, 32, { tl: 34, tr: 34, bl: 8, br: 8 });
-      g.lineStyle(4, CHARACTERS[id].color, 1);
-      g.strokeRoundedRect(-160, -40, 320, 80, 40);
-      const name = addText(this, 0, -11, CHARACTERS[id].name.toUpperCase(), 30, { color: CSS.cream, weight: 700 });
-      const role = addText(this, 0, 20, CHARACTERS[id].role, 18, { color: CSS.creamDark, weight: 600 });
+      drawCard(g, -160, -40, 320, 80, { radius: 40 });
+      g.fillStyle(CHARACTERS[id].color, 1);
+      g.fillRoundedRect(-28, 31, 56, 5, 2.5);
+      const name = addText(this, 0, -11, CHARACTERS[id].name.toUpperCase(), 29, { color: UI.inkCss, weight: 700 });
+      const role = addText(this, 0, 17, CHARACTERS[id].role, 17, { color: UI.inkSoftCss, weight: 600 });
       plate.add([g, name, role]);
       plate.setScale(0.94);
       this.namePlates.push(plate);
@@ -133,16 +128,11 @@ export class CharacterSelectScene extends Phaser.Scene {
     const y = 988;
     const panel = this.add.container(x, y);
     const g = this.add.graphics();
-    g.fillStyle(0x06141a, 0.3);
-    g.fillRoundedRect(-w / 2 + 4, -h / 2 + 7, w, h, 34);
-    g.fillStyle(0x0c2630, 0.84);
-    g.fillRoundedRect(-w / 2, -h / 2, w, h, 34);
-    g.fillStyle(0xffffff, 0.07);
-    g.fillRoundedRect(-w / 2 + 8, -h / 2 + 5, w - 16, h * 0.4, { tl: 28, tr: 28, bl: 10, br: 10 });
-    g.lineStyle(4, PLAYER_COLORS[slot], 1);
-    g.strokeRoundedRect(-w / 2, -h / 2, w, h, 34);
-    const badge = new PlayerBadge(this, -w / 2 + 40, -h / 2 + 34, slot, 20);
-    const label = addText(this, -w / 2 + 72, -h / 2 + 34, `PLAYER ${slot + 1}`, 22, { color: CSS.cream, weight: 700, align: 'left' });
+    drawCard(g, -w / 2, -h / 2, w, h, { radius: 30 });
+    g.fillStyle(PLAYER_COLORS[slot], 1);
+    g.fillRoundedRect(-w / 2 + 24, -h / 2, w - 48, 6, { tl: 0, tr: 0, bl: 3, br: 3 });
+    const badge = new PlayerBadge(this, -w / 2 + 40, -h / 2 + 34, slot, 18);
+    const label = addText(this, -w / 2 + 70, -h / 2 + 34, `PLAYER ${slot + 1}`, 21, { color: UI.inkCss, weight: 700, align: 'left' });
     const content = this.add.container(0, 22);
     panel.add([g, badge, label, content]);
     const cursorBadge = new PlayerBadge(this, 0, 0, slot, 24).setVisible(false).setDepth(50);
@@ -157,7 +147,7 @@ export class CharacterSelectScene extends Phaser.Scene {
     if (v.phase === 'empty') {
       const glyphKind = input.hasGamepad() ? 'gamepad' : 'keyboard';
       const glyph = makeGlyph(this, 'A', 40, glyphKind);
-      const label = addText(this, 0, 0, 'TO JOIN', 28, { color: CSS.cream, weight: 700, align: 'left' });
+      const label = addText(this, 0, 0, 'TO JOIN', 28, { color: UI.inkCss, weight: 700, align: 'left' });
       // Centre "[glyph] TO JOIN" as one line using the glyph's real width (key caps are wider).
       const gw = glyph.width || 44;
       const total = gw + 12 + label.width;
@@ -165,40 +155,44 @@ export class CharacterSelectScene extends Phaser.Scene {
       label.setX(-total / 2 + gw + 12);
       add(glyph);
       add(label);
-      this.tweens.add({ targets: glyph, scale: { from: 1, to: 1.12 }, duration: 520, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+      this.tweens.add({ targets: glyph, scale: { from: 1, to: 1.06 }, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
       return;
     }
-    const icon = this.add.image(-SLOT_W / 2 + 46, 2, v.device?.kind === 'keyboard' ? 'icon-keyboard' : 'icon-controller').setScale(0.26);
+    const icon = this.add.image(-SLOT_W / 2 + 46, 2, v.device?.kind === 'keyboard' ? 'icon-keyboard' : 'icon-controller').setScale(0.26).setTint(0x3a4560);
     add(icon);
     const id = CHARACTER_IDS[v.cursor];
     if (v.phase === 'choosing') {
-      add(addText(this, 18, -8, `◀  ${CHARACTERS[id].name}  ▶`, 26, { color: CSS.cream, weight: 700 }));
+      add(addText(this, 18, -8, `◀  ${CHARACTERS[id].name}  ▶`, 26, { color: UI.inkCss, weight: 700 }));
       const bar = new PromptBar(this, 18, 26, [
         { button: 'A', label: 'Pick' },
         { button: 'B', label: 'Leave' },
-      ], { size: 24, fontSize: 16, color: CSS.creamDark, slot });
+      ], { size: 24, fontSize: 16, color: UI.inkSoftCss, slot });
       // The slot panel is already the backing; drop the bar's own pill.
       bar.list.filter((o) => o instanceof Phaser.GameObjects.Graphics).forEach((o) => o.destroy());
       add(bar);
     } else {
-      const stamp = addText(this, -30, -2, 'READY!', 38, { color: CSS.goldLight, stroke: '#06141a', strokeThickness: 6, weight: 700 });
+      // "READY" on a gold chip, the character's name beside it.
+      const chipG = this.add.graphics();
+      chipG.fillStyle(UI.focus, 1);
+      chipG.fillRoundedRect(-100, -22, 140, 44, 22);
+      const stamp = this.add.container(0, 0, [chipG, addText(this, -30, -1, 'READY', 26, { color: UI.inkCss, weight: 700 })]);
       add(stamp);
-      add(addText(this, 70, -8, CHARACTERS[id].name, 20, { color: CSS.cream, weight: 700, align: 'left' }));
-      const bar = new PromptBar(this, 120, 20, [{ button: 'B', label: 'Change' }], { size: 22, fontSize: 15, color: CSS.creamDark, slot });
+      add(addText(this, 70, -8, CHARACTERS[id].name, 20, { color: UI.inkCss, weight: 700, align: 'left' }));
+      const bar = new PromptBar(this, 120, 20, [{ button: 'B', label: 'Change' }], { size: 22, fontSize: 15, color: UI.inkSoftCss, slot });
       bar.list.filter((o) => o instanceof Phaser.GameObjects.Graphics).forEach((o) => o.destroy());
       add(bar);
-      stamp.setScale(1.6).setAngle(-6);
-      this.tweens.add({ targets: stamp, scale: 1, duration: 260, ease: 'Back.Out' });
+      stamp.setScale(0.8);
+      this.tweens.add({ targets: stamp, scale: 1, duration: 200, ease: 'Back.Out' });
     }
   }
 
   private buildStartBanner(): Phaser.GameObjects.Container {
     const c = this.add.container(GAME_WIDTH / 2, 150).setDepth(100).setVisible(false);
     const g = this.add.graphics();
-    drawPanel(g, -440, -44, 880, 88, { radius: 40, border: COLORS.gold, fill: COLORS.tealDark, accent: COLORS.goldLight, engraving: false });
-    const t = addText(this, 0, -2, 'All set! Press A to continue', 38, { color: CSS.cream, weight: 700 });
+    drawCard(g, -440, -44, 880, 88, { radius: 44, fill: UI.focus, shadow: 1.3 });
+    const t = addText(this, 0, -2, 'All set! Press A to continue', 36, { color: UI.inkCss, weight: 700 });
     c.add([g, t]);
-    this.tweens.add({ targets: c, scale: { from: 1, to: 1.04 }, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+    this.tweens.add({ targets: c, alpha: { from: 1, to: 0.8 }, duration: 800, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
     return c;
   }
 
@@ -337,10 +331,10 @@ export class CharacterSelectScene extends Phaser.Scene {
       const ch = this.chars[ci];
       const target = active ? CHAR_K * 1.08 : CHAR_K;
       this.tweens.add({ targets: ch, scale: target, duration: 180, ease: 'Back.Out' });
-      // Characters nobody is pointing at (or has picked) step back into the shade.
+      // Characters nobody is pointing at (or has picked) are only lightly dimmed.
       const lit = active || lockedBy !== null || this.slots.every((v) => v.phase === 'empty');
       if (lit) ch.sprite.clearTint();
-      else ch.sprite.setTint(0x5d6174);
+      else ch.sprite.setTint(0xb4b9c6);
       const plate = this.namePlates[ci];
       this.tweens.add({ targets: plate, scale: active || lockedBy !== null ? 1 : 0.94, duration: 160 });
       // Cursor badges hover above the head, side by side.

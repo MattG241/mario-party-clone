@@ -463,29 +463,34 @@ def astro_texture(path, size=1400):
     # stone slabs in rings
     rings = [(0.0, 0.22), (0.22, 0.46), (0.46, 0.72), (0.72, 0.93)]
     # fill from the outside in so each ring's slabs only cover their own band
+    # clear colour blocking per ring (cream hub, sage, warm sand, deep teal edge) so the disc reads
+    # boldly against the cloud sea and the red-and-gold arm stays readable on every band
+    ring_cols = [(236, 222, 196), (166, 190, 150), (222, 190, 140), (52, 122, 130)]
     for ring_i in range(len(rings) - 1, -1, -1):
         r0, r1 = rings[ring_i]
         segs = [1, 10, 18, 26][ring_i]
+        base = ring_cols[ring_i]
         for s_ in range(segs):
             a0, a1 = s_ / segs * 360, (s_ + 1) / segs * 360
-            shade = rnd.randint(-12, 12)
-            fill = (200 + shade, 184 + shade, 166 + shade)
+            shade = rnd.randint(-8, 8)
+            fill = tuple(max(0, min(255, v + shade)) for v in base)
             d.pieslice([c - r1 * R, c - r1 * R, c + r1 * R, c + r1 * R], a0, a1, fill=fill)
-    # slab joints only within each band
+    # slab joints only within each band, in a darker shade of that band
     for ring_i, (r0, r1) in enumerate(rings):
         segs = [1, 10, 18, 26][ring_i]
+        joint = tuple(int(v * 0.62) for v in ring_cols[ring_i])
         if segs > 1:
             for s_ in range(segs):
                 a = s_ / segs * math.tau
-                d.line([(c + math.cos(a) * r0 * R, c + math.sin(a) * r0 * R), (c + math.cos(a) * r1 * R, c + math.sin(a) * r1 * R)], fill=(128, 112, 98), width=4)
-        d.ellipse([c - r1 * R, c - r1 * R, c + r1 * R, c + r1 * R], outline=(128, 112, 98), width=5)
+                d.line([(c + math.cos(a) * r0 * R, c + math.sin(a) * r0 * R), (c + math.cos(a) * r1 * R, c + math.sin(a) * r1 * R)], fill=joint, width=4)
+        d.ellipse([c - r1 * R, c - r1 * R, c + r1 * R, c + r1 * R], outline=(110, 92, 76), width=5)
     # brass rings and tick marks
     for rr, wdt in [(0.935, 16), (0.72, 8), (0.46, 8), (0.22, 10)]:
         d.ellipse([c - rr * R, c - rr * R, c + rr * R, c + rr * R], outline=(214, 160, 60), width=wdt)
     for k in range(48):
         a = k / 48 * math.tau
         r0, r1 = (0.83 if k % 4 else 0.78) * R, 0.92 * R
-        d.line([(c + math.cos(a) * r0, c + math.sin(a) * r0), (c + math.cos(a) * r1, c + math.sin(a) * r1)], fill=(164, 150, 136), width=4 if k % 4 else 7)
+        d.line([(c + math.cos(a) * r0, c + math.sin(a) * r0), (c + math.cos(a) * r1, c + math.sin(a) * r1)], fill=(230, 214, 170), width=4 if k % 4 else 7)
     # glowing crystal inlays
     for k in range(12):
         a = k / 12 * math.tau + 0.13
@@ -500,8 +505,10 @@ def astro_texture(path, size=1400):
     for k in range(36):
         a = k / 36 * math.tau
         gx, gy = c + math.cos(a) * 0.775 * R, c + math.sin(a) * 0.775 * R
-        kind = k % 4
-        col_r = (168, 152, 136)
+        if k % 2:
+            continue
+        kind = (k // 2) % 4
+        col_r = (150, 198, 196)
         if kind == 0:
             d.ellipse([gx - 9, gy - 9, gx + 9, gy + 9], outline=col_r, width=4)
         elif kind == 1:
@@ -512,7 +519,7 @@ def astro_texture(path, size=1400):
         else:
             d.arc([gx - 10, gy - 10, gx + 10, gy + 10], 30, 300, fill=col_r, width=4)
         if k % 6 == 0:
-            d.ellipse([gx - 4, gy - 4, gx + 4, gy + 4], fill=(150, 205, 215))
+            d.ellipse([gx - 4, gy - 4, gx + 4, gy + 4], fill=(190, 236, 240))
     # gear-tooth rim
     for k in range(72):
         a0 = k / 72 * math.tau
@@ -525,7 +532,7 @@ def astro_texture(path, size=1400):
     pts = [(c + math.cos(a) * r * R, c + math.sin(a) * r * R) for (a, r) in stars]
     for i in range(len(pts) - 1):
         if i % 3 != 2:
-            d.line([pts[i], pts[i + 1]], fill=(176, 160, 144), width=3)
+            d.line([pts[i], pts[i + 1]], fill=(176, 142, 100), width=3)
     for (x, y) in pts:
         d.ellipse([x - 6, y - 6, x + 6, y + 6], fill=(255, 236, 170))
     im.save(path)
@@ -547,7 +554,7 @@ def orbit():
     lib.mesh_object('platform_top', v, f, smooth=False, material=top_m)
     rim = lib.MeshBuilder()
     rim_v, rim_f = lib.lathe([(ORBIT_R + 0.02, 0.02), (ORBIT_R + 0.25, 0.02), (ORBIT_R + 0.25, -0.35), (ORBIT_R + 0.1, -0.6), (ORBIT_R - 0.6, -1.4), (ORBIT_R - 1.4, -2.6)], 96, (c.x, c.y, 0.0), cap_bottom=False, cap_top=False)
-    rim.add(rim_v, rim_f, col('#d9cdbd'))
+    rim.add(rim_v, rim_f, col('#bda486'))
     rim.build('platform_rim', props.mats()['stone_big'])
     band = lib.MeshBuilder()
     bv, bf = lib.lathe([(ORBIT_R + 0.26, 0.0), (ORBIT_R + 0.26, -0.28)], 96, (c.x, c.y, 0.0), cap_bottom=False, cap_top=False)

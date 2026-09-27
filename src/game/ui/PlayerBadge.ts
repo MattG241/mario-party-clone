@@ -56,11 +56,10 @@ export class PlayerBadge extends Phaser.GameObjects.Container {
     if (opts.label !== false) {
       const t = addText(scene, 0, opts.labelInside === false ? size + 16 : 1, `P${slot + 1}`, Math.max(14, size * 0.72), {
         color: '#ffffff',
-        stroke: '#1b1530',
-        strokeThickness: Math.max(3, size / 8),
         weight: 700,
         fixed: true,
       });
+      t.setShadow(0, 1, 'rgba(10,17,32,0.45)', 2, false, true);
       if (PLAYER_SHAPES[slot] === 'triangle' && opts.labelInside !== false) t.setY(size * 0.18);
       this.add(t);
     }

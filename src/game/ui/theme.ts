@@ -55,9 +55,11 @@ export function addText(scene: Phaser.Scene, x: number, y: number, text: string,
   return t;
 }
 
-/** Big display title (cream with a deep outline and drop shadow). */
-export function addTitle(scene: Phaser.Scene, x: number, y: number, text: string, size: number, color: string = CSS.cream): Phaser.GameObjects.Text {
-  return addText(scene, x, y, text, size, { color, stroke: CSS.tealDeep, strokeThickness: Math.round(size / 7), shadow: true, weight: 700, fixed: true });
+/** Big display title: white (or the given colour) with a slim ink outline and a soft drop shadow. */
+export function addTitle(scene: Phaser.Scene, x: number, y: number, text: string, size: number, color: string = '#ffffff'): Phaser.GameObjects.Text {
+  const t = addText(scene, x, y, text, size, { color, stroke: '#1f2940', strokeThickness: Math.max(3, Math.round(size / 16)), weight: 700, fixed: true });
+  t.setShadow(0, Math.max(3, Math.round(size / 18)), 'rgba(10,17,32,0.35)', Math.max(4, Math.round(size / 10)), true, true);
+  return t;
 }
 
 export const BUTTON_COLORS: Record<string, number> = {

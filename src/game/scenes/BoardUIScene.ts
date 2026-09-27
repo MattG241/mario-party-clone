@@ -19,8 +19,7 @@ import { PlayerBadge } from '../ui/PlayerBadge';
 import { PlayerHUD } from '../ui/PlayerHUD';
 import { addText, addTitle } from '../ui/theme';
 import { centerOrigin, standOrigin } from '../util/spriteUtil';
-import { drawCapsule } from '../ui/Screen';
-import { addLightShafts } from '../effects/Ambience';
+import { drawCard, UI } from '../ui/Style';
 
 export interface ListOption {
   label: string;
@@ -83,52 +82,18 @@ export class BoardUIScene extends Phaser.Scene {
     this.hud = new PlayerHUD(this, this.stateRef);
     this.dialog = new DialogBox(this, 3000);
     this.prompts = new PromptBar(this, GAME_WIDTH / 2, GAME_HEIGHT - 40, [], { size: 40, fontSize: 28 }).setDepth(900);
-    // Round pill: compact and translucent, matching the corner HUD.
-    this.roundPlaque = this.add.container(GAME_WIDTH / 2, 44).setDepth(600);
-    const g = this.add.graphics({ x: -170, y: -34 });
-    drawCapsule(g, 340, 68, COLORS.gold);
-    const relicIcon = this.add.image(-128, 0, 'prism-relic').setScale(0.12);
-    this.roundText = addText(this, 14, -9, 'ROUND 1 / 10', 27, { color: CSS.goldLight, weight: 700, stroke: '#06141a', strokeThickness: 4 });
-    this.relicText = addText(this, 14, 17, '', 16, { color: CSS.cream, weight: 600 });
+    // Round card: a small white chip at the top centre (ink round count, the relic price below).
+    this.roundPlaque = this.add.container(GAME_WIDTH / 2, 46).setDepth(600);
+    const g = this.add.graphics();
+    drawCard(g, -160, -33, 320, 66, { radius: 33, shadow: 0.9 });
+    const relicIcon = this.add.image(-118, 0, 'prism-relic').setScale(0.12);
+    this.roundText = addText(this, 16, -10, 'ROUND 1 / 10', 26, { color: UI.inkCss, weight: 700 });
+    this.relicText = addText(this, 16, 16, '', 16, { color: UI.inkSoftCss, weight: 600 });
     this.roundPlaque.add([g, relicIcon, this.roundText, this.relicText]);
-    this.buildForeground();
     this.refresh(this.stateRef);
   }
 
-  /** Out-of-focus foliage along the bottom edge in close-ups (fades away on the overview). */
-  private foreground: { img: Phaser.GameObjects.Image; x: number; y: number; phase: number }[] = [];
-
-  private buildForeground(): void {
-    this.foreground = [];
-    const spots: [number, number, number, boolean][] = [
-      // texture index, x, y (bottom of the cluster sits off-screen), flip. Corners reach higher
-      // than the middle so the player standing on the lower third is never covered.
-      [0, 250, 1215, false],
-      [2, 1670, 1215, true],
-      [1, 980, 1268, false],
-    ];
-    for (const [k, x, y, flip] of spots) {
-      const key = `rendered-fg-${k}`;
-      if (!this.textures.exists(key)) continue;
-      const img = this.add.image(x, y, key).setOrigin(0.5, 1).setScale(1.4).setFlipX(flip).setDepth(-10).setAlpha(0);
-      this.foreground.push({ img, x, y, phase: Math.random() * Math.PI * 2 });
-    }
-    // Soft sun shafts slanting in from the upper left, under the foliage and the HUD.
-    addLightShafts(this, { x: 260, y: -220, angle: 30, count: 4, spread: 1300, length: 1750, width: 250, alpha: 0.075, depth: -20 });
-  }
-
   override update(_t: number, dt: number): void {
-    if (this.foreground.length) {
-      const cam = this.scene.get('Board')?.cameras?.main;
-      const zoom = cam?.zoom ?? 1;
-      // fully visible in close-ups (zoom >= 1), gone on the overview (zoom <= 0.75)
-      const a = Phaser.Math.Clamp((zoom - 0.75) / 0.3, 0, 1);
-      for (const f of this.foreground) {
-        f.img.setAlpha(a);
-        f.img.x = f.x + Math.sin(this.time.now / 1400 + f.phase) * 6;
-        f.img.y = f.y + (1 - a) * 80;
-      }
-    }
     for (const p of [...this.pollers]) {
       if (p(dt)) this.pollers.delete(p);
     }
@@ -180,15 +145,15 @@ export class BoardUIScene extends Phaser.Scene {
       hold: settings.get().gameSpeed === 'fast' ? 500 : 800,
       size: 92,
       sound: 'confirm',
-      decorate: (c) => {
-        c.add(new PlayerBadge(this, -520, 18, p.slot, 44));
-        // First frame of the character's own greeting animation.
+      decorate: (c, w, h) => {
+        c.add(new PlayerBadge(this, -w / 2 + 64, 4, p.slot, 30));
+        // The character, in the first frame of their greeting, standing on the card's right end.
         const wave = CHARACTER_ANIMATIONS[p.characterId].wave;
         const atlas = wave.atlas ?? CHARACTERS[p.characterId].atlas;
         const frame = String(wave.frames[0]);
-        const portrait = this.add.sprite(520, 110, atlas, frame);
+        const portrait = this.add.sprite(w / 2 - 92, h / 2 + 4, atlas, frame);
         const o = standOrigin(atlas, frame);
-        portrait.setOrigin(o.x, o.y).setScale(0.8);
+        portrait.setOrigin(o.x, o.y).setScale(0.62);
         c.add(portrait);
       },
     });
