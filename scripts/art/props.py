@@ -662,9 +662,27 @@ def well(bx, by, s=1.0) -> list:
         v, f = lib.cylinder((x + dx * s, y, 0.4 * s), 0.035 * s, 0.035 * s, 0.75 * s, 8)
         P.b['wood'].add(v, f, DARKWOOD)
     roof_z = 1.15 * s
+    # shingled gable roof: four stepped rows of clay tiles per side, each tile a slightly
+    # rotated slab so the rows catch the light unevenly (a single flat quad read as a sticker)
+    th = math.atan2(0.4, 0.3)
+    rnd = random.Random(11)
+    rows, tiles = 4, 6
     for side in (-1, 1):
-        quad = [(x - 0.44 * s, y + side * 0.3 * s, roof_z - 0.1 * s), (x + 0.44 * s, y + side * 0.3 * s, roof_z - 0.1 * s), (x + 0.44 * s, y, roof_z + 0.3 * s), (x - 0.44 * s, y, roof_z + 0.3 * s)]
-        P.b['paint'].add(quad, [(0, 1, 2, 3)] if side < 0 else [(3, 2, 1, 0)], col('#c8553d'))
+        rot_x = -side * th
+        nrm = (0.0, side * math.sin(th), math.cos(th))
+        for r in range(rows):
+            tc = (r + 0.5) / rows
+            cy_ = y + side * 0.3 * s * (1 - tc)
+            cz = roof_z - 0.1 * s + 0.4 * s * tc
+            lift = (0.02 + r * 0.014) * s
+            for k in range(tiles):
+                tx = x - 0.48 * s + (k + 0.5) * (0.96 * s / tiles) + (0.02 * s if r % 2 else 0.0)
+                v, f = lib.box((0, 0, 0), (0.96 * s / tiles - 0.012 * s, 0.5 * s / rows * 1.4, 0.035 * s))
+                v = lib.transform(v, loc=(tx + nrm[0] * lift, cy_ + nrm[1] * lift, cz + nrm[2] * lift),
+                                  rot=(rot_x + rnd.uniform(-0.05, 0.05), rnd.uniform(-0.04, 0.04), rnd.uniform(-0.03, 0.03)))
+                P.b['paint'].add(v, f, col(rnd.choice(['#c8553d', '#b8492f', '#d8674a', '#c25a3f'])))
+    v, f = lib.tube([(x - 0.5 * s, y, roof_z + 0.33 * s), (x + 0.5 * s, y, roof_z + 0.33 * s)], 0.04 * s, 8)
+    P.b['wood'].add(v, f, DARKWOOD)
     v, f = lib.tube([(x - 0.36 * s, y, 0.95 * s), (x + 0.36 * s, y, 0.95 * s)], 0.03 * s, 8)
     P.b['wood'].add(v, f, WOOD)
     v, f = lib.lathe([(0.07 * s, 0.0), (0.09 * s, 0.14 * s), (0.0, 0.14 * s)], 10, (x + 0.1 * s, y - 0.05 * s, 0.62 * s), cap_bottom=True, cap_top=False)

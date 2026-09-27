@@ -519,11 +519,12 @@ def orbit_ambience(c):
     mats = props.mats()
     metal, stone = lib.MeshBuilder(), lib.MeshBuilder()
     # clockwork visible on the drum below the brass band
+    gears = lib.MeshBuilder()
     for (dx, rr, teeth, z) in [(-3.6, 0.9, 12, -1.15), (-2.3, 0.55, 9, -0.95), (2.9, 1.05, 14, -1.25), (4.2, 0.6, 10, -0.9)]:
         gx = c.x + dx
         gy = c.y - math.sqrt(max(0.0, (ORBIT_R - 0.5) ** 2 - dx * dx)) - 0.05
         v, f = gear(gx, gy, z, rr, teeth, 0.08)
-        metal.add(v, f, col('#d9a441'))
+        gears.add(v, f, col('#d9a441'))
         v, f = lib.blob((gx, gy - 0.1, z), rr * 0.22, rough=0.0, subdiv=2)
         metal.add(v, f, col('#8a5a1a'))
     # hanging festival banners around the front of the rim
@@ -563,6 +564,8 @@ def orbit_ambience(c):
         props.lantern(bx - 105, by - 40, 1.0)
         props.lantern(bx + 105, by - 40, 1.0)
     metal.build('ambience_metal', mats['metal'])
+    # flat-shaded so the teeth read crisply (smooth normals smear the fan into a starburst)
+    gears.build('gears', mats['metal'], smooth=False)
     stone.build('balconies', mats['stone_big'])
 
 
