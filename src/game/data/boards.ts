@@ -191,7 +191,7 @@ export const SUNCOIL: BoardDef = {
     { texture: 'props', frame: '12', x: 2080, y: 1540, scale: 0.34, sorted: true },
   ],
   // Ora hosts from the festival stage beside the start space.
-  hostSpot: { x: 2195, y: 2092 },
+  hostSpot: { x: 2252, y: 2080 },
 };
 
 export const BOARDS: BoardDef[] = [SUNCOIL];

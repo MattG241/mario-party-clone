@@ -12,6 +12,7 @@ import { findBoard } from '../data/boards';
 import { ITEM_IDS } from '../data/items';
 import { clearDebugInfo, DEBUG_ENABLED, logError, setDebugInfo, URL_PARAMS } from '../debug/debug';
 import { EffectsManager } from '../effects/EffectsManager';
+import { applyGrade } from '../effects/GradePipeline';
 import { input, type DeviceRef } from '../input/InputManager';
 import { ItemManager } from '../items/ItemManager';
 import { minigameInfo, type MinigameLaunch, type MinigameResult } from '../minigames/MinigameManager';
@@ -108,7 +109,7 @@ export class BoardScene extends Phaser.Scene {
     cam.centerOn(ov.centerX, ov.centerY);
     cam.setZoom(this.overviewZoom());
     // Subtle vignette to frame the diorama (WebGL only).
-    if (this.renderer.type === Phaser.WEBGL) cam.postFX.addVignette(0.5, 0.5, 0.92, 0.22);
+    applyGrade(this);
     audio.playMusic(isFinalRound(state) ? 'boardFinal' : 'board');
     this.bg.setIntensity(isFinalRound(state) ? 1 : 0);
     if (DEBUG_ENABLED) this.offDebug = input.keyboard.onRawKey((e) => this.debugKey(e));

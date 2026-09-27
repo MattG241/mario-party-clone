@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from './constants';
 import { REALTIME_CLOCK } from './debug/debug';
+import { GradePipeline } from './effects/GradePipeline';
 
 export function makeConfig(parent: HTMLElement, scenes: Phaser.Types.Scenes.SceneType[]): Phaser.Types.Core.GameConfig {
   return {
@@ -31,6 +32,7 @@ export function makeConfig(parent: HTMLElement, scenes: Phaser.Types.Scenes.Scen
     // ?realtime (testing on software-rendered browsers) keeps game time locked to wall time even
     // at very low frame rates instead of Phaser's hitch smoothing.
     fps: { target: 60, smoothStep: !REALTIME_CLOCK },
+    pipeline: { Grade: GradePipeline } as unknown as Phaser.Types.Core.PipelineConfig,
     audio: { noAudio: true },
     disableContextMenu: true,
     banner: false,

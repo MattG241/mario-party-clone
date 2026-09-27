@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../constants';
+import { applyGrade } from '../effects/GradePipeline';
 
 /**
  * Sky and far parallax layers behind the board. Lives in its own scene so the board camera can
@@ -36,6 +37,7 @@ export class BoardBgScene extends Phaser.Scene {
     }
     // Festival lights overlay (intensifies in the final round).
     this.glow = this.add.graphics();
+    applyGrade(this, { vignette: 0.18 });
   }
 
   /** 0 = normal, 1 = final-round festival lights (the sky turns to dusk). */

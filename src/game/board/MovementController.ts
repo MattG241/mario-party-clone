@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { audio } from '../audio/AudioManager';
-import { Character } from '../characters/Character';
+import { animHeadTop, Character } from '../characters/Character';
 import { COLORS, CSS, DEPTH, PLAYER_COLORS } from '../constants';
 import { CHARACTERS } from '../data/characters';
 import type { EffectsManager } from '../effects/EffectsManager';
@@ -33,6 +33,8 @@ const LAYOUTS: [number, number][][] = [
 
 interface Tag {
   container: Phaser.GameObjects.Container;
+  /** Head top above the feet at token scale (negative). */
+  head: number;
   counter: Phaser.GameObjects.Container;
   counterText: Phaser.GameObjects.Text;
   shield: Phaser.GameObjects.Sprite;
@@ -56,6 +58,12 @@ export class MovementController {
       const c = new Character(this.scene, 0, 0, p.characterId, { scale: TOKEN_SCALE, slot: p.slot, marker: false });
       this.tokens.set(p.slot, c);
       const container = this.scene.add.container(0, 0).setDepth(DEPTH.worldUi);
+      // Little pointer under the badge so it clearly belongs to the head below it.
+      const stem = this.scene.add.graphics();
+      stem.fillStyle(0xffffff, 1);
+      stem.fillTriangle(-11, 14, 11, 14, 0, 34);
+      stem.fillStyle(PLAYER_COLORS[p.slot], 1);
+      stem.fillTriangle(-6, 16, 6, 16, 0, 28);
       const badge = new PlayerBadge(this.scene, 0, 0, p.slot, 20);
       const counter = this.scene.add.container(0, -58).setVisible(false);
       const cg = this.scene.add.graphics();
@@ -68,8 +76,8 @@ export class MovementController {
       const counterText = addText(this.scene, 0, -2, '0', 48, { color: CSS.ink, weight: 700, fixed: true });
       counter.add([cg, counterText]);
       const shield = this.scene.add.sprite(0, 0, 'items', '24').play('bubble-idle').setVisible(false).setAlpha(0.7).setScale(0.42);
-      container.add([badge, counter]);
-      this.tags.set(p.slot, { container, counter, counterText, shield });
+      container.add([stem, badge, counter]);
+      this.tags.set(p.slot, { container, head: animHeadTop(p.characterId) * TOKEN_SCALE, counter, counterText, shield });
       c.add(shield);
       shield.setPosition(0, -130).setScale(0.9);
     }
@@ -130,7 +138,7 @@ export class MovementController {
       if (!tag) continue;
       const lift = c.sprite.y;
       const active = slot === this.activeSlot;
-      tag.container.setPosition(c.x, c.y - 170 + lift);
+      tag.container.setPosition(c.x, c.y + tag.head * (c.scale / TOKEN_SCALE) - 44 + lift);
       tag.container.setDepth(DEPTH.worldUi + (active ? 10 : 0));
       // Only the active player's marker is full size, so shared spaces stay readable.
       const want = this.activeSlot === null || active ? 1 : 0.72;

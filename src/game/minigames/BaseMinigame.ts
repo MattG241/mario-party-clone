@@ -5,13 +5,13 @@ import { COLORS, CSS, GAME_WIDTH, PLAYER_COLORS, type CpuLevel } from '../consta
 import { CHARACTERS, type CharacterId } from '../data/characters';
 import { REALTIME_CLOCK, setDebugInfo } from '../debug/debug';
 import { EffectsManager } from '../effects/EffectsManager';
+import { applyGrade } from '../effects/GradePipeline';
 import type { Controls } from '../input/Controls';
 import { input } from '../input/InputManager';
 import { VirtualControls } from '../input/PlayerInput';
 import { session } from '../state/Session';
 import { placementsFromScores } from '../state/scoring';
-import { drawPanel } from '../ui/Panel';
-import { PlayerBadge } from '../ui/PlayerBadge';
+import { addPortrait } from '../ui/Portrait';
 import { addText, addTitle } from '../ui/theme';
 import { enterScene, goTo } from '../ui/Transition';
 import { Random } from '../util/Random';
@@ -42,6 +42,10 @@ export interface MgPlayer {
 
 type Phase = 'countdown' | 'playing' | 'finished';
 
+/** Minigame HUD capsule size. */
+const HUD_W = 330;
+const HUD_H = 78;
+
 /**
  * Base class for every minigame scene. Subclasses build the arena, spawn player visuals, run
  * their gameplay in tick(), drive CPU players in cpuThink() and report scores.
@@ -58,8 +62,9 @@ export abstract class BaseMinigame extends Phaser.Scene {
   /** Round length in ms (0 = no timer, e.g. last-one-standing games). */
   protected duration = 0;
   protected eliminated: number[] = [];
-  private hudTags = new Map<number, { score: Phaser.GameObjects.Text; root: Phaser.GameObjects.Container; status: Phaser.GameObjects.Text }>();
+  private hudTags = new Map<number, { score: Phaser.GameObjects.Text; root: Phaser.GameObjects.Container; status: Phaser.GameObjects.Text; pips?: Phaser.GameObjects.Graphics; pipKey?: string; pipX: number; flip: boolean }>();
   private timerText?: Phaser.GameObjects.Text;
+  private timerArc?: Phaser.GameObjects.Graphics;
   private ending = false;
 
   constructor(key: string) {
@@ -76,6 +81,7 @@ export abstract class BaseMinigame extends Phaser.Scene {
     this.ending = false;
     this.hudTags.clear();
     this.timerText = undefined;
+    this.timerArc = undefined;
   }
 
   create(): void {
@@ -100,7 +106,7 @@ export abstract class BaseMinigame extends Phaser.Scene {
       };
     });
     this.createArena();
-    if (this.renderer.type === Phaser.WEBGL) this.cameras.main.postFX.addVignette(0.5, 0.5, 0.95, 0.2);
+    applyGrade(this, { vignette: 0.2 });
     this.players.forEach((p, i) => this.createPlayer(p, i));
     this.buildHud();
     this.startCountdown();
@@ -120,6 +126,10 @@ export abstract class BaseMinigame extends Phaser.Scene {
   protected hudLabel(p: MgPlayer): string {
     return String(p.score);
   }
+  /** Games with lives can show them as hearts in the HUD instead of a number. */
+  protected hudPips(_p: MgPlayer): { filled: number; total: number } | null {
+    return null;
+  }
 
   protected skill(p: MgPlayer) {
     return CPU_SKILL[p.cpuLevel];
@@ -130,35 +140,134 @@ export abstract class BaseMinigame extends Phaser.Scene {
   }
 
   // --- HUD --------------------------------------------------------------------------------------
+  /**
+   * Top strip in the same visual language as the board HUD: translucent capsules with the
+   * portrait breaking the outer end, plus a round timer medallion with a draining arc.
+   */
   private buildHud(): void {
     const n = this.players.length;
-    const spacing = 400;
-    const start = GAME_WIDTH / 2 - ((n - 1) * spacing) / 2;
     const hasTimer = this.duration > 0;
+    const W = HUD_W;
+    const H = HUD_H;
+    // Capsule left edges: two pairs either side of the centre (clearing the timer when present).
+    const gap = 34;
+    const inner = hasTimer ? 96 : gap / 2;
+    const lefts: number[] = [];
+    const leftCount = Math.ceil(n / 2);
+    for (let i = 0; i < leftCount; i++) lefts.push(GAME_WIDTH / 2 - inner - (leftCount - i) * W - (leftCount - 1 - i) * gap);
+    for (let i = 0; i < n - leftCount; i++) lefts.push(GAME_WIDTH / 2 + inner + i * (W + gap));
     this.players.forEach((p, i) => {
-      let x = start + i * spacing;
-      if (hasTimer) x += (i < n / 2 ? -110 : 110);
-      const root = this.add.container(x, 58).setDepth(9000);
-      const g = this.add.graphics();
-      drawPanel(g, -170, -44, 340, 88, { radius: 26, borderWidth: 5, border: PLAYER_COLORS[p.slot], engraving: false, shadowOffset: 6 });
-      const badge = new PlayerBadge(this, -128, 0, p.slot, 22);
-      const name = addText(this, -92, -14, CHARACTERS[p.characterId].name.split(' ')[0] + (p.isCpu ? ' · CPU' : ''), 22, { color: CSS.inkSoft, weight: 700, align: 'left' });
-      const score = addText(this, -92, 16, '0', 32, { color: CSS.ink, weight: 700, align: 'left' });
-      const status = addText(this, 120, 0, '', 26, { color: CSS.coral, weight: 700 });
-      root.add([g, badge, name, score, status]);
-      this.hudTags.set(p.slot, { score, root, status });
+      const flip = i >= leftCount;
+      const x = lefts[i];
+      const y = 22;
+      const color = PLAYER_COLORS[p.slot];
+      const root = this.add.container(x, y).setDepth(9000);
+      const bg = this.add.graphics();
+      bg.fillStyle(0x06141a, 0.28);
+      bg.fillRoundedRect(4, 7, W, H, H / 2);
+      bg.fillStyle(0x0c2630, 0.82);
+      bg.fillRoundedRect(0, 0, W, H, H / 2);
+      bg.fillStyle(0xffffff, 0.07);
+      bg.fillRoundedRect(8, 5, W - 16, H * 0.42, { tl: H / 2 - 6, tr: H / 2 - 6, bl: 10, br: 10 });
+      bg.lineStyle(4, color, 0.95);
+      bg.strokeRoundedRect(0, 0, W, H, H / 2);
+      const lx = (v: number) => (flip ? W - v : v);
+      const pr = 42;
+      const portrait = addPortrait(this, p.characterId, p.slot, pr, { flip, worldX: x + lx(34), worldY: y + H / 2 });
+      portrait.setPosition(lx(34), H / 2);
+      const align = flip ? 'right' : 'left';
+      const name = addText(this, lx(92), 22, CHARACTERS[p.characterId].name.split(' ')[0].toUpperCase(), 19, { color: CSS.creamDark, weight: 700, align });
+      const parts: Phaser.GameObjects.GameObject[] = [bg, name];
+      if (p.isCpu) {
+        const tw = 46;
+        const tx = flip ? lx(92) - name.width - 8 - tw : lx(92) + name.width + 8;
+        const tag = this.add.graphics();
+        tag.fillStyle(0xffffff, 0.14);
+        tag.fillRoundedRect(tx, 11, tw, 22, 11);
+        parts.push(tag, addText(this, tx + tw / 2, 22, 'CPU', 13, { color: CSS.creamDark, weight: 700 }));
+      }
+      const score = addText(this, lx(92), 52, '0', 34, { color: CSS.cream, weight: 700, align, stroke: '#06141a', strokeThickness: 4 });
+      const status = addText(this, lx(W - 46), H / 2, '', 24, { color: CSS.coral, weight: 700, stroke: '#06141a', strokeThickness: 5 });
+      root.add([...parts, score, status, portrait]);
+      const tag: { score: Phaser.GameObjects.Text; root: Phaser.GameObjects.Container; status: Phaser.GameObjects.Text; pips?: Phaser.GameObjects.Graphics; pipKey?: string; pipX: number; flip: boolean } = { score, root, status, pipX: lx(92), flip };
+      if (this.hudPips(p)) {
+        score.setVisible(false);
+        tag.pips = this.add.graphics();
+        root.add(tag.pips);
+      }
+      this.hudTags.set(p.slot, tag);
     });
     if (hasTimer) {
-      const tg = this.add.graphics().setDepth(9000);
-      drawPanel(tg, GAME_WIDTH / 2 - 80, 14, 160, 88, { radius: 30, borderWidth: 5, border: COLORS.tealDark, fill: COLORS.gold, accent: COLORS.cream, engraving: false, shadowOffset: 6 });
-      this.timerText = addText(this, GAME_WIDTH / 2, 56, String(Math.ceil(this.duration / 1000)), 46, { color: CSS.ink, weight: 700 }).setDepth(9001);
+      const cx = GAME_WIDTH / 2;
+      const cy = 62;
+      const g = this.add.graphics().setDepth(9000);
+      g.fillStyle(0x06141a, 0.3);
+      g.fillCircle(cx + 4, cy + 7, 60);
+      g.fillStyle(0x0c2630, 0.9);
+      g.fillCircle(cx, cy, 58);
+      g.fillStyle(0xffffff, 0.07);
+      g.fillEllipse(cx, cy - 26, 84, 40);
+      g.lineStyle(5, COLORS.gold, 1);
+      g.strokeCircle(cx, cy, 58);
+      this.timerArc = this.add.graphics().setDepth(9001);
+      this.timerText = addText(this, cx, cy + 2, String(Math.ceil(this.duration / 1000)), 50, { color: CSS.cream, weight: 700, stroke: '#06141a', strokeThickness: 5 }).setDepth(9002);
+      this.drawTimerArc(1);
     }
+  }
+
+  /** Row of hearts: filled ones in coral, lost ones as dark hollows. */
+  private drawPips(g: Phaser.GameObjects.Graphics, x0: number, y: number, pips: { filled: number; total: number }, flip: boolean): void {
+    g.clear();
+    const heart = (x: number, cy: number, sz: number, color: number, alpha: number) => {
+      g.fillStyle(color, alpha);
+      g.fillCircle(x - sz * 0.26, cy - sz * 0.12, sz * 0.3);
+      g.fillCircle(x + sz * 0.26, cy - sz * 0.12, sz * 0.3);
+      g.fillTriangle(x - sz * 0.55, cy - sz * 0.02, x + sz * 0.55, cy - sz * 0.02, x, cy + sz * 0.56);
+    };
+    for (let i = 0; i < pips.total; i++) {
+      const x = flip ? x0 - 18 - i * 44 : x0 + 18 + i * 44;
+      heart(x + 2, y + 3, 40, 0x06141a, 0.45);
+      if (i < pips.filled) {
+        heart(x, y, 40, 0xffffff, 1);
+        heart(x, y + 1, 32, COLORS.coral, 1);
+        g.fillStyle(0xffffff, 0.55);
+        g.fillCircle(x - 8, y - 8, 4);
+      } else {
+        heart(x, y, 34, 0x3a5560, 1);
+      }
+    }
+  }
+
+  private drawTimerArc(frac: number): void {
+    const g = this.timerArc;
+    if (!g) return;
+    const cx = GAME_WIDTH / 2;
+    const cy = 62;
+    g.clear();
+    g.lineStyle(8, 0x000000, 0.25);
+    g.strokeCircle(cx, cy, 47);
+    if (frac <= 0) return;
+    const warn = frac * this.duration <= 5000;
+    g.lineStyle(8, warn ? COLORS.coral : COLORS.crystalLight, 1);
+    g.beginPath();
+    g.arc(cx, cy, 47, -Math.PI / 2, -Math.PI / 2 + frac * Math.PI * 2, false);
+    g.strokePath();
   }
 
   protected refreshHud(): void {
     for (const p of this.players) {
       const tag = this.hudTags.get(p.slot);
       if (!tag) continue;
+      const pips = tag.pips ? this.hudPips(p) : null;
+      if (tag.pips && pips) {
+        const key = `${pips.filled}/${pips.total}`;
+        if (key !== tag.pipKey) {
+          const lost = tag.pipKey !== undefined;
+          tag.pipKey = key;
+          this.drawPips(tag.pips, tag.pipX, 53, pips, tag.flip);
+          if (lost) this.tweens.add({ targets: tag.root, scale: { from: 1.08, to: 1 }, duration: 220, ease: 'Back.Out' });
+        }
+      }
       const label = this.hudLabel(p);
       if (tag.score.text !== label) {
         tag.score.setText(label);
@@ -168,11 +277,13 @@ export abstract class BaseMinigame extends Phaser.Scene {
       tag.root.setAlpha(p.alive ? 1 : 0.55);
     }
     if (this.timerText) {
-      const left = Math.max(0, Math.ceil((this.duration - this.elapsed) / 1000));
+      const leftMs = Math.max(0, this.duration - this.elapsed);
+      this.drawTimerArc(leftMs / this.duration);
+      const left = Math.ceil(leftMs / 1000);
       if (this.timerText.text !== String(left)) {
         this.timerText.setText(String(left));
         if (left <= 5 && this.phase === 'playing') {
-          this.timerText.setColor('#c0392b');
+          this.timerText.setColor('#ff8a7a');
           audio.play('countdown', { volume: 0.5 });
           this.tweens.add({ targets: this.timerText, scale: { from: 1.4, to: 1 }, duration: 200 });
         }

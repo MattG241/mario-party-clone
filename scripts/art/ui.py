@@ -51,11 +51,11 @@ P.b['metal'].add(v, f, col('#ecd7a4'))
 for k in range(10):
     a = k / 10 * math.tau - math.pi / 2
     x, y = c.x + math.cos(a) * 2.14, c.y + math.sin(a) * 2.14
-    v, f = lib.prism((x, y, 0.3), 0.1, 0.22, sides=6, tip=0.5)
+    v, f = lib.prism((x, y, 0.3), 0.15, 0.3, sides=6, tip=0.45)
     P.b['crystal'].add(v, f, col('#5ce1ff' if k % 2 == 0 else '#c49bff'))
     a2 = a + math.pi / 10
-    v, f = lib.box((c.x + math.cos(a2) * 2.14, c.y + math.sin(a2) * 2.14, 0.34), (0.05, 0.22, 0.04), rot_z=a2)
-    P.b['metal'].add(v, f, col('#b07a1a'))
+    v, f = lib.blob((c.x + math.cos(a2) * 2.14, c.y + math.sin(a2) * 2.14, 0.34), 0.07, rough=0.0, subdiv=2)
+    P.b['metal'].add(v, f, col('#ffe08a'))
 P.build()
 
 out = os.path.join(lib.ROOT, 'art-out', 'ui', 'dial.png')

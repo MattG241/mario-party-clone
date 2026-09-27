@@ -9,3 +9,4 @@ art-out/
 .artenv/
 __pycache__/
 *.pyc
+scripts/dev/tmp/

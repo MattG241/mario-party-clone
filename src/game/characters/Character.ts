@@ -31,6 +31,33 @@ export function animBaseline(id: CharacterId, anim: AnimName): number {
   return v;
 }
 
+const headCache = new Map<string, number>();
+
+/**
+ * Top of the character's head relative to the feet, in local (unscaled) pixels, measured from the
+ * solid artwork of the animation's frames. Markers hang just above this so they sit on the right
+ * character whatever its height.
+ */
+export function animHeadTop(id: CharacterId, anim: AnimName = 'idle'): number {
+  const k = `${id}:${anim}`;
+  const cached = headCache.get(k);
+  if (cached !== undefined) return cached;
+  const def = CHARACTER_ANIMATIONS[id][anim];
+  const meta = SPRITE_META[def.atlas ?? CHARACTERS[id].atlas];
+  let v = -235;
+  if (meta) {
+    const base = animBaseline(id, anim);
+    const tops = def.frames.map((f) => {
+      const fm = meta.frames[f];
+      return fm ? fm.solid[1] - base * fm.h : -235;
+    });
+    tops.sort((a, b) => a - b);
+    v = tops[Math.floor(tops.length / 2)] * (def.scale ?? 1);
+  }
+  headCache.set(k, v);
+  return v;
+}
+
 /** Register every character animation with Phaser (call once after atlases load). */
 export function registerCharacterAnimations(anims: Phaser.Animations.AnimationManager): void {
   for (const id of Object.keys(CHARACTER_ANIMATIONS) as CharacterId[]) {
@@ -78,11 +105,11 @@ export class Character extends Phaser.GameObjects.Container {
     super(scene, x, y);
     this.charId = id;
     if (opts.shadow !== false) {
-      // Contact shadow plus a soft cast shadow falling back-right (the key light is front-left).
       this.shadow = scene.add.container(0, 0);
-      if (scene.textures.exists('fx-shadow')) {
-        const cast = scene.add.image(26, -8, 'fx-shadow').setScale(1.45, 0.42).setAngle(-8).setAlpha(0.32);
-        const contact = scene.add.image(0, 0, 'fx-shadow').setScale(1.0, 0.3).setAlpha(0.7);
+      if (scene.textures.exists('fx-contact')) {
+        // Soft cast shadow falling back-right (the key light is front-left) + a dense contact blob.
+        const cast = scene.add.image(44, -18, 'fx-shadow').setScale(2.3, 0.62).setAngle(-14).setAlpha(0.42);
+        const contact = scene.add.image(2, 2, 'fx-contact').setScale(1.75, 0.5).setAlpha(0.8);
         this.shadow.add([cast, contact]);
       } else {
         this.shadow.add(scene.add.ellipse(0, 0, 120, 36, 0x0b1a24, 0.28));
@@ -92,7 +119,7 @@ export class Character extends Phaser.GameObjects.Container {
     this.sprite = scene.add.sprite(0, 0, CHARACTERS[id].atlas, '0');
     this.add(this.sprite);
     if (opts.slot !== undefined && opts.marker !== false) {
-      this.marker = new PlayerBadge(scene, 0, -270, opts.slot, 22);
+      this.marker = new PlayerBadge(scene, 0, animHeadTop(id) - 46, opts.slot, 22);
       this.add(this.marker);
       const ring = scene.add.ellipse(0, 0, 150, 44);
       ring.setStrokeStyle(5, PLAYER_COLORS[opts.slot], 0.9);
@@ -106,9 +133,9 @@ export class Character extends Phaser.GameObjects.Container {
     this.play('idle');
   }
 
-  /** Approximate head height above the feet, in local (unscaled) pixels. */
+  /** Head height above the feet, in local (unscaled) pixels. */
   get headY(): number {
-    return -235 * this.baseSpriteScale;
+    return animHeadTop(this.charId);
   }
 
   play(anim: AnimName, opts: { onComplete?: () => void; returnTo?: AnimName; force?: boolean; startFrame?: number } = {}): this {

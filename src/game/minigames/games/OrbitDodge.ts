@@ -103,6 +103,11 @@ export class OrbitDodgeScene extends BaseMinigame {
     return d ? (d.lives > 0 ? `Lives ${d.lives}` : 'Out') : '';
   }
 
+  protected override hudPips(p: MgPlayer): { filled: number; total: number } {
+    const d = this.dodgers.find((x) => x.p === p);
+    return { filled: Math.max(0, d?.lives ?? LIVES), total: LIVES };
+  }
+
   protected override onStart(): void {
     audio.play('rumble', { volume: 0.5 });
   }

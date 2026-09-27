@@ -88,6 +88,21 @@ export function generateFxTextures(scene: Phaser.Scene): void {
       tex.refresh();
     }
   }
+  if (!scene.textures.exists('fx-contact')) {
+    // Tighter contact shadow: a dense core with a short falloff, so it reads around the feet.
+    const tex = scene.textures.createCanvas('fx-contact', 128, 128);
+    if (tex) {
+      const ctx = tex.getContext();
+      const grd = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+      grd.addColorStop(0, 'rgba(6,14,22,0.92)');
+      grd.addColorStop(0.45, 'rgba(6,14,22,0.78)');
+      grd.addColorStop(0.75, 'rgba(6,14,22,0.32)');
+      grd.addColorStop(1, 'rgba(6,14,22,0)');
+      ctx.fillStyle = grd;
+      ctx.fillRect(0, 0, 128, 128);
+      tex.refresh();
+    }
+  }
   if (!scene.textures.exists('fx-ring')) {
     g.lineStyle(6, 0xffffff, 1);
     g.strokeCircle(64, 64, 58);

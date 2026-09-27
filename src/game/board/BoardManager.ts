@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { COLORS, CSS, DEPTH, PLAYER_COLORS } from '../constants';
 import { npcFrame, type NpcId } from '../data/npcs';
 import { renderedManifestKey, renderedTileKey, type RenderedBoard } from '../data/rendered';
+import { clampTexture } from '../util/texture';
 import type { MatchState } from '../state/MatchState';
 import { addText } from '../ui/theme';
 import { centerOrigin, standOrigin } from '../util/spriteUtil';
@@ -73,8 +74,10 @@ export class BoardManager {
       // Pre-rendered 3D terrain: islands, trails, stepping stones and scenery in one lit diorama.
       const k = 1 / baked.scale;
       for (const t of baked.tiles) {
+        const key = renderedTileKey(this.def.id, t.file);
+        clampTexture(s, key);
         s.add
-          .image(baked.origin[0] + t.x * k, baked.origin[1] + t.y * k, renderedTileKey(this.def.id, t.file))
+          .image(baked.origin[0] + t.x * k, baked.origin[1] + t.y * k, key)
           .setOrigin(0)
           .setScale(k)
           .setDepth(DEPTH.islands);
@@ -408,8 +411,11 @@ export class BoardManager {
     }
     this.detourLayer.setAlpha(broken ? 1 : 0.28);
     for (const [id, v] of this.nodes) {
+      // Closed spaces (the Cloud Steps while the bridge stands) sit dormant: solid but stone-grey.
       const g = this.graph.isOpen(id, b);
-      v.tile.setAlpha(g ? 1 : 0.35);
+      v.tile.setAlpha(1);
+      if (g) v.tile.clearTint();
+      else v.tile.setTint(0x9fb0b8);
       // Surge glow
       const surged = !!b.surge && b.surge.nodes.includes(id);
       if (surged && !v.surge) {
