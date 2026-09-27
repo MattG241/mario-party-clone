@@ -87,25 +87,37 @@ export class MenuButton extends Phaser.GameObjects.Container {
   }
 
   private redraw(): void {
+    // Same material as the HUD: navy capsule with a soft sheen; the focused button turns gold.
     const w = this.bw;
     const h = this.bh;
-    const r = Math.min(24, h / 2.4);
+    const r = Math.min(26, h / 2.2);
     this.base.clear();
-    this.base.fillStyle(this.disabled ? 0x8f8a7c : COLORS.tealDark, 1);
-    this.base.fillRoundedRect(-w / 2, -h / 2 + 9, w, h, r);
+    this.base.fillStyle(0x06141a, this.disabled ? 0.25 : 0.4);
+    this.base.fillRoundedRect(-w / 2 + 3, -h / 2 + 8, w, h, r);
     this.faceG.clear();
-    const fill = this.disabled ? 0xd8d0bd : this.selected ? this.focusFill : COLORS.cream;
-    this.faceG.fillStyle(fill, 1);
-    this.faceG.fillRoundedRect(-w / 2, -h / 2, w, h, r);
-    this.faceG.fillStyle(0xffffff, this.selected ? 0.35 : 0.25);
-    this.faceG.fillRoundedRect(-w / 2 + 8, -h / 2 + 5, w - 16, h * 0.32, r * 0.7);
-    this.faceG.lineStyle(4, this.disabled ? 0x8f8a7c : COLORS.teal, 1);
-    this.faceG.strokeRoundedRect(-w / 2, -h / 2, w, h, r);
-    this.label.setColor(this.disabled ? '#8f8a7c' : CSS.ink);
+    if (this.selected && !this.disabled) {
+      this.faceG.fillStyle(COLORS.goldDark, 1);
+      this.faceG.fillRoundedRect(-w / 2, -h / 2 + 4, w, h, r);
+      this.faceG.fillStyle(this.focusFill, 1);
+      this.faceG.fillRoundedRect(-w / 2, -h / 2, w, h - 4, r);
+      this.faceG.fillStyle(0xffffff, 0.35);
+      this.faceG.fillRoundedRect(-w / 2 + 10, -h / 2 + 5, w - 20, h * 0.3, r * 0.6);
+      this.faceG.lineStyle(3, 0xfff4dc, 1);
+      this.faceG.strokeRoundedRect(-w / 2, -h / 2, w, h, r);
+    } else {
+      this.faceG.fillStyle(this.disabled ? 0x2a3a40 : 0x0c2630, 0.9);
+      this.faceG.fillRoundedRect(-w / 2, -h / 2, w, h, r);
+      this.faceG.fillStyle(0xffffff, 0.07);
+      this.faceG.fillRoundedRect(-w / 2 + 10, -h / 2 + 5, w - 20, h * 0.36, r * 0.6);
+      this.faceG.lineStyle(3, 0xfff4dc, this.disabled ? 0.15 : 0.35);
+      this.faceG.strokeRoundedRect(-w / 2, -h / 2, w, h, r);
+    }
+    this.label.setColor(this.disabled ? '#7d8a8f' : this.selected ? CSS.ink : CSS.cream);
+    this.valueText?.setColor(this.selected ? CSS.tealDark : CSS.crystal);
     this.glow.clear();
     if (this.selected) {
       this.glow.lineStyle(8, COLORS.crystal, 1);
-      this.glow.strokeRoundedRect(-w / 2 - 7, -h / 2 - 7, w + 14, h + 23, r + 7);
+      this.glow.strokeRoundedRect(-w / 2 - 7, -h / 2 - 7, w + 14, h + 20, r + 7);
     }
   }
 

@@ -607,7 +607,7 @@ def select():
     floor_m = ground_image_material('stage', tex, region, rough=0.55)
     x0, y0, x1, y1 = region
     top = [tuple(board_to_world(x, y, 0.0)) for (x, y) in [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]]
-    top = [(v[0], v[1], -0.004) for v in top]
+    top = [(v[0], v[1], 0.08) for v in top]
     bot = [tuple(board_to_world(x, y, -0.45)) for (x, y) in [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]]
     lib.mesh_object('stage_top', top, [(3, 2, 1, 0)], smooth=False, material=floor_m)
     sb = lib.MeshBuilder()
@@ -615,9 +615,10 @@ def select():
     sb.build('stage_sides', props.mats()['stone'], smooth=False)
     trim = lib.MeshBuilder()
     a, b = board_to_world(x0, y1, 0), board_to_world(x1, y1, 0)
-    v, f = lib.box(((a.x + b.x) / 2, a.y - 0.02, -0.06), (b.x - a.x, 0.08, 0.12))
+    v, f = lib.box(((a.x + b.x) / 2, a.y - 0.02, 0.03), (b.x - a.x, 0.08, 0.12))
     trim.add(v, f, col('#e0a93f'))
     trim.build('stage_trim', props.mats()['metal'])
+    stage_island(960, base_y + 30, 1010, 175, seed=5)
     for x in PODIUM_X:
         hero_pedestal(x, base_y)
     # festival backdrop
@@ -691,13 +692,22 @@ def result_podium(bx, base_y, h_px, rank):
     return P.build()
 
 
+def stage_island(cx, cy, rx, ry, seed=5):
+    """Floating rock island under a stage so it never ends abruptly in mid-air."""
+    outline = blob_outline(cx, cy, rx, ry, seed=seed, lobes=9, wobble=0.05)
+    terrain.set_canvas(SW, SH + 600, 4)
+    make_empty_mask()
+    isl_m = terrain.island_material(os.path.join(OUT, 'empty_mask.png'))
+    return island_under(outline, f'stage_island_{seed}', isl_m)
+
+
 def festival_stage(base_y, region, trees=True):
     tex = os.path.join(OUT, f'stage_floor_{int(base_y)}.png')
     plaza_texture(tex, region)
     floor_m = ground_image_material('stage', tex, region, rough=0.55)
     x0, y0, x1, y1 = region
     top = [tuple(board_to_world(x, y, 0.0)) for (x, y) in [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]]
-    top = [(v[0], v[1], -0.004) for v in top]
+    top = [(v[0], v[1], 0.08) for v in top]
     bot = [tuple(board_to_world(x, y, -0.45)) for (x, y) in [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]]
     lib.mesh_object('stage_top', top, [(3, 2, 1, 0)], smooth=False, material=floor_m)
     sb = lib.MeshBuilder()
@@ -705,7 +715,7 @@ def festival_stage(base_y, region, trees=True):
     sb.build('stage_sides', props.mats()['stone'], smooth=False)
     trim = lib.MeshBuilder()
     a, b = board_to_world(x0, y1, 0), board_to_world(x1, y1, 0)
-    v, f = lib.box(((a.x + b.x) / 2, a.y - 0.02, -0.06), (b.x - a.x, 0.08, 0.12))
+    v, f = lib.box(((a.x + b.x) / 2, a.y - 0.02, 0.03), (b.x - a.x, 0.08, 0.12))
     trim.add(v, f, col('#e0a93f'))
     trim.build('stage_trim', props.mats()['metal'])
 
@@ -717,6 +727,7 @@ def results():
     lib.camera_for_region(0, 0, SW, SH, scale=0.5 if A.preview else 1.0)
     base_y = RESULT_BASE
     festival_stage(base_y, (40, base_y - 150, 1880, base_y + 70))
+    stage_island(960, base_y - 30, 1010, 190, seed=9)
     for rank in range(4):
         result_podium(RESULT_X[rank], base_y, RESULT_H[rank], rank)
     # festival backdrop behind the podiums

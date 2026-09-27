@@ -8,6 +8,7 @@ import { npcFrame, type NpcId } from '../../data/npcs';
 import { centerOrigin, standOrigin } from '../../util/spriteUtil';
 import { BaseMinigame, type MgPlayer } from '../BaseMinigame';
 import { clampRect, dist, drift, separate, steer, type Mover } from '../common';
+import { QuadMap } from '../../util/QuadMap';
 
 interface Grabber extends Mover {
   p: MgPlayer;
@@ -32,9 +33,18 @@ interface Drop {
   ring: Phaser.GameObjects.Image;
   /** Blast radius shown on the floor while a fake capsule wobbles. */
   zone?: Phaser.GameObjects.Graphics;
+  /** Soft additive glow that makes chips pop off the flagstones. */
+  glow?: Phaser.GameObjects.Image;
+  /** Screen position and depth scale of the landing spot. */
+  sx: number;
+  sy: number;
+  ss: number;
 }
 
 const ARENA = { x: 250, y: 290, w: 1420, h: 640 };
+/** Character scale at a depth scale of 1 (the perspective arena scales it by depth). */
+const CHAR_SCALE = 0.58;
+const CHAR_SCALE_3D = 0.5;
 const FALL_MS = 950;
 const DASH_MS = 190;
 const DASH_CD = 1200;
@@ -48,6 +58,8 @@ export class GleamGrabScene extends BaseMinigame {
   private drops: Drop[] = [];
   private spawnT = 0;
   private showerAt = 9000;
+  /** Perspective arena: logical ARENA coordinates -> screen (null for the flat fallback art). */
+  private map: QuadMap | null = null;
 
   constructor() {
     super('mg-gleam-grab');
@@ -59,6 +71,17 @@ export class GleamGrabScene extends BaseMinigame {
     this.drops = [];
     this.spawnT = 800;
     this.showerAt = 9000;
+    this.map = null;
+    const meta3d = this.cache.json.get('rendered-gleam3d') as { corners?: [number, number][]; wallTopY?: number; backLeftX?: number; backRightX?: number } | undefined;
+    if (this.textures.exists('rendered-scene-gleam3d') && meta3d?.corners?.length === 4) {
+      // Pre-rendered plaza seen through a perspective camera; gameplay maps onto its floor.
+      this.map = new QuadMap(ARENA, meta3d.corners);
+      if (this.textures.exists('rendered-sky-day')) this.add.image(GAME_WIDTH / 2, 540, 'rendered-sky-day').setDisplaySize(GAME_WIDTH * 1.04, 1124).setDepth(-100);
+      this.add.image(0, 0, 'rendered-scene-gleam3d').setOrigin(0).setDepth(-50);
+      this.buildCrowd(meta3d.wallTopY ?? 314, meta3d.backLeftX ?? 300, meta3d.backRightX ?? 1620);
+      if (this.textures.exists('rendered-scene-gleam3d_wall')) this.add.image(0, 0, 'rendered-scene-gleam3d_wall').setOrigin(0).setDepth(250);
+      return;
+    }
     if (this.textures.exists('rendered-scene-gleam')) {
       // Pre-rendered festival plaza on its floating island, with a cheering crowd behind the curb.
       if (this.textures.exists('rendered-sky-day')) this.add.image(GAME_WIDTH / 2, 540, 'rendered-sky-day').setDisplaySize(GAME_WIDTH * 1.04, 1124).setDepth(-100);
@@ -86,8 +109,10 @@ export class GleamGrabScene extends BaseMinigame {
   /** Festival folk cheering from behind the back curb (bob, and hop when chips rain). */
   private crowd: Phaser.GameObjects.Sprite[] = [];
 
-  private buildCrowd(): void {
+  private buildCrowd(wallTopY = 202, x0 = 250, x1 = 1670): void {
     this.crowd = [];
+    const feetY = wallTopY + 30;
+    const sx = (x: number) => x0 + ((x - 250) / 1420) * (x1 - x0);
     const folk: [NpcId, string, number][] = [
       ['mimi', 'happy', 262],
       ['packsprout', 'cheer', 340],
@@ -98,11 +123,12 @@ export class GleamGrabScene extends BaseMinigame {
       ['packsprout', 'star', 1595],
       ['ora', 'wave', 1675],
     ];
-    folk.forEach(([id, pose, x], i) => {
-      const spr = this.add.sprite(x, 236, 'npcs', npcFrame(id, pose));
+    folk.forEach(([id, pose, lx], i) => {
+      const x = sx(lx);
+      const spr = this.add.sprite(x, feetY, 'npcs', npcFrame(id, pose));
       const o = standOrigin('npcs', npcFrame(id, pose));
       spr.setOrigin(o.x, o.y).setScale(0.42).setDepth(200 + i * 0.01).setFlipX(x > 960);
-      this.tweens.add({ targets: spr, y: 228, duration: 420 + (i % 3) * 90, yoyo: true, repeat: -1, ease: 'Sine.InOut', delay: i * 70 });
+      this.tweens.add({ targets: spr, y: feetY - 8, duration: 420 + (i % 3) * 90, yoyo: true, repeat: -1, ease: 'Sine.InOut', delay: i * 70 });
       this.crowd.push(spr);
     });
   }
@@ -113,6 +139,13 @@ export class GleamGrabScene extends BaseMinigame {
     }
   }
 
+  /** Screen position + depth scale for a logical arena point. */
+  private P(x: number, y: number): { x: number; y: number; s: number } {
+    if (!this.map) return { x, y, s: 1 };
+    const q = this.map.point(x, y);
+    return { x: q.x, y: q.y, s: this.map.scaleAt(x, y) };
+  }
+
   protected createPlayer(p: MgPlayer, index: number): void {
     const spots = [
       [ARENA.x + 180, ARENA.y + 120],
@@ -121,7 +154,8 @@ export class GleamGrabScene extends BaseMinigame {
       [ARENA.x + ARENA.w - 180, ARENA.y + ARENA.h - 80],
     ];
     const [x, y] = spots[index % 4];
-    const c = new Character(this, x, y, p.characterId, { scale: 0.58, slot: p.slot, marker: true });
+    const q = this.P(x, y);
+    const c = new Character(this, q.x, q.y, p.characterId, { scale: (this.map ? CHAR_SCALE_3D : CHAR_SCALE) * q.s, slot: p.slot, marker: true });
     c.face(x > 960);
     p.character = c;
     this.grabbers.push({ p, c, x, y, vx: 0, vy: 0, dashT: 0, dashCd: 0, stunT: 0 });
@@ -136,23 +170,34 @@ export class GleamGrabScene extends BaseMinigame {
     const px = x ?? ARENA.x + 40 + this.rng.next() * (ARENA.w - 80);
     const py = y ?? ARENA.y + 30 + this.rng.next() * (ARENA.h - 60);
     const frame = kind === 'capsule' ? '12' : '0';
-    const sprite = this.add.sprite(px, py - 700, 'items', frame);
+    const q = this.P(px, py);
+    const sprite = this.add.sprite(q.x, q.y - 700 * q.s, 'items', frame);
     const o = centerOrigin('items', frame);
-    sprite.setOrigin(o.x, o.y).setScale(kind === 'gold' ? 0.34 : kind === 'capsule' ? 0.28 : 0.24).setDepth(py + 1000);
+    sprite.setOrigin(o.x, o.y).setScale((kind === 'gold' ? 0.46 : kind === 'capsule' ? 0.36 : 0.34) * q.s).setDepth(q.y + 1000);
     if (kind === 'capsule') sprite.play('capsule-idle');
     else sprite.play('chip-spin');
     if (kind === 'gold') sprite.setTint(0xfff1a0);
+    const glow =
+      kind === 'capsule'
+        ? undefined
+        : this.add
+            .image(q.x, q.y - 700 * q.s, 'fx-dot')
+            .setScale((kind === 'gold' ? 3.4 : 2.6) * q.s)
+            .setTint(kind === 'gold' ? 0xffe066 : 0xfff4dc)
+            .setAlpha(0.55)
+            .setBlendMode(Phaser.BlendModes.ADD)
+            .setDepth(q.y + 999);
     const shadow = this.add
-      .image(px, py, 'fx-contact')
-      .setScale(0.15, 0.05)
+      .image(q.x, q.y, 'fx-contact')
+      .setScale(0.15 * q.s, 0.05 * q.s)
       .setAlpha(0.3)
-      .setDepth(py - 1);
+      .setDepth(q.y - 1);
     if (kind === 'capsule') shadow.setTint(0x6a1830);
     // Landing telegraph: a colour-coded ring that closes in on the landing spot as the drop falls
     // (danger red for fake capsules).
     const ringColor = kind === 'capsule' ? 0xff4a4a : kind === 'gold' ? 0xffe066 : 0xffc94a;
-    const ring = this.add.image(px, py, 'fx-ring').setTint(ringColor).setAlpha(0.2).setScale(1.5, 0.6).setDepth(py - 0.5).setBlendMode(Phaser.BlendModes.ADD);
-    this.drops.push({ kind, x: px, y: py, fallT: FALL_MS, fallTotal: FALL_MS, state: 'falling', life: 4500, sprite, shadow, ring });
+    const ring = this.add.image(q.x, q.y, 'fx-ring').setTint(ringColor).setAlpha(0.2).setScale(1.5 * q.s, 0.6 * q.s).setDepth(q.y - 0.5).setBlendMode(Phaser.BlendModes.ADD);
+    this.drops.push({ kind, x: px, y: py, fallT: FALL_MS, fallTotal: FALL_MS, state: 'falling', life: 4500, sprite, shadow, ring, glow, sx: q.x, sy: q.y, ss: q.s });
   }
 
   private updateDrops(dt: number): void {
@@ -161,38 +206,40 @@ export class GleamGrabScene extends BaseMinigame {
       if (d.state === 'falling') {
         d.fallT -= dt;
         const t = 1 - Math.max(0, d.fallT) / d.fallTotal;
-        d.sprite.y = d.y - 700 * (1 - t * t) - 20;
-        d.shadow.setScale(0.15 + t * 0.62, 0.05 + t * 0.2).setAlpha(0.3 + t * 0.55);
+        d.sprite.y = d.sy - (700 * (1 - t * t) + 20) * d.ss;
+        d.glow?.setY(d.sprite.y);
+        d.shadow.setScale((0.15 + t * 0.62) * d.ss, (0.05 + t * 0.2) * d.ss).setAlpha(0.3 + t * 0.55);
         const rs = 1.5 - t * 0.95;
         const wob = d.kind === 'capsule' ? Math.sin(t * 40) * 0.06 : 0;
-        d.ring.setScale(rs + wob, (rs - wob) * 0.4).setAlpha(0.25 + t * 0.7);
+        d.ring.setScale((rs + wob) * d.ss, (rs - wob) * 0.4 * d.ss).setAlpha(0.25 + t * 0.7);
         if (d.fallT <= 0) {
           d.ring.destroy();
-          d.sprite.y = d.y - 20;
+          d.sprite.y = d.sy - 20 * d.ss;
           audio.play(d.kind === 'capsule' ? 'land' : 'pop', { volume: 0.4, throttleMs: 50 });
-          this.fx.vfx('dust', d.x, d.y, { scale: 0.25, duration: 360, alpha: 0.6 });
-          this.tweens.add({ targets: d.sprite, y: d.y - 44, duration: 150, yoyo: true, ease: 'Quad.Out' });
+          this.fx.vfx('dust', d.sx, d.sy, { scale: 0.25 * d.ss, duration: 360, alpha: 0.6 });
+          this.tweens.add({ targets: d.sprite, y: d.sy - 44 * d.ss, duration: 150, yoyo: true, ease: 'Quad.Out' });
           if (d.kind === 'capsule') {
             d.state = 'wobble';
             d.life = 900;
             this.tweens.add({ targets: d.sprite, angle: { from: -14, to: 14 }, duration: 70, yoyo: true, repeat: -1 });
             d.sprite.setTint(0xff9a9a);
             // Show the blast radius on the floor while it wobbles.
-            const zone = this.add.graphics({ x: d.x, y: d.y }).setDepth(d.y - 2);
+            const zone = this.add.graphics({ x: d.sx, y: d.sy }).setDepth(d.sy - 2);
             zone.fillStyle(0xff3b3b, 0.18);
             zone.fillEllipse(0, 0, 340, 150);
             zone.lineStyle(5, 0xff5a4a, 0.9);
             zone.strokeEllipse(0, 0, 340, 150);
             zone.lineStyle(3, 0xffffff, 0.5);
             zone.strokeEllipse(0, 0, 300, 130);
-            zone.setScale(0.3);
-            this.tweens.add({ targets: zone, scale: 1, duration: 180, ease: 'Back.Out' });
+            zone.setScale(0.3 * d.ss);
+            this.tweens.add({ targets: zone, scale: d.ss, duration: 180, ease: 'Back.Out' });
             this.tweens.add({ targets: zone, alpha: { from: 1, to: 0.45 }, duration: 110, yoyo: true, repeat: -1 });
             d.zone = zone;
           } else d.state = 'landed';
         }
       } else if (d.state === 'landed') {
         d.life -= dt;
+        if (d.glow) d.glow.setY(d.sprite.y).setAlpha(0.4 + 0.25 * Math.sin(this.time.now / 160 + d.x));
         if (d.life < 1000) d.sprite.setAlpha(Math.floor(d.life / 120) % 2 ? 0.35 : 1);
         if (d.life <= 0) this.removeDrop(d);
       } else if (d.state === 'wobble') {
@@ -213,11 +260,12 @@ export class GleamGrabScene extends BaseMinigame {
       this.tweens.killTweensOf(d.zone);
       d.zone.destroy();
     }
+    d.glow?.destroy();
   }
 
   private burst(d: Drop): void {
     audio.play('explosion', { volume: 0.7 });
-    this.fx.vfx('explosion', d.x, d.y - 40, { scale: 0.55, duration: 500 });
+    this.fx.vfx('explosion', d.sx, d.sy - 40 * d.ss, { scale: 0.55 * d.ss, duration: 500 });
     this.fx.shake(0.006, 180);
     for (const g of this.grabbers) {
       const dd = dist(g.x, g.y, d.x, d.y);
@@ -240,23 +288,25 @@ export class GleamGrabScene extends BaseMinigame {
     const value = d.kind === 'gold' ? 3 : 1;
     g.p.score += value;
     audio.play('chipGain', { rate: d.kind === 'gold' ? 0.8 : 1 + Math.random() * 0.15, throttleMs: 30 });
-    this.fx.floatText(d.x, d.y - 80, `+${value}`, d.kind === 'gold' ? '#fff1a0' : '#ffffff', {
-      size: d.kind === 'gold' ? 58 : 46,
+    this.fx.floatText(d.sx, d.sy - 80 * d.ss, `+${value}`, d.kind === 'gold' ? '#fff1a0' : '#ffffff', {
+      size: d.kind === 'gold' ? 84 : 66,
       rise: 80,
       duration: 750,
       stroke: d.kind === 'gold' ? '#8a4b00' : '#b86e00',
     });
     if (d.kind === 'gold') {
-      this.fx.sparks(d.x, d.y - 40, 18);
+      this.fx.sparks(d.sx, d.sy - 40 * d.ss, 18);
       g.c.play('celebrate');
     }
     this.rumble(g.p, 0.1, 0.2, 50);
     const spr = d.sprite;
     d.state = 'gone';
+    d.glow?.destroy();
     d.shadow.destroy();
     if (d.ring.active) d.ring.destroy();
     this.tweens.killTweensOf(spr);
-    this.tweens.add({ targets: spr, x: g.x, y: g.y - 150, scale: 0.08, alpha: 0.2, duration: 200, ease: 'Quad.In', onComplete: () => spr.destroy() });
+    const gq = this.P(g.x, g.y);
+    this.tweens.add({ targets: spr, x: gq.x, y: gq.y - 150 * gq.s, scale: 0.08, alpha: 0.2, duration: 200, ease: 'Quad.In', onComplete: () => spr.destroy() });
   }
 
   // --- Frame -----------------------------------------------------------------------------------
@@ -291,7 +341,10 @@ export class GleamGrabScene extends BaseMinigame {
       } else if (g.dashT > 0) {
         g.dashT -= dt;
         drift(g, dt, 2);
-        if (Math.random() < 0.5) this.fx.vfx('dust', g.x, g.y, { scale: 0.18, duration: 300, alpha: 0.5 });
+        if (Math.random() < 0.5) {
+          const q = this.P(g.x, g.y);
+          this.fx.vfx('dust', q.x, q.y, { scale: 0.18 * q.s, duration: 300, alpha: 0.5 });
+        }
         if (g.dashT <= 0) g.c.play('run');
       } else {
         steer(g, c.moveX, c.moveY, dt, { maxSpeed: 440 * hand.speed, accel: 15 * hand.accel, friction: 8 });
@@ -338,7 +391,9 @@ export class GleamGrabScene extends BaseMinigame {
 
   private syncVisuals(): void {
     for (const g of this.grabbers) {
-      g.c.setPosition(g.x, g.y).setDepth(g.y);
+      const q = this.P(g.x, g.y);
+      g.c.setPosition(q.x, q.y).setDepth(q.y);
+      if (this.map) g.c.setScale(CHAR_SCALE_3D * q.s);
       if (Math.abs(g.vx) > 40) g.c.face(g.vx < 0);
       if (g.stunT <= 0 && g.dashT <= 0) {
         const moving = Math.hypot(g.vx, g.vy) > 70;

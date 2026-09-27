@@ -9,10 +9,10 @@ import { PlayerBadge } from './PlayerBadge';
 import { addText } from './theme';
 
 /** Capsule size (the portrait breaks out of its outer end). */
-const W = 300;
-const H = 90;
+const W = 262;
+const H = 84;
 const PAD = 26;
-const PR = 56; // portrait radius
+const PR = 52; // portrait radius
 
 interface PanelView {
   slot: number;
@@ -107,7 +107,7 @@ export class PlayerHUD {
     portraitRoot.add([disc, portrait, ring, badge]);
 
     // Name + CPU tag
-    const nameX = this.lx(f, 112);
+    const nameX = this.lx(f, 104);
     const name = addText(s, nameX, 24, CHARACTERS[p.characterId].name.split(' ')[0].toUpperCase(), 21, {
       color: CSS.cream,
       weight: 700,
@@ -115,24 +115,24 @@ export class PlayerHUD {
     });
     const parts: Phaser.GameObjects.GameObject[] = [name];
     if (p.isCpu) {
-      const tw = 58;
+      const tw = 44;
       const tx = flip ? nameX - name.width - 10 - tw : nameX + name.width + 10;
       const tag = s.add.graphics();
       tag.fillStyle(0xffffff, 0.14);
       tag.fillRoundedRect(tx, 12, tw, 24, 12);
-      parts.push(tag, addText(s, tx + tw / 2, 24, `CPU·${p.cpuLevel[0].toUpperCase()}`, 14, { color: CSS.creamDark, weight: 700 }));
+      parts.push(tag, addText(s, tx + tw / 2, 24, 'CPU', 13, { color: CSS.creamDark, weight: 700 }));
     }
     // Relics and chips
-    const relicIcon = s.add.image(this.lx(f, 128), 62, 'prism-relic').setScale(0.15);
-    const relicText = addText(s, this.lx(f, 148), 63, '0', 34, { color: CSS.cream, weight: 700, align: flip ? 'right' : 'left', stroke: '#06141a', strokeThickness: 4 });
-    const chipIcon = s.add.sprite(this.lx(f, 214), 62, 'items', '0');
+    const relicIcon = s.add.image(this.lx(f, 118), 58, 'prism-relic').setScale(0.15);
+    const relicText = addText(s, this.lx(f, 136), 59, '0', 38, { color: CSS.cream, weight: 700, align: flip ? 'right' : 'left', stroke: '#06141a', strokeThickness: 4 });
+    const chipIcon = s.add.sprite(this.lx(f, 188), 58, 'items', '0');
     const co = centerOrigin('items', '0');
     chipIcon.setOrigin(co.x, co.y).setScale(0.19);
-    const chipsText = addText(s, this.lx(f, 236), 63, '0', 34, { color: CSS.cream, weight: 700, align: flip ? 'right' : 'left', stroke: '#06141a', strokeThickness: 4 });
+    const chipsText = addText(s, this.lx(f, 206), 59, '0', 38, { color: CSS.cream, weight: 700, align: flip ? 'right' : 'left', stroke: '#06141a', strokeThickness: 4 });
     // Big rank numeral tucked under the portrait
     const rankText = addText(s, 0, PR - 4, '1st', 32, { color: RANK_COLORS[0], weight: 700, stroke: '#06141a', strokeThickness: 7 });
     // Owned items as bubbles hanging below (top row) or above (bottom row) the capsule.
-    const items = s.add.container(this.lx(f, 130), top ? H + 22 : -22);
+    const items = s.add.container(this.lx(f, 122), top ? H + 22 : -22);
     portraitRoot.add(rankText);
     root.add([glow, bg, ...parts, relicIcon, relicText, chipIcon, chipsText, items, portraitRoot]);
     return {
@@ -157,13 +157,13 @@ export class PlayerHUD {
   chipAnchor(slot: number): { x: number; y: number } {
     const { x, y } = hudCorner(slot);
     const flip = slot % 2 === 1;
-    return { x: x + (flip ? W - 214 : 214), y: y + 62 };
+    return { x: x + (flip ? W - 188 : 188), y: y + 58 };
   }
 
   relicAnchor(slot: number): { x: number; y: number } {
     const { x, y } = hudCorner(slot);
     const flip = slot % 2 === 1;
-    return { x: x + (flip ? W - 128 : 128), y: y + 62 };
+    return { x: x + (flip ? W - 118 : 118), y: y + 58 };
   }
 
   setActive(slot: number | null): void {
@@ -188,6 +188,7 @@ export class PlayerHUD {
   /** Sync numbers, items and ranks. Chip changes count up/down. */
   update(state: MatchState, instant = false): void {
     const standings = computeStandings(state.players);
+    const allTied = standings.every((st) => st.place === standings[0].place);
     for (const p of state.players) {
       const v = this.panels.get(p.slot);
       if (!v) continue;
@@ -205,7 +206,7 @@ export class PlayerHUD {
       this.renderItems(v, p.items, p.shielded);
       const st = standings.find((x) => x.slot === p.slot)!;
       const suffix = st.place === 1 ? 'st' : st.place === 2 ? 'nd' : st.place === 3 ? 'rd' : 'th';
-      const txt = `${st.place}${suffix}`;
+      const txt = allTied ? '' : `${st.place}${suffix}`;
       if (v.rankText.text !== txt) {
         v.rankText.setText(txt).setColor(RANK_COLORS[Math.min(3, st.place - 1)]);
         if (!instant) this.scene.tweens.add({ targets: v.rankText, scale: { from: 1.4, to: 1 }, duration: 260, ease: 'Back.Out' });

@@ -12,22 +12,23 @@ import type { JumpKind } from './flowTypes';
 
 export const TOKEN_SCALE = 0.6;
 
+/** Where players stand when sharing a space: a shallow arc facing the camera (active player first). */
 const LAYOUTS: [number, number][][] = [
   [[0, 0]],
   [
-    [-50, 6],
-    [54, -8],
+    [-56, 10],
+    [58, 0],
   ],
   [
-    [0, 12],
-    [-92, -10],
-    [94, -14],
+    [0, 18],
+    [-108, -2],
+    [108, -4],
   ],
   [
-    [-46, 14],
-    [48, 10],
-    [-124, -14],
-    [126, -18],
+    [-52, 24],
+    [54, 22],
+    [-156, 2],
+    [158, 0],
   ],
 ];
 
@@ -138,10 +139,11 @@ export class MovementController {
       if (!tag) continue;
       const lift = c.sprite.y;
       const active = slot === this.activeSlot;
-      tag.container.setPosition(c.x, c.y + tag.head * (c.scale / TOKEN_SCALE) - 44 + lift);
+      const full = this.activeSlot === null || active;
+      tag.container.setPosition(c.x, c.y + tag.head * (c.scale / TOKEN_SCALE) - (full ? 44 : 30) + lift);
       tag.container.setDepth(DEPTH.worldUi + (active ? 10 : 0));
       // Only the active player's marker is full size, so shared spaces stay readable.
-      const want = this.activeSlot === null || active ? 1 : 0.72;
+      const want = full ? 1 : 0.6;
       if (Math.abs(tag.container.scale - want) > 0.01) tag.container.setScale(tag.container.scale + (want - tag.container.scale) * 0.2);
     }
   }

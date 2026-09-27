@@ -1,0 +1,317 @@
+"""Gleam Grab arena rendered with a perspective camera (the plaza recedes like a real 3/4 view).
+
+    .artenv/bin/python scripts/art/gleam3d.py [--preview]
+
+The gameplay rectangle (logical ARENA 250..1670 x 290..930, see GleamGrab.ts) is laid out on the
+plaza in world units; after rendering, the screen positions of its four corners are written to
+public/assets/rendered/scene_gleam3d.json so the game can map logical coordinates onto the floor
+with a homography (and scale sprites by depth). Outputs scene_gleam3d.webp (arena) and
+scene_gleam3d_wall.webp (the back wall alone, drawn over the crowd in-game).
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import math
+import os
+import random
+import sys
+
+import numpy as np
+from PIL import Image, ImageDraw, ImageFilter
+
+sys.path.insert(0, os.path.dirname(__file__))
+import lib  # noqa: E402
+import props  # noqa: E402
+import terrain  # noqa: E402
+from lib import col  # noqa: E402
+
+import bpy  # noqa: E402
+from bpy_extras.object_utils import world_to_camera_view  # noqa: E402
+from mathutils import Vector  # noqa: E402
+
+p = argparse.ArgumentParser()
+p.add_argument('--preview', action='store_true')
+A = p.parse_args(sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else sys.argv[1:])
+
+SW, SH = 1920, 1080
+OUT = os.path.join(lib.ROOT, 'art-out', 'gleam3d')
+PUB = os.path.join(lib.ROOT, 'public', 'assets', 'rendered')
+os.makedirs(OUT, exist_ok=True)
+
+# World layout (units). Plaza front edge at Y=0, back edge at Y=PD; X centred on 0.
+PW, PD = 15.6, 9.2
+SLAB_Z = 0.1
+# Gameplay area inside the curbs (logical ARENA maps onto this).
+GX = 7.1
+GY0, GY1 = 0.6, 8.6
+ARENA = (250, 290, 1670, 930)
+TILT = 40.0
+DIST = 17.5
+LENS = 34.0
+
+# terrain/props helpers take board px under the default orthographic mapping; convert world -> board.
+lib.BETA = math.radians(90 - 52)
+lib.COSB, lib.SINB = math.cos(lib.BETA), math.sin(lib.BETA)
+
+
+def bpx(X, Y):
+    return X * 100.0, -Y * 100.0 * lib.COSB
+
+
+def plaza_texture(path, S=2048, squash=1.0):
+    """Square festival flagstones seen from above (perspective foreshortens them), drawn at 2x."""
+    rnd = random.Random(8)
+    w, h = S, int(S * PD / PW)
+    im = Image.new('RGB', (w, h), (104, 80, 62))
+    d = ImageDraw.Draw(im)
+    tw = int(w / 26)
+    th = tw
+    pal = [(226, 192, 146), (214, 178, 130), (232, 204, 160), (204, 166, 120), (220, 184, 134), (230, 176, 128), (198, 170, 136)]
+    for row, ty in enumerate(range(-th, h + th, th)):
+        off = (row % 2) * tw // 2
+        for tx in range(-tw, w + tw, tw):
+            c = rnd.choice(pal)
+            c = tuple(max(0, min(255, v + rnd.randint(-10, 8))) for v in c)
+            a0, b0, a1, b1 = tx + off + 3, ty + 3, tx + off + tw - 3, ty + th - 3
+            d.rounded_rectangle([a0, b0, a1, b1], radius=8, fill=c)
+            d.rounded_rectangle([a0 + 4, b0 + 3, a1 - 10, b0 + 9], radius=3, fill=tuple(min(255, v + 16) for v in c))
+            if rnd.random() < 0.16:
+                cx0 = rnd.randint(a0 + 8, a1 - 8)
+                pts = [(cx0, b0 + 2)]
+                for _ in range(3):
+                    pts.append((pts[-1][0] + rnd.randint(-10, 10), pts[-1][1] + (b1 - b0) / 3))
+                d.line(pts, fill=tuple(int(v * 0.62) for v in c), width=2)
+    arr = np.asarray(im).astype(np.float32)
+    yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+    edge = np.minimum(np.minimum(xx, w - 1 - xx), np.minimum(yy, h - 1 - yy))
+    noise = np.asarray(Image.effect_noise((w // 10 + 1, h // 10 + 1), 60).resize((w, h), Image.BICUBIC), np.float32) / 255.0
+    moss = np.clip((150 - edge) / 150, 0, 1) * np.clip((noise - 0.45) * 3.0, 0, 1)
+    arr = arr * (1 - moss[..., None] * 0.55) + np.array([96, 150, 70], np.float32) * moss[..., None] * 0.55
+    grime = np.asarray(Image.effect_noise((w // 30 + 1, h // 30 + 1), 40).resize((w, h), Image.BICUBIC), np.float32) / 255.0
+    arr *= (0.9 + 0.16 * grime)[..., None]
+    im = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
+    d = ImageDraw.Draw(im)
+    # border band with crystal studs
+    bw = int(w * 0.022)
+    for box in [(0, 0, w, bw), (0, h - bw, w, h), (0, 0, bw, h), (w - bw, 0, w, h)]:
+        d.rectangle(box, fill=(122, 92, 70))
+    for k in range(bw, w - bw, int(w / 36)):
+        for yb in (bw // 2, h - bw // 2):
+            d.ellipse([k - 9, yb - 9, k + 9, yb + 9], fill=(40, 120, 140))
+            d.ellipse([k - 6, yb - 6, k + 6, yb + 5], fill=(92, 225, 255))
+    # inlaid mosaic: teal disc with a gold spiral of small tesserae (smooth after downsampling)
+    cx, cy = w / 2, h / 2
+    R = h * 0.34
+    for ring in np.arange(0, R, 14):
+        n = max(8, int(ring * math.tau / 14))
+        for k in range(n):
+            a = k / n * math.tau + ring * 0.01
+            px, py = cx + math.cos(a) * ring, cy + math.sin(a) * ring
+            shade = rnd.randint(-12, 12)
+            base = (38 + shade, 150 + shade, 148 + shade) if ring < R - 24 else (228 + shade, 190 + shade, 92)
+            d.rounded_rectangle([px - 6, py - 6, px + 6, py + 6], radius=2, fill=base)
+    for i in range(1400):
+        t = i / 1399
+        a = t * 3.2 * math.tau
+        r = 22 + t * (R - 40)
+        px, py = cx + math.cos(a) * r, cy + math.sin(a) * r
+        shade = rnd.randint(-14, 10)
+        d.rounded_rectangle([px - 8, py - 8, px + 8, py + 8], radius=3, fill=(246 + min(0, shade), 190 + shade, 72 + shade))
+    im = im.resize((w // 2, h // 2), Image.LANCZOS)
+    im.save(path)
+
+
+def generated_image_material(name, img_path, rough=0.55, bump=0.25):
+    m = lib.NT(name)
+    tc = m.node('ShaderNodeTexCoord')
+    img = m.node('ShaderNodeTexImage')
+    img.image = bpy.data.images.load(img_path)
+    img.extension = 'EXTEND'
+    img.interpolation = 'Cubic'
+    m.link(tc.outputs['Generated'], img.inputs['Vector'])
+    lum = m.node('ShaderNodeRGBToBW')
+    m.link(img.outputs['Color'], lum.inputs['Color'])
+    c = m.mult(img.outputs['Color'], m.mix(m.ao(0.6, 8), col('#6a6070'), col('#ffffff')))
+    m.bsdf(c, rough, normal=m.bump(lum.outputs['Val'], bump, 0.02))
+    return m.mat
+
+
+def grass_material():
+    m = lib.NT('arena_grass')
+    pos = m.position()
+    n1 = m.noise(0.35, 5, 0.6, pos)
+    n2 = m.noise(2.5, 3, 0.5, pos)
+    f = m.math('ADD', m.math('MULTIPLY', n1.outputs['Fac'], 0.8), m.math('MULTIPLY', n2.outputs['Fac'], 0.35))
+    c = m.ramp(f, [(0.28, '#23701f'), (0.42, '#358f28'), (0.55, '#4fab32'), (0.68, '#72c23c'), (0.82, '#9fd350')])
+    m.bsdf(c, 0.85, normal=m.bump(n2.outputs['Fac'], 0.3, 0.05), sheen=0.25)
+    return m.mat
+
+
+def rock_material():
+    m = lib.NT('arena_rock')
+    pos = m.position()
+    X, Y, Z = m.sep(pos)
+    wave = m.node('ShaderNodeTexWave')
+    wave.wave_type = 'BANDS'
+    wave.bands_direction = 'Z'
+    wave.inputs['Scale'].default_value = 0.6
+    wave.inputs['Distortion'].default_value = 5.0
+    m.link(pos, wave.inputs['Vector'])
+    rn = m.noise(0.8, 6, 0.6, pos)
+    rf = m.math('ADD', m.math('MULTIPLY', wave.outputs['Fac'], 0.55), m.math('MULTIPLY', rn.outputs['Fac'], 0.5))
+    c = m.ramp(rf, [(0.25, '#5a3d3a'), (0.4, '#7b5140'), (0.55, '#99694b'), (0.7, '#6e5566'), (0.85, '#8a7a8e')])
+    soil = m.ramp(rn.outputs['Fac'], [(0.3, '#6b4228'), (0.7, '#8c5a33')])
+    c = m.mix(m.maprange(Z, -0.8, -0.1), c, soil)
+    c = m.mult(c, m.mix(m.maprange(Z, -7.0, -0.5, 0.0, 1.0, smooth=False), col('#6b5f8a'), col('#ffffff')))
+    m.bsdf(c, 0.9, normal=m.bump(rn.outputs['Fac'], 0.4, 0.1))
+    return m.mat
+
+
+def island():
+    """Grass-topped floating island under the plaza with a lumpy rock underside."""
+    rnd = random.Random(21)
+    ph = [rnd.uniform(0, math.tau) for _ in range(4)]
+    n = 72
+    rx, ry = PW / 2 + 3.2, PD / 2 + 3.4
+    cy = PD / 2
+    outline = []
+    for k in range(n):
+        a = k / n * math.tau
+        w = 1 + 0.06 * math.sin(3 * a + ph[0]) + 0.04 * math.sin(5 * a + ph[1])
+        outline.append((math.cos(a) * rx * w, cy + math.sin(a) * ry * w))
+    top_v = [(0.0, cy, 0.0)] + [(x, y, 0.0) for (x, y) in outline]
+    top_f = [(0, 1 + k, 1 + (k + 1) % n) for k in range(n)]
+    lib.mesh_object('island_top', top_v, top_f, smooth=False, material=grass_material())
+    verts, faces = [], []
+    rows = 10
+    for i in range(rows):
+        t = i / (rows - 1)
+        sh = (1 - t) ** 0.85
+        z = -0.02 - 7.0 * t ** 0.95
+        for k, (x, y) in enumerate(outline):
+            a = k / n * math.tau
+            bump = 1 + 0.08 * math.sin(4 * a + ph[2] + t * 3) + 0.05 * math.sin(9 * a + ph[3] - t * 2)
+            verts.append((x * sh * bump, cy + (y - cy) * sh * bump, z))
+    for i in range(rows - 1):
+        for k in range(n):
+            a, b = i * n + k, i * n + (k + 1) % n
+            faces.append((a, a + n, b + n, b))
+    lib.mesh_object('island_under', verts, faces, smooth=True, material=rock_material())
+    return outline
+
+
+def box(mb, cx, cy, cz, sx, sy, sz, color):
+    v, f = lib.box((cx, cy, cz), (sx, sy, sz))
+    mb.add(v, f, color)
+
+
+def main():
+    sc = lib.reset(12 if A.preview else 40)
+    lib.world_light(0.8)
+    lib.sun(energy=3.6, elevation=44, azimuth=-35, angle=2.5, color='#ffe9c9')
+    sc.render.resolution_x, sc.render.resolution_y = (SW // 2, SH // 2) if A.preview else (SW, SH)
+    cd = bpy.data.cameras.new('cam')
+    cd.type = 'PERSP'
+    cd.lens = LENS
+    cd.sensor_width = 36.0
+    cd.sensor_fit = 'HORIZONTAL'
+    cam = bpy.data.objects.new('cam', cd)
+    sc.collection.objects.link(cam)
+    sc.camera = cam
+    T = math.radians(TILT)
+    centre = Vector((0.0, PD * 0.47, 0.0))
+    view = Vector((0.0, math.cos(T), -math.sin(T)))
+    cam.location = centre - view * DIST
+    cam.rotation_euler = (math.pi / 2 - T, 0.0, 0.0)
+    # Nudge the frame so the plaza sits a little low (the HUD owns the top strip).
+    cd.shift_y = 0.05
+
+    island()
+    tex = os.path.join(OUT, 'plaza.png')
+    plaza_texture(tex)
+    top = [(-PW / 2, 0.0, SLAB_Z), (PW / 2, 0.0, SLAB_Z), (PW / 2, PD, SLAB_Z), (-PW / 2, PD, SLAB_Z)]
+    lib.mesh_object('plaza_top', top, [(0, 1, 2, 3)], smooth=False, material=generated_image_material('plaza', tex))
+    mats = props.mats()
+    sides = lib.MeshBuilder()
+    bot = [(x, y, -0.6) for (x, y, _) in top]
+    sides.add(top + bot, [(0, 4, 5, 1), (1, 5, 6, 2), (2, 6, 7, 3), (3, 7, 4, 0)], col('#d8cbb8'))
+    sides.build('plaza_sides', mats['stone'], smooth=False)
+    # walls: tall back wall (the crowd stands behind it), low sides, a curb at the front
+    walls, caps = lib.MeshBuilder(), lib.MeshBuilder()
+    back, back_caps = lib.MeshBuilder(), lib.MeshBuilder()
+    wall_specs = [((-PW / 2, PD), (PW / 2, PD), 0.62, True), ((-PW / 2, 0.0), (-PW / 2, PD), 0.3, False), ((PW / 2, 0.0), (PW / 2, PD), 0.3, False),
+                  ((-PW / 2, 0.0), (PW / 2, 0.0), 0.14, False)]
+    for (a, b, hh, is_back) in wall_specs:
+        wb, cb = (back, back_caps) if is_back else (walls, caps)
+        ax, ay = a
+        bx, by = b
+        L = math.hypot(bx - ax, by - ay)
+        ang = math.atan2(by - ay, bx - ax)
+        v, f = lib.box(((ax + bx) / 2, (ay + by) / 2, SLAB_Z + hh / 2), (L, 0.2, hh), rot_z=ang)
+        wb.add(v, f, col('#e3d6c4'))
+        n = max(2, int(L / 1.4))
+        for k in range(n + 1):
+            t = k / n
+            px, py = ax + (bx - ax) * t, ay + (by - ay) * t
+            v, f = lib.cylinder((px, py, SLAB_Z), 0.13, 0.12, hh + 0.16, 10)
+            wb.add(v, f, col('#efe5d8'))
+            v, f = lib.blob((px, py, SLAB_Z + hh + 0.22), 0.11, rough=0.0, subdiv=2)
+            cb.add(v, f, col('#e0a93f'))
+    walls.build('walls', mats['stone'])
+    caps.build('caps', mats['metal'])
+    back.build('wall_back', mats['stone'])
+    back_caps.build('caps_back', mats['metal'])
+    # scenery: trees and bushes around the plaza, stalls on the island to either side
+    rnd = random.Random(5)
+    leaves, wood, flowers = lib.MeshBuilder(), lib.MeshBuilder(), lib.MeshBuilder()
+    for (X, Y, s_) in [(-10.2, 7.8, 1.25), (10.2, 7.8, 1.25), (-11.0, 3.2, 1.1), (11.0, 3.4, 1.1), (-8.6, 10.6, 1.0), (8.8, 10.6, 1.0), (-4.0, 11.3, 0.95), (4.2, 11.4, 0.95)]:
+        terrain.tree_round(leaves, wood, *bpx(X, Y), rnd, s_)
+    for (X, Y) in [(-9.6, -1.4), (9.6, -1.2), (-5.5, -2.0), (5.8, -2.1), (0.0, -2.3), (-11.2, 1.0), (11.3, 1.2)]:
+        terrain.bush(leaves, *bpx(X, Y), rnd, 1.4, berries=flowers)
+    for _ in range(26):
+        X, Y = rnd.uniform(-11, 11), rnd.uniform(-2.6, 12)
+        if abs(X) < PW / 2 + 0.6 and -0.6 < Y < PD + 0.6:
+            continue
+        terrain.flower_bed(flowers, leaves, *bpx(X, Y), rnd)
+    leaves.build('leaves', lib.attr_mat('leaf', rough=0.78, ao=0.5))
+    wood.build('wood', lib.attr_mat('wood', rough=0.8, ao=0.3))
+    flowers.build('flowers', lib.attr_mat('flower', rough=0.55))
+    props.stall(*bpx(-9.7, 5.4), 1.6, stripe=('#ff6b5e', '#fff4dc'))
+    props.stall(*bpx(9.7, 5.4), 1.6, stripe=('#1fa5a0', '#fff4dc'))
+    for X in (-7.6, -2.6, 2.6, 7.6):
+        props.lantern(*bpx(X, PD + 0.9), 1.9)
+    props.bunting(*bpx(-5.1, PD + 0.95), 500, 1.9)
+    props.bunting(*bpx(5.1, PD + 0.95), 500, 1.9)
+
+    path = os.path.join(OUT, 'gleam3d.png')
+    lib.render_to(path)
+
+    # Screen positions of the gameplay rectangle's corners (logical ARENA order: TL, TR, BR, BL).
+    W, H = sc.render.resolution_x, sc.render.resolution_y
+    k = SW / W
+
+    def scr(X, Y, Z=SLAB_Z):
+        v = world_to_camera_view(sc, cam, Vector((X, Y, Z)))
+        return [round(v.x * W * k, 2), round((1 - v.y) * H * k, 2)]
+
+    corners = [scr(-GX, GY1), scr(GX, GY1), scr(GX, GY0), scr(-GX, GY0)]
+    wall_top = scr(0.0, PD, SLAB_Z + 0.62)
+    meta = {'arena': list(ARENA), 'corners': corners, 'wallTopY': wall_top[1], 'backY': scr(0.0, PD)[1], 'backLeftX': scr(-PW / 2, PD)[0],
+            'backRightX': scr(PW / 2, PD)[0]}
+    print('corners', meta)
+    # Front layer: the back wall alone (everything else held out, lighting unchanged).
+    for ob in sc.objects:
+        if ob.type == 'MESH' and ob.name not in ('wall_back', 'caps_back'):
+            ob.is_holdout = True
+    wall = os.path.join(OUT, 'gleam3d_wall.png')
+    lib.render_to(wall)
+    if not A.preview:
+        Image.open(path).convert('RGBA').save(os.path.join(PUB, 'scene_gleam3d.webp'), 'WEBP', quality=90, method=6)
+        Image.open(wall).convert('RGBA').save(os.path.join(PUB, 'scene_gleam3d_wall.webp'), 'WEBP', quality=90, method=6)
+        with open(os.path.join(PUB, 'scene_gleam3d.json'), 'w') as fh:
+            json.dump(meta, fh, indent=1)
+        print('wrote scene_gleam3d')
+
+
+main()

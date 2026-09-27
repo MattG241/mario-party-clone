@@ -10,10 +10,14 @@ import { BoardGraph } from './BoardGraph';
 import type { BoardDef, BoardNodeDef } from './types';
 
 const NODE_SCALE = 0.92;
+/** Display scale of the 3D space renders (rendered at 2x; a touch smaller than 1:1 to keep paths airy). */
+const RENDERED_SPACE_SCALE = 0.46;
 
 interface NodeView {
   def: BoardNodeDef;
   tile: Phaser.GameObjects.Image;
+  /** Resting scale of the tile (the rendered 3D spaces and the vector fallback differ). */
+  tileScale: number;
   overlay: Phaser.GameObjects.Container;
   surge?: Phaser.GameObjects.Image;
   trap?: Phaser.GameObjects.Container;
@@ -73,6 +77,11 @@ export class BoardManager {
     if (baked) {
       // Pre-rendered 3D terrain: islands, trails, stepping stones and scenery in one lit diorama.
       const k = 1 / baked.scale;
+      // The islands' soft shadow on the cloud sea far below grounds the whole board.
+      const sh = baked.shadow;
+      if (sh && s.textures.exists(renderedTileKey(this.def.id, sh.file))) {
+        s.add.image(sh.x, sh.y, renderedTileKey(this.def.id, sh.file)).setOrigin(0).setDisplaySize(sh.w, sh.h).setDepth(DEPTH.islands - 5).setAlpha(0.55);
+      }
       for (const t of baked.tiles) {
         const key = renderedTileKey(this.def.id, t.file);
         clampTexture(s, key);
@@ -165,9 +174,19 @@ export class BoardManager {
     }
     // Spaces
     for (const n of this.def.nodes) {
-      const tile = s.add.image(n.x, n.y, `space-${n.type}`).setScale(NODE_SCALE).setDepth(DEPTH.spaces);
+      // Pre-rendered 3D space (enamel disc in a stone socket) when available, else the vector tile.
+      const rk = `rendered-space-${n.type}`;
+      const meta = s.cache.json.get('rendered-spaces') as { anchor?: [number, number]; size?: [number, number] } | undefined;
+      let tile: Phaser.GameObjects.Image;
+      let tileScale = NODE_SCALE;
+      if (s.textures.exists(rk) && meta?.anchor && meta.size) {
+        tileScale = RENDERED_SPACE_SCALE;
+        tile = s.add.image(n.x, n.y, rk).setOrigin(meta.anchor[0] / meta.size[0], meta.anchor[1] / meta.size[1]).setScale(tileScale).setDepth(DEPTH.spaces);
+      } else {
+        tile = s.add.image(n.x, n.y, `space-${n.type}`).setScale(NODE_SCALE).setDepth(DEPTH.spaces);
+      }
       const overlay = s.add.container(n.x, n.y).setDepth(DEPTH.spaces + 1);
-      this.nodes.set(n.id, { def: n, tile, overlay });
+      this.nodes.set(n.id, { def: n, tile, tileScale, overlay });
     }
     // NPCs
     this.placeNpc('ora', this.def.hostSpot.x, this.def.hostSpot.y, 'wave');
@@ -521,7 +540,7 @@ export class BoardManager {
     if (!v) return;
     const ring = this.scene.add.image(v.def.x, v.def.y, 'fx-ring').setScale(0.5, 0.25).setTint(color).setDepth(DEPTH.spaces + 2).setBlendMode(Phaser.BlendModes.ADD);
     this.scene.tweens.add({ targets: ring, scaleX: 1.4, scaleY: 0.7, alpha: 0, duration: 520, ease: 'Quad.Out', onComplete: () => ring.destroy() });
-    this.scene.tweens.add({ targets: v.tile, scaleX: NODE_SCALE * 1.12, scaleY: NODE_SCALE * 0.9, duration: 90, yoyo: true, ease: 'Quad.Out' });
+    this.scene.tweens.add({ targets: v.tile, scaleX: v.tileScale * 1.12, scaleY: v.tileScale * 0.9, duration: 90, yoyo: true, ease: 'Quad.Out' });
   }
 
   /** Bounds of all nodes (for overview shots). */

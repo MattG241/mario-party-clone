@@ -66,7 +66,7 @@ export const MINIGAMES: MinigameInfo[] = [
     color: 0xf4b83b,
     preview: { texture: 'items', frame: '0', scale: 0.7 },
     assets: [{ key: 'mg-plaza-floor', path: `${MG}gleam-grab/plaza_floor.svg`, width: 1600, height: 820 }],
-    arena: 'rendered-scene-gleam',
+    arena: 'rendered-scene-gleam3d',
   },
   {
     id: 'orbit-dodge',

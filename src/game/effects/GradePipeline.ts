@@ -9,10 +9,27 @@ uniform float uSaturation;
 uniform float uContrast;
 uniform float uVignette;
 uniform vec3 uTint;
+uniform vec2 uTexel;
+uniform float uTilt;
+uniform float uFocusH;
 varying vec2 outTexCoord;
 
 void main() {
   vec4 c = texture2D(uMainSampler, outTexCoord);
+  // Tilt-shift: a sharp horizontal band through the middle, softening towards top and bottom.
+  if (uTilt > 0.0) {
+    float d = abs(outTexCoord.y - 0.5);
+    float r = uTilt * smoothstep(uFocusH, uFocusH + 0.3, d);
+    if (r > 0.35) {
+      vec4 acc = c;
+      for (int i = 0; i < 12; i++) {
+        float a = float(i) * 0.5236 + (i < 6 ? 0.0 : 0.2618);
+        float rr = i < 6 ? 0.5 * r : r;
+        acc += texture2D(uMainSampler, outTexCoord + vec2(cos(a), sin(a)) * rr * uTexel);
+      }
+      c = acc / 13.0;
+    }
+  }
   if (c.a <= 0.0) {
     gl_FragColor = c;
     return;
@@ -39,9 +56,13 @@ export interface GradeSettings {
   contrast: number;
   vignette: number;
   tint: [number, number, number];
+  /** Tilt-shift blur radius in pixels at the top/bottom edges (0 = off). */
+  tilt: number;
+  /** Half-height of the sharp band (texture space, 0..0.5). */
+  focusH: number;
 }
 
-export const DEFAULT_GRADE: GradeSettings = { gamma: 1.12, saturation: 1.12, contrast: 1.05, vignette: 0.22, tint: [1, 0.99, 0.97] };
+export const DEFAULT_GRADE: GradeSettings = { gamma: 1.12, saturation: 1.12, contrast: 1.05, vignette: 0.22, tint: [1, 0.99, 0.97], tilt: 0, focusH: 0.22 };
 
 /**
  * Camera colour grade shared by the world scenes: a mid-tone curve, saturation, contrast and a
@@ -61,6 +82,9 @@ export class GradePipeline extends Phaser.Renderer.WebGL.Pipelines.PostFXPipelin
     this.set1f('uContrast', s.contrast);
     this.set1f('uVignette', s.vignette);
     this.set3f('uTint', s.tint[0], s.tint[1], s.tint[2]);
+    this.set2f('uTexel', 1 / Math.max(1, this.renderer.width), 1 / Math.max(1, this.renderer.height));
+    this.set1f('uTilt', s.tilt);
+    this.set1f('uFocusH', s.focusH);
   }
 }
 

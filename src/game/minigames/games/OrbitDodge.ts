@@ -53,6 +53,9 @@ export class OrbitDodgeScene extends BaseMinigame {
   private omega = 1.25;
   private armG!: Phaser.GameObjects.Graphics;
   private highG!: Phaser.GameObjects.Graphics;
+  /** Pre-rendered 3D arms (64 angles each); two sprites per arm cross-fade between frames. */
+  private armSprites: [Phaser.GameObjects.Sprite, Phaser.GameObjects.Sprite][] = [];
+  private armFrames = 0;
   private nextSpeedUp = 10000;
   private dir = 1;
 
@@ -80,6 +83,18 @@ export class OrbitDodgeScene extends BaseMinigame {
     }
     this.armG = this.add.graphics().setDepth(2);
     this.highG = this.add.graphics().setDepth(5000);
+    this.armSprites = [];
+    this.armFrames = 0;
+    if (this.textures.exists('rendered-orbit-arms')) {
+      const tex = this.textures.get('rendered-orbit-arms');
+      this.armFrames = tex.getFrameNames().filter((n) => n.startsWith('low_')).length;
+      const meta = (tex.customData as { meta?: { scale?: number } }).meta;
+      const k = 1 / (meta?.scale ?? 0.6);
+      for (let i = 0; i < 2; i++) {
+        const mk = () => this.add.sprite(0, 0, 'rendered-orbit-arms', 'low_00').setOrigin(0).setScale(k).setVisible(false);
+        this.armSprites.push([mk(), mk()]);
+      }
+    }
     const hub = this.add.sprite(CX, CY + 20, 'props', '19').play('barrier-spin');
     const o = standOrigin('props', '19');
     hub.setOrigin(o.x, o.y).setScale(0.8).setDepth(CY);
@@ -156,7 +171,9 @@ export class OrbitDodgeScene extends BaseMinigame {
       layer.closePath();
       layer.fillPath();
     };
-    for (const a of this.arms) {
+    const sprites = this.armFrames > 0;
+    this.armSprites.forEach((pair) => pair.forEach((sp) => sp.setVisible(false)));
+    for (const [ai, a] of this.arms.entries()) {
       const low = a.type === 'low';
       const lift = low ? 0 : 150;
       const tip = rim(a.angle, lift);
@@ -177,6 +194,31 @@ export class OrbitDodgeScene extends BaseMinigame {
           layer.fillStyle(low ? 0xffc27a : 0xd7b0ff, 0.12 * (1 - k / 4));
           wedge(layer, a.angle - this.dir * trail * ((k + 1) / 4), a.angle - this.dir * trail * (k / 4), lift);
         }
+      }
+      if (sprites && this.armSprites[ai]) {
+        // 3D arm: pick the two nearest pre-rendered angles and cross-fade between them.
+        const n = this.armFrames;
+        const tau = Math.PI * 2;
+        const f = ((((a.angle % tau) + tau) % tau) / tau) * n;
+        const i0 = Math.floor(f) % n;
+        const i1 = (i0 + 1) % n;
+        const t = f - Math.floor(f);
+        const [s0, s1] = this.armSprites[ai];
+        const pre = low ? 'low_' : 'high_';
+        const tipY = CY + Math.sin(a.angle) * RY;
+        // Depth by the tip: players the arm reaches draw over the log / under the raised beam.
+        const depth = low ? tipY - 30 : tipY + 20;
+        s0.setFrame(pre + String(i0).padStart(2, '0')).setAlpha(1).setDepth(depth).setVisible(true);
+        s1.setFrame(pre + String(i1).padStart(2, '0')).setAlpha(t).setDepth(depth + 0.01).setVisible(true);
+        for (const sp of [s0, s1]) {
+          if (flashing) sp.setTintFill(0xffffff);
+          else sp.clearTint();
+        }
+        // Pulsing danger glow on the floor under the arm keeps it readable at a glance.
+        const floorTip = rim(a.angle);
+        g.lineStyle(low ? 70 : 44, hue, 0.12 + 0.14 * pulse);
+        g.lineBetween(CX, CY, floorTip.x, floorTip.y);
+        continue;
       }
       // Ground shadow (for the high arm this is how you read where it is).
       g.lineStyle(low ? 50 : 30, 0x0b1a24, low ? 0.32 : 0.38);

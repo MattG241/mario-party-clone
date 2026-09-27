@@ -40,6 +40,8 @@ export interface RenderedBoard {
   props?: RenderedProp[];
   /** Trails, stepping stones and island art are baked in, so the board skips drawing them. */
   bakedPaths: boolean;
+  /** Soft island shadow cast onto the cloud sea (board px rect). */
+  shadow?: { file: string; x: number; y: number; w: number; h: number };
 }
 
 export const RENDERED_BOARDS = ['suncoil'] as const;

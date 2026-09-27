@@ -1,14 +1,14 @@
 import Phaser from 'phaser';
 import { audio } from '../audio/AudioManager';
 import { Character } from '../characters/Character';
-import { CSS, GAME_HEIGHT, GAME_WIDTH, SUBTITLE, TITLE } from '../constants';
+import { COLORS, CSS, GAME_HEIGHT, GAME_WIDTH, SUBTITLE, TITLE } from '../constants';
 import { CHARACTER_IDS } from '../data/characters';
 import { EffectsManager } from '../effects/EffectsManager';
 import { input } from '../input/InputManager';
 import { saves } from '../save/SaveManager';
 import { settings } from '../save/SettingsManager';
 import { session } from '../state/Session';
-import { PromptBar } from '../ui/ControllerPrompt';
+import { makeGlyph, PromptBar } from '../ui/ControllerPrompt';
 import { Menu } from '../ui/Menu';
 import { addText, addTitle } from '../ui/theme';
 import { enterScene, goTo } from '../ui/Transition';
@@ -21,7 +21,8 @@ import { findBoard } from '../data/boards';
 export class TitleScene extends Phaser.Scene {
   private phase: 'attract' | 'menu' = 'attract';
   private menu!: Menu;
-  private pressText!: Phaser.GameObjects.Text;
+  private pressText!: Phaser.GameObjects.Container;
+  private pressKind: 'gamepad' | 'keyboard' | null = null;
   private prompts!: PromptBar;
   private hint!: Phaser.GameObjects.Text;
   private audioHint!: Phaser.GameObjects.Text;
@@ -48,8 +49,11 @@ export class TitleScene extends Phaser.Scene {
     this.buildIsland();
     this.buildLogo();
     this.buildMenu();
-    this.pressText = addTitle(this, GAME_WIDTH / 2, GAME_HEIGHT - 86, 'PRESS A', 54, CSS.goldLight).setDepth(600);
-    this.tweens.add({ targets: this.pressText, alpha: { from: 1, to: 0.35 }, scale: { from: 1, to: 1.05 }, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+    // "Press A to start" plate under the logo (navy pill, gold rim) so it reads over any backdrop.
+    this.pressText = this.add.container(470, 640).setDepth(600);
+    this.pressKind = null;
+    this.refreshPressPlate();
+    this.tweens.add({ targets: this.pressText, scale: { from: 1, to: 1.06 }, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
     this.prompts = new PromptBar(this, GAME_WIDTH / 2, GAME_HEIGHT - 60, [], { size: 40, fontSize: 28 }).setDepth(600).setVisible(false);
     this.hint = addText(this, 470, 1030, '', 26, { color: CSS.cream, weight: 500, stroke: '#0b2a33', strokeThickness: 5 }).setDepth(600);
     this.audioHint = addText(this, GAME_WIDTH - 30, 36, '🔇 Press any key or click to enable sound', 22, { color: CSS.cream, align: 'right', weight: 500, stroke: '#0b2a33', strokeThickness: 5 }).setDepth(600);
@@ -194,6 +198,34 @@ export class TitleScene extends Phaser.Scene {
     this.hint.setText('');
   }
 
+  private refreshPressPlate(): void {
+    const kind = input.hasGamepad() ? 'gamepad' : 'keyboard';
+    if (kind === this.pressKind) return;
+    this.pressKind = kind;
+    const c = this.pressText;
+    c.removeAll(true);
+    const glyph = makeGlyph(this, 'A', 50, kind);
+    const pre = addText(this, 0, 0, 'PRESS', 34, { color: CSS.cream, weight: 700, align: 'left' });
+    const post = addText(this, 0, 0, 'TO START', 34, { color: CSS.goldLight, weight: 700, align: 'left' });
+    const gw = glyph.width || 50;
+    const total = pre.width + 16 + gw + 16 + post.width;
+    pre.setX(-total / 2);
+    glyph.setPosition(-total / 2 + pre.width + 16 + gw / 2, 0);
+    post.setX(-total / 2 + pre.width + 16 + gw + 16);
+    const w = total + 70;
+    const h = 78;
+    const g = this.add.graphics();
+    g.fillStyle(0x06141a, 0.3);
+    g.fillRoundedRect(-w / 2 + 4, -h / 2 + 7, w, h, h / 2);
+    g.fillStyle(0x0c2630, 0.86);
+    g.fillRoundedRect(-w / 2, -h / 2, w, h, h / 2);
+    g.fillStyle(0xffffff, 0.08);
+    g.fillRoundedRect(-w / 2 + 10, -h / 2 + 6, w - 20, h * 0.4, { tl: 30, tr: 30, bl: 8, br: 8 });
+    g.lineStyle(4, COLORS.gold, 1);
+    g.strokeRoundedRect(-w / 2, -h / 2, w, h, h / 2);
+    c.add([g, pre, glyph, post]);
+  }
+
   /** Little ambient scenes between the four heroes. */
   private direct(): void {
     if (this.chars.length < 4) return;
@@ -272,8 +304,7 @@ export class TitleScene extends Phaser.Scene {
       this.farIslands.tilePositionX += 4 * dt;
       this.cloudsBelow.tilePositionX += 14 * dt;
     }
-    const pad = input.hasGamepad();
-    this.pressText.setText(pad ? 'PRESS  A' : 'PRESS ENTER');
+    this.refreshPressPlate();
     this.audioHint.setVisible(audio.available && !audio.running);
     if (this.phase === 'attract') {
       if (input.any.pressed('A') || input.any.pressed('MENU')) this.openMenu();

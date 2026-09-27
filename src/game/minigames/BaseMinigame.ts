@@ -43,7 +43,7 @@ export interface MgPlayer {
 type Phase = 'countdown' | 'playing' | 'finished';
 
 /** Minigame HUD capsule size. */
-const HUD_W = 330;
+const HUD_W = 272;
 const HUD_H = 78;
 
 /**
@@ -179,14 +179,14 @@ export abstract class BaseMinigame extends Phaser.Scene {
       const name = addText(this, lx(92), 22, CHARACTERS[p.characterId].name.split(' ')[0].toUpperCase(), 19, { color: CSS.creamDark, weight: 700, align });
       const parts: Phaser.GameObjects.GameObject[] = [bg, name];
       if (p.isCpu) {
-        const tw = 46;
+        const tw = 44;
         const tx = flip ? lx(92) - name.width - 8 - tw : lx(92) + name.width + 8;
         const tag = this.add.graphics();
         tag.fillStyle(0xffffff, 0.14);
         tag.fillRoundedRect(tx, 11, tw, 22, 11);
         parts.push(tag, addText(this, tx + tw / 2, 22, 'CPU', 13, { color: CSS.creamDark, weight: 700 }));
       }
-      const score = addText(this, lx(92), 52, '0', 34, { color: CSS.cream, weight: 700, align, stroke: '#06141a', strokeThickness: 4 });
+      const score = addText(this, lx(92), 52, '0', 40, { color: CSS.cream, weight: 700, align, stroke: '#06141a', strokeThickness: 4 });
       const status = addText(this, lx(W - 46), H / 2, '', 24, { color: CSS.coral, weight: 700, stroke: '#06141a', strokeThickness: 5 });
       root.add([...parts, score, status, portrait]);
       const tag: { score: Phaser.GameObjects.Text; root: Phaser.GameObjects.Container; status: Phaser.GameObjects.Text; pips?: Phaser.GameObjects.Graphics; pipKey?: string; pipX: number; flip: boolean } = { score, root, status, pipX: lx(92), flip };

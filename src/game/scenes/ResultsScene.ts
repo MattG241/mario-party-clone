@@ -199,13 +199,13 @@ export class ResultsScene extends Phaser.Scene {
         this.menu = new Menu(
           this,
           GAME_WIDTH / 2,
-          GAME_HEIGHT - 70,
+          GAME_HEIGHT - 54,
           [
             { label: 'REMATCH', onSelect: () => this.rematch() },
             { label: 'CHANGE GAME', onSelect: () => goTo(this, 'MinigameMode') },
             { label: 'MAIN MENU', onSelect: () => goTo(this, 'Title') },
           ],
-          { horizontal: true, width: 340, itemHeight: 70, fontSize: 30, gap: 28 },
+          { horizontal: true, width: 320, itemHeight: 64, fontSize: 28, gap: 28 },
         );
       }
     });

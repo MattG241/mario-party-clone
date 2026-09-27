@@ -162,8 +162,28 @@ def build_island(ids, mask, name, mat_island):
     return ob, dist, under, ring, nrm
 
 
-def island_material(mask_path):
-    m = lib.NT('island')
+# Per-region looks: grass/trail ramps and how densely each kind of scatter is placed.
+THEMES = {
+    'plaza': dict(grass=[(0.28, '#23701f'), (0.42, '#358f28'), (0.55, '#4fab32'), (0.68, '#72c23c'), (0.82, '#9fd350')],
+                  trail=[(0.3, '#d49a52'), (0.5, '#e3b36c'), (0.7, '#efcb8c')], trees=1.0, pines=0.3, flowers=1.3, bushes=1.0, rocks=0.7),
+    'grove': dict(grass=[(0.28, '#18521f'), (0.42, '#236a28'), (0.55, '#318533'), (0.68, '#4a9b39'), (0.82, '#6cae44')],
+                  trail=[(0.3, '#ae7843'), (0.5, '#c28b50'), (0.7, '#d5a468')], trees=2.4, pines=0.55, flowers=0.6, bushes=1.5, rocks=1.0, mushrooms=1.0),
+    'works': dict(grass=[(0.28, '#1b6456'), (0.42, '#27806c'), (0.55, '#379a7e'), (0.68, '#55b092'), (0.82, '#84c7a6')],
+                  trail=[(0.3, '#b3a089'), (0.5, '#c8b59c'), (0.7, '#dccdb6')], trees=0.45, pines=0.5, flowers=0.4, bushes=0.6, rocks=1.7, crystals=1.0),
+    'terrace': dict(grass=[(0.28, '#4d7b1f'), (0.42, '#679826'), (0.55, '#83b031'), (0.68, '#a1c342'), (0.82, '#c3d55c')],
+                    trail=[(0.3, '#cf9a58'), (0.5, '#dfb070'), (0.7, '#ecc88f')], trees=0.6, pines=0.2, flowers=1.1, bushes=0.7, rocks=0.6, hay=1.0, crates=0.7),
+    'windy': dict(grass=[(0.28, '#3a773a'), (0.42, '#518d47'), (0.55, '#6aa459'), (0.68, '#8aba71'), (0.82, '#adce90')],
+                  trail=[(0.3, '#c69e76'), (0.5, '#d5b18a'), (0.7, '#e3c7a4')], trees=0.7, pines=0.8, flowers=0.5, bushes=0.8, rocks=2.4),
+    'docks': dict(grass=[(0.28, '#2a7329'), (0.42, '#3b8a2f'), (0.55, '#51a238'), (0.68, '#70b845'), (0.82, '#98cb58')],
+                  trail=[(0.3, '#c99159'), (0.5, '#d9a871'), (0.7, '#e8c191')], trees=0.7, pines=0.3, flowers=0.9, bushes=0.9, rocks=0.8, crates=1.3),
+    'obs': dict(grass=[(0.28, '#216c2e'), (0.42, '#2f873a'), (0.55, '#44a047'), (0.68, '#63b555'), (0.82, '#8fc96a')],
+                trail=[(0.3, '#c9b48f'), (0.5, '#dac7a4'), (0.7, '#e8dbbf')], trees=0.9, pines=0.35, flowers=1.0, bushes=1.0, rocks=0.9),
+}
+
+
+def island_material(mask_path, theme='plaza'):
+    T = THEMES.get(theme, THEMES['plaza'])
+    m = lib.NT(f'island_{theme}')
     pos = m.position()
     nrm = m.normal()
     nz = m.sep(nrm)[2]
@@ -185,10 +205,10 @@ def island_material(mask_path):
     n1 = m.noise(0.9, 5, 0.6, pos)
     n2 = m.noise(6.0, 3, 0.5, pos)
     gfac = m.math('ADD', m.math('MULTIPLY', n1.outputs['Fac'], 0.8), m.math('MULTIPLY', n2.outputs['Fac'], 0.35))
-    grass = m.ramp(gfac, [(0.28, '#23701f'), (0.42, '#358f28'), (0.55, '#4fab32'), (0.68, '#72c23c'), (0.82, '#9fd350')])
+    grass = m.ramp(gfac, T['grass'])
     # --- dirt trail
     d1 = m.noise(2.2, 4, 0.6, pos)
-    dirt = m.ramp(d1.outputs['Fac'], [(0.3, '#d49a52'), (0.5, '#e3b36c'), (0.7, '#efcb8c')])
+    dirt = m.ramp(d1.outputs['Fac'], T['trail'])
     peb = m.voronoi(18.0, pos)
     pebf = m.maprange(peb.outputs['Distance'], 0.05, 0.18, 1.0, 0.0)
     dirt = m.mix(m.math('MULTIPLY', pebf, 0.45), dirt, lib.col('#f4e2bd'))
@@ -406,3 +426,67 @@ def stepping_stone(mb_rock, mb_grass, bx, by, rnd, r=0.3):
     mb_rock.add(verts, faces, lambda vv: col('#8fbf52') if vv[2] > -0.005 else (col('#7a5a45') if vv[2] > -0.2 else col('#6a5260')))
     for _ in range(3):
         grass_tuft(mb_grass, bx + rnd.uniform(-18, 18), by + rnd.uniform(-10, 10), rnd, 0.7)
+
+
+def mushroom_cluster(mb, bx, by, rnd):
+    """A few red-capped toadstools (grove)."""
+    for _ in range(rnd.randint(2, 4)):
+        p = board_to_world(bx + rnd.gauss(0, 10), by + rnd.gauss(0, 7), 0.0)
+        h = rnd.uniform(0.07, 0.15)
+        v, f = lib.cylinder((p.x, p.y, 0.0), 0.028, 0.022, h, sides=8)
+        mb.add(v, f, col('#f4ead8'))
+        r = rnd.uniform(0.06, 0.1)
+        v, f = lib.blob((p.x, p.y, h), r, squash=(1.0, 1.0, 0.55), rough=0.05, subdiv=2, seed=rnd.random() * 20)
+        cap = col(rnd.choice(['#e8433a', '#d9362f', '#f0702e']))
+        spot = col('#fff4e6')
+
+        def shade(vv, cz=h, r=r, cap=cap, spot=spot):
+            hi = vv[2] > cz + r * 0.25 and (math.sin(vv[0] * 90) * math.sin(vv[1] * 90) > 0.72)
+            return spot if hi else cap
+        mb.add(v, f, shade)
+
+
+def crystal_cluster(mb, bx, by, rnd, s=1.0):
+    """Ground crystals (crystal works)."""
+    p = board_to_world(bx, by, 0.0)
+    c = rnd.choice(['#5ce1ff', '#8ff0ff', '#c49bff', '#7fd8ff'])
+    for k in range(rnd.randint(3, 5)):
+        a = rnd.uniform(0, math.tau)
+        d = rnd.uniform(0.0, 0.08) * s
+        v, f = lib.prism((p.x + math.cos(a) * d, p.y + math.sin(a) * d, -0.02), rnd.uniform(0.04, 0.08) * s, rnd.uniform(0.18, 0.42) * s,
+                         tilt=(rnd.uniform(-0.45, 0.45), rnd.uniform(-0.45, 0.45)), twist=rnd.random())
+        mb.add(v, f, col(c))
+
+
+def hay_bale(mb, bx, by, rnd):
+    """Round hay bale lying on its side (terrace meadow)."""
+    p = board_to_world(bx, by, 0.0)
+    r = rnd.uniform(0.13, 0.17)
+    L = r * 1.3
+    v, f = lib.cylinder((0, 0, -L / 2), r, r, L, sides=16)
+    ang = rnd.uniform(0, math.pi)
+    v = lib.transform(v, loc=(p.x, p.y, r * 0.95), rot=(math.pi / 2, 0.0, ang))
+    mb.add(v, f, lambda vv: lib.lerp_col(col('#c99a3e'), col('#f0cf6a'), max(0.0, min(1.0, vv[2] / (2 * r)))))
+
+
+def crate(mb, bx, by, rnd, s=1.0):
+    p = board_to_world(bx, by, 0.0)
+    e = rnd.uniform(0.14, 0.2) * s
+    v, f = lib.box((p.x, p.y, e / 2), (e, e, e), rot_z=rnd.uniform(0, math.pi))
+    mb.add(v, f, col(rnd.choice(['#b07a45', '#a06a3a', '#c08a52'])))
+    if rnd.random() < 0.4:
+        e2 = e * 0.7
+        v, f = lib.box((p.x + rnd.uniform(-0.02, 0.02), p.y, e + e2 / 2), (e2, e2, e2), rot_z=rnd.uniform(0, math.pi))
+        mb.add(v, f, col('#c9965c'))
+
+
+def barrel(mb, bx, by, rnd):
+    p = board_to_world(bx, by, 0.0)
+    r, h = 0.09, 0.24
+    v, f = lib.lathe([(r * 0.85, 0.0), (r, h * 0.3), (r, h * 0.7), (r * 0.85, h), (0.0, h)], 14, (p.x, p.y, 0.0), cap_bottom=False)
+
+    def shade(vv):
+        z = vv[2]
+        band = abs(z - h * 0.2) < 0.012 or abs(z - h * 0.8) < 0.012
+        return col('#6b6f78') if band else col('#9a6436')
+    mb.add(v, f, shade)

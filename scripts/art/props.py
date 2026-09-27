@@ -337,19 +337,55 @@ def stall(bx, by, s=1.0, stripe=('#8e5cd9', '#fff4dc')) -> list:
         else:
             v, f = lib.prism((gx, y - D / 2 + 0.12 * s, 0.85 * s), 0.05 * s, 0.2 * s)
             P.b['crystal'].add(v, f, col(rnd.choice(['#5ce1ff', '#c49bff'])))
-    # striped canopy (sloped) with scalloped front
+    # striped canopy: a gently billowing cloth (with thickness) and rounded scalloped flaps
     segs = 8
     z0, z1 = 1.12 * s, 1.38 * s
+    yf, yb = y - D / 2 - 0.22 * s, y + D / 2 + 0.05
+    rows = 6
     for k in range(segs):
         xa = x - W / 2 - 0.1 * s + k * (W + 0.2 * s) / segs
         xb = xa + (W + 0.2 * s) / segs
-        quad = [(xa, y - D / 2 - 0.2 * s, z0), (xb, y - D / 2 - 0.2 * s, z0), (xb, y + D / 2 + 0.05, z1), (xa, y + D / 2 + 0.05, z1)]
         c = col(stripe[k % 2])
-        P.b['paint'].add(quad, [(0, 1, 2, 3), (3, 2, 1, 0)], c)
-        # scallop
+        verts, faces = [], []
+        for r in range(rows + 1):
+            t = r / rows
+            yy = yf + (yb - yf) * t
+            zz = z0 + (z1 - z0) * t + 0.07 * s * math.sin(math.pi * t)
+            for xx in (xa, (xa + xb) / 2, xb):
+                sag = -0.025 * s if xx == (xa + xb) / 2 else 0.0
+                verts.append((xx, yy, zz + sag))
+        for r in range(rows):
+            for i in range(2):
+                a = r * 3 + i
+                faces.append((a, a + 1, a + 4, a + 3))
+        n0 = len(verts)
+        verts += [(vx, vy, vz - 0.025 * s) for (vx, vy, vz) in verts[:n0]]
+        faces += [tuple(n0 + q for q in reversed(fc)) for fc in faces[:len(faces)]]
+        P.b['paint'].add(verts, faces, c)
+        # rounded flap hanging from the front edge
         mid = (xa + xb) / 2
-        sc = [(xa, y - D / 2 - 0.2 * s, z0), (xb, y - D / 2 - 0.2 * s, z0), (mid, y - D / 2 - 0.2 * s, z0 - 0.14 * s)]
-        P.b['paint'].add(sc, [(0, 1, 2), (2, 1, 0)], c)
+        rr = (xb - xa) / 2
+        fan = [(mid, yf, z0)] + [(mid + math.cos(a) * rr, yf - 0.005, z0 - math.sin(a) * rr * 0.9) for a in [math.pi * j / 8 for j in range(9)]]
+        ff = [(0, j + 1, j + 2) for j in range(8)]
+        P.b['paint'].add(fan, ff + [tuple(reversed(t)) for t in ff], c)
+    # ridge pole and brass finials
+    v, f = lib.cylinder((0, 0, 0), 0.035 * s, 0.035 * s, W + 0.3 * s, 8)
+    v = lib.transform(v, loc=(x - W / 2 - 0.15 * s, yb, z1 + 0.02 * s), rot=(0.0, math.pi / 2, 0.0))
+    P.b['wood'].add(v, f, DARKWOOD)
+    for dx in (-W / 2 - 0.15 * s, W / 2 + 0.15 * s):
+        v, f = lib.blob((x + dx, yb, z1 + 0.02 * s), 0.06 * s, rough=0.0, subdiv=2)
+        P.b['metal'].add(v, f, BRASS)
+    # a fruit basket on the counter and a crate + barrel beside the stall
+    v, f = lib.lathe([(0.0, 0.0), (0.1 * s, 0.01), (0.13 * s, 0.07 * s), (0.12 * s, 0.08 * s)], 14, (x + W * 0.28, y - D / 2 + 0.12 * s, 0.85 * s), cap_bottom=False, cap_top=False)
+    P.b['wood'].add(v, f, col('#c28a4a'))
+    for j in range(5):
+        a = j / 5 * math.tau
+        v, f = lib.blob((x + W * 0.28 + math.cos(a) * 0.05 * s, y - D / 2 + 0.12 * s + math.sin(a) * 0.04 * s, 0.93 * s), 0.045 * s, rough=0.0, subdiv=1)
+        P.b['paint'].add(v, f, col(['#ff5a4a', '#ffb33a', '#8bd346', '#ff5a4a', '#ffd23f'][j]))
+    v, f = lib.box((x + W / 2 + 0.28 * s, y - 0.1 * s, 0.16 * s), (0.3 * s, 0.3 * s, 0.32 * s), rot_z=0.3)
+    P.b['wood'].add(v, f, col('#b07a45'))
+    v, f = lib.lathe([(0.12 * s, 0.0), (0.14 * s, 0.15 * s), (0.12 * s, 0.3 * s), (0.0, 0.3 * s)], 14, (x - W / 2 - 0.26 * s, y + 0.05 * s, 0.0), cap_bottom=False)
+    P.b['wood'].add(v, f, col('#9a6436'))
     # sign
     v, f = lib.box((x, y - D / 2 - 0.22 * s, z0 + 0.22 * s), (0.6 * s, 0.05 * s, 0.22 * s))
     P.b['wood'].add(v, f, col('#f2c14e'))

@@ -109,7 +109,8 @@ export class BoardScene extends Phaser.Scene {
     cam.centerOn(ov.centerX, ov.centerY);
     cam.setZoom(this.overviewZoom());
     // Subtle vignette to frame the diorama (WebGL only).
-    applyGrade(this);
+    // Miniature look: a gentle tilt-shift keeps the eye on the middle band where the action is.
+    applyGrade(this, { tilt: 3.2, focusH: 0.2 });
     audio.playMusic(isFinalRound(state) ? 'boardFinal' : 'board');
     this.bg.setIntensity(isFinalRound(state) ? 1 : 0);
     if (DEBUG_ENABLED) this.offDebug = input.keyboard.onRawKey((e) => this.debugKey(e));
@@ -217,8 +218,21 @@ export class BoardScene extends Phaser.Scene {
   // --- Camera -------------------------------------------------------------------------------------
   /** Board area the overview shot frames: every space plus room for tall landmarks above. */
   overviewRect(): Phaser.Geom.Rectangle {
+    // Every space (with room for the island rims and undersides) plus every landmark sprite.
     const b = this.board.bounds();
-    return new Phaser.Geom.Rectangle(b.x - 300, b.y - 560, b.width + 600, b.height + 820);
+    let x0 = b.x - 170;
+    let y0 = b.y - 150;
+    let x1 = b.right + 170;
+    let y1 = b.bottom + 240;
+    for (const d of this.board.decorations.values()) {
+      const g = (d as unknown as Phaser.GameObjects.Image).getBounds?.();
+      if (!g) continue;
+      x0 = Math.min(x0, g.x - 30);
+      y0 = Math.min(y0, g.y - 30);
+      x1 = Math.max(x1, g.right + 30);
+      y1 = Math.max(y1, g.bottom + 30);
+    }
+    return new Phaser.Geom.Rectangle(x0, y0, x1 - x0, y1 - y0);
   }
 
   overviewZoom(): number {

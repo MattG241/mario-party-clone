@@ -24,8 +24,8 @@ sys.path.insert(0, os.path.dirname(__file__))
 import lib  # noqa: E402
 import terrain  # noqa: E402
 from terrain import (  # noqa: E402
-    build_island, bush, dist_at, flower_bed, grass_tuft, island_material, level_contour, orient, resample, rock, stepping_stone,
-    tree_pine, tree_round, vine,
+    THEMES, barrel, build_island, bush, crate, crystal_cluster, dist_at, flower_bed, grass_tuft, hay_bale, island_material, level_contour,
+    mushroom_cluster, orient, resample, rock, stepping_stone, tree_pine, tree_round, vine,
 )
 from lib import COSB, PX, Vector, board_to_world, col  # noqa: E402
 
@@ -364,15 +364,110 @@ def render_props(built, terrain_objs, frame):
             os.remove(os.path.join(dest, f))
 
 
+PREFIX_THEME = {'p': 'plaza', 'g': 'grove', 'gi': 'grove', 'go': 'grove', 'c': 'works', 't': 'terrace', 'w': 'windy', 'd': 'docks',
+                'o': 'obs', 'b': 'plaza', 'bd': 'plaza'}
+
+
+def theme_of(ids):
+    votes = {}
+    for i in ids:
+        pre = i.rstrip('0123456789es')
+        th = PREFIX_THEME.get(pre, 'plaza')
+        votes[th] = votes.get(th, 0) + 1
+    return max(votes, key=votes.get) if votes else 'plaza'
+
+
+def water_material():
+    m = lib.NT('water')
+    pos = m.position()
+    X, Y, Z = m.sep(pos)
+    wave = m.node('ShaderNodeTexWave')
+    wave.wave_type = 'BANDS'
+    wave.bands_direction = 'X'
+    wave.inputs['Scale'].default_value = 9.0
+    wave.inputs['Distortion'].default_value = 4.0
+    wave.inputs['Detail'].default_value = 2.0
+    m.link(pos, wave.inputs['Vector'])
+    streak = m.maprange(wave.outputs['Fac'], 0.3, 0.9)
+    c = m.mix(streak, lib.col('#7fd0f0'), lib.col('#f4fdff'))
+    fade = m.maprange(Z, -3.6, -1.2, 0.0, 1.0)
+    b = m.bsdf(c, 0.15, emission=c, emission_strength=0.55, coat=0.4, alpha=m.math('MULTIPLY', fade, 0.92))
+    return m.mat
+
+
+def pond_material():
+    m = lib.NT('pond')
+    nz = m.noise(4.0, 3, 0.5, m.position())
+    c = m.mix(m.maprange(nz.outputs['Fac'], 0.35, 0.7), lib.col('#2f9fd0'), lib.col('#7fdcf4'))
+    m.bsdf(c, 0.08, emission=lib.col('#4fc3e8'), emission_strength=0.15, coat=0.8)
+    return m.mat
+
+
+def add_waterfall(water_mb, pond_mb, rock_mb, ring, nrm, pm, rnd):
+    """A spring-fed pond near a camera-facing rim with a waterfall pouring off the edge."""
+    best = None
+    for k in range(len(ring)):
+        if nrm[k][1] < 0.75:
+            continue
+        bx, by = ring[k]
+        clear = max(pmask_at(pm, bx - nrm[k][0] * d, by - nrm[k][1] * d) for d in (10, 40, 80, 105))
+        if clear > 0.05 or near_landmark(bx, by, 50) or near_node(bx - nrm[k][0] * 62, by - nrm[k][1] * 62, 95):
+            continue
+        score = nrm[k][1]
+        if best is None or score > best[0]:
+            best = (score, k)
+    if best is None:
+        return False
+    k = best[1]
+    bx, by = ring[k]
+    nx, ny = nrm[k]
+    # pond
+    cx, cy = bx - nx * 62, by - ny * 62
+    c = board_to_world(cx, cy, 0.012)
+    v, f = lib.lathe([(0.36, 0.0), (0.0, 0.0)], 32, (c.x, c.y, 0.012), cap_bottom=False, cap_top=False, squash_y=1.0 / COSB * 0.55)
+    pond_mb.add(v, f, (1, 1, 1, 1))
+    for a in np.linspace(0, math.tau, 12, endpoint=False):
+        rock(rock_mb, cx + math.cos(a) * 40, cy + math.sin(a) * 40 * 0.6 * COSB / 0.55, rnd, 0.55, moss=True)
+    # falling ribbon: arcs out from the lip, then drops
+    w0 = board_to_world(bx, by, -0.02)
+    ox, oy = nx, -ny
+    L = math.hypot(ox, oy) or 1.0
+    ox, oy = ox / L, oy / L
+    px, py = -oy, ox
+    cols, rows = 8, 22
+    width = 0.62
+    verts, faces = [], []
+    for j in range(rows + 1):
+        t = j / rows
+        out = 0.06 + 0.42 * min(1.0, t * 3.0) ** 0.5
+        z = -0.02 - 3.6 * t ** 1.15
+        for i in range(cols + 1):
+            u = (i / cols - 0.5) * width * (1 + 0.35 * t)
+            verts.append((w0.x + ox * out + px * u, w0.y + oy * out + py * u, z))
+    for j in range(rows):
+        for i in range(cols):
+            a = j * (cols + 1) + i
+            faces.append((a, a + 1, a + cols + 2, a + cols + 1))
+    water_mb.add(verts, faces, (1, 1, 1, 1))
+    # the channel over the lip
+    v, f = lib.box(((w0.x + c.x) / 2, (w0.y + c.y) / 2, 0.006), (0.16, math.hypot(w0.x - c.x, w0.y - c.y), 0.01), rot_z=math.atan2(w0.y - c.y, w0.x - c.x) - math.pi / 2)
+    pond_mb.add(v, f, (1, 1, 1, 1))
+    return True
+
+
 def main():
     sc = lib.reset(SAMPLES)
-    lib.world_light(0.85)
-    lib.sun(energy=3.4, elevation=50, azimuth=-35, angle=3.0)
+    # Lower, warmer key light than before: longer shadows give the diorama a clear light direction.
+    lib.world_light(0.72)
+    lib.sun(energy=3.9, elevation=40, azimuth=-35, angle=2.5, color='#ffe9c9')
     out = A.out
     os.makedirs(out, exist_ok=True)
 
     pm_path, pm = path_mask(None)
-    mat_island = island_material(pm_path)
+    island_mats = {}
+    water = lib.MeshBuilder()
+    ponds = lib.MeshBuilder()
+    falls_left = {'grove': 1, 'docks': 1, 'windy': 1}
     grass_m = lib.attr_mat('grass', rough=0.8, sheen=0.15, ao=0.3)
     flower_m = lib.attr_mat('flower', rough=0.55, subsurface=0.25)
     leaf_m = lib.attr_mat('leaf', rough=0.78, ao=0.5)
@@ -406,7 +501,11 @@ def main():
 
     for idx, (ids, mask) in enumerate(merged_islands()):
         name = f'island_{idx}_' + ('_'.join(ids[:2]))
-        ob, dist, under, ring, nrm = build_island(ids, mask, name, mat_island)
+        theme = theme_of(ids)
+        T = THEMES[theme]
+        if theme not in island_mats:
+            island_mats[theme] = island_material(pm_path, theme)
+        ob, dist, under, ring, nrm = build_island(ids, mask, name, island_mats[theme])
         island_info.append((ids, mask, dist, under))
         rnd = random.Random(idx * 31 + 5)
         ys, xs = np.nonzero(mask)
@@ -426,8 +525,8 @@ def main():
             return None
 
         # trees first (they claim space); only where they never hide a path
-        n_trees = int(area / 60000) + (1 if len(ids) > 2 else 0)
-        for _ in range(n_trees * 3):
+        n_trees = int(area / 60000 * T['trees']) + (1 if len(ids) > 2 else 0)
+        for _ in range(n_trees * 4):
             if n_trees <= 0:
                 break
             pt = pick(min_edge=26, path_clear=0.0, node_r=110)
@@ -436,7 +535,7 @@ def main():
             bx, by = pt
             if not canopy_clear(bx, by, 95, 260):
                 continue
-            if rnd.random() < 0.7:
+            if rnd.random() >= T['pines']:
                 tree_round(leaves, wood, bx, by, rnd, rnd.uniform(0.85, 1.15))
             else:
                 tree_pine(leaves, wood, bx, by, rnd, rnd.uniform(0.85, 1.1))
@@ -448,18 +547,40 @@ def main():
             if dist_in(dist, bx, by) < 6 or pmask_at(pm, bx, by) > 0.3:
                 continue
             grass_tuft(grass, bx, by, rnd, rnd.uniform(0.8, 1.3))
-        for _ in range(int(area / 20000)):
+        for _ in range(int(area / 20000 * T['flowers'])):
             pt = pick(min_edge=20, path_clear=0.02, node_r=78)
             if pt:
                 flower_bed(flowers, leaves, *pt, rnd)
-        for _ in range(int(area / 16000)):
+        for _ in range(int(area / 16000 * T['bushes'])):
             pt = pick(min_edge=12, max_edge=120, path_clear=0.01, node_r=92)
             if pt and canopy_clear(pt[0], pt[1], 40, 60):
                 bush(leaves, *pt, rnd, rnd.uniform(0.7, 1.2), berries=flowers)
-        for _ in range(int(area / 32000)):
+        for _ in range(int(area / 32000 * T['rocks'])):
             pt = pick(path_clear=0.08, node_r=70)
             if pt:
                 rock(rocks, *pt, rnd, rnd.uniform(0.8, 1.4))
+        # region clutter
+        for _ in range(int(area / 26000 * T.get('mushrooms', 0))):
+            pt = pick(min_edge=10, path_clear=0.02, node_r=70)
+            if pt:
+                mushroom_cluster(flowers, *pt, rnd)
+        for _ in range(int(area / 22000 * T.get('crystals', 0))):
+            pt = pick(min_edge=14, path_clear=0.02, node_r=80)
+            if pt:
+                crystal_cluster(crystals, *pt, rnd, rnd.uniform(0.8, 1.3))
+        for _ in range(int(area / 45000 * T.get('hay', 0))):
+            pt = pick(min_edge=24, path_clear=0.01, node_r=95)
+            if pt:
+                hay_bale(wood, *pt, rnd)
+        for _ in range(int(area / 40000 * T.get('crates', 0))):
+            pt = pick(min_edge=18, path_clear=0.01, node_r=90)
+            if pt:
+                (crate if rnd.random() < 0.6 else barrel)(wood, *pt, rnd)
+        if falls_left.get(theme, 0) > 0 and len(ring) > 20:
+            ok = add_waterfall(water, ponds, rocks, ring, nrm, pm, rnd)
+            print('waterfall', theme, ids[:3], ok)
+            if ok:
+                falls_left[theme] -= 1
         # pebbles lining the trails
         for _ in range(int(area / 2600)):
             pt = pick(path_clear=1.1)
@@ -502,6 +623,8 @@ def main():
             stepping_stone(stones, grass, bx, by, rnd, r=0.22)
 
     grass.build('grass', grass_m, smooth=False)
+    water.build('waterfalls', water_material(), smooth=True)
+    ponds.build('ponds', pond_material(), smooth=False)
     flowers.build('flowers', flower_m)
     leaves.build('leaves', leaf_m)
     wood.build('wood', wood_m)
