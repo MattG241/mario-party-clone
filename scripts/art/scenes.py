@@ -178,6 +178,15 @@ def title():
     wood = lib.MeshBuilder()
     rocks = lib.MeshBuilder()
     vines = lib.MeshBuilder()
+    # the bottom-left islet is a little scene of its own: a flower cart under a tree, bushes and grass
+    props.flower_cart(250, 902, 0.95)
+    terrain.tree_round(leaves, wood, 92, 888, rnd, 0.95)
+    terrain.bush(leaves, 392, 926, rnd, 1.0, berries=flowers)
+    terrain.bush(leaves, 150, 940, rnd, 0.8, berries=flowers)
+    terrain.flower_bed(flowers, leaves, 330, 944, rnd)
+    for _ in range(70):
+        a, r = rnd.uniform(0, math.tau), math.sqrt(rnd.random())
+        terrain.grass_tuft(grass, 250 + math.cos(a) * r * 200, 905 + math.sin(a) * r * 48, rnd, rnd.uniform(0.9, 1.3))
     poly = Image.new('L', (SW // 4, SH // 4), 0)
     ImageDraw.Draw(poly).polygon([(x / 4, y / 4) for x, y in outline], fill=255)
     pm_arr = np.asarray(Image.open(pm), np.float32) / 255.0

@@ -95,10 +95,10 @@ export class TitleScene extends Phaser.Scene {
     }
     // Staggered in depth (not a police line-up); nearer heroes a touch larger, added back to front.
     const spots: [number, number][] = [
-      [-345, 716],
-      [-140, 664],
-      [85, 704],
-      [320, 672],
+      [-290, 712],
+      [-108, 666],
+      [82, 702],
+      [262, 670],
     ];
     const made = CHARACTER_IDS.map((id, i) => {
       const [x, y] = spots[i];

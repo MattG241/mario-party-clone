@@ -30,15 +30,21 @@ export function textStyle(size: number, o: TextOpts = {}): Phaser.Types.GameObje
     align: o.align ?? 'center',
   };
   if (o.stroke) {
+    // Outlines stay slim (about 1/14 of the size) whatever a call site asks for; a soft drop
+    // shadow carries the legibility instead of a heavy cartoon stroke.
+    const cap = Math.max(2, Math.round(px / 14));
     style.stroke = o.stroke;
-    style.strokeThickness = o.strokeThickness ?? Math.max(2, Math.round(px / 9));
+    style.strokeThickness = Math.min(o.strokeThickness ?? cap, cap);
+    if (!o.shadow) {
+      style.shadow = { offsetX: 0, offsetY: Math.max(2, Math.round(px / 20)), color: 'rgba(10,17,32,0.35)', blur: Math.max(3, Math.round(px / 9)), fill: true, stroke: true };
+    }
   }
   if (o.shadow) {
     style.shadow = {
       offsetX: 0,
       offsetY: Math.max(2, Math.round(px / 14)),
-      color: typeof o.shadow === 'string' ? o.shadow : 'rgba(20,12,40,0.45)',
-      blur: 0,
+      color: typeof o.shadow === 'string' ? o.shadow : 'rgba(10,17,32,0.4)',
+      blur: Math.max(3, Math.round(px / 9)),
       fill: true,
       stroke: true,
     };

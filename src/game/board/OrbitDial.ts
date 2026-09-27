@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { audio } from '../audio/AudioManager';
 import type { Character } from '../characters/Character';
-import { COLORS, CSS, DEPTH, DIAL_MAX, GAME_HEIGHT, GAME_WIDTH } from '../constants';
+import { CSS, DEPTH, DIAL_MAX, GAME_HEIGHT, GAME_WIDTH } from '../constants';
 import type { EffectsManager } from '../effects/EffectsManager';
 import type { Controls } from '../input/Controls';
 import { addText } from '../ui/theme';
@@ -23,29 +23,17 @@ export class OrbitDial {
     const x = token.x;
     const y = token.y - 300;
     const root = s.add.container(x, y).setDepth(DEPTH.worldUi + 50);
-    const glow = s.add.image(0, 0, 'fx-dot').setScale(14).setTint(COLORS.goldLight).setAlpha(0.5).setBlendMode(Phaser.BlendModes.ADD);
     // The hovering dial casts a soft shadow on the ground at the hero's feet.
     const shadow = s.add.image(24, 318, 'fx-shadow').setScale(2.8, 0.7).setAlpha(0.6);
     // The world dims around the hero while the dial spins (a spotlight centred on the screen).
     const dim = s.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'fx-spot').setScrollFactor(0).setDisplaySize(GAME_WIDTH * 1.5, GAME_HEIGHT * 1.5).setDepth(DEPTH.worldUi + 40).setAlpha(0);
     s.tweens.add({ targets: dim, alpha: 1, duration: 300 });
-    // Glowing motes orbiting the medallion.
-    const sparks = [0, 1, 2, 3].map((i) => s.add.image(0, 0, 'fx-dot').setScale(i % 2 ? 0.7 : 1.0).setTint(i === 1 ? 0xc49bff : i === 3 ? COLORS.goldLight : COLORS.crystal).setBlendMode(Phaser.BlendModes.ADD));
-    const drawOrbits = (t: number) => {
-      sparks.forEach((sp, i) => {
-        const a = t * (2.2 + i * 0.4) + (i * Math.PI * 2) / 4;
-        sp.setPosition(Math.cos(a) * 150, Math.sin(a) * 54 - 10).setAlpha(0.6 + 0.4 * Math.sin(a * 2));
-      });
-    };
-    drawOrbits(0);
     const rendered = s.textures.exists('rendered-ui-dial');
     const ring = rendered ? s.add.image(0, 0, 'rendered-ui-dial').setDisplaySize(236, 236) : s.add.image(0, 0, 'orbit-dial').setScale(0.52);
     // A darker copy just below reads as the medallion's thickness (a coin edge), not a flat decal.
     const edge = s.add.image(0, 10, ring.texture.key).setDisplaySize(ring.displayWidth, ring.displayHeight).setTint(0x6a4a1c);
-    const num = addText(s, 0, -4, '1', 108, { color: CSS.tealDeep, weight: 700, fixed: true, stroke: '#ffffff', strokeThickness: 10 });
-    root.add([shadow, glow, edge, ring, ...sparks, num]);
-    const orbitT = { t: 0 };
-    const orbitTween = s.tweens.add({ targets: orbitT, t: Math.PI * 20, duration: 20000, repeat: -1, onUpdate: () => drawOrbits(orbitT.t) });
+    const num = addText(s, 0, -4, '1', 108, { color: '#1f2940', weight: 700, fixed: true });
+    root.add([shadow, edge, ring, num]);
     root.setScale(0.1);
     token.play('dial');
     audio.play('pop', { rate: 0.8 });
@@ -129,7 +117,6 @@ export class OrbitDial {
       await new Promise<void>((r) => s.time.delayedCall(350, () => r()));
     }
     token.play('celebrate');
-    orbitTween.stop();
     setDebugInfo('dialShown', false);
     s.tweens.add({ targets: dim, alpha: 0, duration: 320, onComplete: () => dim.destroy() });
     await new Promise<void>((r) =>
