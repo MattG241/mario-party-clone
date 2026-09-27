@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0d3b47" />
+    <title>Gleamtrail: Festival of the Spiral Isles</title>
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: radial-gradient(ellipse at 50% 35%, #1d6a73 0%, #0d3b47 55%, #081f29 100%);
+        color: #fff4dc;
+        font-family: 'Fredoka', 'Trebuchet MS', 'Segoe UI', sans-serif;
+        user-select: none;
+      }
+      #game {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #game canvas {
+        outline: none;
+      }
+      #boot-error {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 10;
+        align-items: center;
+        justify-content: center;
+        background: rgba(8, 31, 41, 0.94);
+      }
+      #boot-error .card {
+        max-width: 760px;
+        margin: 24px;
+        padding: 32px 40px;
+        border-radius: 28px;
+        background: #fff4dc;
+        color: #2b2340;
+        border: 6px solid #1fa5a0;
+        box-shadow: 0 10px 0 #117a77;
+        font-size: 22px;
+        line-height: 1.45;
+      }
+      #boot-error h1 {
+        margin: 0 0 12px;
+        font-size: 34px;
+        color: #117a77;
+      }
+      #boot-error code {
+        display: block;
+        margin-top: 12px;
+        padding: 12px;
+        border-radius: 12px;
+        background: #f2e2bf;
+        font-size: 16px;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game"></div>
+    <div id="boot-error" role="alert">
+      <div class="card">
+        <h1>Gleamtrail couldn't start</h1>
+        <div id="boot-error-message">Something went wrong while loading the game.</div>
+        <code id="boot-error-detail"></code>
+      </div>
+    </div>
+    <noscript>Gleamtrail needs JavaScript enabled to run.</noscript>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

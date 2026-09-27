@@ -1,0 +1,29 @@
+{
+  "name": "gleamtrail",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Gleamtrail: Festival of the Spiral Isles — an original local-multiplayer browser party game.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --port 4173 --strictPort",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "sprites": "node scripts/build-sprites.mjs",
+    "placeholders": "node scripts/build-placeholders.mjs"
+  },
+  "dependencies": {
+    "@fontsource/fredoka": "5.3.0",
+    "phaser": "3.90.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1",
+    "pngjs": "7.0.0",
+    "typescript": "5.9.3",
+    "vite": "7.3.6",
+    "vitest": "5.0.2"
+  }
+}
