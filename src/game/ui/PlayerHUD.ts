@@ -141,7 +141,8 @@ export class PlayerHUD {
     // Rank medal on the portrait's outer lower edge (gold / silver / bronze / steel).
     const medal = s.add.container(flip ? PR * 0.78 : -PR * 0.78, PR * 0.7);
     const medalG = s.add.graphics();
-    const rankText = addText(s, 0, -1, '1st', 17, { color: '#3a2410', weight: 700 });
+    // Starts empty so the first update always draws the medal (a leader's '1st' would otherwise match).
+    const rankText = addText(s, 0, -1, '', 17, { color: '#3a2410', weight: 700 });
     medal.add([medalG, rankText]);
     // Owned items as bubbles hanging below (top row) or above (bottom row) the capsule.
     const items = s.add.container(this.lx(f, 128), top ? H + 26 : -26);

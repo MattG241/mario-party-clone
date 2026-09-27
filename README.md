@@ -140,7 +140,7 @@ Setup (Python 3.11 and the `bpy` wheel, no Blender install needed):
 
 ```bash
 python3.11 -m venv .artenv
-.artenv/bin/pip install bpy==4.2.0 numpy pillow scipy scikit-image triangle
+.artenv/bin/pip install bpy==4.2.0 numpy pillow scipy scikit-image triangle fonttools brotli skia-pathops
 ```
 
 | Script | Output |
@@ -151,8 +151,10 @@ python3.11 -m venv .artenv
 | `sky.py --variant day\|clear\|golden\|sunset` | Sky backdrops |
 | `scenes.py title\|select\|results\|orbit` | Title island, select and results stages, Orbit Dodge arena |
 | `gleam3d.py` | Gleam Grab arena (perspective) and its floor mapping |
-| `mg_arenas.py yard\|pond\|relay\|totem\|tower\|sprites\|islets` | Arenas and sprites for the other minigames, sky islets |
+| `mg_arenas.py yard\|pond\|relay\|totem\|tower\|sprites\|islets\|fg` | Arenas and sprites for the other minigames, sky islets, board foreground foliage |
+| `logo.py` | The extruded 3D title wordmark (`ui_logo.webp`) |
 | `orbit_arms.py`, `ui.py`, `blur_backdrops.py` | Orbit Dodge arm frames, the dial, blurred intro backdrops |
+| `bloom.py` | Bakes a soft highlight bloom into finished renders |
 
 Each arena is rendered through an orthographic (or measured perspective) camera whose ground plane
 maps onto the game's screen coordinates, so gameplay layouts line up with the art exactly.

@@ -8,6 +8,7 @@ import { addText } from '../../ui/theme';
 import { npcFrame, type NpcId } from '../../data/npcs';
 import { standOrigin } from '../../util/spriteUtil';
 import { BaseMinigame, type MgPlayer } from '../BaseMinigame';
+import { addBalloons, addBunting, addDustMotes, addLightShafts } from '../../effects/Ambience';
 
 interface Dodger {
   p: MgPlayer;
@@ -76,6 +77,13 @@ export class OrbitDodgeScene extends BaseMinigame {
       const sky = ['rendered-sky-clear', 'rendered-sky-day'].find((k) => this.textures.exists(k));
       if (sky) this.add.image(GAME_WIDTH / 2, 480, sky).setDisplaySize(GAME_WIDTH * 1.12, 1210).setDepth(-100);
       this.add.image(0, 0, 'rendered-scene-orbit').setOrigin(0).setDepth(-10);
+      // Festival dressing: bunting strung between the spectator islands, balloons on their rails,
+      // and sun shafts slanting in from the upper left.
+      addBunting(this, 392, 214, 1528, 214, { sag: 46, size: 34, spacing: 64, depth: -6 });
+      addBalloons(this, 150, 262, { count: 3, scale: 0.66, depth: -4, seed: 'orbit-l', lift: 96 });
+      addBalloons(this, 1770, 262, { count: 3, scale: 0.66, depth: -4, seed: 'orbit-r', lift: 96 });
+      addLightShafts(this, { x: 420, y: -160, angle: 26, count: 5, spread: 1100, length: 1500, width: 200, alpha: 0.15, depth: 5500 });
+      addDustMotes(this, 0, 140, GAME_WIDTH, 800, { count: 30, depth: 5501 });
       this.buildSpectators();
     } else {
       this.add.image(0, 0, 'bg-sky').setOrigin(0).setDisplaySize(GAME_WIDTH, 1080).setDepth(-100);

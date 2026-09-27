@@ -20,6 +20,7 @@ import { PlayerHUD } from '../ui/PlayerHUD';
 import { addText, addTitle } from '../ui/theme';
 import { centerOrigin, standOrigin } from '../util/spriteUtil';
 import { drawCapsule } from '../ui/Screen';
+import { addLightShafts } from '../effects/Ambience';
 
 export interface ListOption {
   label: string;
@@ -100,17 +101,20 @@ export class BoardUIScene extends Phaser.Scene {
   private buildForeground(): void {
     this.foreground = [];
     const spots: [number, number, number, boolean][] = [
-      // texture index, x, y (bottom of the cluster sits off-screen), flip
-      [0, 470, 1122, false],
-      [2, 1460, 1128, true],
-      [1, 960, 1170, false],
+      // texture index, x, y (bottom of the cluster sits off-screen), flip. Corners reach higher
+      // than the middle so the player standing on the lower third is never covered.
+      [0, 250, 1215, false],
+      [2, 1670, 1215, true],
+      [1, 980, 1268, false],
     ];
     for (const [k, x, y, flip] of spots) {
       const key = `rendered-fg-${k}`;
       if (!this.textures.exists(key)) continue;
-      const img = this.add.image(x, y, key).setOrigin(0.5, 1).setScale(2.3).setFlipX(flip).setDepth(-10).setAlpha(0);
+      const img = this.add.image(x, y, key).setOrigin(0.5, 1).setScale(1.4).setFlipX(flip).setDepth(-10).setAlpha(0);
       this.foreground.push({ img, x, y, phase: Math.random() * Math.PI * 2 });
     }
+    // Soft sun shafts slanting in from the upper left, under the foliage and the HUD.
+    addLightShafts(this, { x: 260, y: -220, angle: 30, count: 4, spread: 1300, length: 1750, width: 250, alpha: 0.075, depth: -20 });
   }
 
   override update(_t: number, dt: number): void {

@@ -142,6 +142,52 @@ def plaza_texture(path, S=2048, squash=1.0):
     im.paste(slabs, (0, 0), ring_img)
     d = ImageDraw.Draw(im)
     d.ellipse([cx - R2, cy - R2, cx + R2, cy + R2], outline=(110, 84, 64), width=8)
+
+    # a frame of terracotta pavers just inside the border band gives the floor a finished rim
+    fr0, fr1 = bw + 6, bw + 6 + int(tw * 0.62)
+    for (x0, y0, x1, y1, horiz) in [(fr0, fr0, w - fr0, fr1, True), (fr0, h - fr1, w - fr0, h - fr0, True), (fr0, fr1, fr1, h - fr1, False), (w - fr1, fr1, w - fr0, h - fr1, False)]:
+        d.rectangle([x0, y0, x1, y1], fill=(112, 78, 58))
+        span = (x1 - x0) if horiz else (y1 - y0)
+        n = max(1, int(span / (tw * 0.62)))
+        for k in range(n):
+            c = rnd.choice([(188, 108, 72), (176, 98, 66), (198, 120, 80), (168, 94, 64)])
+            if horiz:
+                a0, a1 = x0 + k * span / n + 3, x0 + (k + 1) * span / n - 3
+                d.rounded_rectangle([a0, y0 + 3, a1, y1 - 3], radius=5, fill=c)
+                d.rounded_rectangle([a0 + 3, y0 + 5, a1 - 6, y0 + 9], radius=2, fill=tuple(min(255, v + 18) for v in c))
+            else:
+                b0, b1 = y0 + k * span / n + 3, y0 + (k + 1) * span / n - 3
+                d.rounded_rectangle([x0 + 3, b0, x1 - 3, b1], radius=5, fill=c)
+                d.rounded_rectangle([x0 + 5, b0 + 3, x1 - 8, b0 + 7], radius=2, fill=tuple(min(255, v + 18) for v in c))
+
+    # four inlaid sun medallions in the open fields left and right of the ring
+    def medallion(mx, my, mr):
+        d.ellipse([mx - mr - 8, my - mr - 8, mx + mr + 8, my + mr + 8], fill=(104, 78, 58))
+        nseg2 = 12
+        for k in range(nseg2):
+            a0, a1 = k / nseg2 * 360, (k + 1) / nseg2 * 360
+            c = rnd.choice([(214, 196, 170), (204, 186, 160), (222, 206, 180)])
+            d.pieslice([mx - mr, my - mr, mx + mr, my + mr], a0 + 1.2, a1 - 1.2, fill=c)
+        ri = mr * 0.64
+        d.ellipse([mx - ri - 5, my - ri - 5, mx + ri + 5, my + ri + 5], fill=(92, 66, 48))
+        d.ellipse([mx - ri, my - ri, mx + ri, my + ri], fill=(40, 146, 146))
+        d.ellipse([mx - ri + 3, my - ri + 3, mx + ri - 3, my + ri - 3], outline=(232, 186, 84), width=6)
+        pts = []
+        for k in range(16):
+            a = k / 16 * math.tau - math.pi / 2
+            rr = ri * (0.86 if k % 2 == 0 else 0.34)
+            if k % 4 == 2:
+                rr = ri * 0.58
+            pts.append((mx + math.cos(a) * rr, my + math.sin(a) * rr))
+        d.polygon(pts, fill=(246, 196, 76))
+        d.line(pts + [pts[0]], fill=(196, 136, 40), width=3)
+        d.ellipse([mx - ri * 0.16, my - ri * 0.16, mx + ri * 0.16, my + ri * 0.16], fill=(255, 236, 170))
+
+    fx = (fr1 + (cx - R2)) / 2
+    mr = min((cx - R2 - fr1) * 0.36, h * 0.12)
+    for mx in (fx, w - fx):
+        for my in (h * 0.3, h * 0.7):
+            medallion(mx, my, mr)
     # festival litter: confetti near the middle, a few leaves and petals toward the edges
     for _ in range(420):
         a = rnd.uniform(0, math.tau)

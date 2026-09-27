@@ -6,6 +6,7 @@ import { CHARACTERS } from '../../data/characters';
 import type { VirtualControls } from '../../input/PlayerInput';
 import { npcFrame, type NpcId } from '../../data/npcs';
 import { centerOrigin, standOrigin } from '../../util/spriteUtil';
+import { addBalloons, addDustMotes, addLightShafts } from '../../effects/Ambience';
 import { SPRITE_META } from '../../data/spriteMeta.generated';
 import { BaseMinigame, type MgPlayer } from '../BaseMinigame';
 import { clampRect, dist, drift, separate, steer, type Mover } from '../common';
@@ -88,6 +89,7 @@ export class GleamGrabScene extends BaseMinigame {
       if (meta3d.tiers?.length) this.buildStands(meta3d.tiers);
       else this.buildCrowd(meta3d.wallTopY ?? 314, meta3d.backLeftX ?? 300, meta3d.backRightX ?? 1620);
       if (this.textures.exists('rendered-scene-gleam3d_wall')) this.add.image(0, 0, 'rendered-scene-gleam3d_wall').setOrigin(0).setDepth(250);
+      this.addAmbience(meta3d.corners);
       return;
     }
     if (this.textures.exists('rendered-scene-gleam')) {
@@ -112,6 +114,15 @@ export class GleamGrabScene extends BaseMinigame {
       const l = this.add.image(x, y, 'lantern').setScale(0.8);
       this.tweens.add({ targets: l, angle: { from: -6, to: 6 }, duration: 1600, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
     }
+  }
+
+  /** Sun shafts, dust in the light and balloon clusters tied to the back corners of the plaza. */
+  private addAmbience(corners: [number, number][]): void {
+    const back = [...corners].sort((a, b) => a[1] - b[1]).slice(0, 2).sort((a, b) => a[0] - b[0]);
+    addBalloons(this, back[0][0] - 24, back[0][1] - 6, { count: 3, scale: 0.6, depth: 260, seed: 'gleam-l', lift: 150 });
+    addBalloons(this, back[1][0] + 24, back[1][1] - 6, { count: 3, scale: 0.6, depth: 260, seed: 'gleam-r', lift: 150 });
+    addLightShafts(this, { x: 380, y: -140, angle: 27, count: 5, spread: 1100, length: 1500, width: 200, alpha: 0.14, depth: 8000 });
+    addDustMotes(this, 0, 160, GAME_WIDTH, 820, { count: 34, depth: 8001 });
   }
 
   /** Festival folk cheering from behind the back curb (bob, and hop when chips rain). */
