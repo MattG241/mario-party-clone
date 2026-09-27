@@ -1,0 +1,354 @@
+{
+ "board": "suncoil",
+ "origin": [
+  -120,
+  -60
+ ],
+ "scale": 1.0,
+ "tiles": [
+  {
+   "file": "terrain_0_0.webp",
+   "x": 0,
+   "y": 0,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_1_0.webp",
+   "x": 1020,
+   "y": 0,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_2_0.webp",
+   "x": 2040,
+   "y": 0,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_3_0.webp",
+   "x": 3060,
+   "y": 0,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_0_1.webp",
+   "x": 0,
+   "y": 1020,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_1_1.webp",
+   "x": 1020,
+   "y": 1020,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_2_1.webp",
+   "x": 2040,
+   "y": 1020,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_3_1.webp",
+   "x": 3060,
+   "y": 1020,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_0_2.webp",
+   "x": 0,
+   "y": 2040,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_1_2.webp",
+   "x": 1020,
+   "y": 2040,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_2_2.webp",
+   "x": 2040,
+   "y": 2040,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_3_2.webp",
+   "x": 3060,
+   "y": 2040,
+   "w": 1024,
+   "h": 1024
+  }
+ ],
+ "bakedPaths": true,
+ "props": [
+  {
+   "id": "observatory",
+   "file": "prop_observatory.webp",
+   "tex": "observatory",
+   "kind": "observatory",
+   "x": 2217.0,
+   "y": 1157.0,
+   "w": 459.0,
+   "h": 765.0,
+   "baseY": 1760,
+   "anchorX": 2420
+  },
+  {
+   "id": "windmill",
+   "file": "prop_windmill.webp",
+   "tex": "windmill",
+   "kind": "windmill",
+   "x": 2330.0,
+   "y": 241.0,
+   "w": 240.0,
+   "h": 445.0,
+   "baseY": 590,
+   "anchorX": 2450
+  },
+  {
+   "id": "windmill-sails",
+   "file": "prop_windmill-sails.webp",
+   "tex": "",
+   "kind": "sails",
+   "x": 2215.0,
+   "y": 183.0,
+   "w": 470.0,
+   "h": 469.0,
+   "baseY": 590,
+   "anchorX": 2450,
+   "hub": [
+    2450.0,
+    417.5172042638896
+   ]
+  },
+  {
+   "id": "workshop",
+   "file": "prop_workshop.webp",
+   "tex": "workshop",
+   "kind": "workshop",
+   "x": 2590.0,
+   "y": 229.0,
+   "w": 459.0,
+   "h": 480.0,
+   "baseY": 580,
+   "anchorX": 2790
+  },
+  {
+   "id": "stall",
+   "file": "prop_stall.webp",
+   "tex": "stall",
+   "kind": "stall",
+   "x": 3005.0,
+   "y": 1625.0,
+   "w": 290.0,
+   "h": 279.0,
+   "baseY": 1835,
+   "anchorX": 3150
+  },
+  {
+   "id": "grove-tree",
+   "file": "prop_grove-tree.webp",
+   "tex": "tree-twist",
+   "kind": "twist_tree",
+   "x": 673.0,
+   "y": 1393.0,
+   "w": 371.0,
+   "h": 423.0,
+   "baseY": 1760,
+   "anchorX": 860
+  },
+  {
+   "id": "crystal-gen",
+   "file": "prop_crystal-gen.webp",
+   "tex": "crystal-generator",
+   "kind": "crystal_gen",
+   "x": 1075.0,
+   "y": 531.0,
+   "w": 280.0,
+   "h": 269.0,
+   "baseY": 720,
+   "anchorX": 1215
+  },
+  {
+   "id": "crystal-gen-2",
+   "file": "prop_crystal-gen-2.webp",
+   "tex": "crystal-generator",
+   "kind": "crystal_gen",
+   "x": 1426.0,
+   "y": 490.0,
+   "w": 208.0,
+   "h": 201.0,
+   "baseY": 630,
+   "anchorX": 1530
+  },
+  {
+   "id": "lantern-1",
+   "file": "prop_lantern-1.webp",
+   "tex": "lantern",
+   "kind": "lantern",
+   "x": 1623.0,
+   "y": 1989.0,
+   "w": 93.0,
+   "h": 186.0,
+   "baseY": 2160,
+   "anchorX": 1640
+  },
+  {
+   "id": "stage",
+   "file": "prop_stage.webp",
+   "tex": "",
+   "kind": "stage",
+   "x": 2075.0,
+   "y": 1930.0,
+   "w": 240.0,
+   "h": 263.0,
+   "baseY": 2100,
+   "anchorX": 2195,
+   "depthY": 2010
+  },
+  {
+   "id": "lantern-3",
+   "file": "prop_lantern-3.webp",
+   "tex": "lantern",
+   "kind": "lantern",
+   "x": 743.0,
+   "y": 1319.0,
+   "w": 89.0,
+   "h": 176.0,
+   "baseY": 1480,
+   "anchorX": 760
+  },
+  {
+   "id": "lantern-4",
+   "file": "prop_lantern-4.webp",
+   "tex": "lantern",
+   "kind": "lantern",
+   "x": 2903.0,
+   "y": 1789.0,
+   "w": 94.0,
+   "h": 186.0,
+   "baseY": 1960,
+   "anchorX": 2920
+  },
+  {
+   "id": "lantern-5",
+   "file": "prop_lantern-5.webp",
+   "tex": "lantern",
+   "kind": "lantern",
+   "x": 2543.0,
+   "y": 1889.0,
+   "w": 94.0,
+   "h": 186.0,
+   "baseY": 2060,
+   "anchorX": 2560
+  },
+  {
+   "id": "bunting-plaza",
+   "file": "prop_bunting-plaza.webp",
+   "tex": "bunting",
+   "kind": "bunting",
+   "x": 1571.0,
+   "y": 1950.0,
+   "w": 257.0,
+   "h": 204.0,
+   "baseY": 2140,
+   "anchorX": 1700
+  },
+  {
+   "id": "bunting-terrace",
+   "file": "prop_bunting-terrace.webp",
+   "tex": "bunting",
+   "kind": "bunting",
+   "x": 3023.0,
+   "y": 422.0,
+   "w": 214.0,
+   "h": 181.0,
+   "baseY": 590,
+   "anchorX": 3130
+  },
+  {
+   "id": "gate",
+   "file": "prop_gate.webp",
+   "tex": "prism-gate",
+   "kind": "gate",
+   "x": 1796.0,
+   "y": 1922.0,
+   "w": 258.0,
+   "h": 264.0,
+   "baseY": 2150,
+   "anchorX": 1925
+  },
+  {
+   "id": "pedestal-go4",
+   "file": "prop_pedestal-go4.webp",
+   "tex": "relic-pedestal",
+   "kind": "pedestal",
+   "x": 640.0,
+   "y": 1248.0,
+   "w": 120.0,
+   "h": 151.0,
+   "baseY": 1350,
+   "anchorX": 700
+  },
+  {
+   "id": "pedestal-c2",
+   "file": "prop_pedestal-c2.webp",
+   "tex": "relic-pedestal",
+   "kind": "pedestal",
+   "x": 1080.0,
+   "y": 720.0,
+   "w": 119.0,
+   "h": 151.0,
+   "baseY": 822,
+   "anchorX": 1140
+  },
+  {
+   "id": "pedestal-t4",
+   "file": "prop_pedestal-t4.webp",
+   "tex": "relic-pedestal",
+   "kind": "pedestal",
+   "x": 2951.0,
+   "y": 538.0,
+   "w": 119.0,
+   "h": 151.0,
+   "baseY": 640,
+   "anchorX": 3010
+  },
+  {
+   "id": "pedestal-d3",
+   "file": "prop_pedestal-d3.webp",
+   "tex": "relic-pedestal",
+   "kind": "pedestal",
+   "x": 2770.0,
+   "y": 1918.0,
+   "w": 119.0,
+   "h": 151.0,
+   "baseY": 2020,
+   "anchorX": 2830
+  },
+  {
+   "id": "pedestal-o2",
+   "file": "prop_pedestal-o2.webp",
+   "tex": "relic-pedestal",
+   "kind": "pedestal",
+   "x": 2030.0,
+   "y": 1558.0,
+   "w": 119.0,
+   "h": 151.0,
+   "baseY": 1660,
+   "anchorX": 2090
+  }
+ ]
+}

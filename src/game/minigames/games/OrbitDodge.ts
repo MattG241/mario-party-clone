@@ -66,15 +66,22 @@ export class OrbitDodgeScene extends BaseMinigame {
     this.nextSpeedUp = 10000;
     this.dir = 1;
     this.arms = [{ id: 0, angle: Math.PI * 0.25, type: 'low', flipIn: -1 }];
-    this.add.image(0, 0, 'bg-sky').setOrigin(0).setDisplaySize(GAME_WIDTH, 1080).setDepth(-100);
-    this.add.tileSprite(0, 560, GAME_WIDTH, 560, 'bg-clouds-below').setOrigin(0).setDepth(-90);
-    this.add.image(CX, CY + 30, 'mg-orbit-platform').setDisplaySize(1400, 760).setDepth(-10);
+    const rendered = this.textures.exists('rendered-scene-orbit');
+    if (rendered) {
+      // Pre-rendered observatory rooftop (engraved stone, brass rings, crystal lights).
+      if (this.textures.exists('rendered-sky-day')) this.add.image(GAME_WIDTH / 2, 540, 'rendered-sky-day').setDisplaySize(GAME_WIDTH * 1.04, 1124).setDepth(-100);
+      this.add.image(0, 0, 'rendered-scene-orbit').setOrigin(0).setDepth(-10);
+    } else {
+      this.add.image(0, 0, 'bg-sky').setOrigin(0).setDisplaySize(GAME_WIDTH, 1080).setDepth(-100);
+      this.add.tileSprite(0, 560, GAME_WIDTH, 560, 'bg-clouds-below').setOrigin(0).setDepth(-90);
+      this.add.image(CX, CY + 30, 'mg-orbit-platform').setDisplaySize(1400, 760).setDepth(-10);
+    }
     this.armG = this.add.graphics().setDepth(2);
     this.highG = this.add.graphics().setDepth(5000);
     const hub = this.add.sprite(CX, CY + 20, 'props', '19').play('barrier-spin');
     const o = standOrigin('props', '19');
     hub.setOrigin(o.x, o.y).setScale(0.8).setDepth(CY);
-    this.add.image(250, 330, 'observatory').setScale(0.26).setDepth(-20).setAlpha(0.9);
+    if (!rendered) this.add.image(250, 330, 'observatory').setScale(0.26).setDepth(-20).setAlpha(0.9);
   }
 
   protected createPlayer(p: MgPlayer, index: number): void {
@@ -106,12 +113,34 @@ export class OrbitDodgeScene extends BaseMinigame {
     const h = this.highG;
     g.clear();
     h.clear();
+    const pulse = 0.5 + 0.5 * Math.sin(this.time.now / 110);
     for (const a of this.arms) {
       const tipX = CX + Math.cos(a.angle) * (RX + 120);
       const tipY = CY + Math.sin(a.angle) * (RY + 60);
       const flashing = a.flipIn > 0 && Math.floor(a.flipIn / 120) % 2 === 0;
+      // Motion smear: a fading wedge trailing the sweep so speed and direction read at a glance.
+      if (this.phase === 'playing') {
+        const lift = a.type === 'high' ? 150 : 0;
+        const trail = Math.min(0.55, 0.12 * this.omega);
+        const layer = a.type === 'high' ? h : g;
+        for (let k = 0; k < 4; k++) {
+          const a0 = a.angle - this.dir * trail * ((k + 1) / 4);
+          const a1 = a.angle - this.dir * trail * (k / 4);
+          layer.fillStyle(a.type === 'high' ? 0xc49bff : 0xffc27a, 0.13 * (1 - k / 4));
+          layer.beginPath();
+          layer.moveTo(CX, CY - lift);
+          for (let t = 0; t <= 6; t++) {
+            const an = a0 + (a1 - a0) * (t / 6);
+            layer.lineTo(CX + Math.cos(an) * (RX + 120), CY - lift + Math.sin(an) * (RY + 60));
+          }
+          layer.closePath();
+          layer.fillPath();
+        }
+      }
       if (a.type === 'low') {
-        // Shadow + spiked log along the ground.
+        // Danger glow, shadow and a spiked log along the ground.
+        g.lineStyle(62, 0xff5a3c, 0.12 + 0.12 * pulse);
+        g.lineBetween(CX, CY, tipX, tipY);
         g.lineStyle(44, 0x0b1a24, 0.25);
         g.lineBetween(CX, CY + 12, tipX, tipY + 12);
         g.lineStyle(36, flashing ? 0xffffff : 0x7a4f28, 1);
@@ -130,6 +159,8 @@ export class OrbitDodgeScene extends BaseMinigame {
         g.lineStyle(26, 0x2b2340, 0.35);
         g.lineBetween(CX, CY + 8, tipX, tipY + 8);
         const lift = 150;
+        h.lineStyle(52, 0xd08cff, 0.12 + 0.14 * pulse);
+        h.lineBetween(CX, CY - lift, tipX, tipY - lift);
         h.lineStyle(26, flashing ? 0xffffff : 0x5e3494, 1);
         h.lineBetween(CX, CY - lift, tipX, tipY - lift);
         h.lineStyle(10, 0xc49bff, 1);
@@ -277,6 +308,9 @@ export class OrbitDodgeScene extends BaseMinigame {
     audio.play('hit');
     this.fx.vfx('impact', d.x, d.y - 100, { scale: 0.6, blend: 'add' });
     this.fx.shake(0.006, 180);
+    // brief white hit flash on the character
+    d.c.sprite.setTintFill(0xffffff);
+    this.time.delayedCall(70, () => d.c.sprite.clearTint());
     this.rumble(d.p, 0.7, 0.5, 220);
     d.c.play('stunned', { force: true });
     this.tweens.add({ targets: d.c, alpha: { from: 0.3, to: 1 }, duration: 120, repeat: 4 });

@@ -3,6 +3,7 @@ import { audio } from '../audio/AudioManager';
 import { registerCharacterAnimations } from '../characters/Character';
 import { COLORS, CSS, GAME_HEIGHT, GAME_WIDTH, SUBTITLE, TITLE } from '../constants';
 import { ATLAS_KEYS, COMMON_SVGS, LOADING_TIPS } from '../data/assets';
+import { isOptionalAsset, RENDERED_BOARDS, renderedManifestKey, renderedPath, renderedTileKey, type RenderedBoard } from '../data/rendered';
 import { URL_PARAMS } from '../debug/debug';
 import { generateFxTextures, registerCommonAnimations } from '../effects/animations';
 import { drawPanel, drawSpiral } from '../ui/Panel';
@@ -31,8 +32,22 @@ export class PreloadScene extends Phaser.Scene {
     this.load.setPath('');
     for (const key of ATLAS_KEYS) this.load.atlas(key, `assets/atlases/${key}.png`, `assets/atlases/${key}.json`);
     for (const s of COMMON_SVGS) this.load.svg(s.key, s.path, { width: s.width, height: s.height });
+    // Optional pre-rendered environment art: the manifest lists its tiles.
+    for (const board of RENDERED_BOARDS) {
+      const key = renderedManifestKey(board);
+      this.load.json(key, renderedPath(board, 'manifest.json'));
+      this.load.once(`filecomplete-json-${key}`, (_k: string, _t: string, data: RenderedBoard) => {
+        for (const t of data?.tiles ?? []) this.load.image(renderedTileKey(board, t.file), renderedPath(board, t.file));
+        for (const pr of data?.props ?? []) this.load.image(renderedTileKey(board, pr.file), renderedPath(board, pr.file));
+      });
+    }
+    // Optional rendered sky backdrops (day, and dusk for the final round).
+    for (const v of ['day', 'dusk']) this.load.image(`rendered-sky-${v}`, `assets/rendered/sky_${v}.webp`);
+    // Optional rendered hero scenes (title island, minigame arenas).
+    for (const v of ['title', 'gleam', 'orbit', 'select']) this.load.image(`rendered-scene-${v}`, `assets/rendered/scene_${v}.webp`);
     this.load.on(Phaser.Loader.Events.PROGRESS, (p: number) => this.setProgress(p));
     this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, (file: Phaser.Loader.File) => {
+      if (isOptionalAsset(file.key)) return;
       this.failed.push(typeof file.src === 'string' ? file.src : file.key);
     });
   }

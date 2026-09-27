@@ -183,7 +183,12 @@ export class BoardPresenter implements FlowIO {
       controls: c,
       cpuDelay: this.dur(p.cpuLevel === 'easy' ? 1100 : p.cpuLevel === 'hard' ? 650 : 850),
       fast: this.fast,
-      waitForInput: (ctrl) => this.ui.waitButton(ctrl, ['A']).then(() => true),
+      waitForInput: (ctrl) =>
+        this.ui.waitButton(ctrl, ['A']).then(() => {
+          // Clear the prompt the moment the dial is stopped (the reveal animation follows).
+          this.ui.setPrompts([]);
+          return true;
+        }),
     });
     this.ui.setPrompts([]);
     if (c) c.rumble(0.35, 0.5, 90);

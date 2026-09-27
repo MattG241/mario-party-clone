@@ -10,7 +10,7 @@ import { runMatch } from '../board/TurnManager';
 import { COLORS, CSS, GAME_HEIGHT, GAME_WIDTH } from '../constants';
 import { findBoard } from '../data/boards';
 import { ITEM_IDS } from '../data/items';
-import { clearDebugInfo, DEBUG_ENABLED, logError, setDebugInfo } from '../debug/debug';
+import { clearDebugInfo, DEBUG_ENABLED, logError, setDebugInfo, URL_PARAMS } from '../debug/debug';
 import { EffectsManager } from '../effects/EffectsManager';
 import { input, type DeviceRef } from '../input/InputManager';
 import { ItemManager } from '../items/ItemManager';
@@ -104,14 +104,18 @@ export class BoardScene extends Phaser.Scene {
     this.ctx = { state, board: state.board, graph: this.board.graph, rng: new Random(state.rng), io: this.presenter, turn: freshTurn(), interrupt: null };
     const cam = this.cameras.main;
     cam.setBounds(-400, -300, def.width + 800, def.height + 600);
-    const b = this.board.bounds();
-    cam.centerOn(b.centerX, b.centerY);
+    const ov = this.overviewRect();
+    cam.centerOn(ov.centerX, ov.centerY);
     cam.setZoom(this.overviewZoom());
+    // Subtle vignette to frame the diorama (WebGL only).
+    if (this.renderer.type === Phaser.WEBGL) cam.postFX.addVignette(0.5, 0.5, 0.92, 0.22);
     audio.playMusic(isFinalRound(state) ? 'boardFinal' : 'board');
     this.bg.setIntensity(isFinalRound(state) ? 1 : 0);
     if (DEBUG_ENABLED) this.offDebug = input.keyboard.onRawKey((e) => this.debugKey(e));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.cleanup());
     // UI scene needs a frame to build before the flow starts.
+    // ?noflow (debug): show the board without running the match (screenshots, art checks).
+    if (DEBUG_ENABLED && URL_PARAMS.has('noflow')) return;
     this.time.delayedCall(60, () => void this.startFlow());
   }
 
@@ -210,9 +214,15 @@ export class BoardScene extends Phaser.Scene {
   }
 
   // --- Camera -------------------------------------------------------------------------------------
-  overviewZoom(): number {
+  /** Board area the overview shot frames: every space plus room for tall landmarks above. */
+  overviewRect(): Phaser.Geom.Rectangle {
     const b = this.board.bounds();
-    return Math.min(GAME_WIDTH / (b.width + 700), GAME_HEIGHT / (b.height + 700));
+    return new Phaser.Geom.Rectangle(b.x - 300, b.y - 560, b.width + 600, b.height + 820);
+  }
+
+  overviewZoom(): number {
+    const r = this.overviewRect();
+    return Math.min(GAME_WIDTH / r.width, GAME_HEIGHT / r.height);
   }
 
   focus(x: number, y: number, zoom = 0.95, ms = 600): Promise<void> {
@@ -234,7 +244,9 @@ export class BoardScene extends Phaser.Scene {
 
   overview(ms = 900): Promise<void> {
     const b = this.board.bounds();
-    return this.focus(b.centerX, b.centerY + 60, this.overviewZoom(), ms);
+    const r = this.overviewRect();
+    void b;
+    return this.focus(r.centerX, r.centerY, this.overviewZoom(), ms);
   }
 
   followToken(slot: number): void {

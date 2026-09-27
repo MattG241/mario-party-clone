@@ -73,6 +73,21 @@ export function generateFxTextures(scene: Phaser.Scene): void {
     g.generateTexture('px', 4, 4);
     g.clear();
   }
+  if (!scene.textures.exists('fx-shadow')) {
+    // Soft radial shadow with a darker core (character/prop grounding).
+    const tex = scene.textures.createCanvas('fx-shadow', 128, 128);
+    if (tex) {
+      const ctx = tex.getContext();
+      const grd = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+      grd.addColorStop(0, 'rgba(8,18,28,0.82)');
+      grd.addColorStop(0.3, 'rgba(8,18,28,0.55)');
+      grd.addColorStop(0.7, 'rgba(8,18,28,0.16)');
+      grd.addColorStop(1, 'rgba(8,18,28,0)');
+      ctx.fillStyle = grd;
+      ctx.fillRect(0, 0, 128, 128);
+      tex.refresh();
+    }
+  }
   if (!scene.textures.exists('fx-ring')) {
     g.lineStyle(6, 0xffffff, 1);
     g.strokeCircle(64, 64, 58);

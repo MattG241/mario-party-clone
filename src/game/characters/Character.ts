@@ -63,7 +63,7 @@ export interface CharacterOpts {
  */
 export class Character extends Phaser.GameObjects.Container {
   readonly sprite: Phaser.GameObjects.Sprite;
-  readonly shadow?: Phaser.GameObjects.Ellipse;
+  readonly shadow?: Phaser.GameObjects.Container;
   marker?: PlayerBadge;
   readonly charId: CharacterId;
   current: AnimName = 'idle';
@@ -78,7 +78,15 @@ export class Character extends Phaser.GameObjects.Container {
     super(scene, x, y);
     this.charId = id;
     if (opts.shadow !== false) {
-      this.shadow = scene.add.ellipse(0, 0, 120, 36, 0x0b1a24, 0.28);
+      // Contact shadow plus a soft cast shadow falling back-right (the key light is front-left).
+      this.shadow = scene.add.container(0, 0);
+      if (scene.textures.exists('fx-shadow')) {
+        const cast = scene.add.image(26, -8, 'fx-shadow').setScale(1.45, 0.42).setAngle(-8).setAlpha(0.32);
+        const contact = scene.add.image(0, 0, 'fx-shadow').setScale(1.0, 0.3).setAlpha(0.7);
+        this.shadow.add([cast, contact]);
+      } else {
+        this.shadow.add(scene.add.ellipse(0, 0, 120, 36, 0x0b1a24, 0.28));
+      }
       this.add(this.shadow);
     }
     this.sprite = scene.add.sprite(0, 0, CHARACTERS[id].atlas, '0');

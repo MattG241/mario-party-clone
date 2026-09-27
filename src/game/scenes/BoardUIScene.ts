@@ -81,11 +81,17 @@ export class BoardUIScene extends Phaser.Scene {
     this.hud = new PlayerHUD(this, this.stateRef);
     this.dialog = new DialogBox(this, 3000);
     this.prompts = new PromptBar(this, GAME_WIDTH / 2, GAME_HEIGHT - 40, [], { size: 40, fontSize: 28 }).setDepth(900);
-    this.roundPlaque = this.add.container(GAME_WIDTH / 2, 50).setDepth(600);
+    // Round pill: compact and translucent, matching the corner HUD.
+    this.roundPlaque = this.add.container(GAME_WIDTH / 2, 44).setDepth(600);
     const g = this.add.graphics();
-    drawPanel(g, -210, -38, 420, 76, { radius: 30, borderWidth: 5, border: COLORS.tealDark, fill: COLORS.gold, accent: COLORS.cream, engraving: false, shadowOffset: 6 });
-    this.roundText = addText(this, 0, -8, 'ROUND 1 / 10', 32, { color: CSS.ink, weight: 700 });
-    this.relicText = addText(this, 0, 20, '', 20, { color: CSS.tealDeep, weight: 600 });
+    g.fillStyle(0x06141a, 0.25);
+    g.fillRoundedRect(-146, -28, 300, 64, 32);
+    g.fillStyle(0x0c2630, 0.8);
+    g.fillRoundedRect(-150, -32, 300, 64, 32);
+    g.lineStyle(3, COLORS.gold, 0.95);
+    g.strokeRoundedRect(-150, -32, 300, 64, 32);
+    this.roundText = addText(this, 0, -8, 'ROUND 1 / 10', 26, { color: CSS.goldLight, weight: 700 });
+    this.relicText = addText(this, 0, 16, '', 16, { color: CSS.cream, weight: 600 });
     this.roundPlaque.add([g, this.roundText, this.relicText]);
     this.refresh(this.stateRef);
   }
@@ -117,9 +123,9 @@ export class BoardUIScene extends Phaser.Scene {
 
   refresh(state: MatchState): void {
     this.stateRef = state;
-    this.roundText.setText(isFinalRound(state) ? `FINAL ROUND · ${state.round}/${state.config.rounds}` : `ROUND ${state.round} / ${state.config.rounds}`);
+    this.roundText.setText(isFinalRound(state) ? `FINAL ROUND ${state.round}/${state.config.rounds}` : `ROUND ${state.round} / ${state.config.rounds}`);
     const price = currentRelicPrice(state);
-    this.relicText.setText(price < 20 ? `Relic Rush! Prism Relic: ${price} chips` : `Prism Relic: ${price} chips`);
+    this.relicText.setText(price < 20 ? `Relic Rush! Relic costs ${price}` : `Prism Relic · ${price} chips`);
     this.hud?.update(state);
   }
 

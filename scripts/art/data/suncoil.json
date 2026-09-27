@@ -1,0 +1,969 @@
+{
+ "id": "suncoil",
+ "width": 4200,
+ "height": 2800,
+ "nodes": [
+  {
+   "id": "p0",
+   "x": 2060,
+   "y": 2240,
+   "type": "start",
+   "region": "Festival Plaza"
+  },
+  {
+   "id": "p1",
+   "x": 1900,
+   "y": 2272,
+   "type": "gleam",
+   "region": "Festival Plaza"
+  },
+  {
+   "id": "p2",
+   "x": 1740,
+   "y": 2250,
+   "type": "festival",
+   "region": "Festival Plaza"
+  },
+  {
+   "id": "p3",
+   "x": 1580,
+   "y": 2200,
+   "type": "gleam",
+   "region": "Festival Plaza"
+  },
+  {
+   "id": "g0",
+   "x": 1400,
+   "y": 2110,
+   "type": "mischief",
+   "region": "Twisting Grove"
+  },
+  {
+   "id": "g1",
+   "x": 1210,
+   "y": 2000,
+   "type": "gleam",
+   "region": "Twisting Grove"
+  },
+  {
+   "id": "gi0",
+   "x": 1120,
+   "y": 1830,
+   "type": "mischief",
+   "region": "Twisting Grove"
+  },
+  {
+   "id": "gi1",
+   "x": 1080,
+   "y": 1660,
+   "type": "gleam",
+   "region": "Twisting Grove"
+  },
+  {
+   "id": "gi2",
+   "x": 1030,
+   "y": 1490,
+   "type": "event",
+   "region": "Twisting Grove"
+  },
+  {
+   "id": "go0",
+   "x": 1010,
+   "y": 1960,
+   "type": "gleam",
+   "region": "Twisting Grove"
+  },
+  {
+   "id": "go1",
+   "x": 820,
+   "y": 1870,
+   "type": "festival",
+   "region": "Twisting Grove"
+  },
+  {
+   "id": "go2",
+   "x": 680,
+   "y": 1730,
+   "type": "gleam",
+   "region": "Twisting Grove"
+  },
+  {
+   "id": "go3",
+   "x": 640,
+   "y": 1560,
+   "type": "portal",
+   "region": "Twisting Grove"
+  },
+  {
+   "id": "go4",
+   "x": 700,
+   "y": 1390,
+   "type": "relic",
+   "region": "Twisting Grove"
+  },
+  {
+   "id": "g2",
+   "x": 900,
+   "y": 1290,
+   "type": "gleam",
+   "region": "Twisting Grove"
+  },
+  {
+   "id": "c0",
+   "x": 930,
+   "y": 1120,
+   "type": "gleam",
+   "region": "Crystal Works"
+  },
+  {
+   "id": "c1",
+   "x": 1010,
+   "y": 955,
+   "type": "event",
+   "region": "Crystal Works"
+  },
+  {
+   "id": "c2",
+   "x": 1140,
+   "y": 862,
+   "type": "relic",
+   "region": "Crystal Works"
+  },
+  {
+   "id": "c3",
+   "x": 1300,
+   "y": 815,
+   "type": "portal",
+   "region": "Crystal Works"
+  },
+  {
+   "id": "c4",
+   "x": 1450,
+   "y": 760,
+   "type": "event",
+   "region": "Crystal Works"
+  },
+  {
+   "id": "c5",
+   "x": 1600,
+   "y": 700,
+   "type": "festival",
+   "region": "Crystal Works"
+  },
+  {
+   "id": "b0",
+   "x": 1780,
+   "y": 650,
+   "type": "gleam",
+   "region": "Sky Bridge",
+   "bridge": "sky"
+  },
+  {
+   "id": "b1",
+   "x": 1960,
+   "y": 628,
+   "type": "mischief",
+   "region": "Sky Bridge",
+   "bridge": "sky"
+  },
+  {
+   "id": "b2",
+   "x": 2140,
+   "y": 640,
+   "type": "gleam",
+   "region": "Sky Bridge",
+   "bridge": "sky"
+  },
+  {
+   "id": "bd0",
+   "x": 1760,
+   "y": 840,
+   "type": "gleam",
+   "region": "Cloud Steps",
+   "detour": "sky"
+  },
+  {
+   "id": "bd1",
+   "x": 1960,
+   "y": 900,
+   "type": "festival",
+   "region": "Cloud Steps",
+   "detour": "sky"
+  },
+  {
+   "id": "bd2",
+   "x": 2160,
+   "y": 840,
+   "type": "gleam",
+   "region": "Cloud Steps",
+   "detour": "sky"
+  },
+  {
+   "id": "t0",
+   "x": 2330,
+   "y": 668,
+   "type": "gleam",
+   "region": "Brass Terrace"
+  },
+  {
+   "id": "t1",
+   "x": 2500,
+   "y": 705,
+   "type": "festival",
+   "region": "Brass Terrace"
+  },
+  {
+   "id": "t2",
+   "x": 2670,
+   "y": 720,
+   "type": "market",
+   "region": "Brass Terrace"
+  },
+  {
+   "id": "t3",
+   "x": 2840,
+   "y": 700,
+   "type": "event",
+   "region": "Brass Terrace"
+  },
+  {
+   "id": "t4",
+   "x": 3010,
+   "y": 680,
+   "type": "relic",
+   "region": "Brass Terrace"
+  },
+  {
+   "id": "t5",
+   "x": 3180,
+   "y": 720,
+   "type": "mischief",
+   "region": "Brass Terrace"
+  },
+  {
+   "id": "t6",
+   "x": 3330,
+   "y": 800,
+   "type": "gleam",
+   "region": "Brass Terrace"
+  },
+  {
+   "id": "w0",
+   "x": 3420,
+   "y": 965,
+   "type": "gleam",
+   "region": "Windy Ledge"
+  },
+  {
+   "id": "w1e",
+   "x": 3610,
+   "y": 1065,
+   "type": "gleam",
+   "region": "Windy Ledge"
+  },
+  {
+   "id": "w2e",
+   "x": 3690,
+   "y": 1235,
+   "type": "event",
+   "region": "Windy Ledge"
+  },
+  {
+   "id": "w3e",
+   "x": 3640,
+   "y": 1405,
+   "type": "festival",
+   "region": "Windy Ledge"
+  },
+  {
+   "id": "w1s",
+   "x": 3370,
+   "y": 1135,
+   "type": "gleam",
+   "region": "Windy Ledge"
+  },
+  {
+   "id": "w2s",
+   "x": 3320,
+   "y": 1300,
+   "type": "mischief",
+   "region": "Windy Ledge"
+  },
+  {
+   "id": "w3s",
+   "x": 3390,
+   "y": 1462,
+   "type": "portal",
+   "region": "Windy Ledge"
+  },
+  {
+   "id": "w5",
+   "x": 3530,
+   "y": 1565,
+   "type": "gleam",
+   "region": "Windy Ledge"
+  },
+  {
+   "id": "w6",
+   "x": 3480,
+   "y": 1725,
+   "type": "mischief",
+   "region": "Windy Ledge"
+  },
+  {
+   "id": "d0",
+   "x": 3330,
+   "y": 1862,
+   "type": "gleam",
+   "region": "Lantern Docks"
+  },
+  {
+   "id": "d1",
+   "x": 3170,
+   "y": 1950,
+   "type": "market",
+   "region": "Lantern Docks"
+  },
+  {
+   "id": "d2",
+   "x": 3000,
+   "y": 2010,
+   "type": "portal",
+   "region": "Lantern Docks"
+  },
+  {
+   "id": "d3",
+   "x": 2830,
+   "y": 2060,
+   "type": "relic",
+   "region": "Lantern Docks"
+  },
+  {
+   "id": "d4",
+   "x": 2660,
+   "y": 2110,
+   "type": "festival",
+   "region": "Lantern Docks"
+  },
+  {
+   "id": "d5",
+   "x": 2490,
+   "y": 2160,
+   "type": "event",
+   "region": "Lantern Docks"
+  },
+  {
+   "id": "d6",
+   "x": 2300,
+   "y": 2220,
+   "type": "gleam",
+   "region": "Lantern Docks"
+  },
+  {
+   "id": "o0",
+   "x": 1950,
+   "y": 2062,
+   "type": "gleam",
+   "region": "Spiral Observatory"
+  },
+  {
+   "id": "o1",
+   "x": 2010,
+   "y": 1880,
+   "type": "festival",
+   "region": "Spiral Observatory"
+  },
+  {
+   "id": "o2",
+   "x": 2090,
+   "y": 1700,
+   "type": "relic",
+   "region": "Spiral Observatory"
+  },
+  {
+   "id": "o3",
+   "x": 2180,
+   "y": 1520,
+   "type": "event",
+   "region": "Spiral Observatory"
+  },
+  {
+   "id": "o4",
+   "x": 2260,
+   "y": 1330,
+   "type": "gleam",
+   "region": "Spiral Observatory"
+  },
+  {
+   "id": "o5",
+   "x": 2340,
+   "y": 1140,
+   "type": "mischief",
+   "region": "Spiral Observatory"
+  },
+  {
+   "id": "o6",
+   "x": 2420,
+   "y": 950,
+   "type": "festival",
+   "region": "Spiral Observatory"
+  }
+ ],
+ "edges": [
+  {
+   "from": "p0",
+   "to": "p1",
+   "style": "path"
+  },
+  {
+   "from": "p1",
+   "to": "p2",
+   "style": "path"
+  },
+  {
+   "from": "p1",
+   "to": "o0",
+   "style": "steps"
+  },
+  {
+   "from": "p2",
+   "to": "p3",
+   "style": "path"
+  },
+  {
+   "from": "p3",
+   "to": "g0",
+   "style": "steps"
+  },
+  {
+   "from": "g0",
+   "to": "g1",
+   "style": "steps"
+  },
+  {
+   "from": "g1",
+   "to": "gi0",
+   "style": "path"
+  },
+  {
+   "from": "g1",
+   "to": "go0",
+   "style": "path"
+  },
+  {
+   "from": "gi0",
+   "to": "gi1",
+   "style": "path"
+  },
+  {
+   "from": "gi1",
+   "to": "gi2",
+   "style": "path"
+  },
+  {
+   "from": "gi2",
+   "to": "g2",
+   "style": "path"
+  },
+  {
+   "from": "go0",
+   "to": "go1",
+   "style": "path"
+  },
+  {
+   "from": "go1",
+   "to": "go2",
+   "style": "path"
+  },
+  {
+   "from": "go2",
+   "to": "go3",
+   "style": "path"
+  },
+  {
+   "from": "go3",
+   "to": "go4",
+   "style": "path"
+  },
+  {
+   "from": "go4",
+   "to": "g2",
+   "style": "path"
+  },
+  {
+   "from": "g2",
+   "to": "c0",
+   "style": "steps"
+  },
+  {
+   "from": "c0",
+   "to": "c1",
+   "style": "steps"
+  },
+  {
+   "from": "c1",
+   "to": "c2",
+   "style": "path"
+  },
+  {
+   "from": "c2",
+   "to": "c3",
+   "style": "path"
+  },
+  {
+   "from": "c3",
+   "to": "c4",
+   "style": "path"
+  },
+  {
+   "from": "c4",
+   "to": "c5",
+   "style": "path"
+  },
+  {
+   "from": "c5",
+   "to": "b0",
+   "style": "bridge"
+  },
+  {
+   "from": "c5",
+   "to": "bd0",
+   "style": "steps"
+  },
+  {
+   "from": "b0",
+   "to": "b1",
+   "style": "bridge"
+  },
+  {
+   "from": "b1",
+   "to": "b2",
+   "style": "bridge"
+  },
+  {
+   "from": "b2",
+   "to": "t0",
+   "style": "bridge"
+  },
+  {
+   "from": "bd0",
+   "to": "bd1",
+   "style": "steps"
+  },
+  {
+   "from": "bd1",
+   "to": "bd2",
+   "style": "steps"
+  },
+  {
+   "from": "bd2",
+   "to": "t0",
+   "style": "steps"
+  },
+  {
+   "from": "t0",
+   "to": "t1",
+   "style": "path"
+  },
+  {
+   "from": "t1",
+   "to": "t2",
+   "style": "path"
+  },
+  {
+   "from": "t2",
+   "to": "t3",
+   "style": "path"
+  },
+  {
+   "from": "t3",
+   "to": "t4",
+   "style": "path"
+  },
+  {
+   "from": "t4",
+   "to": "t5",
+   "style": "path"
+  },
+  {
+   "from": "t5",
+   "to": "t6",
+   "style": "path"
+  },
+  {
+   "from": "t6",
+   "to": "w0",
+   "style": "steps"
+  },
+  {
+   "from": "w0",
+   "to": "w1e",
+   "style": "steps"
+  },
+  {
+   "from": "w0",
+   "to": "w1s",
+   "style": "path"
+  },
+  {
+   "from": "w1e",
+   "to": "w2e",
+   "style": "steps"
+  },
+  {
+   "from": "w2e",
+   "to": "w3e",
+   "style": "steps"
+  },
+  {
+   "from": "w3e",
+   "to": "w5",
+   "style": "steps"
+  },
+  {
+   "from": "w1s",
+   "to": "w2s",
+   "style": "path"
+  },
+  {
+   "from": "w2s",
+   "to": "w3s",
+   "style": "path"
+  },
+  {
+   "from": "w3s",
+   "to": "w5",
+   "style": "path"
+  },
+  {
+   "from": "w5",
+   "to": "w6",
+   "style": "path"
+  },
+  {
+   "from": "w6",
+   "to": "d0",
+   "style": "steps"
+  },
+  {
+   "from": "d0",
+   "to": "d1",
+   "style": "path"
+  },
+  {
+   "from": "d1",
+   "to": "d2",
+   "style": "path"
+  },
+  {
+   "from": "d2",
+   "to": "d3",
+   "style": "path"
+  },
+  {
+   "from": "d3",
+   "to": "d4",
+   "style": "path"
+  },
+  {
+   "from": "d4",
+   "to": "d5",
+   "style": "path"
+  },
+  {
+   "from": "d5",
+   "to": "d6",
+   "style": "path"
+  },
+  {
+   "from": "d6",
+   "to": "p0",
+   "style": "path"
+  },
+  {
+   "from": "o0",
+   "to": "o1",
+   "style": "steps"
+  },
+  {
+   "from": "o1",
+   "to": "o2",
+   "style": "path"
+  },
+  {
+   "from": "o2",
+   "to": "o3",
+   "style": "path"
+  },
+  {
+   "from": "o3",
+   "to": "o4",
+   "style": "path"
+  },
+  {
+   "from": "o4",
+   "to": "o5",
+   "style": "path"
+  },
+  {
+   "from": "o5",
+   "to": "o6",
+   "style": "steps"
+  },
+  {
+   "from": "o6",
+   "to": "t1",
+   "style": "steps"
+  }
+ ],
+ "decorations": [
+  {
+   "texture": "bunting",
+   "x": 1860,
+   "y": 2130,
+   "scale": 0.9,
+   "sorted": false,
+   "depth": -15
+  },
+  {
+   "texture": "lantern",
+   "x": 1640,
+   "y": 2160,
+   "scale": 0.5,
+   "sorted": true,
+   "bob": 4
+  },
+  {
+   "texture": "lantern",
+   "x": 2160,
+   "y": 2180,
+   "scale": 0.5,
+   "sorted": true,
+   "bob": 5
+  },
+  {
+   "texture": "props",
+   "frame": "24",
+   "x": 1830,
+   "y": 2330,
+   "scale": 0.4,
+   "sorted": true
+  },
+  {
+   "texture": "tree-twist",
+   "x": 900,
+   "y": 1745,
+   "scale": 0.62,
+   "sorted": true,
+   "id": "grove-tree"
+  },
+  {
+   "texture": "props",
+   "frame": "25",
+   "x": 1270,
+   "y": 2090,
+   "scale": 0.42,
+   "sorted": true
+  },
+  {
+   "texture": "props",
+   "frame": "21",
+   "x": 1150,
+   "y": 1860,
+   "scale": 0.34,
+   "sorted": true,
+   "id": "spring-gi0"
+  },
+  {
+   "texture": "props",
+   "frame": "21",
+   "x": 1115,
+   "y": 1690,
+   "scale": 0.34,
+   "sorted": true,
+   "id": "spring-gi1"
+  },
+  {
+   "texture": "props",
+   "frame": "21",
+   "x": 1068,
+   "y": 1520,
+   "scale": 0.34,
+   "sorted": true,
+   "id": "spring-gi2"
+  },
+  {
+   "texture": "lantern",
+   "x": 760,
+   "y": 1480,
+   "scale": 0.45,
+   "sorted": true,
+   "bob": 4
+  },
+  {
+   "texture": "crystal-generator",
+   "x": 1180,
+   "y": 790,
+   "scale": 0.55,
+   "sorted": true,
+   "id": "crystal-gen"
+  },
+  {
+   "texture": "crystal-generator",
+   "x": 1480,
+   "y": 700,
+   "scale": 0.34,
+   "sorted": true
+  },
+  {
+   "texture": "windmill",
+   "x": 2575,
+   "y": 660,
+   "scale": 0.52,
+   "sorted": true
+  },
+  {
+   "texture": "workshop",
+   "x": 2745,
+   "y": 690,
+   "scale": 0.46,
+   "sorted": true
+  },
+  {
+   "texture": "props",
+   "frame": "15",
+   "x": 2880,
+   "y": 760,
+   "scale": 0.46,
+   "sorted": true,
+   "id": "cannon"
+  },
+  {
+   "texture": "bunting",
+   "x": 3110,
+   "y": 610,
+   "scale": 0.6,
+   "sorted": false,
+   "depth": -15
+  },
+  {
+   "texture": "props",
+   "frame": "18",
+   "x": 3250,
+   "y": 640,
+   "scale": 0.36,
+   "sorted": true,
+   "anim": "barrier-spin"
+  },
+  {
+   "texture": "props",
+   "frame": "26",
+   "x": 3500,
+   "y": 1010,
+   "scale": 0.4,
+   "sorted": true
+  },
+  {
+   "texture": "props",
+   "frame": "33",
+   "x": 3290,
+   "y": 1420,
+   "scale": 0.4,
+   "sorted": true,
+   "anim": "mace-swing"
+  },
+  {
+   "texture": "stall",
+   "x": 3200,
+   "y": 1880,
+   "scale": 0.46,
+   "sorted": true
+  },
+  {
+   "texture": "lantern",
+   "x": 2920,
+   "y": 1960,
+   "scale": 0.5,
+   "sorted": true,
+   "bob": 5
+  },
+  {
+   "texture": "lantern",
+   "x": 2560,
+   "y": 2060,
+   "scale": 0.5,
+   "sorted": true,
+   "bob": 4
+  },
+  {
+   "texture": "props",
+   "frame": "30",
+   "x": 2420,
+   "y": 2090,
+   "scale": 0.4,
+   "sorted": true,
+   "id": "log"
+  },
+  {
+   "texture": "props",
+   "frame": "6",
+   "x": 2720,
+   "y": 2020,
+   "scale": 0.36,
+   "sorted": true
+  },
+  {
+   "texture": "observatory",
+   "x": 2260,
+   "y": 1720,
+   "scale": 0.72,
+   "sorted": true,
+   "id": "observatory"
+  },
+  {
+   "texture": "props",
+   "frame": "12",
+   "x": 2080,
+   "y": 1540,
+   "scale": 0.34,
+   "sorted": true
+  }
+ ],
+ "bridges": [
+  {
+   "id": "sky",
+   "nodes": [
+    "b0",
+    "b1",
+    "b2"
+   ],
+   "detour": [
+    "bd0",
+    "bd1",
+    "bd2"
+   ],
+   "prop": {
+    "x": 1960,
+    "y": 660,
+    "scale": 1
+   },
+   "repairRounds": 2
+  }
+ ],
+ "gates": [
+  {
+   "id": "observatory",
+   "from": "p1",
+   "to": "o0",
+   "prop": {
+    "x": 1925,
+    "y": 2150,
+    "scale": 0.55
+   }
+  }
+ ],
+ "hostSpot": {
+  "x": 2170,
+  "y": 2170
+ }
+}

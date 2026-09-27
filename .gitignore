@@ -5,3 +5,7 @@ playwright-report/
 .vite/
 *.log
 .DS_Store
+art-out/
+.artenv/
+__pycache__/
+*.pyc

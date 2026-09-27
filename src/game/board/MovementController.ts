@@ -15,19 +15,19 @@ export const TOKEN_SCALE = 0.6;
 const LAYOUTS: [number, number][][] = [
   [[0, 0]],
   [
-    [-30, 6],
-    [36, -10],
-  ],
-  [
-    [0, 10],
-    [-54, -12],
-    [54, -12],
+    [-50, 6],
+    [54, -8],
   ],
   [
     [0, 12],
-    [-58, -8],
-    [58, -8],
-    [0, -32],
+    [-92, -10],
+    [94, -14],
+  ],
+  [
+    [-46, 14],
+    [48, 10],
+    [-124, -14],
+    [126, -18],
   ],
 ];
 
@@ -129,8 +129,12 @@ export class MovementController {
       const tag = this.tags.get(slot);
       if (!tag) continue;
       const lift = c.sprite.y;
+      const active = slot === this.activeSlot;
       tag.container.setPosition(c.x, c.y - 170 + lift);
-      tag.container.setDepth(DEPTH.worldUi + (slot === this.activeSlot ? 10 : 0));
+      tag.container.setDepth(DEPTH.worldUi + (active ? 10 : 0));
+      // Only the active player's marker is full size, so shared spaces stay readable.
+      const want = this.activeSlot === null || active ? 1 : 0.72;
+      if (Math.abs(tag.container.scale - want) > 0.01) tag.container.setScale(tag.container.scale + (want - tag.container.scale) * 0.2);
     }
   }
 

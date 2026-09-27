@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { COLORS, CSS, DEPTH, PLAYER_COLORS } from '../constants';
 import { npcFrame, type NpcId } from '../data/npcs';
+import { renderedManifestKey, renderedTileKey, type RenderedBoard } from '../data/rendered';
 import type { MatchState } from '../state/MatchState';
 import { addText } from '../ui/theme';
 import { centerOrigin, standOrigin } from '../util/spriteUtil';
@@ -35,9 +36,14 @@ export class BoardManager {
   private relicGlow!: Phaser.GameObjects.Image;
   private keeper!: Phaser.GameObjects.Sprite;
   private portalBadges = new Map<string, Phaser.GameObjects.Container>();
+  private portalSprites = new Map<string, Phaser.GameObjects.Sprite>();
   private gate?: Phaser.GameObjects.Image;
   private gateBars?: Phaser.GameObjects.Graphics;
   private bridgeBroken = false;
+  /** Trails and stepping stones are part of the pre-rendered terrain. */
+  private bakedPaths = false;
+  /** Placeholder decoration textures superseded by rendered landmarks. */
+  private replacedDecor = new Set<string>();
   npcs = new Map<NpcId, Phaser.GameObjects.Sprite>();
 
   constructor(
@@ -52,22 +58,61 @@ export class BoardManager {
     return { x: n.x, y: n.y };
   }
 
+  /** Pre-rendered terrain for this board, if every tile loaded. */
+  private rendered(): RenderedBoard | null {
+    const man = this.scene.cache.json.get(renderedManifestKey(this.def.id)) as RenderedBoard | undefined;
+    if (!man?.tiles?.length) return null;
+    return man.tiles.every((t) => this.scene.textures.exists(renderedTileKey(this.def.id, t.file))) ? man : null;
+  }
+
   build(state: MatchState): void {
     this.makeTextures();
     const s = this.scene;
-    // Islands (drawn back to front).
-    [...this.def.islands]
-      .sort((a, b) => a.y - b.y)
-      .forEach((isl, i) => {
-        const img = s.add.image(isl.x, isl.y, isl.texture).setOrigin(0.5, 0).setScale(isl.scale ?? 1).setFlipX(!!isl.flipX);
-        img.setDepth(DEPTH.islands + i * 0.01);
-        if (isl.bob) s.tweens.add({ targets: img, y: isl.y - isl.bob, duration: 2400 + i * 170, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
-      });
+    const baked = this.rendered();
+    if (baked) {
+      // Pre-rendered 3D terrain: islands, trails, stepping stones and scenery in one lit diorama.
+      const k = 1 / baked.scale;
+      for (const t of baked.tiles) {
+        s.add
+          .image(baked.origin[0] + t.x * k, baked.origin[1] + t.y * k, renderedTileKey(this.def.id, t.file))
+          .setOrigin(0)
+          .setScale(k)
+          .setDepth(DEPTH.islands);
+      }
+    } else {
+      // Vector placeholder islands (drawn back to front).
+      [...this.def.islands]
+        .sort((a, b) => a.y - b.y)
+        .forEach((isl, i) => {
+          const img = s.add.image(isl.x, isl.y, isl.texture).setOrigin(0.5, 0).setScale(isl.scale ?? 1).setFlipX(!!isl.flipX);
+          img.setDepth(DEPTH.islands + i * 0.01);
+          if (isl.bob) s.tweens.add({ targets: img, y: isl.y - isl.bob, duration: 2400 + i * 170, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+        });
+    }
+    this.bakedPaths = !!baked?.bakedPaths;
+    // Pre-rendered landmarks (depth-sorted with the characters by their ground anchor).
+    const replaced = new Set<string>();
+    for (const p of baked?.props ?? []) {
+      const key = renderedTileKey(this.def.id, p.file);
+      if (!s.textures.exists(key)) continue;
+      const img = s.add.image(p.anchorX, p.baseY, key);
+      img.setDisplaySize(p.w, p.h).setOrigin((p.anchorX - p.x) / p.w, (p.baseY - p.y) / p.h);
+      img.setDepth(p.depthY ?? p.baseY);
+      if (p.kind === 'sails' && p.hub) {
+        img.setOrigin((p.hub[0] - p.x) / p.w, (p.hub[1] - p.y) / p.h).setPosition(p.hub[0], p.hub[1]).setDepth(p.baseY + 4);
+        s.tweens.add({ targets: img, angle: 360, duration: 9000, repeat: -1 });
+      }
+      if (p.tex) replaced.add(p.tex);
+      this.decorations.set(p.id, img);
+      if (p.kind === 'gate') this.gate = img;
+    }
+    this.replacedDecor = replaced;
     this.bridgeLayer = s.add.container(0, 0).setDepth(DEPTH.paths + 1);
     this.detourLayer = s.add.container(0, 0).setDepth(DEPTH.paths + 1);
     this.drawPaths();
     // Decorations
     for (const d of this.def.decorations) {
+      if (this.replacedDecor.has(d.texture)) continue;
       let obj: Phaser.GameObjects.Image | Phaser.GameObjects.Sprite;
       if (d.frame !== undefined) {
         obj = s.add.sprite(d.x, d.y, d.texture, d.frame);
@@ -84,21 +129,35 @@ export class BoardManager {
       if (d.id) this.decorations.set(d.id, obj);
     }
     // Relic pedestals at every gate.
-    for (const g of this.def.relicGates) {
-      const p = this.pos(g);
-      s.add.image(p.x, p.y - 34, 'relic-pedestal').setOrigin(0.5, 1).setScale(0.5).setDepth(p.y - 34);
+    if (!this.replacedDecor.has('relic-pedestal')) {
+      for (const g of this.def.relicGates) {
+        const p = this.pos(g);
+        s.add.image(p.x, p.y - 34, 'relic-pedestal').setOrigin(0.5, 1).setScale(0.5).setDepth(p.y - 34);
+      }
     }
     // Portals
     for (const n of this.def.nodes.filter((nd) => nd.type === 'portal')) {
       const portal = s.add.sprite(n.x, n.y - 26, 'props', '27').play('portal-idle');
       const o = standOrigin('props', '27');
       portal.setOrigin(o.x, o.y).setScale(0.5).setDepth(n.y - 26);
-      const badge = s.add.container(n.x + 48, n.y - 150).setDepth(DEPTH.worldUi - 10);
+      this.portalSprites.set(n.id, portal);
+      // A small colour gem at the portal's foot marks which portals are paired.
+      const badge = s.add.container(n.x + 42, n.y + 8).setDepth(DEPTH.spaces + 3);
       this.portalBadges.set(n.id, badge);
+    }
+    // Ground chevrons at every fork, pointing along each branch.
+    for (const n of this.def.nodes) {
+      if (n.next.length < 2) continue;
+      for (const to of n.next) {
+        const b = this.graph.node(to);
+        const ang = Math.atan2(b.y - n.y, b.x - n.x);
+        const chev = s.add.image(n.x + Math.cos(ang) * 84, n.y + Math.sin(ang) * 66, 'fork-chevron').setRotation(ang).setDepth(DEPTH.spaces - 1).setScale(0.9);
+        s.tweens.add({ targets: chev, alpha: { from: 1, to: 0.55 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+      }
     }
     // Prism gate
     for (const gd of this.def.gates) {
-      this.gate = s.add.image(gd.prop.x, gd.prop.y, 'prism-gate').setOrigin(0.5, 1).setScale(gd.prop.scale).setDepth(gd.prop.y);
+      if (!this.replacedDecor.has('prism-gate')) this.gate = s.add.image(gd.prop.x, gd.prop.y, 'prism-gate').setOrigin(0.5, 1).setScale(gd.prop.scale).setDepth(gd.prop.y);
       this.gateBars = s.add.graphics().setDepth(gd.prop.y + 1);
     }
     // Spaces
@@ -177,6 +236,30 @@ export class BoardManager {
   // --- Paths --------------------------------------------------------------------------------
   private makeTextures(): void {
     const s = this.scene;
+    if (!s.textures.exists('fork-chevron')) {
+      // Cream double chevron with a teal outline (points along +x).
+      const g = s.make.graphics({ x: 0, y: 0 }, false);
+      const chevron = (ox: number, fill: number, line: number) => {
+        g.fillStyle(fill, 1);
+        g.lineStyle(4, line, 1);
+        g.beginPath();
+        g.moveTo(ox, 6);
+        g.lineTo(ox + 16, 20);
+        g.lineTo(ox, 34);
+        g.lineTo(ox + 8, 34);
+        g.lineTo(ox + 24, 20);
+        g.lineTo(ox + 8, 6);
+        g.closePath();
+        g.fillPath();
+        g.strokePath();
+      };
+      g.fillStyle(0x0b1a24, 0.25);
+      g.fillEllipse(26, 24, 50, 20);
+      chevron(6, 0xfff4dc, 0x117a77);
+      chevron(22, 0xffe08a, 0x117a77);
+      g.generateTexture('fork-chevron', 56, 40);
+      g.destroy();
+    }
     if (!s.textures.exists('path-stone')) {
       const g = s.make.graphics({ x: 0, y: 0 }, false);
       g.fillStyle(0x8d6a45, 1);
@@ -234,6 +317,7 @@ export class BoardManager {
         const curve = this.curve(a, b);
         const len = curve.getLength();
         const layer = b.metadata?.detour || a.metadata?.detour ? this.detourLayer : null;
+        if (this.bakedPaths && style !== 'bridge') continue;
         if (style === 'path') {
           const n = Math.max(2, Math.floor(len / 21));
           for (let i = 1; i < n; i++) {
@@ -377,13 +461,17 @@ export class BoardManager {
     for (const [id, badge] of this.portalBadges) {
       badge.removeAll(true);
       const idx = pairs.get(id) ?? 0;
+      const color = colors[idx % colors.length];
       const g = this.scene.add.graphics();
-      g.fillStyle(0x1b1530, 0.8);
-      g.fillCircle(0, 0, 24);
-      g.lineStyle(4, colors[idx % colors.length], 1);
-      g.strokeCircle(0, 0, 24);
-      const t = addText(this.scene, 0, -1, symbols[idx % symbols.length], 26, { color: '#ffffff', weight: 700, fixed: true });
+      g.fillStyle(0x0b1a24, 0.35);
+      g.fillEllipse(2, 6, 34, 14);
+      g.fillStyle(color, 1);
+      g.fillCircle(0, -4, 14);
+      g.lineStyle(3, 0xffffff, 0.9);
+      g.strokeCircle(0, -4, 14);
+      const t = addText(this.scene, 0, -5, symbols[idx % symbols.length], 16, { color: '#1b1530', weight: 700, fixed: true });
       badge.add([g, t]);
+      this.portalSprites.get(id)?.setTint(0xffffff, 0xffffff, color, color);
     }
     // Gate
     if (this.gate && this.gateBars) {

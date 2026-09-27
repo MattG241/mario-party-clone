@@ -29,9 +29,9 @@ export class TitleScene extends Phaser.Scene {
   private fx!: EffectsManager;
   private logo!: Phaser.GameObjects.Container;
   private busy = new Set<number>();
-  private farIslands!: Phaser.GameObjects.TileSprite;
-  private cloudsFar!: Phaser.GameObjects.TileSprite;
-  private cloudsBelow!: Phaser.GameObjects.TileSprite;
+  private farIslands?: Phaser.GameObjects.TileSprite;
+  private cloudsFar?: Phaser.GameObjects.TileSprite;
+  private cloudsBelow?: Phaser.GameObjects.TileSprite;
 
   constructor() {
     super('Title');
@@ -66,6 +66,11 @@ export class TitleScene extends Phaser.Scene {
   }
 
   private buildBackground(): void {
+    this.farIslands = this.cloudsFar = this.cloudsBelow = undefined;
+    if (this.textures.exists('rendered-sky-day')) {
+      this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'rendered-sky-day').setDisplaySize(GAME_WIDTH * 1.04, GAME_HEIGHT * 1.04);
+      return;
+    }
     this.add.image(0, 0, 'bg-sky').setOrigin(0).setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
     this.cloudsFar = this.add.tileSprite(0, 150, GAME_WIDTH, 420, 'bg-clouds-far').setOrigin(0).setAlpha(0.9);
     this.farIslands = this.add.tileSprite(0, 380, GAME_WIDTH, 640, 'bg-islands-far').setOrigin(0).setAlpha(0.85);
@@ -80,6 +85,23 @@ export class TitleScene extends Phaser.Scene {
   private buildIsland(): void {
     const cx = 1300;
     const island = this.add.container(cx, 0);
+    if (this.textures.exists('rendered-scene-title')) {
+      // Pre-rendered festival island (observatory, bunting, lanterns and trees baked in).
+      island.add(this.add.image(-cx, 0, 'rendered-scene-title').setOrigin(0));
+    } else {
+      this.buildVectorIsland(island);
+    }
+    const xs = [-330, -110, 110, 330];
+    CHARACTER_IDS.forEach((id, i) => {
+      const c = new Character(this, xs[i], 690 + (i % 2) * 14, id, { scale: 0.95 });
+      c.face(i >= 2);
+      island.add(c);
+      this.chars.push(c);
+    });
+    this.tweens.add({ targets: island, y: -14, duration: 3000, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+  }
+
+  private buildVectorIsland(island: Phaser.GameObjects.Container): void {
     const base = this.add.image(0, 820, 'island-wide').setScale(1.08);
     island.add(base);
     // Festival dressing
@@ -98,14 +120,6 @@ export class TitleScene extends Phaser.Scene {
     }
     const tree = this.add.image(610, 600, 'tree-twist').setScale(0.5);
     island.addAt(tree, 1);
-    const xs = [-330, -110, 110, 330];
-    CHARACTER_IDS.forEach((id, i) => {
-      const c = new Character(this, xs[i], 690 + (i % 2) * 14, id, { scale: 0.95 });
-      c.face(i >= 2);
-      island.add(c);
-      this.chars.push(c);
-    });
-    this.tweens.add({ targets: island, y: -14, duration: 3000, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
   }
 
   private buildLogo(): void {
@@ -252,9 +266,11 @@ export class TitleScene extends Phaser.Scene {
 
   override update(_t: number, delta: number): void {
     const dt = delta / 1000;
-    this.cloudsFar.tilePositionX += 8 * dt;
-    this.farIslands.tilePositionX += 4 * dt;
-    this.cloudsBelow.tilePositionX += 14 * dt;
+    if (this.cloudsFar && this.farIslands && this.cloudsBelow) {
+      this.cloudsFar.tilePositionX += 8 * dt;
+      this.farIslands.tilePositionX += 4 * dt;
+      this.cloudsBelow.tilePositionX += 14 * dt;
+    }
     const pad = input.hasGamepad();
     this.pressText.setText(pad ? 'PRESS  A' : 'PRESS ENTER');
     this.audioHint.setVisible(audio.available && !audio.running);

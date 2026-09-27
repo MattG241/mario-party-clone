@@ -36,6 +36,7 @@ export class CharacterSelectScene extends Phaser.Scene {
   private slots: SlotView[] = [];
   private chars: Character[] = [];
   private glows: Phaser.GameObjects.Graphics[] = [];
+  private renderedStage = false;
   private namePlates: Phaser.GameObjects.Container[] = [];
   private locked: (number | null)[] = [null, null, null, null]; // character index → slot
   private highlightCount = [0, 0, 0, 0];
@@ -58,8 +59,14 @@ export class CharacterSelectScene extends Phaser.Scene {
     this.locked = [null, null, null, null];
     this.fx = new EffectsManager(this, 800);
     audio.playMusic('menu');
-    this.add.image(0, 0, 'bg-sky').setOrigin(0).setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
-    this.add.tileSprite(0, 520, GAME_WIDTH, 560, 'bg-clouds-below').setOrigin(0).setAlpha(0.95);
+    this.renderedStage = this.textures.exists('rendered-scene-select');
+    if (this.renderedStage) {
+      if (this.textures.exists('rendered-sky-day')) this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'rendered-sky-day').setDisplaySize(GAME_WIDTH * 1.04, GAME_HEIGHT * 1.04);
+      this.add.image(0, 0, 'rendered-scene-select').setOrigin(0);
+    } else {
+      this.add.image(0, 0, 'bg-sky').setOrigin(0).setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
+      this.add.tileSprite(0, 520, GAME_WIDTH, 560, 'bg-clouds-below').setOrigin(0).setAlpha(0.95);
+    }
     addTitle(this, GAME_WIDTH / 2, 70, session.mode === 'board' ? 'CHOOSE YOUR ADVENTURERS' : 'MINIGAME MODE · CHOOSE YOUR PLAYERS', 64);
     this.buildPodiums();
     for (let i = 0; i < 4; i++) this.slots.push(this.buildSlot(i));
@@ -79,7 +86,7 @@ export class CharacterSelectScene extends Phaser.Scene {
   private buildPodiums(): void {
     CHARACTER_IDS.forEach((id, i) => {
       const x = PODIUM_X[i];
-      this.add.image(x, PODIUM_Y + 40, 'podium').setScale(0.95);
+      if (!this.renderedStage) this.add.image(x, PODIUM_Y + 40, 'podium').setScale(0.95);
       const glow = this.add.graphics({ x, y: PODIUM_Y - 30 });
       this.glows.push(glow);
       const c = new Character(this, x, PODIUM_Y - 20, id, { scale: 1.02 });
@@ -121,9 +128,9 @@ export class CharacterSelectScene extends Phaser.Scene {
     if (v.phase === 'empty') {
       const glyphKind = input.hasGamepad() ? 'gamepad' : 'keyboard';
       const glyph = makeGlyph(this, 'A', 54, glyphKind);
-      glyph.setPosition(-120, -8);
+      glyph.setPosition(-78, -10);
       add(glyph);
-      add(addText(this, 36, -8, 'PRESS A\nTO JOIN', 38, { color: CSS.tealDark, weight: 700, lineSpacing: -6 }));
+      add(addText(this, -18, -10, 'TO JOIN', 40, { color: CSS.tealDark, weight: 700, align: 'left' }));
       add(addText(this, 0, 74, session.mode === 'board' ? 'Empty slots can be filled by CPUs' : 'Empty slots become CPU players', 20, { color: CSS.inkSoft, weight: 500 }));
       this.tweens.add({ targets: glyph, scale: { from: 1, to: 1.12 }, duration: 520, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
       return;
@@ -135,10 +142,10 @@ export class CharacterSelectScene extends Phaser.Scene {
     if (v.phase === 'choosing') {
       add(addText(this, 60, -30, CHARACTERS[id].name, 34, { color: CSS.ink, weight: 700 }));
       add(addText(this, 60, 8, '◀  choose  ▶', 26, { color: CSS.tealDark, weight: 600 }));
-      const bar = new PromptBar(this, 60, 70, [
+      const bar = new PromptBar(this, 52, 70, [
         { button: 'A', label: 'Pick' },
         { button: 'B', label: 'Leave' },
-      ], { size: 32, fontSize: 22, color: CSS.ink, slot });
+      ], { size: 28, fontSize: 20, color: CSS.ink, slot });
       add(bar);
     } else {
       const stamp = addText(this, 60, -18, 'READY!', 54, { color: '#ffffff', stroke: CSS.tealDark, strokeThickness: 10, weight: 700, shadow: true });
@@ -285,10 +292,11 @@ export class CharacterSelectScene extends Phaser.Scene {
       const active = owners.length > 0;
       if (active) {
         owners.forEach((slot, k) => {
-          g.fillStyle(PLAYER_COLORS[slot], 0.35);
-          g.fillEllipse(0, 50, 250 - k * 30, 70 - k * 8);
+          // Selection ring lying on the pedestal's top face.
+          g.fillStyle(PLAYER_COLORS[slot], 0.3);
+          g.fillEllipse(0, 30, 216 - k * 30, 54 - k * 8);
           g.lineStyle(6, PLAYER_COLORS[slot], 1);
-          g.strokeEllipse(0, 50, 260 - k * 34, 76 - k * 9);
+          g.strokeEllipse(0, 30, 226 - k * 34, 58 - k * 9);
         });
       }
       const ch = this.chars[ci];

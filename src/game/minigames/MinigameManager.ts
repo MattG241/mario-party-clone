@@ -21,6 +21,8 @@ export interface MinigameInfo {
   teamGame?: boolean;
   /** Minigame-specific placeholder art, lazy-loaded by the intro screen. */
   assets?: SvgAsset[];
+  /** Pre-rendered arena texture (shown as a live preview on the intro card). */
+  arena?: string;
 }
 
 export interface MinigamePlayer {
@@ -64,6 +66,7 @@ export const MINIGAMES: MinigameInfo[] = [
     color: 0xf4b83b,
     preview: { texture: 'items', frame: '0', scale: 0.7 },
     assets: [{ key: 'mg-plaza-floor', path: `${MG}gleam-grab/plaza_floor.svg`, width: 1600, height: 820 }],
+    arena: 'rendered-scene-gleam',
   },
   {
     id: 'orbit-dodge',
@@ -81,6 +84,7 @@ export const MINIGAMES: MinigameInfo[] = [
     color: 0x8e5cd9,
     preview: { texture: 'props', frame: '19', scale: 0.62 },
     assets: [{ key: 'mg-orbit-platform', path: `${MG}orbit-dodge/platform.svg`, width: 1400, height: 760 }],
+    arena: 'rendered-scene-orbit',
   },
   {
     id: 'crate-craze',

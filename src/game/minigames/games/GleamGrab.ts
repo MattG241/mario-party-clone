@@ -1,10 +1,11 @@
 import Phaser from 'phaser';
 import { audio } from '../../audio/AudioManager';
 import { Character } from '../../characters/Character';
-import { CSS, GAME_WIDTH } from '../../constants';
+import { GAME_WIDTH } from '../../constants';
 import { CHARACTERS } from '../../data/characters';
 import type { VirtualControls } from '../../input/PlayerInput';
-import { centerOrigin } from '../../util/spriteUtil';
+import { npcFrame, type NpcId } from '../../data/npcs';
+import { centerOrigin, standOrigin } from '../../util/spriteUtil';
 import { BaseMinigame, type MgPlayer } from '../BaseMinigame';
 import { clampRect, dist, drift, separate, steer, type Mover } from '../common';
 
@@ -28,6 +29,7 @@ interface Drop {
   life: number;
   sprite: Phaser.GameObjects.Sprite;
   shadow: Phaser.GameObjects.Ellipse;
+  ring: Phaser.GameObjects.Image;
 }
 
 const ARENA = { x: 250, y: 290, w: 1420, h: 640 };
@@ -55,6 +57,13 @@ export class GleamGrabScene extends BaseMinigame {
     this.drops = [];
     this.spawnT = 800;
     this.showerAt = 9000;
+    if (this.textures.exists('rendered-scene-gleam')) {
+      // Pre-rendered festival plaza on its floating island, with a cheering crowd behind the curb.
+      if (this.textures.exists('rendered-sky-day')) this.add.image(GAME_WIDTH / 2, 540, 'rendered-sky-day').setDisplaySize(GAME_WIDTH * 1.04, 1124).setDepth(-100);
+      this.add.image(0, 0, 'rendered-scene-gleam').setOrigin(0).setDepth(-50);
+      this.buildCrowd();
+      return;
+    }
     this.add.image(0, 0, 'bg-sky').setOrigin(0).setDisplaySize(GAME_WIDTH, 1080);
     this.add.tileSprite(0, 700, GAME_WIDTH, 560, 'bg-clouds-below').setOrigin(0).setAlpha(0.9);
     this.add.image(960, 620, 'island-wide').setScale(1.7, 1.25).setOrigin(0.5, 0.36);
@@ -67,6 +76,36 @@ export class GleamGrabScene extends BaseMinigame {
     ]) {
       const l = this.add.image(x, y, 'lantern').setScale(0.8);
       this.tweens.add({ targets: l, angle: { from: -6, to: 6 }, duration: 1600, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+    }
+  }
+
+  /** Festival folk cheering from behind the back curb (bob, and hop when chips rain). */
+  private crowd: Phaser.GameObjects.Sprite[] = [];
+
+  private buildCrowd(): void {
+    this.crowd = [];
+    const folk: [NpcId, string, number][] = [
+      ['mimi', 'happy', 262],
+      ['packsprout', 'cheer', 340],
+      ['ora', 'cheer', 650],
+      ['pipper', 'happy', 740],
+      ['wrench', 'laugh', 1185],
+      ['mimi', 'laugh', 1265],
+      ['packsprout', 'star', 1595],
+      ['ora', 'wave', 1675],
+    ];
+    folk.forEach(([id, pose, x], i) => {
+      const spr = this.add.sprite(x, 236, 'npcs', npcFrame(id, pose));
+      const o = standOrigin('npcs', npcFrame(id, pose));
+      spr.setOrigin(o.x, o.y).setScale(0.42).setDepth(200 + i * 0.01).setFlipX(x > 960);
+      this.tweens.add({ targets: spr, y: 228, duration: 420 + (i % 3) * 90, yoyo: true, repeat: -1, ease: 'Sine.InOut', delay: i * 70 });
+      this.crowd.push(spr);
+    });
+  }
+
+  private crowdCheer(): void {
+    for (const [i, spr] of this.crowd.entries()) {
+      this.tweens.add({ targets: spr, scaleY: { from: 0.36, to: 0.46 }, duration: 160, yoyo: true, repeat: 2, delay: i * 40 });
     }
   }
 
@@ -103,7 +142,10 @@ export class GleamGrabScene extends BaseMinigame {
       .ellipse(px, py, 90, 34, kind === 'capsule' ? 0x5e3494 : 0x0b1a24, kind === 'capsule' ? 0.45 : 0.3)
       .setScale(0.2)
       .setDepth(py - 1);
-    this.drops.push({ kind, x: px, y: py, fallT: FALL_MS, fallTotal: FALL_MS, state: 'falling', life: 4500, sprite, shadow });
+    // Landing telegraph: a colour-coded ring that closes in on the landing spot as the drop falls.
+    const ringColor = kind === 'capsule' ? 0xb57dff : kind === 'gold' ? 0xffe066 : 0xffc94a;
+    const ring = this.add.image(px, py, 'fx-ring').setTint(ringColor).setAlpha(0.2).setScale(1.5, 0.6).setDepth(py - 0.5).setBlendMode(Phaser.BlendModes.ADD);
+    this.drops.push({ kind, x: px, y: py, fallT: FALL_MS, fallTotal: FALL_MS, state: 'falling', life: 4500, sprite, shadow, ring });
   }
 
   private updateDrops(dt: number): void {
@@ -114,7 +156,11 @@ export class GleamGrabScene extends BaseMinigame {
         const t = 1 - Math.max(0, d.fallT) / d.fallTotal;
         d.sprite.y = d.y - 700 * (1 - t * t) - 20;
         d.shadow.setScale(0.2 + t * 0.8);
+        const rs = 1.5 - t * 0.95;
+        const wob = d.kind === 'capsule' ? Math.sin(t * 40) * 0.06 : 0;
+        d.ring.setScale(rs + wob, (rs - wob) * 0.4).setAlpha(0.25 + t * 0.7);
         if (d.fallT <= 0) {
+          d.ring.destroy();
           d.sprite.y = d.y - 20;
           audio.play(d.kind === 'capsule' ? 'land' : 'pop', { volume: 0.4, throttleMs: 50 });
           this.fx.vfx('dust', d.x, d.y, { scale: 0.25, duration: 360, alpha: 0.6 });
@@ -143,6 +189,7 @@ export class GleamGrabScene extends BaseMinigame {
     this.tweens.killTweensOf(d.sprite);
     d.sprite.destroy();
     d.shadow.destroy();
+    if (d.ring.active) d.ring.destroy();
   }
 
   private burst(d: Drop): void {
@@ -170,7 +217,12 @@ export class GleamGrabScene extends BaseMinigame {
     const value = d.kind === 'gold' ? 3 : 1;
     g.p.score += value;
     audio.play('chipGain', { rate: d.kind === 'gold' ? 0.8 : 1 + Math.random() * 0.15, throttleMs: 30 });
-    this.fx.floatText(d.x, d.y - 80, `+${value}`, d.kind === 'gold' ? '#fff1a0' : CSS.goldLight, { size: d.kind === 'gold' ? 54 : 42, rise: 70, duration: 700 });
+    this.fx.floatText(d.x, d.y - 80, `+${value}`, d.kind === 'gold' ? '#fff1a0' : '#ffffff', {
+      size: d.kind === 'gold' ? 58 : 46,
+      rise: 80,
+      duration: 750,
+      stroke: d.kind === 'gold' ? '#8a4b00' : '#b86e00',
+    });
     if (d.kind === 'gold') {
       this.fx.sparks(d.x, d.y - 40, 18);
       g.c.play('celebrate');
@@ -179,6 +231,7 @@ export class GleamGrabScene extends BaseMinigame {
     const spr = d.sprite;
     d.state = 'gone';
     d.shadow.destroy();
+    if (d.ring.active) d.ring.destroy();
     this.tweens.killTweensOf(spr);
     this.tweens.add({ targets: spr, x: g.x, y: g.y - 150, scale: 0.08, alpha: 0.2, duration: 200, ease: 'Quad.In', onComplete: () => spr.destroy() });
   }
@@ -201,6 +254,7 @@ export class GleamGrabScene extends BaseMinigame {
       const cy = ARENA.y + 150 + this.rng.next() * (ARENA.h - 300);
       audio.play('cheer', { volume: 0.5 });
       for (let i = 0; i < 7; i++) this.spawnDrop(i === 3 ? 'gold' : 'chip', cx + Math.cos(i) * 130, cy + Math.sin(i * 1.7) * 90);
+      this.crowdCheer();
     }
     this.updateDrops(dt);
     // Players

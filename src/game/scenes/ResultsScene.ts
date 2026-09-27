@@ -72,8 +72,12 @@ export class ResultsScene extends Phaser.Scene {
     enterScene(this);
     audio.playMusic('results');
     const fx = new EffectsManager(this, 800);
-    this.add.image(0, 0, 'bg-sky').setOrigin(0).setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
-    this.add.tileSprite(0, 640, GAME_WIDTH, 560, 'bg-clouds-below').setOrigin(0);
+    if (this.textures.exists('rendered-sky-day')) {
+      this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'rendered-sky-day').setDisplaySize(GAME_WIDTH * 1.05, GAME_HEIGHT * 1.05).setDepth(-10);
+    } else {
+      this.add.image(0, 0, 'bg-sky').setOrigin(0).setDisplaySize(GAME_WIDTH, GAME_HEIGHT).setDepth(-10);
+      this.add.tileSprite(0, 640, GAME_WIDTH, 560, 'bg-clouds-below').setOrigin(0).setDepth(-10);
+    }
     addTitle(this, GAME_WIDTH / 2, 80, 'RESULTS', 84);
     const board = this.launchData.mode === 'board';
     // Order podium columns: 2nd, 1st, 3rd, 4th (by rank index)
@@ -85,15 +89,16 @@ export class ResultsScene extends Phaser.Scene {
       const lp = this.launchData.players.find((p) => p.slot === pl.slot)!;
       const x = xs[col];
       const h = PODIUM_H[Math.min(3, pl.place - 1)];
-      const baseY = 900;
+      const baseY = board ? 900 : 860;
       drawPodium(this.add.graphics(), x, baseY, h, PLAYER_COLORS[pl.slot], pl.place === 1);
       const suffix = pl.place === 1 ? 'st' : pl.place === 2 ? 'nd' : pl.place === 3 ? 'rd' : 'th';
       addTitle(this, x, baseY - h / 2 + 30, `${pl.place}${suffix}`, 64, pl.place === 1 ? CSS.goldLight : CSS.cream);
       const c = new Character(this, x, baseY - h + 10, lp.characterId, { scale: 0.9 });
       c.setAlpha(0);
-      new PlayerBadge(this, x - 110, baseY - h - 250, pl.slot, 26);
+      // Marker centred over the character's head.
+      new PlayerBadge(this, x, baseY - h - 262, pl.slot, 26);
       const scoreLabel = this.result.scores.find((s) => s.slot === pl.slot)?.label ?? '';
-      addText(this, x, baseY + 50, scoreLabel, 28, { color: CSS.cream, weight: 700, stroke: '#1b1530', strokeThickness: 6 });
+      addText(this, x, baseY + 44, scoreLabel, 28, { color: CSS.cream, weight: 700, stroke: '#1b1530', strokeThickness: 6 });
       if (board) {
         const panel = this.add.graphics();
         drawPanel(panel, x - 90, baseY + 78, 180, 64, { radius: 24, borderWidth: 4, engraving: false, shadowOffset: 5 });
@@ -108,11 +113,32 @@ export class ResultsScene extends Phaser.Scene {
         c.y -= 200;
         this.tweens.add({ targets: c, y: c.y + 200, duration: 380, ease: 'Bounce.Out' });
         audio.play('land');
-        const anim = pl.place === 1 ? 'victory' : pl.place === ranked.length && ranked.length > 1 ? 'disappointed' : 'celebrate';
-        this.time.delayedCall(380, () => c.play(anim, { returnTo: anim === 'disappointed' ? 'idle' : 'idle' }));
+        const last = pl.place === ranked.length && ranked.length > 1;
+        const anim = pl.place === 1 ? 'victory' : last ? 'disappointed' : 'celebrate';
+        this.time.delayedCall(380, () => {
+          if (last) {
+            // Last place keeps a disappointed pose instead of snapping back to idle.
+            c.play('disappointed', { onComplete: () => c.hold('disappointed', 2) });
+          } else if (pl.place === 1) {
+            c.play('victory');
+            this.time.addEvent({ delay: 2200, loop: true, callback: () => c.play('victory') });
+          } else c.play(anim);
+        });
         if (pl.place === 1) {
           audio.play('victory');
           fx.confetti(x, baseY - h - 280, 90);
+          // Sunburst behind the winner and a ribbon above.
+          const rays = this.add.graphics({ x, y: baseY - h - 120 }).setDepth(-5).setAlpha(0);
+          for (let i = 0; i < 18; i++) {
+            const a0 = (i / 18) * Math.PI * 2;
+            rays.fillStyle(i % 2 ? 0xffe08a : 0xffffff, 0.22);
+            rays.slice(0, 0, 520, a0, a0 + 0.17, false);
+            rays.fillPath();
+          }
+          this.tweens.add({ targets: rays, alpha: 1, duration: 400 });
+          this.tweens.add({ targets: rays, angle: 360, duration: 24000, repeat: -1 });
+          const ribbon = addTitle(this, x, baseY - h - 330, 'WINNER!', 48, CSS.goldLight).setScale(0.3);
+          this.tweens.add({ targets: ribbon, scale: 1, duration: 360, ease: 'Back.Out' });
           if (!lp.isCpu) {
             input.rumbleSlot(lp.slot, 0.6, 0.6, 150);
             this.time.delayedCall(260, () => input.rumbleSlot(lp.slot, 0.6, 0.6, 150));

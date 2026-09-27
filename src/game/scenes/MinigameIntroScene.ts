@@ -52,7 +52,8 @@ export class MinigameIntroScene extends Phaser.Scene {
       return;
     }
     audio.playMusic('minigame');
-    this.add.image(0, 0, 'bg-sky').setOrigin(0).setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
+    if (this.textures.exists('rendered-sky-day')) this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'rendered-sky-day').setDisplaySize(GAME_WIDTH * 1.04, GAME_HEIGHT * 1.04);
+    else this.add.image(0, 0, 'bg-sky').setOrigin(0).setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
     const veil = this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, this.info.color, 0.28).setOrigin(0);
     void veil;
     // Swirling rays
@@ -76,16 +77,20 @@ export class MinigameIntroScene extends Phaser.Scene {
     // Card: preview art + instructions
     const card = this.add.graphics();
     drawPanel(card, 170, 330, 1580, 420, { radius: 34 });
-    const pv = this.info.preview;
-    const art = pv.frame !== undefined ? this.add.sprite(420, 540, pv.texture, pv.frame) : this.add.image(420, 540, pv.texture);
-    if (pv.frame !== undefined) {
-      const o = centerOrigin(pv.texture, pv.frame);
-      art.setOrigin(o.x, o.y);
+    if (this.info.arena && this.textures.exists(this.info.arena)) {
+      this.buildArenaPreview(this.info.arena);
+    } else {
+      const pv = this.info.preview;
+      const art = pv.frame !== undefined ? this.add.sprite(420, 540, pv.texture, pv.frame) : this.add.image(420, 540, pv.texture);
+      if (pv.frame !== undefined) {
+        const o = centerOrigin(pv.texture, pv.frame);
+        art.setOrigin(o.x, o.y);
+      }
+      if (this.textures.exists(pv.texture)) art.setScale(pv.scale);
+      const glow = this.add.image(420, 540, 'fx-dot').setScale(16).setTint(this.info.color).setAlpha(0.35).setBlendMode(Phaser.BlendModes.ADD);
+      this.children.moveBelow(glow, art);
+      this.tweens.add({ targets: art, y: 525, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
     }
-    if (this.textures.exists(pv.texture)) art.setScale(pv.scale);
-    const glow = this.add.image(420, 540, 'fx-dot').setScale(16).setTint(this.info.color).setAlpha(0.35).setBlendMode(Phaser.BlendModes.ADD);
-    this.children.moveBelow(glow, art);
-    this.tweens.add({ targets: art, y: 525, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
     if (mode === 'on') {
       this.info.instructions.forEach((line, i) => {
         const y = 400 + i * 62;
@@ -122,6 +127,47 @@ export class MinigameIntroScene extends Phaser.Scene {
       }
     });
     new PromptBar(this, GAME_WIDTH / 2, GAME_HEIGHT - 34, [{ button: 'A', label: 'Ready!' }], { size: 38, fontSize: 26 });
+  }
+
+  /** Live mini-preview: the rendered arena with this match's characters playing in it. */
+  private buildArenaPreview(key: string): void {
+    const x0 = 200;
+    const y0 = 356;
+    const w = 470;
+    const h = 368;
+    const scale = w / GAME_WIDTH;
+    const root = this.add.container(x0, y0);
+    const sky = this.textures.exists('rendered-sky-day') ? this.add.image(w / 2, h / 2, 'rendered-sky-day').setDisplaySize(w * 1.2, h * 1.2) : null;
+    const arena = this.add.image(0, (h - GAME_HEIGHT * scale) / 2, key).setOrigin(0).setScale(scale);
+    if (sky) root.add(sky);
+    root.add(arena);
+    const maskG = this.make.graphics({ x: 0, y: 0 }, false);
+    maskG.fillStyle(0xffffff);
+    maskG.fillRoundedRect(x0, y0, w, h, 22);
+    root.setMask(maskG.createGeometryMask());
+    const frame = this.add.graphics();
+    frame.lineStyle(6, this.info.color, 1);
+    frame.strokeRoundedRect(x0, y0, w, h, 22);
+    // characters wandering around the arena (scaled down)
+    const cy = (h - GAME_HEIGHT * scale) / 2;
+    this.launchData.players.forEach((p, i) => {
+      const sx = (560 + i * 260) * scale;
+      const sy = cy + (560 + (i % 2) * 180) * scale;
+      const c = new Character(this, sx, sy, p.characterId, { scale: 0.58 * scale, shadow: true });
+      root.add(c);
+      c.play('run');
+      this.tweens.add({
+        targets: c,
+        x: sx + (i % 2 ? -1 : 1) * 70,
+        duration: 1300 + i * 170,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.InOut',
+        onYoyo: () => c.face(!(i % 2)),
+        onRepeat: () => c.face(!!(i % 2)),
+      });
+    });
+    addText(this, x0 + w / 2, y0 + h - 22, 'PREVIEW', 18, { color: CSS.cream, weight: 700, stroke: '#1b1530', strokeThickness: 5 });
   }
 
   private start(): void {
