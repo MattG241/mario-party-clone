@@ -248,24 +248,58 @@ def workshop(bx, by, s=1.0) -> list:
         P.b['wood'].add(v, f, WOOD)
     v, f = lib.box((x, y - D / 2 - 0.02, Hh - 0.04), (W + 0.1, 0.07 * s, 0.08 * s))
     P.b['wood'].add(v, f, WOOD)
-    # pitched roof built from overlapping tile courses (alternating teal shades)
+    # pitched roof of individual clay tiles (colour-jittered, slightly uneven) so it reads as a
+    # textured roof rather than a flat block
     ridge = Hh + 0.62 * s
     o = 0.16 * s
     courses = 7
+    across = 11
+    rt = random.Random(11)
+    pal = ['#c8553d', '#d8653f', '#b84a36', '#e07048', '#c95e45']
     for side in (-1, 1):
         for k in range(courses):
-            t0, t1 = k / courses, (k + 1) / courses + 0.04
+            t0, t1 = k / courses, (k + 1) / courses + 0.05
             ya = y + side * (D / 2 + o) * (1 - t0)
             yb = y + side * (D / 2 + o) * (1 - min(1.0, t1))
             za = Hh - 0.05 + (ridge - Hh + 0.05) * t0
             zb = Hh - 0.05 + (ridge - Hh + 0.05) * min(1.0, t1)
-            lift = 0.035 * s
-            quad = [(x - W / 2 - o, ya, za + lift), (x + W / 2 + o, ya, za + lift), (x + W / 2 + o, yb, zb + lift), (x - W / 2 - o, yb, zb + lift)]
-            face = [(0, 1, 2, 3)] if side < 0 else [(3, 2, 1, 0)]
-            P.b['paint'].add(quad, face, col('#2aa39c' if k % 2 == 0 else '#23908a'))
-            # tile lip (thickness at the lower edge of each course)
-            lip = [(x - W / 2 - o, ya, za + lift), (x + W / 2 + o, ya, za + lift), (x + W / 2 + o, ya, za + lift - 0.06 * s), (x - W / 2 - o, ya, za + lift - 0.06 * s)]
-            P.b['paint'].add(lip, [(0, 1, 2, 3), (3, 2, 1, 0)], col('#1a746f'))
+            off = (k % 2) * 0.5
+            for j in range(across + 1):
+                xa = x - W / 2 - o + (j - off) * (W + 2 * o) / across
+                xb = xa + (W + 2 * o) / across * 0.96
+                xa, xb = max(xa, x - W / 2 - o), min(xb, x + W / 2 + o)
+                if xb - xa < 0.02:
+                    continue
+                lift = 0.035 * s + rt.uniform(-0.008, 0.012) * s
+                quad = [(xa, ya, za + lift), (xb, ya, za + lift), (xb, yb, zb + lift), (xa, yb, zb + lift)]
+                face = [(0, 1, 2, 3)] if side < 0 else [(3, 2, 1, 0)]
+                c = rt.choice(pal)
+                P.b['paint'].add(quad, face, col(c))
+                lip = [(xa, ya, za + lift), (xb, ya, za + lift), (xb, ya, za + lift - 0.06 * s), (xa, ya, za + lift - 0.06 * s)]
+                P.b['paint'].add(lip, [(0, 1, 2, 3), (3, 2, 1, 0)], lib.lerp_col(col(c), col('#5a2418'), 0.45))
+    # stone foundation band
+    v, f = lib.box((x, y, 0.09 * s), (W + 0.08 * s, D + 0.08 * s, 0.18 * s))
+    P.b['stone'].add(v, f, col('#b9ab98'))
+    # lean-to shed on the right with its own slanted roof (breaks up the box silhouette)
+    sx0 = x + W / 2
+    v, f = lib.box((sx0 + 0.28 * s, y + 0.1 * s, 0.33 * s), (0.56 * s, 0.7 * s, 0.66 * s))
+    P.b['wood'].add(v, f, col('#a8744a'))
+    lean = [(sx0 - 0.02, y - 0.3 * s, 0.86 * s), (sx0 + 0.66 * s, y - 0.3 * s, 0.66 * s), (sx0 + 0.66 * s, y + 0.5 * s, 0.66 * s), (sx0 - 0.02, y + 0.5 * s, 0.86 * s)]
+    P.b['wood'].add(lean, [(0, 1, 2, 3), (3, 2, 1, 0)], col('#6b4428'))
+    # brass water tank on stilts behind the workshop
+    tx, ty = x - W / 2 + 0.2 * s, y + D / 2 + 0.35 * s
+    for (dx, dy) in [(-0.15, -0.15), (0.15, -0.15), (-0.15, 0.15), (0.15, 0.15)]:
+        v, f = lib.cylinder((tx + dx * 0.7 * s, ty + dy * 0.7 * s, 0.0), 0.02 * s, 0.02 * s, 0.95 * s, 6)
+        P.b['wood'].add(v, f, DARKWOOD)
+    v, f = lib.lathe([(0.14 * s, 0.0), (0.15 * s, 0.03 * s), (0.15 * s, 0.26 * s), (0.11 * s, 0.32 * s), (0.0, 0.34 * s)], 18, (tx, ty, 0.95 * s), cap_bottom=True)
+    P.b['metal'].add(v, f, BRASS)
+    # window boxes with flowers
+    for wx in (x + 0.35 * s,):
+        v, f = lib.box((wx, y - D / 2 - 0.08 * s, 0.44 * s), (0.4 * s, 0.1 * s, 0.08 * s))
+        P.b['wood'].add(v, f, DARKWOOD)
+        for k in range(5):
+            v, f = lib.blob((wx - 0.16 * s + k * 0.08 * s, y - D / 2 - 0.08 * s, 0.5 * s), 0.035 * s, rough=0.0, subdiv=1)
+            P.b['paint'].add(v, f, col(['#ff5a6e', '#ffd166', '#ffffff', '#ff9ecb', '#c49bff'][k]))
     # brass ridge cap
     v, f = lib.tube([(x - W / 2 - o, y, ridge + 0.05), (x + W / 2 + o, y, ridge + 0.05)], 0.06 * s, 10)
     P.b['metal'].add(v, f, BRASS)
@@ -561,4 +595,168 @@ def stage(bx, by, s=1.0) -> list:
         P.b['wood'].add(v, f, DARKWOOD)
         tri = [(px, py, 1.28 * s), (px, py, 1.02 * s), (px + (0.34 if k else -0.34) * s, py, 1.15 * s)]
         P.b['paint'].add(tri, [(0, 1, 2), (2, 1, 0)], col(cols[k]))
+    return P.build()
+
+
+# ------------------------------------------------------------------------------------------
+# Story props (mid-sized scenery that gives each region a sense of place)
+def skyboat(bx, by, s=1.0) -> list:
+    """A little festival sky-boat moored at the docks: wooden hull, striped balloon, lanterns."""
+    p = _at(bx, by)
+    P = Prop('skyboat')
+    x, y = p.x, p.y
+    z0 = 0.55 * s
+    L, Wd = 1.7 * s, 0.62 * s
+    # hull: a spindle revolved around Z, laid along X, narrowed and cut flat for the deck
+    prof = [(0.0, -L / 2), (0.16 * s, -L / 2 + 0.08 * s), (0.3 * s, -L / 4), (0.33 * s, 0.0), (0.3 * s, L / 4), (0.18 * s, L / 2 - 0.08 * s), (0.02 * s, L / 2)]
+    v, f = lib.lathe(prof, 20, (0, 0, 0), cap_bottom=False, cap_top=False)
+    v = lib.transform(v, loc=(x, y, z0), rot=(0.0, math.pi / 2, 0.0), scale=(1.0, Wd / (0.66 * s), 1.0))
+    v = [(vx, vy, min(vz, z0 + 0.06 * s)) for (vx, vy, vz) in v]
+    P.b['wood'].add(v, f, lambda vv: col('#8a5a34') if vv[2] < z0 - 0.12 * s else col('#b07a45'))
+    # deck rail and gold trim
+    rail = [(x - L / 2 + 0.2 * s, y, z0 + 0.1 * s), (x + L / 2 - 0.2 * s, y, z0 + 0.1 * s)]
+    v, f = lib.tube(rail, 0.02 * s, 6)
+    P.b['metal'].add(v, f, BRASS)
+    # mast, balloon (striped gores) and rigging
+    v, f = lib.cylinder((x, y, z0), 0.035 * s, 0.03 * s, 1.1 * s, 8)
+    P.b['wood'].add(v, f, DARKWOOD)
+    bz = z0 + 1.45 * s
+    gores = 12
+    for k in range(gores):
+        a0, a1 = k / gores * math.tau, (k + 1) / gores * math.tau
+        verts, faces = [], []
+        rows = 10
+        for r in range(rows + 1):
+            t = r / rows
+            el = -math.pi / 2 + t * math.pi
+            rr = math.cos(el) * 0.62 * s
+            zz = bz + math.sin(el) * 0.5 * s
+            for a in (a0, a1):
+                verts.append((x + math.cos(a) * rr * 1.25, y + math.sin(a) * rr, zz))
+        for r in range(rows):
+            i = r * 2
+            faces.append((i, i + 1, i + 3, i + 2))
+        P.b['paint'].add(verts, faces, col('#ff6b5e' if k % 2 == 0 else '#fff4dc'))
+    for (dx, dy) in [(-0.5, -0.2), (0.5, -0.2), (-0.5, 0.2), (0.5, 0.2)]:
+        v, f = lib.tube([(x + dx * s * 0.9, y + dy * s, z0 + 0.06 * s), (x + dx * s * 0.7, y + dy * s * 0.8, bz - 0.45 * s)], 0.008 * s, 4)
+        P.b['wood'].add(v, f, DARKWOOD)
+    # propeller at the stern and hanging lanterns
+    v, f = lib.box((x - L / 2 - 0.04 * s, y, z0 + 0.02 * s), (0.04 * s, 0.4 * s, 0.07 * s))
+    P.b['metal'].add(v, f, BRASS)
+    for dx in (-0.45, 0.45):
+        v, f = lib.blob((x + dx * s, y - 0.3 * s, z0 + 0.3 * s), 0.07 * s, rough=0.0, subdiv=2)
+        P.b['glow'].add(v, f, col('#ffd27a'))
+    return P.build()
+
+
+def well(bx, by, s=1.0) -> list:
+    """Round stone well with a little shingled roof and a bucket."""
+    p = _at(bx, by)
+    P = Prop('well')
+    x, y = p.x, p.y
+    v, f = lib.lathe([(0.42 * s, 0.0), (0.42 * s, 0.42 * s), (0.34 * s, 0.46 * s), (0.34 * s, 0.1 * s), (0.0, 0.1 * s)], 24, (x, y, 0.0), cap_bottom=False, cap_top=False)
+    P.b['stone'].add(v, f, col('#d9ccba'))
+    v, f = lib.lathe([(0.33 * s, 0.12 * s), (0.0, 0.12 * s)], 24, (x, y, 0.0), cap_bottom=False, cap_top=False)
+    P.b['glow'].add(v, f, col('#3fb0d8'))
+    for dx in (-0.36, 0.36):
+        v, f = lib.cylinder((x + dx * s, y, 0.4 * s), 0.035 * s, 0.035 * s, 0.75 * s, 8)
+        P.b['wood'].add(v, f, DARKWOOD)
+    roof_z = 1.15 * s
+    for side in (-1, 1):
+        quad = [(x - 0.44 * s, y + side * 0.3 * s, roof_z - 0.1 * s), (x + 0.44 * s, y + side * 0.3 * s, roof_z - 0.1 * s), (x + 0.44 * s, y, roof_z + 0.3 * s), (x - 0.44 * s, y, roof_z + 0.3 * s)]
+        P.b['paint'].add(quad, [(0, 1, 2, 3)] if side < 0 else [(3, 2, 1, 0)], col('#c8553d'))
+    v, f = lib.tube([(x - 0.36 * s, y, 0.95 * s), (x + 0.36 * s, y, 0.95 * s)], 0.03 * s, 8)
+    P.b['wood'].add(v, f, WOOD)
+    v, f = lib.lathe([(0.07 * s, 0.0), (0.09 * s, 0.14 * s), (0.0, 0.14 * s)], 10, (x + 0.1 * s, y - 0.05 * s, 0.62 * s), cap_bottom=True, cap_top=False)
+    P.b['wood'].add(v, f, col('#9a643a'))
+    return P.build()
+
+
+def flower_cart(bx, by, s=1.0) -> list:
+    """Two-wheeled cart heaped with flower pots."""
+    p = _at(bx, by)
+    P = Prop('flower_cart')
+    x, y = p.x, p.y
+    v, f = lib.box((x, y, 0.4 * s), (0.9 * s, 0.5 * s, 0.22 * s))
+    P.b['wood'].add(v, f, col('#b07a45'))
+    for dy in (-0.27, 0.27):
+        v, f = lib.cylinder((0, 0, 0), 0.24 * s, 0.24 * s, 0.05 * s, 16)
+        v = lib.transform(v, loc=(x - 0.1 * s, y + dy * s, 0.24 * s), rot=(math.pi / 2, 0.0, 0.0))
+        P.b['wood'].add(v, f, DARKWOOD)
+    v, f = lib.tube([(x + 0.45 * s, y - 0.18 * s, 0.42 * s), (x + 0.95 * s, y - 0.18 * s, 0.2 * s)], 0.025 * s, 6)
+    P.b['wood'].add(v, f, WOOD)
+    v, f = lib.tube([(x + 0.45 * s, y + 0.18 * s, 0.42 * s), (x + 0.95 * s, y + 0.18 * s, 0.2 * s)], 0.025 * s, 6)
+    P.b['wood'].add(v, f, WOOD)
+    rnd = random.Random(4)
+    for k in range(9):
+        px = x - 0.33 * s + (k % 3) * 0.33 * s
+        py = y - 0.15 * s + (k // 3) * 0.15 * s
+        v, f = lib.lathe([(0.06 * s, 0.0), (0.075 * s, 0.1 * s)], 10, (px, py, 0.51 * s), cap_bottom=True, cap_top=False)
+        P.b['paint'].add(v, f, col('#c8653d'))
+        v, f = lib.blob((px, py, 0.66 * s), 0.08 * s, rough=0.2, subdiv=2, seed=k * 3)
+        P.b['paint'].add(v, f, col(rnd.choice(['#ff5a6e', '#ffd166', '#ffffff', '#ff9ecb', '#c49bff', '#ff8a3a'])))
+    return P.build()
+
+
+def mine_entrance(bx, by, s=1.0) -> list:
+    """Timber-framed crystal mine mouth with rails and an ore cart full of crystals."""
+    p = _at(bx, by)
+    P = Prop('mine')
+    x, y = p.x, p.y
+    # rocky mound
+    v, f = lib.blob((x, y + 0.2 * s, 0.25 * s), 0.9 * s, squash=(1.2, 0.8, 0.75), rough=0.25, freq=1.8, subdiv=3, seed=7)
+    P.b['stone'].add(v, f, col('#8a7a8e'))
+    # dark opening and timber frame on the camera side
+    v, f = lib.box((x, y - 0.55 * s, 0.35 * s), (0.62 * s, 0.1 * s, 0.7 * s))
+    P.b['paint'].add(v, f, col('#1a1420'))
+    for dx in (-0.34, 0.34):
+        v, f = lib.box((x + dx * s, y - 0.62 * s, 0.4 * s), (0.1 * s, 0.1 * s, 0.8 * s))
+        P.b['wood'].add(v, f, WOOD)
+    v, f = lib.box((x, y - 0.62 * s, 0.82 * s), (0.86 * s, 0.12 * s, 0.1 * s))
+    P.b['wood'].add(v, f, WOOD)
+    # rails and a cart with crystals
+    for dx in (-0.12, 0.12):
+        v, f = lib.box((x + dx * s, y - 1.05 * s, 0.02 * s), (0.03 * s, 0.9 * s, 0.03 * s))
+        P.b['metal'].add(v, f, IRON)
+    v, f = lib.box((x, y - 1.15 * s, 0.25 * s), (0.42 * s, 0.34 * s, 0.24 * s))
+    P.b['metal'].add(v, f, col('#7a5a3a'))
+    rnd = random.Random(9)
+    for k in range(6):
+        v, f = lib.prism((x + rnd.uniform(-0.14, 0.14) * s, y - 1.15 * s + rnd.uniform(-0.1, 0.1) * s, 0.34 * s), 0.05 * s, rnd.uniform(0.15, 0.3) * s,
+                         tilt=(rnd.uniform(-0.4, 0.4), rnd.uniform(-0.4, 0.4)))
+        P.b['crystal'].add(v, f, col(rnd.choice(['#5ce1ff', '#c49bff', '#8ff0ff'])))
+    return P.build()
+
+
+def weather_vane(bx, by, s=1.0) -> list:
+    """Tall pole with a brass arrow vane and spinning cups (windy ledge)."""
+    p = _at(bx, by)
+    P = Prop('vane')
+    x, y = p.x, p.y
+    v, f = lib.cylinder((x, y, 0.0), 0.05 * s, 0.035 * s, 1.9 * s, 8)
+    P.b['wood'].add(v, f, DARKWOOD)
+    v, f = lib.box((x + 0.12 * s, y, 1.85 * s), (0.6 * s, 0.03 * s, 0.05 * s))
+    P.b['metal'].add(v, f, BRASS)
+    v, f = lib.prism((x + 0.45 * s, y, 1.85 * s), 0.07 * s, 0.14 * s, sides=3, tilt=(0.0, math.pi / 2))
+    P.b['metal'].add(v, f, BRASS)
+    v, f = lib.box((x - 0.2 * s, y, 1.88 * s), (0.02 * s, 0.03 * s, 0.22 * s))
+    P.b['metal'].add(v, f, BRASS)
+    for k in range(3):
+        a = k / 3 * math.tau
+        v, f = lib.blob((x + math.cos(a) * 0.18 * s, y + math.sin(a) * 0.18 * s, 1.6 * s), 0.06 * s, squash=(1, 1, 0.7), rough=0.0, subdiv=1)
+        P.b['metal'].add(v, f, col('#e0a93f'))
+    return P.build()
+
+
+def bench(bx, by, s=1.0) -> list:
+    p = _at(bx, by)
+    P = Prop('bench')
+    x, y = p.x, p.y
+    v, f = lib.box((x, y, 0.24 * s), (0.7 * s, 0.22 * s, 0.05 * s))
+    P.b['wood'].add(v, f, col('#b07a45'))
+    v, f = lib.box((x, y + 0.1 * s, 0.42 * s), (0.7 * s, 0.04 * s, 0.2 * s))
+    P.b['wood'].add(v, f, col('#a06a3a'))
+    for dx in (-0.3, 0.3):
+        v, f = lib.box((x + dx * s, y, 0.12 * s), (0.05 * s, 0.2 * s, 0.24 * s))
+        P.b['metal'].add(v, f, IRON)
     return P.build()

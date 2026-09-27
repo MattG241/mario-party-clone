@@ -80,6 +80,14 @@ LANDMARKS = [
     dict(id='bunting-plaza', kind='bunting', x=1700, y=2140, s=1.6, width=220, r=60, tex='bunting'),
     dict(id='bunting-terrace', kind='bunting', x=3130, y=590, s=1.4, width=180, r=60, tex='bunting'),
     dict(id='gate', kind='gate', x=1925, y=2150, s=1.6, r=0, tex='prism-gate'),
+    # story props: a sky-boat moored off the docks, the plaza well, a flower cart on the terrace,
+    # the crystal mine, a weather vane on the windy ledge and a bench in the grove
+    dict(id='skyboat', kind='skyboat', x=3720, y=1990, s=1.6, r=0, tex=''),
+    dict(id='well', kind='well', x=1520, y=2050, s=1.2, r=80, tex=''),
+    dict(id='flower-cart', kind='flower_cart', x=2640, y=852, s=1.2, r=0, tex=''),
+    dict(id='mine', kind='mine', x=1360, y=600, s=1.3, r=110, tex=''),
+    dict(id='vane', kind='vane', x=3400, y=1300, s=1.2, r=0, tex=''),
+    dict(id='bench', kind='bench', x=900, y=1560, s=1.2, r=0, tex=''),
 ]
 for _g in ['go4', 'c2', 't4', 'd3', 'o2']:
     _n = next(n for n in DATA['nodes'] if n['id'] == _g)
@@ -280,7 +288,7 @@ def near_landmark(bx, by, pad=0.0):
                 if (bx - px) ** 2 + (by - lm['y']) ** 2 < (30 + pad) ** 2:
                     return True
             continue
-        rr = {'lantern': 34, 'pedestal': 40, 'gate': 120, 'stage': 115}.get(k, lm['r'] * 0.85)
+        rr = {'lantern': 34, 'pedestal': 40, 'gate': 120, 'stage': 115, 'flower_cart': 70, 'vane': 34, 'bench': 50, 'well': 70, 'mine': 110}.get(k, lm['r'] * 0.85)
         if (bx - lm['x']) ** 2 + (by - lm['y']) ** 2 < (rr + pad) ** 2:
             return True
     return False
@@ -661,6 +669,18 @@ def main():
             obs = props.gate(lm['x'], lm['y'], lm['s'])
         elif k == 'stage':
             obs = props.stage(lm['x'], lm['y'], lm['s'])
+        elif k == 'skyboat':
+            obs = props.skyboat(lm['x'], lm['y'], lm['s'])
+        elif k == 'well':
+            obs = props.well(lm['x'], lm['y'], lm['s'])
+        elif k == 'flower_cart':
+            obs = props.flower_cart(lm['x'], lm['y'], lm['s'])
+        elif k == 'mine':
+            obs = props.mine_entrance(lm['x'], lm['y'], lm['s'])
+        elif k == 'vane':
+            obs = props.weather_vane(lm['x'], lm['y'], lm['s'])
+        elif k == 'bench':
+            obs = props.bench(lm['x'], lm['y'], lm['s'])
         else:
             obs = props.pedestal(lm['x'], lm['y'], lm['s'])
         built[lm['id']] = (lm, obs)

@@ -50,7 +50,7 @@ export class TitleScene extends Phaser.Scene {
     this.buildLogo();
     this.buildMenu();
     // "Press A to start" plate under the logo (navy pill, gold rim) so it reads over any backdrop.
-    this.pressText = this.add.container(470, 640).setDepth(600);
+    this.pressText = this.add.container(440, 648).setDepth(600);
     this.pressKind = null;
     this.refreshPressPlate();
     this.tweens.add({ targets: this.pressText, scale: { from: 1, to: 1.06 }, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
@@ -96,13 +96,21 @@ export class TitleScene extends Phaser.Scene {
     } else {
       this.buildVectorIsland(island);
     }
-    const xs = [-330, -110, 110, 330];
-    CHARACTER_IDS.forEach((id, i) => {
-      const c = new Character(this, xs[i], 690 + (i % 2) * 14, id, { scale: 0.95 });
+    // Staggered in depth (not a police line-up); nearer heroes a touch larger, added back to front.
+    const spots: [number, number][] = [
+      [-345, 716],
+      [-140, 664],
+      [85, 704],
+      [320, 672],
+    ];
+    const made = CHARACTER_IDS.map((id, i) => {
+      const [x, y] = spots[i];
+      const c = new Character(this, x, y, id, { scale: 0.86 + ((y - 660) / 60) * 0.1 });
       c.face(i >= 2);
-      island.add(c);
-      this.chars.push(c);
+      return c;
     });
+    [...made].sort((a, b) => a.y - b.y).forEach((c) => island.add(c));
+    this.chars.push(...made);
     this.tweens.add({ targets: island, y: -14, duration: 3000, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
   }
 
@@ -128,10 +136,11 @@ export class TitleScene extends Phaser.Scene {
   }
 
   private buildLogo(): void {
-    this.logo = this.add.container(470, 0).setDepth(400);
-    const emblem = this.add.image(0, 230, 'emblem').setScale(0.95);
-    const title = addTitle(this, 0, 425, TITLE, 132);
-    const sub = addText(this, 0, 518, SUBTITLE, 44, { color: CSS.goldLight, weight: 700, stroke: CSS.tealDeep, strokeThickness: 8, shadow: true, fixed: true });
+    // Emblem tucked onto the wordmark so the lockup reads as one piece.
+    this.logo = this.add.container(440, 0).setDepth(400);
+    const emblem = this.add.image(0, 292, 'emblem').setScale(0.82);
+    const title = addTitle(this, 0, 440, TITLE, 124);
+    const sub = addText(this, 0, 530, SUBTITLE, 42, { color: CSS.goldLight, weight: 700, stroke: CSS.tealDeep, strokeThickness: 8, shadow: true, fixed: true });
     this.logo.add([emblem, title, sub]);
     this.tweens.add({ targets: emblem, angle: 360, duration: 24000, repeat: -1 });
     this.tweens.add({ targets: [emblem, title, sub], y: '+=10', duration: 2400, yoyo: true, repeat: -1, ease: 'Sine.InOut' });

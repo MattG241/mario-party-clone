@@ -23,12 +23,36 @@ export class OrbitDial {
     const y = token.y - 300;
     const root = s.add.container(x, y).setDepth(DEPTH.worldUi + 50);
     const glow = s.add.image(0, 0, 'fx-dot').setScale(14).setTint(COLORS.goldLight).setAlpha(0.5).setBlendMode(Phaser.BlendModes.ADD);
-    // Soft drop shadow gives the hovering dial depth.
-    const shadow = s.add.image(14, 150, 'fx-shadow').setScale(1.6, 0.42).setAlpha(0.5);
+    // The hovering dial casts a soft shadow on the ground at the hero's feet.
+    const shadow = s.add.image(40, 300, 'fx-shadow').setScale(2.4, 0.6).setAlpha(0.55);
+    // Two brass orbit rings spinning around the medallion (an astrolabe feel).
+    const orbits = s.add.graphics();
+    const sparks = [0, 1, 2].map((i) => s.add.image(0, 0, 'fx-dot').setScale(0.9).setTint(i === 1 ? 0xc49bff : COLORS.crystal).setBlendMode(Phaser.BlendModes.ADD));
+    const drawOrbits = (t: number) => {
+      orbits.clear();
+      const rings: [number, number][] = [
+        [150, t * 1.7],
+        [168, -t * 1.3 + 1.2],
+      ];
+      rings.forEach(([r, ph], k) => {
+        const rx = r * Math.abs(Math.cos(ph)) + 18;
+        orbits.lineStyle(k ? 5 : 7, 0x7a5210, 0.55);
+        orbits.strokeEllipse(2, 4, rx * 2, r * 2 * 0.98);
+        orbits.lineStyle(k ? 3 : 4, COLORS.goldLight, 0.95);
+        orbits.strokeEllipse(0, 0, rx * 2, r * 2 * 0.98);
+      });
+      sparks.forEach((sp, i) => {
+        const a = t * (2.2 + i * 0.5) + (i * Math.PI * 2) / 3;
+        sp.setPosition(Math.cos(a) * 160, Math.sin(a) * 58 - 10).setAlpha(0.6 + 0.4 * Math.sin(a * 2));
+      });
+    };
+    drawOrbits(0);
     const rendered = s.textures.exists('rendered-ui-dial');
     const ring = rendered ? s.add.image(0, 0, 'rendered-ui-dial').setDisplaySize(236, 236) : s.add.image(0, 0, 'orbit-dial').setScale(0.52);
     const num = addText(s, 0, -4, '1', 108, { color: CSS.tealDeep, weight: 700, fixed: true, stroke: '#ffffff', strokeThickness: 10 });
-    root.add([shadow, glow, ring, num]);
+    root.add([shadow, glow, orbits, ring, ...sparks, num]);
+    const orbitT = { t: 0 };
+    const orbitTween = s.tweens.add({ targets: orbitT, t: Math.PI * 20, duration: 20000, repeat: -1, onUpdate: () => drawOrbits(orbitT.t) });
     root.setScale(0.1);
     token.play('dial');
     audio.play('pop', { rate: 0.8 });
@@ -111,6 +135,7 @@ export class OrbitDial {
       await new Promise<void>((r) => s.time.delayedCall(350, () => r()));
     }
     token.play('celebrate');
+    orbitTween.stop();
     await new Promise<void>((r) =>
       s.tweens.add({
         targets: root,

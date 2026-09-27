@@ -146,6 +146,7 @@ names = ['gleam'] if A.preview else list(TYPES)
 for kind in names:
     side, top, hl = TYPES[kind]
     lib.reset(12 if A.preview else 48)
+    props._MATS.clear()  # the factory reset removed the cached prop materials
     lib.world_light(0.8)
     lib.sun(energy=3.6, elevation=40, azimuth=-35, angle=2.5, color='#ffe9c9')
     BX, BY = 200.0, 200.0

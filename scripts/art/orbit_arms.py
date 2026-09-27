@@ -160,7 +160,7 @@ for kind, objs in (('low', low), ('high', high)):
 
 # Shelf-pack into one atlas.
 frames.sort(key=lambda f: -f[1].height)
-W = 2048
+W = 4096
 x = y = shelf = 0
 placed = []
 for name, im, ox, oy in frames:
