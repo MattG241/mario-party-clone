@@ -51,6 +51,7 @@ export class PreloadScene extends Phaser.Scene {
     this.load.json('rendered-gleam3d', 'assets/rendered/scene_gleam3d.json');
     for (const v of ['title', 'gleam', 'gleam_wall', 'gleam3d', 'gleam3d_wall', 'gleam3d_blur', 'orbit', 'orbit_blur', 'select', 'results']) this.load.image(`rendered-scene-${v}`, `assets/rendered/scene_${v}.webp`);
     this.load.image('rendered-ui-dial', 'assets/rendered/ui_dial.webp');
+    this.load.image('rendered-ui-logo', 'assets/rendered/ui_logo.webp');
     // Arenas and sprites for the later minigames (scripts/art/mg_arenas.py) and the sky islets.
     for (const v of ['crate', 'crate_wall', 'pond', 'relay', 'totem']) this.load.image(`rendered-scene-${v}`, `assets/rendered/scene_${v}.webp`);
     this.load.json('rendered-mg-sprites', 'assets/rendered/mg/sprites.json');
@@ -69,6 +70,7 @@ export class PreloadScene extends Phaser.Scene {
     for (const [key, file] of mgSprites) this.load.image(`rendered-mg-${key}`, `assets/rendered/mg/${file}.webp`);
     this.load.spritesheet('rendered-mg-log', 'assets/rendered/mg/log.webp', { frameWidth: 180, frameHeight: 180 });
     for (let k = 0; k < 3; k++) this.load.image(`rendered-islet-${k}`, `assets/rendered/mg/islet_${k}.webp`);
+    for (let k = 0; k < 3; k++) this.load.image(`rendered-fg-${k}`, `assets/rendered/mg/fg_${k}.webp`);
     this.load.on(Phaser.Loader.Events.PROGRESS, (p: number) => this.setProgress(p));
     this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, (file: Phaser.Loader.File) => {
       if (isOptionalAsset(file.key)) return;

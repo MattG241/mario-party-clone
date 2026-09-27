@@ -26,8 +26,18 @@ interface SlotView {
   cursorBadge: PlayerBadge;
 }
 
-const PODIUM_X = [360, 760, 1160, 1560];
-const PODIUM_Y = 560;
+/**
+ * The rendered stage is shown enlarged about a point under the title, so the heroes and pedestals
+ * fill more of the screen and less empty lawn shows above the player cards.
+ */
+const STAGE_K = 1.12;
+const STAGE_AY = 120;
+const stageX = (x: number) => GAME_WIDTH / 2 + (x - GAME_WIDTH / 2) * STAGE_K;
+const stageY = (y: number) => STAGE_AY + (y - STAGE_AY) * STAGE_K;
+const PODIUM_X = [360, 760, 1160, 1560].map(stageX);
+const PODIUM_Y = stageY(560);
+/** Character scale on the pedestals (idle / pointed at). */
+const CHAR_K = 1.2;
 const SLOT_W = 440;
 const SLOT_H = 118;
 
@@ -68,7 +78,7 @@ export class CharacterSelectScene extends Phaser.Scene {
       // Its own sky: the clear variant, mirrored (the title and board use other skies).
       const skyKey = ['rendered-sky-clear', 'rendered-sky-day', 'rendered-sky-golden'].find((k) => this.textures.exists(k));
       if (skyKey) this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, skyKey).setDisplaySize(GAME_WIDTH * 1.04, GAME_HEIGHT * 1.04).setFlipX(true);
-      this.add.image(0, 0, 'rendered-scene-select').setOrigin(0);
+      this.add.image(stageX(0), stageY(0), 'rendered-scene-select').setOrigin(0).setScale(STAGE_K);
     } else {
       this.add.image(0, 0, 'bg-sky').setOrigin(0).setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
       this.add.tileSprite(0, 520, GAME_WIDTH, 560, 'bg-clouds-below').setOrigin(0).setAlpha(0.95);
@@ -93,12 +103,12 @@ export class CharacterSelectScene extends Phaser.Scene {
     CHARACTER_IDS.forEach((id, i) => {
       const x = PODIUM_X[i];
       if (!this.renderedStage) this.add.image(x, PODIUM_Y + 40, 'podium').setScale(0.95);
-      const glow = this.add.graphics({ x, y: PODIUM_Y - 30 });
+      const glow = this.add.graphics({ x, y: PODIUM_Y - 30 * STAGE_K }).setScale(STAGE_K);
       this.glows.push(glow);
-      const c = new Character(this, x, PODIUM_Y - 20, id, { scale: 1.02 });
+      const c = new Character(this, x, PODIUM_Y - 20 * STAGE_K, id, { scale: CHAR_K });
       c.setDepth(10);
       this.chars.push(c);
-      const plate = this.add.container(x, PODIUM_Y + 150);
+      const plate = this.add.container(x, PODIUM_Y + 150 * STAGE_K);
       const g = this.add.graphics();
       g.fillStyle(0x06141a, 0.3);
       g.fillRoundedRect(-160 + 4, -40 + 7, 320, 80, 40);
@@ -325,7 +335,7 @@ export class CharacterSelectScene extends Phaser.Scene {
         });
       }
       const ch = this.chars[ci];
-      const target = active ? 1.12 : 1.02;
+      const target = active ? CHAR_K * 1.08 : CHAR_K;
       this.tweens.add({ targets: ch, scale: target, duration: 180, ease: 'Back.Out' });
       // Characters nobody is pointing at (or has picked) step back into the shade.
       const lit = active || lockedBy !== null || this.slots.every((v) => v.phase === 'empty');
@@ -339,7 +349,7 @@ export class CharacterSelectScene extends Phaser.Scene {
         const b = this.slots[slot].cursorBadge;
         const tx = PODIUM_X[ci] + (k - (owners.length - 1) / 2) * 62;
         b.setVisible(this.slots[slot].phase === 'choosing');
-        this.tweens.add({ targets: b, x: tx, y: PODIUM_Y - 20 + animHeadTop(CHARACTER_IDS[ci]) * 1.12 - 44, duration: 140, ease: 'Quad.Out' });
+        this.tweens.add({ targets: b, x: tx, y: PODIUM_Y - 20 * STAGE_K + animHeadTop(CHARACTER_IDS[ci]) * CHAR_K * 1.08 - 44, duration: 140, ease: 'Quad.Out' });
       });
       if (lockedBy !== null) {
         g.fillStyle(PLAYER_COLORS[lockedBy], 0.5);

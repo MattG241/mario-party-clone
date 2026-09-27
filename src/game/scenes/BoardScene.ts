@@ -327,7 +327,7 @@ export class BoardScene extends Phaser.Scene {
     const cam = this.cameras.main;
     const t = this.moves.token(slot);
     if (Math.abs(cam.zoom - CAMERA_ZOOM.follow) > 0.02) cam.zoomTo(CAMERA_ZOOM.follow, 350, 'Sine.easeInOut', true);
-    cam.startFollow(t, false, 0.1, 0.1, 0, 90);
+    cam.startFollow(t, false, 0.1, 0.1, 0, 150);
   }
 
   flowInterrupted(): boolean {

@@ -154,7 +154,14 @@ export class TitleScene extends Phaser.Scene {
       ribbon.fillTriangle(sx * 330, 506, sx * 330, 554, sx * 372, 530);
     }
     const emblem = this.add.image(0, 292, 'emblem').setScale(0.82);
-    const title = addTitle(this, 0, 440, TITLE, 124);
+    // The rendered 3D wordmark (with a shine sweeping across it) when available, else text.
+    let title: Phaser.GameObjects.Image | Phaser.GameObjects.Text;
+    if (this.textures.exists('rendered-ui-logo')) {
+      const img = this.add.image(0, 444, 'rendered-ui-logo');
+      img.setScale(Math.min(1, 800 / img.width));
+      img.preFX?.addShine(0.35, 0.25, 5);
+      title = img;
+    } else title = addTitle(this, 0, 440, TITLE, 124);
     const sub = addText(this, 0, 530, SUBTITLE, 38, { color: CSS.goldLight, weight: 700, stroke: CSS.tealDeep, strokeThickness: 6, fixed: true });
     this.logo.add([halo, ribbon, emblem, title, sub]);
     this.tweens.add({ targets: emblem, angle: 360, duration: 24000, repeat: -1 });

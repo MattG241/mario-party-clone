@@ -90,10 +90,41 @@ export class BoardUIScene extends Phaser.Scene {
     this.roundText = addText(this, 14, -9, 'ROUND 1 / 10', 27, { color: CSS.goldLight, weight: 700, stroke: '#06141a', strokeThickness: 4 });
     this.relicText = addText(this, 14, 17, '', 16, { color: CSS.cream, weight: 600 });
     this.roundPlaque.add([g, relicIcon, this.roundText, this.relicText]);
+    this.buildForeground();
     this.refresh(this.stateRef);
   }
 
+  /** Out-of-focus foliage along the bottom edge in close-ups (fades away on the overview). */
+  private foreground: { img: Phaser.GameObjects.Image; x: number; y: number; phase: number }[] = [];
+
+  private buildForeground(): void {
+    this.foreground = [];
+    const spots: [number, number, number, boolean][] = [
+      // texture index, x, y (bottom of the cluster sits off-screen), flip
+      [0, 470, 1122, false],
+      [2, 1460, 1128, true],
+      [1, 960, 1170, false],
+    ];
+    for (const [k, x, y, flip] of spots) {
+      const key = `rendered-fg-${k}`;
+      if (!this.textures.exists(key)) continue;
+      const img = this.add.image(x, y, key).setOrigin(0.5, 1).setScale(2.3).setFlipX(flip).setDepth(-10).setAlpha(0);
+      this.foreground.push({ img, x, y, phase: Math.random() * Math.PI * 2 });
+    }
+  }
+
   override update(_t: number, dt: number): void {
+    if (this.foreground.length) {
+      const cam = this.scene.get('Board')?.cameras?.main;
+      const zoom = cam?.zoom ?? 1;
+      // fully visible in close-ups (zoom >= 1), gone on the overview (zoom <= 0.75)
+      const a = Phaser.Math.Clamp((zoom - 0.75) / 0.3, 0, 1);
+      for (const f of this.foreground) {
+        f.img.setAlpha(a);
+        f.img.x = f.x + Math.sin(this.time.now / 1400 + f.phase) * 6;
+        f.img.y = f.y + (1 - a) * 80;
+      }
+    }
     for (const p of [...this.pollers]) {
       if (p(dt)) this.pollers.delete(p);
     }

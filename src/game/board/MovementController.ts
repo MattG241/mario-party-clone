@@ -124,6 +124,10 @@ export class MovementController {
     }
   }
 
+  setTagHidden(slot: number, hidden: boolean): void {
+    this.tags.get(slot)?.container.setVisible(!hidden);
+  }
+
   setShield(slot: number, on: boolean): void {
     this.tags.get(slot)?.shield.setVisible(on);
   }

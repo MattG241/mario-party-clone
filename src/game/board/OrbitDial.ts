@@ -25,7 +25,7 @@ export class OrbitDial {
     const root = s.add.container(x, y).setDepth(DEPTH.worldUi + 50);
     const glow = s.add.image(0, 0, 'fx-dot').setScale(14).setTint(COLORS.goldLight).setAlpha(0.5).setBlendMode(Phaser.BlendModes.ADD);
     // The hovering dial casts a soft shadow on the ground at the hero's feet.
-    const shadow = s.add.image(40, 300, 'fx-shadow').setScale(2.4, 0.6).setAlpha(0.55);
+    const shadow = s.add.image(24, 318, 'fx-shadow').setScale(2.8, 0.7).setAlpha(0.6);
     // The world dims around the hero while the dial spins (a spotlight centred on the screen).
     const dim = s.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'fx-spot').setScrollFactor(0).setDisplaySize(GAME_WIDTH * 1.5, GAME_HEIGHT * 1.5).setDepth(DEPTH.worldUi + 40).setAlpha(0);
     s.tweens.add({ targets: dim, alpha: 1, duration: 300 });
@@ -40,8 +40,10 @@ export class OrbitDial {
     drawOrbits(0);
     const rendered = s.textures.exists('rendered-ui-dial');
     const ring = rendered ? s.add.image(0, 0, 'rendered-ui-dial').setDisplaySize(236, 236) : s.add.image(0, 0, 'orbit-dial').setScale(0.52);
+    // A darker copy just below reads as the medallion's thickness (a coin edge), not a flat decal.
+    const edge = s.add.image(0, 10, ring.texture.key).setDisplaySize(ring.displayWidth, ring.displayHeight).setTint(0x6a4a1c);
     const num = addText(s, 0, -4, '1', 108, { color: CSS.tealDeep, weight: 700, fixed: true, stroke: '#ffffff', strokeThickness: 10 });
-    root.add([shadow, glow, ring, ...sparks, num]);
+    root.add([shadow, glow, edge, ring, ...sparks, num]);
     const orbitT = { t: 0 };
     const orbitTween = s.tweens.add({ targets: orbitT, t: Math.PI * 20, duration: 20000, repeat: -1, onUpdate: () => drawOrbits(orbitT.t) });
     root.setScale(0.1);
@@ -49,7 +51,7 @@ export class OrbitDial {
     audio.play('pop', { rate: 0.8 });
     await new Promise<void>((r) => s.tweens.add({ targets: root, scale: 1, duration: 320, ease: 'Back.Out', onComplete: () => r() }));
     setDebugInfo('dialShown', true);
-    const spinTween = s.tweens.add({ targets: ring, angle: 360, duration: 900, repeat: -1 });
+    const spinTween = s.tweens.add({ targets: [ring, edge], angle: 360, duration: 900, repeat: -1 });
     let value = 1;
     let acc = 0;
     let interval = 55;

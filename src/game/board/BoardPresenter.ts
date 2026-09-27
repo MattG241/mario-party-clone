@@ -105,7 +105,7 @@ export class BoardPresenter implements FlowIO {
     this.ui.refresh(this.state);
     this.ui.setPrompts([]);
     const t = this.moves.token(p.slot);
-    await this.scene.focus(t.x, t.y - 80, CAMERA_ZOOM.turn, this.dur(650));
+    await this.scene.focus(t.x, t.y - 160, CAMERA_ZOOM.turn, this.dur(650));
     t.play('wave');
     await this.ui.turnBanner(p);
   }
@@ -183,6 +183,8 @@ export class BoardPresenter implements FlowIO {
     const t = this.moves.token(p.slot);
     await this.scene.focus(t.x, t.y - 170, CAMERA_ZOOM.dial, this.dur(420));
     if (c) this.ui.setPrompts([{ button: 'A', label: 'Stop the Orbit Dial!' }], p.slot);
+    // The dial takes the marker's place above the head while it spins.
+    this.moves.setTagHidden(p.slot, true);
     await this.scene.dial.spin(t, result, bonus, {
       controls: c,
       cpuDelay: this.dur(p.cpuLevel === 'easy' ? 1100 : p.cpuLevel === 'hard' ? 650 : 850),
@@ -195,6 +197,7 @@ export class BoardPresenter implements FlowIO {
         }),
     });
     this.ui.setPrompts([]);
+    this.moves.setTagHidden(p.slot, false);
     if (c) c.rumble(0.35, 0.5, 90);
     this.moves.setCounter(p.slot, result + bonus);
     this.moves.showRoute(p.nodeId, result + bonus);

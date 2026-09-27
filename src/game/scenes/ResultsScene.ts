@@ -129,12 +129,12 @@ export class ResultsScene extends Phaser.Scene {
       badge.setAlpha(0);
       const scoreLabel = this.result.scores.find((s) => s.slot === pl.slot)?.label ?? '';
       const pill = this.add.graphics();
-      const lw = Math.max(150, scoreLabel.length * 15 + 40);
-      pill.fillStyle(0x0c2630, 0.8);
-      pill.fillRoundedRect(x - lw / 2, baseY + 48, lw, 44, 22);
+      const lw = Math.max(140, scoreLabel.length * 13 + 36);
+      pill.fillStyle(0x0c2630, 0.85);
+      pill.fillRoundedRect(x - lw / 2, baseY + 34, lw, 38, 19);
       pill.lineStyle(3, PLAYER_COLORS[pl.slot], 0.9);
-      pill.strokeRoundedRect(x - lw / 2, baseY + 48, lw, 44, 22);
-      addText(this, x, baseY + 70, scoreLabel, 24, { color: CSS.cream, weight: 700 });
+      pill.strokeRoundedRect(x - lw / 2, baseY + 34, lw, 38, 19);
+      addText(this, x, baseY + 53, scoreLabel, 21, { color: CSS.cream, weight: 700 });
       if (board) {
         const panel = this.add.graphics();
         panel.fillStyle(0x0c2630, 0.85);
@@ -215,13 +215,13 @@ export class ResultsScene extends Phaser.Scene {
         this.menu = new Menu(
           this,
           GAME_WIDTH / 2,
-          GAME_HEIGHT - 54,
+          GAME_HEIGHT - 44,
           [
             { label: 'REMATCH', onSelect: () => this.rematch() },
             { label: 'CHANGE GAME', onSelect: () => goTo(this, 'MinigameMode') },
             { label: 'MAIN MENU', onSelect: () => goTo(this, 'Title') },
           ],
-          { horizontal: true, width: 320, itemHeight: 64, fontSize: 28, gap: 28 },
+          { horizontal: true, width: 300, itemHeight: 56, fontSize: 26, gap: 28 },
         );
       }
     });

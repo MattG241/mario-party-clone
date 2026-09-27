@@ -34,7 +34,7 @@ import bpy  # noqa: E402
 from mathutils import Vector  # noqa: E402
 
 p = argparse.ArgumentParser()
-p.add_argument('what', choices=['yard', 'pond', 'relay', 'totem', 'tower', 'sprites', 'islets'])
+p.add_argument('what', choices=['yard', 'pond', 'relay', 'totem', 'tower', 'sprites', 'islets', 'fg'])
 p.add_argument('--preview', action='store_true')
 p.add_argument('--only', default='')
 A = p.parse_args(sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else sys.argv[1:])
@@ -1012,6 +1012,38 @@ def islets():
         print('islet', k)
 
 
+def foreground():
+    """Out-of-focus leafy clusters for the bottom edge of board close-ups (depth-of-field cue)."""
+    os.makedirs(os.path.join(PUB, 'mg'), exist_ok=True)
+    for k in range(3):
+        sprite_scene(28, samples=32)
+        rnd = random.Random(70 + k)
+        leaves = lib.MeshBuilder()
+        bx, by = 400.0, 400.0
+        for _j in range(6):
+            terrain.bush(leaves, bx + rnd.uniform(-150, 150), by + rnd.uniform(-20, 30), rnd, rnd.uniform(2.4, 3.4))
+        for _j in range(10):
+            c = board_to_world(bx + rnd.uniform(-190, 190), by + rnd.uniform(0, 30), 0.0)
+            L = rnd.uniform(1.0, 1.7)
+            v, f = lib.blob((0, 0, 0), 1.0, squash=(0.24, 0.07, 1.0), rough=0.1, subdiv=2, seed=rnd.random() * 9)
+            v = lib.transform(v, loc=(c.x, c.y, L * 0.5), rot=(rnd.uniform(-0.7, 0.7), rnd.uniform(-0.9, 0.9), rnd.uniform(0, math.pi)), scale=(1.0, 1.0, L * 0.55))
+            leaves.add(v, f, col(rnd.choice(['#2f8a3a', '#3f9d44', '#236f30', '#4aa84a'])))
+        leaves.build('fg', lib.attr_mat('leaf', rough=0.7, ao=0.5))
+        lib.camera_for_region(bx - 360, by - 380, 720, 440, scale=0.5 if A.preview else 1.0)
+        path = os.path.join(OUT, f'fg_{k}.png')
+        lib.render_to(path)
+        im = Image.open(path).convert('RGBA')
+        a = np.asarray(im, np.float32)
+        a[..., :3] *= 0.78  # it sits in the shade, close to the camera
+        im = Image.fromarray(np.clip(a, 0, 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(9))
+        bb = im.getchannel('A').point(lambda v: 255 if v > 8 else 0).getbbox()
+        if bb:
+            im = im.crop((max(0, bb[0] - 24), max(0, bb[1] - 24), min(im.width, bb[2] + 24), min(im.height, bb[3] + 24)))
+        if not A.preview:
+            im.save(os.path.join(PUB, 'mg', f'fg_{k}.webp'), 'WEBP', quality=88, method=6)
+        print('fg', k, im.size)
+
+
 def sprites():
     meta_path = os.path.join(PUB, 'mg', 'sprites.json')
     meta = json.load(open(meta_path)) if os.path.exists(meta_path) else {}
@@ -1031,4 +1063,4 @@ def sprites():
         print('wrote mg/sprites.json')
 
 
-{'yard': yard, 'pond': pond, 'relay': relay, 'totem': totem, 'tower': tower, 'sprites': sprites, 'islets': islets}[A.what]()
+{'yard': yard, 'pond': pond, 'relay': relay, 'totem': totem, 'tower': tower, 'sprites': sprites, 'islets': islets, 'fg': foreground}[A.what]()
