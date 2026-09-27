@@ -109,7 +109,7 @@ def lights(elev=50, az=-35):
 def title():
     """Big festival island for the title screen; characters stand on it in-game."""
     set_view(22)
-    lib.reset(12 if A.preview else 64)
+    lib.reset(12 if A.preview else 36)
     lights(46, -32)
     lib.camera_for_region(0, 0, SW, SH, scale=0.5 if A.preview else 1.0)
     pm = os.path.join(OUT, 'title_paths.png')
@@ -229,7 +229,7 @@ def plaza_texture(path, region):
 
 def gleam():
     set_view(52)
-    lib.reset(12 if A.preview else 56)
+    lib.reset(12 if A.preview else 36)
     lights()
     lib.camera_for_region(0, 0, SW, SH, scale=0.5 if A.preview else 1.0)
     tex = os.path.join(OUT, 'plaza_floor.png')
@@ -353,7 +353,7 @@ def astro_texture(path, size=1400):
 
 def orbit():
     set_view(25)
-    lib.reset(12 if A.preview else 56)
+    lib.reset(12 if A.preview else 36)
     lights(48, -30)
     lib.camera_for_region(0, 0, SW, SH, scale=0.5 if A.preview else 1.0)
     tex = os.path.join(OUT, 'astro.png')
@@ -434,7 +434,7 @@ def hero_pedestal(bx, base_y):
 
 def select():
     set_view(16)
-    lib.reset(12 if A.preview else 56)
+    lib.reset(12 if A.preview else 36)
     lights(44, -30)
     lib.camera_for_region(0, 0, SW, SH, scale=0.5 if A.preview else 1.0)
     base_y = PODIUM_TOP_Y + 1.46 * PX * lib.SINB

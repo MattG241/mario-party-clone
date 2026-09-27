@@ -248,12 +248,38 @@ def workshop(bx, by, s=1.0) -> list:
         P.b['wood'].add(v, f, WOOD)
     v, f = lib.box((x, y - D / 2 - 0.02, Hh - 0.04), (W + 0.1, 0.07 * s, 0.08 * s))
     P.b['wood'].add(v, f, WOOD)
-    # pitched roof (teal tiles)
+    # pitched roof built from overlapping tile courses (alternating teal shades)
     ridge = Hh + 0.62 * s
     o = 0.16 * s
-    roof = [(x - W / 2 - o, y - D / 2 - o, Hh - 0.05), (x + W / 2 + o, y - D / 2 - o, Hh - 0.05), (x + W / 2 + o, y, ridge), (x - W / 2 - o, y, ridge),
-            (x - W / 2 - o, y + D / 2 + o, Hh - 0.05), (x + W / 2 + o, y + D / 2 + o, Hh - 0.05)]
-    P.b['paint'].add(roof, [(0, 1, 2, 3), (3, 2, 5, 4)], col('#2aa39c'))
+    courses = 7
+    for side in (-1, 1):
+        for k in range(courses):
+            t0, t1 = k / courses, (k + 1) / courses + 0.04
+            ya = y + side * (D / 2 + o) * (1 - t0)
+            yb = y + side * (D / 2 + o) * (1 - min(1.0, t1))
+            za = Hh - 0.05 + (ridge - Hh + 0.05) * t0
+            zb = Hh - 0.05 + (ridge - Hh + 0.05) * min(1.0, t1)
+            lift = 0.035 * s
+            quad = [(x - W / 2 - o, ya, za + lift), (x + W / 2 + o, ya, za + lift), (x + W / 2 + o, yb, zb + lift), (x - W / 2 - o, yb, zb + lift)]
+            face = [(0, 1, 2, 3)] if side < 0 else [(3, 2, 1, 0)]
+            P.b['paint'].add(quad, face, col('#2aa39c' if k % 2 == 0 else '#23908a'))
+            # tile lip (thickness at the lower edge of each course)
+            lip = [(x - W / 2 - o, ya, za + lift), (x + W / 2 + o, ya, za + lift), (x + W / 2 + o, ya, za + lift - 0.06 * s), (x - W / 2 - o, ya, za + lift - 0.06 * s)]
+            P.b['paint'].add(lip, [(0, 1, 2, 3), (3, 2, 1, 0)], col('#1a746f'))
+    # brass ridge cap
+    v, f = lib.tube([(x - W / 2 - o, y, ridge + 0.05), (x + W / 2 + o, y, ridge + 0.05)], 0.06 * s, 10)
+    P.b['metal'].add(v, f, BRASS)
+    # glowing skylight on the camera-facing slope
+    sy = y - (D / 2 + o) * 0.45
+    sz = Hh - 0.05 + (ridge - Hh + 0.05) * 0.55 + 0.06
+    v, f = lib.box((x - 0.25 * s, sy, sz), (0.36 * s, 0.26 * s, 0.1 * s))
+    P.b['glow'].add(v, f, col('#ffd27a'))
+    v, f = lib.box((x - 0.25 * s, sy, sz + 0.05), (0.44 * s, 0.34 * s, 0.05 * s))
+    P.b['metal'].add(v, f, BRASS)
+    # brass pipes running along the front wall
+    for zz in (0.2, 0.9):
+        v, f = lib.tube([(x - W / 2 + 0.05, y - D / 2 - 0.06, zz * s), (x + W / 2 - 0.05, y - D / 2 - 0.06, zz * s)], 0.03 * s, 8)
+        P.b['metal'].add(v, f, BRASS)
     # gable ends
     P.b['paint'].add([(x - W / 2, y - D / 2, Hh), (x - W / 2, y + D / 2, Hh), (x - W / 2, y, ridge - 0.02)], [(0, 1, 2)], col('#fbf1de'))
     P.b['paint'].add([(x + W / 2, y - D / 2, Hh), (x + W / 2, y + D / 2, Hh), (x + W / 2, y, ridge - 0.02)], [(0, 2, 1)], col('#fbf1de'))

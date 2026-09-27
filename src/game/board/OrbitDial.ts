@@ -23,9 +23,12 @@ export class OrbitDial {
     const y = token.y - 300;
     const root = s.add.container(x, y).setDepth(DEPTH.worldUi + 50);
     const glow = s.add.image(0, 0, 'fx-dot').setScale(14).setTint(COLORS.goldLight).setAlpha(0.5).setBlendMode(Phaser.BlendModes.ADD);
-    const ring = s.add.image(0, 0, 'orbit-dial').setScale(0.52);
+    // Soft drop shadow gives the hovering dial depth.
+    const shadow = s.add.image(14, 150, 'fx-shadow').setScale(1.6, 0.42).setAlpha(0.5);
+    const rendered = s.textures.exists('rendered-ui-dial');
+    const ring = rendered ? s.add.image(0, 0, 'rendered-ui-dial').setDisplaySize(236, 236) : s.add.image(0, 0, 'orbit-dial').setScale(0.52);
     const num = addText(s, 0, -4, '1', 108, { color: CSS.tealDeep, weight: 700, fixed: true, stroke: '#ffffff', strokeThickness: 10 });
-    root.add([glow, ring, num]);
+    root.add([shadow, glow, ring, num]);
     root.setScale(0.1);
     token.play('dial');
     audio.play('pop', { rate: 0.8 });
@@ -92,7 +95,7 @@ export class OrbitDial {
     this.fx.sparks(x, y, 26);
     this.fx.vfx('impact', x, y, { scale: 0.7, blend: 'add', alpha: 0.9 });
     s.tweens.add({ targets: num, scale: { from: 1.7, to: 1.15 }, duration: 380, ease: 'Back.Out' });
-    s.tweens.add({ targets: ring, scale: 0.6, duration: 200, yoyo: true });
+    s.tweens.add({ targets: ring, scaleX: ring.scaleX * 1.15, scaleY: ring.scaleY * 1.15, duration: 200, yoyo: true });
     token.play('jump');
     await new Promise<void>((r) => s.time.delayedCall(opts.fast ? 420 : 700, () => r()));
     if (bonus > 0) {

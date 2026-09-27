@@ -100,6 +100,7 @@ export abstract class BaseMinigame extends Phaser.Scene {
       };
     });
     this.createArena();
+    if (this.renderer.type === Phaser.WEBGL) this.cameras.main.postFX.addVignette(0.5, 0.5, 0.95, 0.2);
     this.players.forEach((p, i) => this.createPlayer(p, i));
     this.buildHud();
     this.startCountdown();

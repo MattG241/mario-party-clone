@@ -128,9 +128,14 @@ export class CharacterSelectScene extends Phaser.Scene {
     if (v.phase === 'empty') {
       const glyphKind = input.hasGamepad() ? 'gamepad' : 'keyboard';
       const glyph = makeGlyph(this, 'A', 54, glyphKind);
-      glyph.setPosition(-78, -10);
+      const label = addText(this, 0, -10, 'TO JOIN', 40, { color: CSS.tealDark, weight: 700, align: 'left' });
+      // Centre "[glyph] TO JOIN" as one line using the glyph's real width (key caps are wider).
+      const gw = glyph.width || 60;
+      const total = gw + 18 + label.width;
+      glyph.setPosition(-total / 2 + gw / 2, -10);
+      label.setX(-total / 2 + gw + 18);
       add(glyph);
-      add(addText(this, -18, -10, 'TO JOIN', 40, { color: CSS.tealDark, weight: 700, align: 'left' }));
+      add(label);
       add(addText(this, 0, 74, session.mode === 'board' ? 'Empty slots can be filled by CPUs' : 'Empty slots become CPU players', 20, { color: CSS.inkSoft, weight: 500 }));
       this.tweens.add({ targets: glyph, scale: { from: 1, to: 1.12 }, duration: 520, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
       return;
