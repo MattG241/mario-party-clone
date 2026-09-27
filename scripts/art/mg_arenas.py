@@ -919,32 +919,35 @@ def spr_parcel(meta):
 
 
 def spr_totem(meta):
+    """Carved spiral totem standing on a rope clamp (origin: the clamp, bottom centre)."""
     sprite_scene(12)
     bx, by = 400.0, 400.0
     c = board_to_world(bx, by, 0.0)
     P = props.Prop('marker')
-    H = 1.3
-    z0 = -H
-    v, f = lib.cylinder((c.x, c.y, z0), 0.3, 0.34, H, 20)
+    H = 1.25
+    # rope clamp at the base (the rope runs through it left-right)
+    v, f = lib.box((c.x, c.y, 0.06), (0.5, 0.36, 0.14))
+    P.b['metal'].add(v, f, col('#c98a1b'))
+    v, f = lib.cylinder((c.x, c.y, 0.13), 0.28, 0.32, H * 0.78, 20)
     P.b['wood'].add(v, f, col('#b07a45'))
     for k, colr in enumerate(['#1fa5a0', '#ff6b5e', '#f2c14e']):
-        z = z0 + 0.25 + k * 0.4
-        v, f = lib.lathe([(0.34, z - 0.04), (0.37, z), (0.34, z + 0.04)], 20, (c.x, c.y, 0.0), cap_bottom=False, cap_top=False)
+        z = 0.3 + k * 0.28
+        v, f = lib.lathe([(0.32, z - 0.035), (0.35, z), (0.32, z + 0.035)], 20, (c.x, c.y, 0.0), cap_bottom=False, cap_top=False)
         P.b['paint'].add(v, f, col(colr))
-    # spiral face disc toward the camera and a rope loop on top
-    v, f = lib.lathe([(0.22, 0.0), (0.22, 0.03), (0.0, 0.03)], 24, (0, 0, 0), cap_bottom=False)
-    v = lib.transform(v, loc=(c.x, c.y - 0.33, z0 + H * 0.5), rot=(math.pi / 2, 0.0, 0.0))
+    # head: a wider carved cap with a glowing spiral face toward the camera, and wings
+    top = 0.13 + H * 0.78
+    v, f = lib.lathe([(0.34, top), (0.42, top + 0.08), (0.4, top + 0.3), (0.2, top + 0.42), (0.0, top + 0.44)], 20, (c.x, c.y, 0.0), cap_bottom=True)
+    P.b['wood'].add(v, f, col('#c08850'))
+    v, f = lib.lathe([(0.2, 0.0), (0.2, 0.03), (0.0, 0.03)], 24, (0, 0, 0), cap_bottom=False)
+    v = lib.transform(v, loc=(c.x, c.y - 0.4, top + 0.18), rot=(math.pi / 2, 0.0, 0.0))
     P.b['glow'].add(v, f, col('#5ce1ff'))
-    loop = [(c.x + math.cos(a) * 0.14, c.y, 0.1 + math.sin(a) * 0.14) for a in np.linspace(math.pi * 1.1, math.tau + math.pi * -0.1, 16)]
-    v, f = lib.tube(loop, 0.035, 6)
-    P.b['paint'].add(v, f, col('#d9c49a'))
     for side in (-1, 1):
-        fe = [(0.3 * side, z0 + 0.9), (0.62 * side, z0 + 1.2), (0.62 * side, z0 + 1.02), (0.34 * side, z0 + 0.7)]
+        fe = [(0.36 * side, top + 0.05), (0.78 * side, top + 0.42), (0.74 * side, top + 0.2), (0.4 * side, top - 0.08)]
         v = [(c.x + fx, c.y - 0.02, fz) for (fx, fz) in fe] + [(c.x + fx, c.y + 0.02, fz) for (fx, fz) in fe]
         P.b['paint'].add(v, [(0, 1, 2, 3), (7, 6, 5, 4)] if side > 0 else [(3, 2, 1, 0), (4, 5, 6, 7)], col('#f2c14e'))
     P.build()
-    top_y = by - lib.screen_height(0.25)
-    render_sprite('totem', (bx - 80, by - 40, 160, 200), bx, top_y, meta)
+    h_px = lib.screen_height(top + 0.5) + 30
+    render_sprite('totem', (bx - 90, by - h_px, 180, h_px + 24), bx, by, meta)
 
 
 def spr_plank(meta):

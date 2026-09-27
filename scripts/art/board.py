@@ -24,8 +24,8 @@ sys.path.insert(0, os.path.dirname(__file__))
 import lib  # noqa: E402
 import terrain  # noqa: E402
 from terrain import (  # noqa: E402
-    THEMES, barrel, build_island, bush, crate, crystal_cluster, dist_at, flower_bed, grass_tuft, hay_bale, island_material, level_contour,
-    mushroom_cluster, orient, resample, rock, stepping_stone, tree_pine, tree_round, vine,
+    THEMES, barrel, build_island, bush, crate, crystal_cluster, dist_at, fence_run, flower_bed, grass_tuft, hay_bale, island_material, lamp_post,
+    level_contour, mushroom_cluster, orient, resample, rock, stepping_stone, tree_pine, tree_round, vine,
 )
 from lib import COSB, PX, Vector, board_to_world, col  # noqa: E402
 
@@ -605,6 +605,19 @@ def main():
             v = pmask_at(pm, *pt)
             if 0.18 < v < 0.5:
                 rock(rocks, *pt, rnd, 0.35, moss=False)
+        # rustic fences along stretches of the camera-facing rim (clear of trails and spaces)
+        k = 0
+        while k < len(ring) - 4:
+            if nrm[k][1] > 0.55 and rnd.random() < 0.35:
+                run = rnd.randint(3, 6)
+                seg = [ring[(k + j) % len(ring)] - nrm[(k + j) % len(ring)] * 16 for j in range(run + 1)]
+                ok = all(pmask_at(pm, sx, sy) < 0.02 and not near_node(sx, sy, 80) and not near_landmark(sx, sy, 40) for (sx, sy) in seg)
+                if ok:
+                    for j in range(run):
+                        fence_run(wood, seg[j][0], seg[j][1], seg[j + 1][0], seg[j + 1][1], rnd)
+                    k += run + 3
+                    continue
+            k += 1
         # vines hanging from the rim on the camera-facing side
         for k in range(0, len(ring), 3):
             if nrm[k][1] < 0.35 or rnd.random() < 0.45:
@@ -620,6 +633,27 @@ def main():
                 pv, fv = lib.prism((v[0] + rnd.uniform(-0.12, 0.12), v[1] + rnd.uniform(-0.12, 0.12), v[2] + 0.15), rnd.uniform(0.07, 0.14), rnd.uniform(0.5, 1.1),
                                    tilt=(math.pi + rnd.uniform(-0.5, 0.5), rnd.uniform(-0.5, 0.5)), twist=rnd.random())
                 crystals.add(pv, fv, col(rnd.choice(['#5ce1ff', '#8ff0ff', '#c49bff', '#7fd8ff'])))
+
+    # little lamps along the trails (beside the path, midway between spaces)
+    rnd = random.Random(77)
+    lamps_wood, lamps_glow = lib.MeshBuilder(), lib.MeshBuilder()
+    for ei, e in enumerate(EDGES):
+        if e['style'] != 'path' or ei % 3:
+            continue
+        a, b = NODES[e['from']], NODES[e['to']]
+        mx, my = (a['x'] + b['x']) / 2, (a['y'] + b['y']) / 2
+        L = math.hypot(b['x'] - a['x'], b['y'] - a['y']) or 1
+        nx, ny = -(b['y'] - a['y']) / L, (b['x'] - a['x']) / L
+        if ny < 0:
+            nx, ny = -nx, -ny  # put the lamp on the far side of the trail so it never hides it
+        lx, ly = mx - nx * 58, my - ny * 58
+        if pmask_at(pm, lx, ly) > 0.05 or near_node(lx, ly, 70) or near_landmark(lx, ly, 50):
+            continue
+        if not any(inside(m, lx, ly) for (_, m, _, _) in island_info):
+            continue
+        lamp_post(lamps_wood, lamps_glow, lx, ly, rnd)
+    lamps_wood.build('trail_lamps', wood_m)
+    lamps_glow.build('trail_lamp_glass', crystal_m)
 
     # stepping stones along 'steps' edges (never overlapping island edges)
     rnd = random.Random(99)

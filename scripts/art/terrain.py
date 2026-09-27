@@ -490,3 +490,33 @@ def barrel(mb, bx, by, rnd):
         band = abs(z - h * 0.2) < 0.012 or abs(z - h * 0.8) < 0.012
         return col('#6b6f78') if band else col('#9a6436')
     mb.add(v, f, shade)
+
+
+def fence_run(mb, ax, ay, bx, by, rnd, h=0.22):
+    """Short rustic fence between two board points: posts with slightly uneven rails."""
+    a = board_to_world(ax, ay, 0.0)
+    b = board_to_world(bx, by, 0.0)
+    L = (b - a).length
+    n = max(1, int(L / 0.42))
+    for k in range(n + 1):
+        t = k / n
+        px, py = a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t
+        v, f = lib.box((px, py, h / 2), (0.05, 0.05, h + rnd.uniform(-0.02, 0.02)), rot_z=rnd.uniform(-0.2, 0.2))
+        mb.add(v, f, col(rnd.choice(['#7a5234', '#6e4a2c', '#86593a'])))
+    ang = math.atan2(b.y - a.y, b.x - a.x)
+    for zz in (h * 0.45, h * 0.85):
+        v, f = lib.box(((a.x + b.x) / 2, (a.y + b.y) / 2, zz + rnd.uniform(-0.01, 0.01)), (L, 0.03, 0.035), rot_z=ang)
+        mb.add(v, f, col(rnd.choice(['#a8744a', '#9a6a42'])))
+
+
+def lamp_post(mb_wood, mb_glow, bx, by, rnd):
+    """Small iron-and-wood trail lamp with a warm glass lantern."""
+    p = board_to_world(bx, by, 0.0)
+    v, f = lib.cylinder((p.x, p.y, 0.0), 0.035, 0.028, 0.62, 8)
+    mb_wood.add(v, f, col('#4a3a34'))
+    v, f = lib.box((p.x + 0.07, p.y, 0.6), (0.16, 0.025, 0.025))
+    mb_wood.add(v, f, col('#4a3a34'))
+    v, f = lib.lathe([(0.0, 0.0), (0.05, 0.02), (0.055, 0.1), (0.035, 0.14), (0.0, 0.15)], 8, (p.x + 0.14, p.y, 0.44))
+    mb_glow.add(v, f, col('#ffd27a'))
+    v, f = lib.lathe([(0.065, 0.0), (0.0, 0.05)], 8, (p.x + 0.14, p.y, 0.59), cap_bottom=True, cap_top=False)
+    mb_wood.add(v, f, col('#3a2e2a'))
