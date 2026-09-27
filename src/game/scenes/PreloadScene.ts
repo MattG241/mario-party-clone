@@ -49,7 +49,7 @@ export class PreloadScene extends Phaser.Scene {
     this.load.json('rendered-spaces', 'assets/rendered/spaces/spaces.json');
     for (const t of ['start', 'gleam', 'festival', 'mischief', 'market', 'portal', 'relic', 'event']) this.load.image(`rendered-space-${t}`, `assets/rendered/spaces/space_${t}.webp`);
     this.load.json('rendered-gleam3d', 'assets/rendered/scene_gleam3d.json');
-    for (const v of ['title', 'gleam', 'gleam_wall', 'gleam3d', 'gleam3d_wall', 'orbit', 'select', 'results']) this.load.image(`rendered-scene-${v}`, `assets/rendered/scene_${v}.webp`);
+    for (const v of ['title', 'gleam', 'gleam_wall', 'gleam3d', 'gleam3d_wall', 'gleam3d_blur', 'orbit', 'orbit_blur', 'select', 'results']) this.load.image(`rendered-scene-${v}`, `assets/rendered/scene_${v}.webp`);
     this.load.image('rendered-ui-dial', 'assets/rendered/ui_dial.webp');
     this.load.on(Phaser.Loader.Events.PROGRESS, (p: number) => this.setProgress(p));
     this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, (file: Phaser.Loader.File) => {

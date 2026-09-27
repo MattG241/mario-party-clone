@@ -27,9 +27,10 @@ function medalY(rank: number, h: number): number {
   const sinb = Math.sin(beta);
   const cosb = Math.cos(beta);
   const H = h / (100 * sinb);
-  const R = rank === 0 ? 0.5 : 0.42;
+  const R = rank === 0 ? 0.5 : rank < 3 ? 0.42 : 0.2;
   let mz = (h * 0.45 + 1.28 * 100 * cosb) / (100 * sinb);
-  mz = Math.min(Math.max(mz, R + 0.3), H - R - 0.25);
+  const [lo, hi] = rank < 3 ? [0.3, 0.25] : [0.08, 0.1];
+  mz = Math.min(Math.max(mz, R + lo), H - R - hi);
   return PODIUM_BASE + 1.28 * 100 * cosb - mz * 100 * sinb;
 }
 
@@ -87,7 +88,8 @@ export class ResultsScene extends Phaser.Scene {
     enterScene(this);
     audio.playMusic('results');
     const fx = new EffectsManager(this, 800);
-    const skyKey = ['rendered-sky-golden', 'rendered-sky-day'].find((k) => this.textures.exists(k));
+    // Festive dusk for the podium (the board is day, the title golden hour).
+    const skyKey = ['rendered-sky-dusk', 'rendered-sky-golden', 'rendered-sky-day'].find((k) => this.textures.exists(k));
     if (skyKey) {
       this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, skyKey).setDisplaySize(GAME_WIDTH * 1.05, GAME_HEIGHT * 1.05).setDepth(-10);
     } else {
@@ -108,8 +110,8 @@ export class ResultsScene extends Phaser.Scene {
       const h = PODIUM_H[rankIdx];
       if (!stage) drawPodium(this.add.graphics(), x, baseY, h, PLAYER_COLORS[pl.slot], pl.place === 1);
       const suffix = pl.place === 1 ? 'st' : pl.place === 2 ? 'nd' : pl.place === 3 ? 'rd' : 'th';
-      const ry = stage && rankIdx < 3 ? medalY(rankIdx, h) : baseY - h / 2 + 18;
-      addTitle(this, x, ry, `${pl.place}${suffix}`, rankIdx === 0 ? 46 : rankIdx < 3 ? 40 : 34, pl.place === 1 ? CSS.goldLight : CSS.cream);
+      const ry = stage ? medalY(rankIdx, h) : baseY - h / 2 + 18;
+      addTitle(this, x, ry, `${pl.place}${suffix}`, rankIdx === 0 ? 46 : rankIdx < 3 ? 40 : 24, pl.place === 1 ? CSS.goldLight : CSS.cream);
       // Player-colour ring on the podium top so each column reads as that player's.
       const ring = this.add.graphics();
       ring.lineStyle(5, PLAYER_COLORS[pl.slot], 0.95);

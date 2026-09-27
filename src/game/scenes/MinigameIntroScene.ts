@@ -57,9 +57,11 @@ export class MinigameIntroScene extends Phaser.Scene {
     if (this.textures.exists('rendered-sky-golden')) this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'rendered-sky-golden').setDisplaySize(GAME_WIDTH * 1.04, GAME_HEIGHT * 1.04);
     else if (this.textures.exists('rendered-sky-day')) this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'rendered-sky-day').setDisplaySize(GAME_WIDTH * 1.04, GAME_HEIGHT * 1.04);
     else this.add.image(0, 0, 'bg-sky').setOrigin(0).setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
-    if (arenaKey) {
-      const bg = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, arenaKey).setScale(1.08);
-      if (this.renderer.type === Phaser.WEBGL) bg.preFX?.addBlur(1, 2, 2, 1.2);
+    // Pre-blurred arena backdrop (a live full-screen blur is too costly on weak GPUs).
+    if (arenaKey && this.textures.exists(`${arenaKey}_blur`)) {
+      this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, `${arenaKey}_blur`).setDisplaySize(GAME_WIDTH * 1.08, GAME_HEIGHT * 1.08);
+    } else if (arenaKey) {
+      this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, arenaKey).setScale(1.08).setAlpha(0.7);
     }
     const veil = this.add.graphics();
     veil.fillGradientStyle(0x0a2230, 0x0a2230, 0x06141a, 0x06141a, 0.28, 0.28, 0.5, 0.5);

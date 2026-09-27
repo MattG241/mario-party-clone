@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { audio } from '../audio/AudioManager';
 import { animHeadTop, Character } from '../characters/Character';
-import { COLORS, CSS, GAME_HEIGHT, GAME_WIDTH, PLAYER_COLORS, PLAYER_SHAPE_NAMES } from '../constants';
+import { COLORS, CSS, GAME_HEIGHT, GAME_WIDTH, PLAYER_COLORS } from '../constants';
 import { CHARACTER_IDS, CHARACTERS } from '../data/characters';
 import { EffectsManager } from '../effects/EffectsManager';
 import { slotForDevice } from '../input/assignment';
@@ -63,7 +63,7 @@ export class CharacterSelectScene extends Phaser.Scene {
     audio.playMusic('menu');
     this.renderedStage = this.textures.exists('rendered-scene-select');
     if (this.renderedStage) {
-      const skyKey = ['rendered-sky-golden', 'rendered-sky-day'].find((k) => this.textures.exists(k));
+      const skyKey = ['rendered-sky-day', 'rendered-sky-golden'].find((k) => this.textures.exists(k));
       if (skyKey) this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, skyKey).setDisplaySize(GAME_WIDTH * 1.04, GAME_HEIGHT * 1.04);
       this.add.image(0, 0, 'rendered-scene-select').setOrigin(0);
     } else {
@@ -130,9 +130,8 @@ export class CharacterSelectScene extends Phaser.Scene {
     g.strokeRoundedRect(-w / 2, -h / 2, w, h, 34);
     const badge = new PlayerBadge(this, -w / 2 + 40, -h / 2 + 34, slot, 20);
     const label = addText(this, -w / 2 + 72, -h / 2 + 34, `PLAYER ${slot + 1}`, 22, { color: CSS.cream, weight: 700, align: 'left' });
-    const shape = addText(this, w / 2 - 28, -h / 2 + 34, PLAYER_SHAPE_NAMES[slot], 16, { color: CSS.creamDark, weight: 600, align: 'right' });
     const content = this.add.container(0, 22);
-    panel.add([g, badge, label, shape, content]);
+    panel.add([g, badge, label, content]);
     const cursorBadge = new PlayerBadge(this, 0, 0, slot, 24).setVisible(false).setDepth(50);
     const view: SlotView = { phase: 'empty', device: null, cursor: 0, panel, content, cursorBadge };
     this.renderSlot(slot, view);
@@ -146,16 +145,13 @@ export class CharacterSelectScene extends Phaser.Scene {
       const glyphKind = input.hasGamepad() ? 'gamepad' : 'keyboard';
       const glyph = makeGlyph(this, 'A', 40, glyphKind);
       const label = addText(this, 0, 0, 'TO JOIN', 28, { color: CSS.cream, weight: 700, align: 'left' });
-      const note = addText(this, 0, 0, session.mode === 'board' ? '· or a CPU plays' : '· or a CPU plays', 16, { color: CSS.creamDark, weight: 600, align: 'left' });
-      // Centre "[glyph] TO JOIN · note" as one line using the glyph's real width (key caps are wider).
+      // Centre "[glyph] TO JOIN" as one line using the glyph's real width (key caps are wider).
       const gw = glyph.width || 44;
-      const total = gw + 12 + label.width + 12 + note.width;
+      const total = gw + 12 + label.width;
       glyph.setPosition(-total / 2 + gw / 2, 0);
       label.setX(-total / 2 + gw + 12);
-      note.setX(label.x + label.width + 12);
       add(glyph);
       add(label);
-      add(note);
       this.tweens.add({ targets: glyph, scale: { from: 1, to: 1.12 }, duration: 520, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
       return;
     }

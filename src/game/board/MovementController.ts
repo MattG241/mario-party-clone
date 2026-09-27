@@ -34,6 +34,7 @@ const LAYOUTS: [number, number][][] = [
 
 interface Tag {
   container: Phaser.GameObjects.Container;
+  badge: Phaser.GameObjects.Container;
   /** Head top above the feet at token scale (negative). */
   head: number;
   counter: Phaser.GameObjects.Container;
@@ -66,7 +67,7 @@ export class MovementController {
       stem.fillStyle(PLAYER_COLORS[p.slot], 1);
       stem.fillTriangle(-6, 16, 6, 16, 0, 28);
       const badge = new PlayerBadge(this.scene, 0, 0, p.slot, 20);
-      const counter = this.scene.add.container(0, -58).setVisible(false);
+      const counter = this.scene.add.container(0, -6).setVisible(false);
       const cg = this.scene.add.graphics();
       cg.fillStyle(0x1b1530, 0.35);
       cg.fillCircle(0, 5, 40);
@@ -78,11 +79,16 @@ export class MovementController {
       counter.add([cg, counterText]);
       const shield = this.scene.add.sprite(0, 0, 'items', '24').play('bubble-idle').setVisible(false).setAlpha(0.7).setScale(0.42);
       container.add([stem, badge, counter]);
-      this.tags.set(p.slot, { container, head: animHeadTop(p.characterId) * TOKEN_SCALE, counter, counterText, shield });
+      this.tags.set(p.slot, { container, badge, head: animHeadTop(p.characterId) * TOKEN_SCALE, counter, counterText, shield });
       c.add(shield);
       shield.setPosition(0, -130).setScale(0.9);
     }
     this.arrange(state, true);
+  }
+
+  /** Tint every token to sit in the scene's light (warm by day, rosy-violet at the dusk finale). */
+  setLightTint(dusk: boolean): void {
+    for (const c of this.tokens.values()) c.sprite.setTint(dusk ? 0xf2dcf0 : 0xfff5e8);
   }
 
   token(slot: number): Character {
@@ -122,13 +128,54 @@ export class MovementController {
     if (!tag) return;
     if (n === null || n <= 0) {
       tag.counter.setVisible(false);
+      tag.badge.setVisible(true);
+      this.clearRoute();
       return;
     }
     const was = tag.counter.visible;
+    // The step counter takes the marker's place while moving (no stacked badges).
     tag.counter.setVisible(true);
+    tag.badge.setVisible(false);
     tag.counterText.setText(String(n));
     if (was) this.scene.tweens.add({ targets: tag.counter, scale: { from: 1.25, to: 1 }, duration: 150, ease: 'Back.Out' });
     else this.scene.tweens.add({ targets: tag.counter, scale: { from: 0.2, to: 1 }, duration: 240, ease: 'Back.Out' });
+  }
+
+  private route: Phaser.GameObjects.Image[] = [];
+
+  /** Glow the spaces ahead (up to the next fork) so the move reads before it happens. */
+  showRoute(from: string, steps: number): void {
+    this.clearRoute();
+    let id = from;
+    for (let i = 0; i < steps; i++) {
+      const n = this.board.graph.node(id);
+      if (!n || n.next.length !== 1) break;
+      id = n.next[0];
+      const q = this.board.pos(id);
+      const last = i === steps - 1;
+      const ring = this.scene.add.image(q.x, q.y, 'fx-ring').setTint(last ? COLORS.goldLight : COLORS.crystalLight).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.spaces + 2);
+      ring.setScale(last ? 1.05 : 0.8, last ? 0.8 : 0.6).setAlpha(0);
+      this.scene.tweens.add({ targets: ring, alpha: { from: 0, to: last ? 0.95 : 0.6 }, delay: i * 70, duration: 220 });
+      this.scene.tweens.add({ targets: ring, scaleX: ring.scaleX * 1.08, scaleY: ring.scaleY * 1.08, duration: 520, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+      this.route.push(ring);
+    }
+  }
+
+  /** Drop the preview ring for a space the token has just reached. */
+  private shiftRoute(): void {
+    const r = this.route.shift();
+    if (r) {
+      this.scene.tweens.killTweensOf(r);
+      this.scene.tweens.add({ targets: r, alpha: 0, scaleX: r.scaleX * 1.4, scaleY: r.scaleY * 1.4, duration: 200, onComplete: () => r.destroy() });
+    }
+  }
+
+  clearRoute(): void {
+    for (const r of this.route) {
+      this.scene.tweens.killTweensOf(r);
+      r.destroy();
+    }
+    this.route = [];
   }
 
   /** Keep tags above heads and y-sort tokens (call every frame). */
@@ -142,8 +189,10 @@ export class MovementController {
       const full = this.activeSlot === null || active;
       tag.container.setPosition(c.x, c.y + tag.head * (c.scale / TOKEN_SCALE) - (full ? 44 : 30) + lift);
       tag.container.setDepth(DEPTH.worldUi + (active ? 10 : 0));
-      // Only the active player's marker is full size, so shared spaces stay readable.
-      const want = full ? 1 : 0.6;
+      // Only the active player's marker is full size, so shared spaces stay readable; markers grow
+      // when the camera pulls back so players stay easy to find on the overview.
+      const zoomK = Phaser.Math.Clamp(0.85 / this.scene.cameras.main.zoom, 1, 1.9);
+      const want = (full ? 1 : 0.6) * zoomK;
       if (Math.abs(tag.container.scale - want) > 0.01) tag.container.setScale(tag.container.scale + (want - tag.container.scale) * 0.2);
     }
   }
@@ -179,10 +228,12 @@ export class MovementController {
     c.faceToward(target.x);
     if (c.current !== 'run') c.play('run');
     this.setCounter(p.slot, remaining + 1);
-    await this.hopTo(c, target.x, target.y, this.dur(300), 26);
+    await this.hopTo(c, target.x, target.y, this.dur(300), 30);
     this.setCounter(p.slot, remaining);
+    this.shiftRoute();
     audio.play('step', { rate: CHARACTERS[p.characterId].pitch * (0.95 + Math.random() * 0.1), volume: 0.7 });
-    this.fx.vfx('dust', target.x - (c.isFacingLeft ? -26 : 26), target.y - 8, { scale: 0.22, duration: 360, alpha: 0.7 });
+    this.fx.vfx('dust', target.x - (c.isFacingLeft ? -30 : 30), target.y - 6, { scale: 0.34, duration: 420, alpha: 0.8 });
+    c.squash(0.1, 120);
     this.board.pulseNode(to, COLORS.cream);
     if (p.characterId === 'tumble') this.fx.shake(0.0012, 80);
   }

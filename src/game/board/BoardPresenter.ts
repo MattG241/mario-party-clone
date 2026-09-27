@@ -81,6 +81,7 @@ export class BoardPresenter implements FlowIO {
   async finalRoundIntro(): Promise<void> {
     audio.playMusic('boardFinal');
     this.scene.bg.setIntensity(1);
+    this.moves.setLightTint(true);
     await this.ui.banner({ title: 'FINAL ROUND', subtitle: 'THE FESTIVAL LIGHTS BLAZE!', color: COLORS.coral, sound: 'fanfare', hold: 1400, size: 110 });
     // Camera sweep across the board while everyone reacts.
     await this.scene.overview(this.dur(1400));
@@ -193,6 +194,7 @@ export class BoardPresenter implements FlowIO {
     this.ui.setPrompts([]);
     if (c) c.rumble(0.35, 0.5, 90);
     this.moves.setCounter(p.slot, result + bonus);
+    this.moves.showRoute(p.nodeId, result + bonus);
     this.scene.followToken(p.slot);
   }
 

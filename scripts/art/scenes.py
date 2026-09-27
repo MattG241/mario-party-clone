@@ -157,12 +157,28 @@ def title():
     for (x, y, s) in [(700, 600, 1.3), (760, 540, 1.1), (1880, 580, 1.25), (1830, 520, 1.0), (1040, 520, 1.0), (1560, 515, 1.05)]:
         if on_island(x, y):
             (terrain.tree_round if s != 1.0 else terrain.tree_pine)(leaves, wood, x, y, rnd, s)
+    # vines hang in clumps (not an even curtain), with a few long trailing ones
     for k in range(0, len(ring), 2):
-        if nrm[k][1] < 0.3 or rnd.random() < 0.4:
+        clump = 0.5 + 0.5 * math.sin(k * 0.11 + 1.3) * math.sin(k * 0.037 + 0.4)
+        if nrm[k][1] < 0.3 or rnd.random() > clump * 0.9:
             continue
         bx, by = ring[k] + nrm[k] * 3
         w = board_to_world(bx, by, -0.12)
-        terrain.vine(vines, (w.x, w.y, w.z), (nrm[k][0], -nrm[k][1]), rnd, rnd.uniform(0.5, 1.6))
+        length = rnd.uniform(0.3, 1.0) if rnd.random() < 0.75 else rnd.uniform(1.4, 2.4)
+        terrain.vine(vines, (w.x, w.y, w.z), (nrm[k][0], -nrm[k][1]), rnd, length)
+    # crystals poking out of the underside
+    crys = lib.MeshBuilder()
+    cands = [v for v, d in under if d > 40]
+    for _ in range(min(len(cands), 7)):
+        v0 = rnd.choice(cands)
+        for _k in range(rnd.randint(1, 3)):
+            pv, fv = lib.prism((v0[0] + rnd.uniform(-0.15, 0.15), v0[1] + rnd.uniform(-0.15, 0.15), v0[2] + 0.15), rnd.uniform(0.08, 0.16), rnd.uniform(0.6, 1.3),
+                               tilt=(math.pi + rnd.uniform(-0.5, 0.5), rnd.uniform(-0.5, 0.5)), twist=rnd.random())
+            crys.add(pv, fv, col(rnd.choice(['#5ce1ff', '#8ff0ff', '#c49bff'])))
+    cm = lib.NT('title_crystal')
+    cc = cm.attr('col')
+    cm.bsdf(cc, 0.12, emission=cc, emission_strength=1.6, coat=0.6, transmission=0.2)
+    crys.build('title_crystals', cm.mat, smooth=False)
     lib.MeshBuilder.build(grass, 'grass', lib.attr_mat('grass', rough=0.8, sheen=0.15, ao=0.3), smooth=False)
     flowers.build('flowers', lib.attr_mat('flower', rough=0.55, subsurface=0.25))
     leaves.build('leaves', lib.attr_mat('leaf', rough=0.78, ao=0.5))
@@ -671,10 +687,11 @@ def result_podium(bx, base_y, h_px, rank):
         v, f = lib.box((x + math.cos(a) * (r + 0.02), y + math.sin(a) * (r + 0.02), 0.5 if H > 1.0 else 0.34), (0.1, 0.04, 0.12), rot_z=a + math.pi / 2)
         P.b['glow'].add(v, f, col('#5ce1ff'))
     # front medallion facing the camera (where the rank numeral sits in-game)
-    if rank < 3:
-        R = 0.5 if rank == 0 else 0.42
+    if True:
+        R = 0.5 if rank == 0 else 0.42 if rank < 3 else 0.2
         mz = (h_px * 0.45 + r * PX * lib.COSB) / (PX * lib.SINB)
-        mz = min(max(mz, R + 0.3), H - R - 0.25)
+        lo, hi = (0.3, 0.25) if rank < 3 else (0.08, 0.1)
+        mz = min(max(mz, R + lo), H - R - hi)
         # the disc must sit proud of the drum's nearest point (y - r), not just its rim chord
         fy = y - r + 0.03
         # enamel disc (triangle fan facing the camera) with a gold tube rim

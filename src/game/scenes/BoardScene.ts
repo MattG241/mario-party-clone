@@ -7,7 +7,7 @@ import { MovementController } from '../board/MovementController';
 import { OrbitDial } from '../board/OrbitDial';
 import { PathChooser } from '../board/PathChooser';
 import { runMatch } from '../board/TurnManager';
-import { CAMERA_ZOOM, COLORS, CSS, GAME_HEIGHT, GAME_WIDTH } from '../constants';
+import { CAMERA_ZOOM, COLORS, CSS, DEPTH, GAME_HEIGHT, GAME_WIDTH } from '../constants';
 import { findBoard } from '../data/boards';
 import { ITEM_IDS } from '../data/items';
 import { clearDebugInfo, DEBUG_ENABLED, logError, setDebugInfo, URL_PARAMS } from '../debug/debug';
@@ -108,17 +108,44 @@ export class BoardScene extends Phaser.Scene {
     const ov = this.overviewRect();
     cam.centerOn(ov.centerX, ov.centerY);
     cam.setZoom(this.overviewZoom());
-    // Subtle vignette to frame the diorama (WebGL only).
     // Miniature look: a gentle tilt-shift keeps the eye on the middle band where the action is.
     applyGrade(this, { tilt: 3.2, focusH: 0.2 });
+    this.buildCloudShadows(def.width, def.height);
     audio.playMusic(isFinalRound(state) ? 'boardFinal' : 'board');
     this.bg.setIntensity(isFinalRound(state) ? 1 : 0);
+    this.moves.setLightTint(isFinalRound(state));
     if (DEBUG_ENABLED) this.offDebug = input.keyboard.onRawKey((e) => this.debugKey(e));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.cleanup());
     // UI scene needs a frame to build before the flow starts.
     // ?noflow (debug): show the board without running the match (screenshots, art checks).
     if (DEBUG_ENABLED && URL_PARAMS.has('noflow')) return;
     this.time.delayedCall(60, () => void this.startFlow());
+  }
+
+  /** Big soft cloud shadows drifting slowly over the islands (they sell the sunlight and add life). */
+  private cloudShadows: Phaser.GameObjects.Image[] = [];
+
+  private buildCloudShadows(w: number, h: number): void {
+    this.cloudShadows = [];
+    if (!this.textures.exists('fx-shadow')) return;
+    for (let i = 0; i < 4; i++) {
+      const img = this.add
+        .image(((i * 0.29 + 0.1) % 1) * w, ((i * 0.43 + 0.2) % 1) * h, 'fx-shadow')
+        .setScale(9 + (i % 2) * 3, 4.5 + (i % 3))
+        .setAlpha(0.13)
+        .setTint(0x1a2a50)
+        .setDepth(DEPTH.worldFx - 10);
+      this.cloudShadows.push(img);
+    }
+  }
+
+  private driftCloudShadows(dt: number, w: number, h: number): void {
+    for (const [i, c] of this.cloudShadows.entries()) {
+      c.x += (22 + i * 4) * dt;
+      c.y += (7 + i * 2) * dt;
+      if (c.x > w + 900) c.x = -900;
+      if (c.y > h + 500) c.y = -500;
+    }
   }
 
   private rebuildSession(state: MatchState): void {
@@ -432,8 +459,9 @@ export class BoardScene extends Phaser.Scene {
   }
 
   // --- Frame --------------------------------------------------------------------------------------------
-  override update(): void {
+  override update(_t: number, delta: number): void {
     if (!this.moves) return;
+    this.driftCloudShadows(delta / 1000, this.board.def.width, this.board.def.height);
     this.moves.update();
     if (!this.running || this.pauseOpen) return;
     // Scoreboard while VIEW is held (any human).
