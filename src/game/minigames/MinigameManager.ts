@@ -23,6 +23,8 @@ export interface MinigameInfo {
   assets?: SvgAsset[];
   /** Pre-rendered arena texture (shown as a live preview on the intro card). */
   arena?: string;
+  /** Optional icon per instruction line on the intro card (atlas frame or texture). */
+  ruleIcons?: ({ texture: string; frame?: string } | null)[];
 }
 
 export interface MinigamePlayer {
@@ -67,6 +69,7 @@ export const MINIGAMES: MinigameInfo[] = [
     preview: { texture: 'items', frame: '0', scale: 0.7 },
     assets: [{ key: 'mg-plaza-floor', path: `${MG}gleam-grab/plaza_floor.svg`, width: 1600, height: 820 }],
     arena: 'rendered-scene-gleam3d',
+    ruleIcons: [{ texture: 'items', frame: '0' }, { texture: 'items', frame: '12' }, { texture: 'items', frame: '18' }, { texture: 'prism-relic' }],
   },
   {
     id: 'orbit-dodge',
@@ -85,6 +88,7 @@ export const MINIGAMES: MinigameInfo[] = [
     preview: { texture: 'props', frame: '19', scale: 0.62 },
     assets: [{ key: 'mg-orbit-platform', path: `${MG}orbit-dodge/platform.svg`, width: 1400, height: 760 }],
     arena: 'rendered-scene-orbit',
+    ruleIcons: [{ texture: 'items', frame: '18' }, null, { texture: 'items', frame: '24' }, { texture: 'prism-relic' }],
   },
   {
     id: 'crate-craze',

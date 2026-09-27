@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { COLORS, CSS, DEPTH, PLAYER_COLORS } from '../constants';
-import { npcFrame, type NpcId } from '../data/npcs';
+import { NPCS, npcFrame, type NpcId } from '../data/npcs';
 import { renderedManifestKey, renderedTileKey, type RenderedBoard } from '../data/rendered';
 import { clampTexture } from '../util/texture';
 import type { MatchState } from '../state/MatchState';
@@ -217,10 +217,21 @@ export class BoardManager {
     const frame = npcFrame(id, pose);
     const spr = this.scene.add.sprite(x, y, 'npcs', frame);
     const o = standOrigin('npcs', frame);
-    spr.setOrigin(o.x, o.y).setScale(0.52).setDepth(y);
+    // A little smaller than the players (so she never reads as a fifth player), with a name plate.
+    spr.setOrigin(o.x, o.y).setScale(0.42).setDepth(y);
     this.npcs.set(id, spr);
+    const def = NPCS[id];
+    const plate = this.scene.add.container(x, y + 16).setDepth(y + 1);
+    const label = addText(this.scene, 0, 0, def.name.toUpperCase(), 17, { color: '#ffffff', weight: 700, fixed: true });
+    const pw = label.width + 26;
+    const pg = this.scene.add.graphics();
+    pg.fillStyle(0x0c2630, 0.85);
+    pg.fillRoundedRect(-pw / 2, -13, pw, 26, 13);
+    pg.lineStyle(2, def.color, 1);
+    pg.strokeRoundedRect(-pw / 2, -13, pw, 26, 13);
+    plate.add([pg, label]);
     // Gentle idle breathing.
-    this.scene.tweens.add({ targets: spr, scaleY: 0.535, duration: 1200 + Math.random() * 400, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+    this.scene.tweens.add({ targets: spr, scaleY: 0.432, duration: 1200 + Math.random() * 400, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
   }
 
   npcPose(id: NpcId, pose: string): void {

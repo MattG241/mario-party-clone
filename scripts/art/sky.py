@@ -25,10 +25,14 @@ p.add_argument('--preview', action='store_true')
 p.add_argument('--variant', default='day')
 A = p.parse_args(sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else sys.argv[1:])
 
+# Each screen gets its own sky (different cloud seed and light); only the board's day sky shows the
+# Prism Beacon. Cloud shadows stay cool blue (lilac read as washed out next to the warm islands).
 VARIANTS = {
-    'day': dict(zenith='#2270d6', mid='#7fbdf3', horizon='#ffeed6', sun=(1.0, 0.96, 0.88), sun_dir=(-0.45, -0.35, 0.82), glow_dir=(-0.75, 0.62, 0.2), cloud_shadow='#c6d3ec', energy=3.3, exposure=-0.28),
-    'golden': dict(zenith='#2f6fc9', mid='#8fbde6', horizon='#ffd49a', sun=(1.0, 0.86, 0.66), sun_dir=(-0.55, -0.3, 0.55), glow_dir=(-0.72, 0.66, 0.12), cloud_shadow='#c9b8d8', energy=3.2, exposure=-0.25),
-    'dusk': dict(zenith='#2e3690', mid='#b784c9', horizon='#ffb88c', sun=(1.0, 0.74, 0.52), sun_dir=(-0.5, -0.2, 0.45), glow_dir=(-0.8, 0.55, 0.08), cloud_shadow='#b8a2d8', energy=3.0, exposure=-0.2),
+    'day': dict(zenith='#1b66d2', mid='#6fb4f2', horizon='#ffeed6', sun=(1.0, 0.96, 0.88), sun_dir=(-0.45, -0.35, 0.82), glow_dir=(-0.75, 0.62, 0.2), cloud_shadow='#b9cbee', energy=3.3, exposure=-0.28, seed=42, beacon=True),
+    'clear': dict(zenith='#145ec8', mid='#62acef', horizon='#fff2dc', sun=(1.0, 0.97, 0.9), sun_dir=(-0.4, -0.4, 0.85), glow_dir=(0.7, 0.66, 0.18), cloud_shadow='#b4c8ee', energy=3.4, exposure=-0.3, seed=19, beacon=False),
+    'golden': dict(zenith='#1f5fc0', mid='#7fb2e6', horizon='#ffcf8e', sun=(1.0, 0.86, 0.66), sun_dir=(-0.55, -0.3, 0.55), glow_dir=(-0.72, 0.66, 0.12), cloud_shadow='#b6c3e4', energy=3.2, exposure=-0.25, seed=7, beacon=False),
+    'sunset': dict(zenith='#2449a8', mid='#86a6e2', horizon='#ffba7a', sun=(1.0, 0.8, 0.58), sun_dir=(0.5, -0.25, 0.5), glow_dir=(0.74, 0.64, 0.1), cloud_shadow='#aebbe0', energy=3.1, exposure=-0.22, seed=63, beacon=False),
+    'dusk': dict(zenith='#2e3690', mid='#b784c9', horizon='#ffb88c', sun=(1.0, 0.74, 0.52), sun_dir=(-0.5, -0.2, 0.45), glow_dir=(-0.8, 0.55, 0.08), cloud_shadow='#b8a2d8', energy=3.0, exposure=-0.2, seed=7, beacon=True),
 }
 V = VARIANTS[A.variant]
 W, H = (1200, 675) if A.preview else (2560, 1440)
@@ -112,7 +116,7 @@ base = m.mix(m.math('MULTIPLY', ao, up), col(V['cloud_shadow']), col('#ffffff'))
 m.bsdf(base, 1.0, emission=col(V['mid']), emission_strength=0.07, sheen=0.4)
 cloud_mat = m.mat
 
-rnd = random.Random(42 if A.variant == 'day' else 7)
+rnd = random.Random(V['seed'])
 clouds = lib.MeshBuilder()
 
 
@@ -233,32 +237,33 @@ def far_island(cx, cy, cz, r, seed, trees=6):
 for i, (x, y, z, r) in enumerate([(-230, 520, -6, 26), (-330, 760, 8, 34), (-150, 900, 22, 20), (-420, 1100, -2, 40),
                                     (250, 560, -2, 24), (380, 820, 14, 36), (170, 980, 30, 18), (470, 1180, 4, 44), (-40, 1250, 40, 16)]):
     far_island(x, y, z, r, seed=300 + i * 17, trees=4 + i % 4)
-# The Prism Beacon: a great crystal on a far isle, lighting the festival from the horizon.
-far_island(300, 1350, 18, 46, seed=911, trees=3)
-bx, by, bz = 300, 1350, 18 + 46 * 0.2
-crystal = lib.MeshBuilder()
-v, f = lib.prism((bx, by, bz), 15, 96, sides=6, tip=0.3)
-crystal.add(v, f, (1, 1, 1, 1))
-for k in range(5):
-    a = k / 5 * math.tau + 0.4
-    v, f = lib.prism((bx + math.cos(a) * 12, by + math.sin(a) * 9, bz), 4.5, 26 + 8 * (k % 3), sides=6, tip=0.35, tilt=(math.cos(a) * 0.35, math.sin(a) * 0.35))
+if V['beacon']:
+    # The Prism Beacon: a great crystal on a far isle, lighting the festival from the horizon.
+    far_island(300, 1350, 18, 46, seed=911, trees=3)
+    bx, by, bz = 300, 1350, 18 + 46 * 0.2
+    crystal = lib.MeshBuilder()
+    v, f = lib.prism((bx, by, bz), 15, 96, sides=6, tip=0.3)
     crystal.add(v, f, (1, 1, 1, 1))
-crystal.build('beacon', hazed('beacon_mat', '#6fe6ff', 0.25, glow='#3fcfff', glow_strength=2.6, near=1200, far=3000, max_haze=0.15))
-beam = lib.NT('beam')
-em = beam.node('ShaderNodeEmission')
-em.inputs['Color'].default_value = col('#bff6ff')
-em.inputs['Strength'].default_value = 0.9
-tr = beam.node('ShaderNodeBsdfTransparent')
-lw = beam.node('ShaderNodeLayerWeight')
-lw.inputs['Blend'].default_value = 0.35
-fac = beam.maprange(lw.outputs['Facing'], 0.0, 1.0, 0.8, 1.0)
-mx = beam.node('ShaderNodeMixShader')
-beam.link(fac, mx.inputs['Fac'])
-beam.link(em.outputs['Emission'], mx.inputs[1])
-beam.link(tr.outputs['BSDF'], mx.inputs[2])
-beam.link(mx.outputs['Shader'], beam.out.inputs['Surface'])
-v, f = lib.cylinder((bx, by, bz + 80), 5, 14, 700, sides=24, cap=False)
-lib.mesh_object('beam', v, f, smooth=True, material=beam.mat)
+    for k in range(5):
+        a = k / 5 * math.tau + 0.4
+        v, f = lib.prism((bx + math.cos(a) * 12, by + math.sin(a) * 9, bz), 4.5, 26 + 8 * (k % 3), sides=6, tip=0.35, tilt=(math.cos(a) * 0.35, math.sin(a) * 0.35))
+        crystal.add(v, f, (1, 1, 1, 1))
+    crystal.build('beacon', hazed('beacon_mat', '#6fe6ff', 0.25, glow='#3fcfff', glow_strength=2.6, near=1200, far=3000, max_haze=0.15))
+    beam = lib.NT('beam')
+    em = beam.node('ShaderNodeEmission')
+    em.inputs['Color'].default_value = col('#bff6ff')
+    em.inputs['Strength'].default_value = 0.9
+    tr = beam.node('ShaderNodeBsdfTransparent')
+    lw = beam.node('ShaderNodeLayerWeight')
+    lw.inputs['Blend'].default_value = 0.35
+    fac = beam.maprange(lw.outputs['Facing'], 0.0, 1.0, 0.8, 1.0)
+    mx = beam.node('ShaderNodeMixShader')
+    beam.link(fac, mx.inputs['Fac'])
+    beam.link(em.outputs['Emission'], mx.inputs[1])
+    beam.link(tr.outputs['BSDF'], mx.inputs[2])
+    beam.link(mx.outputs['Shader'], beam.out.inputs['Surface'])
+    v, f = lib.cylinder((bx, by, bz + 80), 5, 14, 700, sides=24, cap=False)
+    lib.mesh_object('beam', v, f, smooth=True, material=beam.mat)
 
 grass_b.build('far_grass', hazed('far_grass_mat', '#6cc24a', 0.9))
 def rock_color(m):

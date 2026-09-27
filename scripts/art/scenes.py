@@ -106,6 +106,46 @@ def lights(elev=50, az=-35):
 
 
 # ------------------------------------------------------------------------------------------
+def title_waterfall(ring, nrm, target_x=1560):
+    k = min(range(len(ring)), key=lambda i: abs(ring[i][0] - target_x) + (0 if nrm[i][1] > 0.6 else 9999))
+    bx, by = ring[k]
+    top = board_to_world(bx, by - 10, 0.0)
+    m = lib.NT('title_fall')
+    pos = m.position()
+    X, Y, Z = m.sep(pos)
+    wave = m.node('ShaderNodeTexWave')
+    wave.wave_type = 'BANDS'
+    wave.bands_direction = 'X'
+    wave.inputs['Scale'].default_value = 7.0
+    wave.inputs['Distortion'].default_value = 5.0
+    m.link(pos, wave.inputs['Vector'])
+    streak = m.maprange(wave.outputs['Fac'], 0.3, 0.9)
+    c = m.mix(streak, col('#8fd8f4'), col('#f6feff'))
+    fade = m.maprange(Z, top.z - 4.2, top.z - 1.0, 0.0, 1.0)
+    m.bsdf(c, 0.15, emission=c, emission_strength=0.6, coat=0.4, alpha=m.math('MULTIPLY', fade, 0.92))
+    verts, faces = [], []
+    rows = 22
+    for r in range(rows + 1):
+        t = r / rows
+        out = 0.35 * math.sqrt(t) + 0.05
+        drop = 4.4 * t * t + 0.1 * t
+        wd = 0.42 + 0.25 * t
+        cx = top.x + math.sin(t * 3) * 0.04
+        cy = top.y - out - 0.12
+        cz = top.z - drop
+        verts += [(cx - wd, cy, cz), (cx + wd, cy, cz)]
+    for r in range(rows):
+        i = r * 2
+        faces.append((i, i + 1, i + 3, i + 2))
+    lib.mesh_object('title_waterfall', verts, faces, smooth=True, material=m.mat)
+    mist = lib.MeshBuilder()
+    rnd = random.Random(8)
+    for _ in range(9):
+        v, f = lib.blob((top.x + rnd.uniform(-0.5, 0.5), top.y - 0.6, top.z - 3.4 + rnd.uniform(-0.4, 0.4)), rnd.uniform(0.25, 0.45), rough=0.2, subdiv=2, seed=rnd.random())
+        mist.add(v, f, col('#ffffff'))
+    mist.build('title_mist', lib.attr_mat('mist', rough=1.0, sheen=0.6))
+
+
 def title():
     """Big festival island for the title screen; characters stand on it in-game."""
     set_view(22)
@@ -122,11 +162,15 @@ def title():
     terrain.set_canvas(SW, SH, 4)
     mat = terrain.island_material(pm)
     # island_material maps the mask over the terrain canvas; keep it at screen size
-    outline = blob_outline(1300, 650, 660, 150, seed=4, lobes=9)
+    outline = blob_outline(1280, 650, 625, 150, seed=4, lobes=9)
     ob, dist, under, ring, nrm = island_under(outline, 'title_island', mat)
-    # small companion islets
-    for i, (cx, cy, rx, ry) in enumerate([(210, 900, 150, 40), (1860, 300, 120, 30)]):
-        island_under(blob_outline(cx, cy, rx, ry, seed=10 + i, lobes=5), f'islet{i}', mat, depth=0.5)
+    # companion islets: a larger one bottom-left with the festival sky-boat moored above it
+    for i, (cx, cy, rx, ry) in enumerate([(250, 905, 230, 60), (1860, 300, 120, 30)]):
+        island_under(blob_outline(cx, cy, rx, ry, seed=10 + i, lobes=5), f'islet{i}', mat, depth=0.6 if i == 0 else 0.5)
+    # the festival sky-boat drifting in the top-left sky (clear of the logo)
+    props.skyboat(160, 330, 1.3)
+    props.lantern(140, 900, 1.2)
+    props.lantern(370, 915, 1.0)
     rnd = random.Random(3)
     grass = lib.MeshBuilder()
     flowers = lib.MeshBuilder()
@@ -177,8 +221,10 @@ def title():
             crys.add(pv, fv, col(rnd.choice(['#5ce1ff', '#8ff0ff', '#c49bff'])))
     cm = lib.NT('title_crystal')
     cc = cm.attr('col')
-    cm.bsdf(cc, 0.12, emission=cc, emission_strength=1.6, coat=0.6, transmission=0.2)
+    cm.bsdf(cc, 0.12, emission=cc, emission_strength=2.6, coat=0.6, transmission=0.2)
     crys.build('title_crystals', cm.mat, smooth=False)
+    # a waterfall spilling off the front rim, with a mist puff where it thins out
+    title_waterfall(ring, nrm)
     lib.MeshBuilder.build(grass, 'grass', lib.attr_mat('grass', rough=0.8, sheen=0.15, ao=0.3), smooth=False)
     flowers.build('flowers', lib.attr_mat('flower', rough=0.55, subsurface=0.25))
     leaves.build('leaves', lib.attr_mat('leaf', rough=0.78, ao=0.5))
@@ -445,6 +491,43 @@ def astro_texture(path, size=1400):
         a = k / 12 * math.tau + 0.13
         r = 0.59 * R
         d.ellipse([c + math.cos(a) * r - 14, c + math.sin(a) * r - 14, c + math.cos(a) * r + 14, c + math.sin(a) * r + 14], fill=(92, 225, 255))
+    # brass spokes between the inner rings
+    for k in range(8):
+        a = k / 8 * math.tau
+        d.line([(c + math.cos(a) * 0.23 * R, c + math.sin(a) * 0.23 * R), (c + math.cos(a) * 0.45 * R, c + math.sin(a) * 0.45 * R)], fill=(214, 160, 60), width=10)
+        d.line([(c + math.cos(a) * 0.23 * R, c + math.sin(a) * 0.23 * R), (c + math.cos(a) * 0.45 * R, c + math.sin(a) * 0.45 * R)], fill=(246, 206, 110), width=3)
+    # engraved rune ring (small original glyphs) between the 0.72 and 0.83 rings
+    for k in range(36):
+        a = k / 36 * math.tau
+        gx, gy = c + math.cos(a) * 0.775 * R, c + math.sin(a) * 0.775 * R
+        kind = k % 4
+        col_r = (120, 104, 92)
+        if kind == 0:
+            d.ellipse([gx - 9, gy - 9, gx + 9, gy + 9], outline=col_r, width=4)
+        elif kind == 1:
+            d.polygon([(gx, gy - 11), (gx + 10, gy + 8), (gx - 10, gy + 8)], outline=col_r, width=4)
+        elif kind == 2:
+            d.line([(gx - 9, gy), (gx + 9, gy)], fill=col_r, width=4)
+            d.line([(gx, gy - 9), (gx, gy + 9)], fill=col_r, width=4)
+        else:
+            d.arc([gx - 10, gy - 10, gx + 10, gy + 10], 30, 300, fill=col_r, width=4)
+        if k % 6 == 0:
+            d.ellipse([gx - 5, gy - 5, gx + 5, gy + 5], fill=(92, 225, 255))
+    # gear-tooth rim
+    for k in range(72):
+        a0 = k / 72 * math.tau
+        if k % 2:
+            continue
+        pts = [(c + math.cos(a0 + da) * rr * R, c + math.sin(a0 + da) * rr * R) for (da, rr) in [(0.0, 0.945), (0.06, 0.945), (0.05, 0.985), (0.01, 0.985)]]
+        d.polygon(pts, fill=(198, 146, 52))
+    # constellation lines across the middle ring
+    stars = [(0.3, 0.55), (0.62, 0.52), (1.1, 0.62), (1.5, 0.5), (2.3, 0.6), (2.9, 0.53), (3.6, 0.62), (4.3, 0.5), (5.0, 0.58), (5.7, 0.52)]
+    pts = [(c + math.cos(a) * r * R, c + math.sin(a) * r * R) for (a, r) in stars]
+    for i in range(len(pts) - 1):
+        if i % 3 != 2:
+            d.line([pts[i], pts[i + 1]], fill=(150, 132, 116), width=3)
+    for (x, y) in pts:
+        d.ellipse([x - 6, y - 6, x + 6, y + 6], fill=(255, 236, 170))
     im.save(path)
 
 
@@ -621,8 +704,8 @@ def select():
     base_y = PODIUM_TOP_Y + 1.46 * PX * lib.SINB
     # stage floor: stone tiles on a floating terrace
     tex = os.path.join(OUT, 'stage_floor.png')
-    region = (60, base_y - 70, 1860, base_y + 90)
-    plaza_texture(tex, region)
+    region = (110, base_y - 70, 1810, base_y + 90)
+    stage_planks_texture(tex, region)
     floor_m = ground_image_material('stage', tex, region, rough=0.55)
     x0, y0, x1, y1 = region
     top = [tuple(board_to_world(x, y, 0.0)) for (x, y) in [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]]
@@ -637,7 +720,23 @@ def select():
     v, f = lib.box(((a.x + b.x) / 2, a.y - 0.02, 0.03), (b.x - a.x, 0.08, 0.12))
     trim.add(v, f, col('#e0a93f'))
     trim.build('stage_trim', props.mats()['metal'])
+    stage_dressing(region)
     stage_island(960, base_y + 30, 1010, 175, seed=5)
+    # the lawn in front of the stage: flower beds, lanterns on short posts and a few supplies
+    rnd_f = random.Random(33)
+    flowers, leaves_f, wood_f = lib.MeshBuilder(), lib.MeshBuilder(), lib.MeshBuilder()
+    for k in range(14):
+        fx = 140 + k * 128 + rnd_f.uniform(-30, 30)
+        fy = base_y + 118 + rnd_f.uniform(-8, 26)
+        terrain.flower_bed(flowers, leaves_f, fx, fy, rnd_f)
+    for (fx, fy) in [(70, base_y + 120), (1850, base_y + 120)]:
+        terrain.bush(leaves_f, fx, fy, rnd_f, 1.2, berries=flowers)
+    for (fx, fy) in [(250, base_y + 150), (1670, base_y + 150)]:
+        terrain.barrel(wood_f, fx, fy, rnd_f)
+        terrain.crate(wood_f, fx + 60, fy + 6, rnd_f, 0.9)
+    flowers.build('lawn_flowers', lib.attr_mat('flower', rough=0.55, subsurface=0.25))
+    leaves_f.build('lawn_leaves', lib.attr_mat('leaf', rough=0.78, ao=0.5))
+    wood_f.build('lawn_wood', props.mats()['wood'])
     for x in PODIUM_X:
         hero_pedestal(x, base_y)
     # festival backdrop
@@ -721,9 +820,70 @@ def stage_island(cx, cy, rx, ry, seed=5):
     return island_under(outline, f'stage_island_{seed}', isl_m)
 
 
+def stage_planks_texture(path, region):
+    """Festival stage boards: long planks with varied tones, nail heads, seams and a painted
+    gold-edged border (tiles read as a flat strip at this camera angle; boards read as a stage)."""
+    x0, y0, x1, y1 = region
+    w, h = int(x1 - x0), int(y1 - y0)
+    rnd = random.Random(17)
+    im = Image.new('RGB', (w, h), (96, 62, 38))
+    d = ImageDraw.Draw(im)
+    ph = 18
+    tones = [(196, 142, 92), (184, 130, 82), (206, 154, 102), (176, 122, 76), (190, 138, 88)]
+    for row, py in enumerate(range(0, h, ph)):
+        x = -rnd.randint(0, 220)
+        while x < w:
+            L = rnd.randint(160, 340)
+            c = rnd.choice(tones)
+            d.rectangle([x + 1, py + 1, x + L - 2, py + ph - 2], fill=c)
+            d.rectangle([x + 1, py + 1, x + L - 2, py + 4], fill=tuple(min(255, v + 18) for v in c))
+            for gx in range(x + 12, x + L - 12, rnd.randint(40, 70)):  # grain streaks
+                d.line([(gx, py + 6), (gx + rnd.randint(20, 50), py + 6 + rnd.randint(-2, 6))], fill=tuple(int(v * 0.86) for v in c), width=1)
+            for nx in (x + 6, x + L - 9):
+                d.ellipse([nx, py + ph // 2 - 2, nx + 3, py + ph // 2 + 1], fill=(90, 70, 56))
+            x += L
+    arr = np.asarray(im).astype(np.float32)
+    n = np.asarray(Image.effect_noise((w // 16 + 1, h // 16 + 1), 40).resize((w, h), Image.BICUBIC), np.float32) / 255.0
+    arr *= (0.9 + 0.16 * n)[..., None]
+    im = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
+    d = ImageDraw.Draw(im)
+    bw = 16
+    for (bx0, by0, bx1, by1) in [(0, 0, w, bw), (0, h - bw, w, h)]:
+        d.rectangle([bx0, by0, bx1, by1], fill=(31, 120, 128))
+        d.rectangle([bx0, by0 + 2, bx1, by0 + 5], fill=(240, 190, 80))
+        d.rectangle([bx0, by1 - 5, bx1, by1 - 2], fill=(240, 190, 80))
+    im.save(path)
+
+
+def stage_dressing(region, colors=('#1fa5a0', '#ff6b5e', '#f2c14e')):
+    """Banner skirt along the stage front and brass lamp posts at both ends."""
+    x0, y0, x1, y1 = region
+    cloth, metal, glow = lib.MeshBuilder(), lib.MeshBuilder(), lib.MeshBuilder()
+    n = int((x1 - x0) / 120)
+    for k in range(n):
+        bx = x0 + (k + 0.5) * (x1 - x0) / n
+        w = board_to_world(bx, y1, 0.0)
+        pts = [(-0.34, 0.0), (0.34, 0.0), (0.34, -0.3), (0.0, -0.42), (-0.34, -0.3)]
+        v = [(w.x + px, w.y - 0.07, 0.02 + pz) for (px, pz) in pts] + [(w.x + px, w.y - 0.05, 0.02 + pz) for (px, pz) in pts]
+        cloth.add(v, [(0, 1, 2, 3, 4), (9, 8, 7, 6, 5)], col(colors[k % len(colors)]))
+        vv, ff = lib.blob((w.x, w.y - 0.09, -0.12), 0.05, rough=0.0, subdiv=1)
+        metal.add(vv, ff, col('#f2c14e'))
+    for bx in (x0 + 30, x1 - 30):
+        w = board_to_world(bx, y1 - 10, 0.0)
+        vv, ff = lib.cylinder((w.x, w.y, 0.08), 0.06, 0.05, 1.6, 10)
+        metal.add(vv, ff, col('#e0a93f'))
+        vv, ff = lib.blob((w.x, w.y, 1.78), 0.16, squash=(1.0, 1.0, 1.2), rough=0.0, subdiv=2)
+        glow.add(vv, ff, col('#ffd27a'))
+        vv, ff = lib.lathe([(0.2, 1.88), (0.02, 2.02)], 12, (w.x, w.y, 0.0), cap_bottom=True, cap_top=False)
+        metal.add(vv, ff, col('#c98a1b'))
+    cloth.build('stage_banners', lib.attr_mat('cloth', rough=0.8, sheen=0.4))
+    metal.build('stage_metal', props.mats()['metal'])
+    glow.build('stage_lamps', props.mats()['glow'])
+
+
 def festival_stage(base_y, region, trees=True):
     tex = os.path.join(OUT, f'stage_floor_{int(base_y)}.png')
-    plaza_texture(tex, region)
+    stage_planks_texture(tex, region)
     floor_m = ground_image_material('stage', tex, region, rough=0.55)
     x0, y0, x1, y1 = region
     top = [tuple(board_to_world(x, y, 0.0)) for (x, y) in [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]]
@@ -738,6 +898,7 @@ def festival_stage(base_y, region, trees=True):
     v, f = lib.box(((a.x + b.x) / 2, a.y - 0.02, 0.03), (b.x - a.x, 0.08, 0.12))
     trim.add(v, f, col('#e0a93f'))
     trim.build('stage_trim', props.mats()['metal'])
+    stage_dressing(region)
 
 
 def results():
@@ -746,17 +907,17 @@ def results():
     lights(44, -30)
     lib.camera_for_region(0, 0, SW, SH, scale=0.5 if A.preview else 1.0)
     base_y = RESULT_BASE
-    festival_stage(base_y, (40, base_y - 150, 1880, base_y + 70))
+    festival_stage(base_y, (130, base_y - 150, 1790, base_y + 70))
     stage_island(960, base_y - 30, 1010, 190, seed=9)
     for rank in range(4):
         result_podium(RESULT_X[rank], base_y, RESULT_H[rank], rank)
     # festival backdrop behind the podiums
     props.bunting(420, base_y - 150, 700, 1.5)
     props.bunting(1500, base_y - 150, 700, 1.5)
-    for x in (110, 960, 1810):
-        props.lantern(x, base_y - 135, 1.7)
-    props.crystal_gen(250, base_y - 120, 1.0)
-    props.crystal_gen(1670, base_y - 120, 1.0)
+    for x in (420, 1500):
+        props.lantern(x, base_y - 140, 1.7)
+    props.crystal_gen(70, base_y - 60, 1.0)
+    props.crystal_gen(1850, base_y - 60, 1.0)
     rnd = random.Random(21)
     leaves = lib.MeshBuilder()
     wood = lib.MeshBuilder()

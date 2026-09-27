@@ -72,13 +72,17 @@ export class GleamGrabScene extends BaseMinigame {
     this.spawnT = 800;
     this.showerAt = 9000;
     this.map = null;
-    const meta3d = this.cache.json.get('rendered-gleam3d') as { corners?: [number, number][]; wallTopY?: number; backLeftX?: number; backRightX?: number } | undefined;
+    const meta3d = this.cache.json.get('rendered-gleam3d') as
+      | { corners?: [number, number][]; wallTopY?: number; backLeftX?: number; backRightX?: number; tiers?: { y: number; x0: number; x1: number; scale: number }[] }
+      | undefined;
     if (this.textures.exists('rendered-scene-gleam3d') && meta3d?.corners?.length === 4) {
       // Pre-rendered plaza seen through a perspective camera; gameplay maps onto its floor.
       this.map = new QuadMap(ARENA, meta3d.corners);
-      if (this.textures.exists('rendered-sky-day')) this.add.image(GAME_WIDTH / 2, 540, 'rendered-sky-day').setDisplaySize(GAME_WIDTH * 1.04, 1124).setDepth(-100);
+      const sky = ['rendered-sky-clear', 'rendered-sky-day'].find((k) => this.textures.exists(k));
+      if (sky) this.add.image(GAME_WIDTH / 2, 540, sky).setDisplaySize(GAME_WIDTH * 1.04, 1124).setDepth(-100).setFlipX(true);
       this.add.image(0, 0, 'rendered-scene-gleam3d').setOrigin(0).setDepth(-50);
-      this.buildCrowd(meta3d.wallTopY ?? 314, meta3d.backLeftX ?? 300, meta3d.backRightX ?? 1620);
+      if (meta3d.tiers?.length) this.buildStands(meta3d.tiers);
+      else this.buildCrowd(meta3d.wallTopY ?? 314, meta3d.backLeftX ?? 300, meta3d.backRightX ?? 1620);
       if (this.textures.exists('rendered-scene-gleam3d_wall')) this.add.image(0, 0, 'rendered-scene-gleam3d_wall').setOrigin(0).setDepth(250);
       return;
     }
@@ -123,6 +127,7 @@ export class GleamGrabScene extends BaseMinigame {
       ['packsprout', 'star', 1595],
       ['ora', 'wave', 1675],
     ];
+    folk.push(['wrench', 'idea', 480], ['pipper', 'coin', 1440], ['mimi', 'apple', 930]);
     folk.forEach(([id, pose, lx], i) => {
       const x = sx(lx);
       const spr = this.add.sprite(x, feetY, 'npcs', npcFrame(id, pose));
@@ -131,11 +136,63 @@ export class GleamGrabScene extends BaseMinigame {
       this.tweens.add({ targets: spr, y: feetY - 8, duration: 420 + (i % 3) * 90, yoyo: true, repeat: -1, ease: 'Sine.InOut', delay: i * 70 });
       this.crowd.push(spr);
     });
+    // A second, smaller row further up the slope (slightly hazed) makes it read as a crowd.
+    const ids: NpcId[] = ['ora', 'pipper', 'packsprout', 'wrench', 'mimi'];
+    const poses: Record<NpcId, string[]> = {
+      ora: ['cheer', 'wave', 'flag'],
+      pipper: ['happy', 'wave', 'coin'],
+      packsprout: ['cheer', 'happy', 'star'],
+      wrench: ['laugh', 'idea', 'gadget'],
+      mimi: ['happy', 'laugh', 'surprised'],
+    };
+    const backY = feetY - 44;
+    for (let k = 0; k < 13; k++) {
+      const id = ids[(k * 3) % ids.length];
+      const pose = poses[id][k % 3];
+      const x = sx(300 + k * 111 + ((k * 37) % 23));
+      const spr = this.add.sprite(x, backY + ((k * 13) % 9), 'npcs', npcFrame(id, pose));
+      const o = standOrigin('npcs', npcFrame(id, pose));
+      spr.setOrigin(o.x, o.y).setScale(0.33).setDepth(190 + k * 0.01).setFlipX(k % 2 === 0).setTint(0xdfe6f2);
+      this.tweens.add({ targets: spr, y: spr.y - 6, duration: 380 + (k % 4) * 80, yoyo: true, repeat: -1, ease: 'Sine.InOut', delay: k * 55 });
+      this.crowd.push(spr);
+    }
+  }
+
+  /** Spectators filling the bleacher tiers behind the back wall (front tier nearest, largest). */
+  private buildStands(tiers: { y: number; x0: number; x1: number; scale: number }[]): void {
+    this.crowd = [];
+    const ids: NpcId[] = ['ora', 'pipper', 'packsprout', 'wrench', 'mimi'];
+    const poses: Record<NpcId, string[]> = {
+      ora: ['cheer', 'wave', 'flag', 'welcome'],
+      pipper: ['happy', 'wave', 'coin', 'gift'],
+      packsprout: ['cheer', 'happy', 'star', 'gift'],
+      wrench: ['laugh', 'idea', 'gadget', 'tool'],
+      mimi: ['happy', 'laugh', 'surprised', 'apple'],
+    };
+    let n = 0;
+    tiers.forEach((t, ti) => {
+      const count = 10 - ti;
+      const step = (t.x1 - t.x0) / count;
+      for (let k = 0; k < count; k++) {
+        const id = ids[(n * 2 + ti) % ids.length];
+        const pose = poses[id][(n + ti) % 4];
+        const x = t.x0 + (k + 0.5) * step + (((n * 37) % 17) - 8);
+        const spr = this.add.sprite(x, t.y + 2, 'npcs', npcFrame(id, pose));
+        const o = standOrigin('npcs', npcFrame(id, pose));
+        const sc = 0.46 * t.scale;
+        spr.setOrigin(o.x, o.y).setScale(sc).setDepth(200 - ti + k * 0.001).setFlipX((n + ti) % 2 === 0);
+        if (ti > 0) spr.setTint(ti === 1 ? 0xeef2f8 : 0xdde4ef);
+        this.tweens.add({ targets: spr, y: spr.y - 6 - (2 - ti), duration: 360 + ((n * 53) % 5) * 70, yoyo: true, repeat: -1, ease: 'Sine.InOut', delay: (n * 61) % 400 });
+        this.crowd.push(spr);
+        n++;
+      }
+    });
   }
 
   private crowdCheer(): void {
     for (const [i, spr] of this.crowd.entries()) {
-      this.tweens.add({ targets: spr, scaleY: { from: 0.36, to: 0.46 }, duration: 160, yoyo: true, repeat: 2, delay: i * 40 });
+      const base = spr.scaleX;
+      this.tweens.add({ targets: spr, scaleY: { from: base * 0.86, to: base * 1.1 }, duration: 160, yoyo: true, repeat: 2, delay: i * 30, onComplete: () => spr.setScale(base) });
     }
   }
 
@@ -289,7 +346,8 @@ export class GleamGrabScene extends BaseMinigame {
     const value = d.kind === 'gold' ? 3 : 1;
     g.p.score += value;
     audio.play('chipGain', { rate: d.kind === 'gold' ? 0.8 : 1 + Math.random() * 0.15, throttleMs: 30 });
-    this.fx.floatText(d.sx, d.sy - 80 * d.ss, `+${value}`, d.kind === 'gold' ? '#fff1a0' : '#ffffff', {
+    // Pop the score off to the side of the grabber so it never sits on their marker.
+    this.fx.floatText(d.sx + 70 * d.ss, d.sy - 60 * d.ss, `+${value}`, d.kind === 'gold' ? '#fff1a0' : '#ffffff', {
       size: d.kind === 'gold' ? 84 : 66,
       rise: 80,
       duration: 750,

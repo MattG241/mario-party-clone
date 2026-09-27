@@ -40,6 +40,7 @@ interface Tag {
   counter: Phaser.GameObjects.Container;
   counterText: Phaser.GameObjects.Text;
   shield: Phaser.GameObjects.Sprite;
+  glow: Phaser.GameObjects.Image;
 }
 
 /** Player tokens on the board and every way they move between spaces. */
@@ -78,8 +79,11 @@ export class MovementController {
       const counterText = addText(this.scene, 0, -2, '0', 48, { color: CSS.ink, weight: 700, fixed: true });
       counter.add([cg, counterText]);
       const shield = this.scene.add.sprite(0, 0, 'items', '24').play('bubble-idle').setVisible(false).setAlpha(0.7).setScale(0.42);
-      container.add([stem, badge, counter]);
-      this.tags.set(p.slot, { container, badge, head: animHeadTop(p.characterId) * TOKEN_SCALE, counter, counterText, shield });
+      // Soft glow in the player's colour behind the active player's badge (every badge is the same
+      // size; the active one is picked out by this glow and a gentle bob instead of a bigger pin).
+      const glow = this.scene.add.image(0, 0, 'fx-dot').setTint(PLAYER_COLORS[p.slot]).setBlendMode(Phaser.BlendModes.ADD).setScale(4.2).setAlpha(0);
+      container.add([glow, stem, badge, counter]);
+      this.tags.set(p.slot, { container, badge, head: animHeadTop(p.characterId) * TOKEN_SCALE, counter, counterText, shield, glow });
       c.add(shield);
       shield.setPosition(0, -130).setScale(0.9);
     }
@@ -186,13 +190,14 @@ export class MovementController {
       if (!tag) continue;
       const lift = c.sprite.y;
       const active = slot === this.activeSlot;
-      const full = this.activeSlot === null || active;
-      tag.container.setPosition(c.x, c.y + tag.head * (c.scale / TOKEN_SCALE) - (full ? 44 : 30) + lift);
+      const bob = active ? Math.sin(this.scene.time.now / 260) * 5 : 0;
+      tag.container.setPosition(c.x, c.y + tag.head * (c.scale / TOKEN_SCALE) - 36 + lift + bob);
       tag.container.setDepth(DEPTH.worldUi + (active ? 10 : 0));
-      // Only the active player's marker is full size, so shared spaces stay readable; markers grow
-      // when the camera pulls back so players stay easy to find on the overview.
+      tag.glow.setAlpha(active ? 0.5 + 0.2 * Math.sin(this.scene.time.now / 200) : 0);
+      // One marker size for everyone; markers grow when the camera pulls back so players stay easy
+      // to find on the overview.
       const zoomK = Phaser.Math.Clamp(0.85 / this.scene.cameras.main.zoom, 1, 1.9);
-      const want = (full ? 1 : 0.6) * zoomK;
+      const want = 0.78 * zoomK;
       if (Math.abs(tag.container.scale - want) > 0.01) tag.container.setScale(tag.container.scale + (want - tag.container.scale) * 0.2);
     }
   }

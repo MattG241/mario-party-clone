@@ -88,6 +88,21 @@ export function generateFxTextures(scene: Phaser.Scene): void {
       tex.refresh();
     }
   }
+  if (!scene.textures.exists('fx-spot')) {
+    // Spotlight vignette: clear centre, navy-dark edges (dims the world around a focus point).
+    const tex = scene.textures.createCanvas('fx-spot', 256, 144);
+    if (tex) {
+      const ctx = tex.getContext();
+      const grd = ctx.createRadialGradient(128, 72, 18, 128, 72, 140);
+      grd.addColorStop(0, 'rgba(6,16,30,0)');
+      grd.addColorStop(0.35, 'rgba(6,16,30,0.05)');
+      grd.addColorStop(0.7, 'rgba(6,16,30,0.38)');
+      grd.addColorStop(1, 'rgba(6,16,30,0.6)');
+      ctx.fillStyle = grd;
+      ctx.fillRect(0, 0, 256, 144);
+      tex.refresh();
+    }
+  }
   if (!scene.textures.exists('fx-rays')) {
     // Soft sunburst: blurred wedges that fade out from the centre (results spotlight).
     const S = 512;

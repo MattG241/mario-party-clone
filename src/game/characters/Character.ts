@@ -121,8 +121,9 @@ export class Character extends Phaser.GameObjects.Container {
     if (opts.slot !== undefined && opts.marker !== false) {
       this.marker = new PlayerBadge(scene, 0, animHeadTop(id) - 46, opts.slot, 22);
       this.add(this.marker);
-      const ring = scene.add.ellipse(0, 0, 150, 44);
-      ring.setStrokeStyle(5, PLAYER_COLORS[opts.slot], 0.9);
+      // Player ring: a translucent disc in the player's colour with a bright rim, centred on the feet.
+      const ring = scene.add.ellipse(0, 2, 150, 44, PLAYER_COLORS[opts.slot], 0.3);
+      ring.setStrokeStyle(4, PLAYER_COLORS[opts.slot], 1);
       this.addAt(ring, 1);
     }
     this.setScale(opts.scale ?? 1);

@@ -13,6 +13,7 @@ import { Menu } from '../ui/Menu';
 import { addText, addTitle } from '../ui/theme';
 import { enterScene, goTo } from '../ui/Transition';
 import { findBoard } from '../data/boards';
+import { applyGrade } from '../effects/GradePipeline';
 
 /**
  * Title screen. Attract state ("PRESS A"), then the main menu. The four heroes hang out on a
@@ -40,6 +41,7 @@ export class TitleScene extends Phaser.Scene {
 
   create(): void {
     enterScene(this);
+    applyGrade(this, { glow: 0.35, glowThreshold: 0.8, vignette: 0.2 });
     this.phase = 'attract';
     this.chars = [];
     this.busy.clear();
@@ -138,12 +140,25 @@ export class TitleScene extends Phaser.Scene {
   private buildLogo(): void {
     // Emblem tucked onto the wordmark so the lockup reads as one piece.
     this.logo = this.add.container(440, 0).setDepth(400);
+    // A warm halo and a navy ribbon under the subtitle anchor the logo against the open sky.
+    const halo = this.add.image(0, 400, 'fx-dot').setScale(34, 20).setTint(0xfff1c8).setAlpha(0.42).setBlendMode(Phaser.BlendModes.ADD);
+    const ribbon = this.add.graphics();
+    ribbon.fillStyle(0x06141a, 0.3);
+    ribbon.fillRoundedRect(-330 + 4, 530 - 30 + 6, 660, 60, 30);
+    ribbon.fillStyle(0x0c2630, 0.88);
+    ribbon.fillRoundedRect(-330, 530 - 30, 660, 60, 30);
+    ribbon.lineStyle(3, COLORS.gold, 1);
+    ribbon.strokeRoundedRect(-330, 530 - 30, 660, 60, 30);
+    for (const sx of [-1, 1]) {
+      ribbon.fillStyle(0x0a2129, 0.9);
+      ribbon.fillTriangle(sx * 330, 506, sx * 330, 554, sx * 372, 530);
+    }
     const emblem = this.add.image(0, 292, 'emblem').setScale(0.82);
     const title = addTitle(this, 0, 440, TITLE, 124);
-    const sub = addText(this, 0, 530, SUBTITLE, 42, { color: CSS.goldLight, weight: 700, stroke: CSS.tealDeep, strokeThickness: 8, shadow: true, fixed: true });
-    this.logo.add([emblem, title, sub]);
+    const sub = addText(this, 0, 530, SUBTITLE, 38, { color: CSS.goldLight, weight: 700, stroke: CSS.tealDeep, strokeThickness: 6, fixed: true });
+    this.logo.add([halo, ribbon, emblem, title, sub]);
     this.tweens.add({ targets: emblem, angle: 360, duration: 24000, repeat: -1 });
-    this.tweens.add({ targets: [emblem, title, sub], y: '+=10', duration: 2400, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+    this.tweens.add({ targets: [emblem, title, sub, ribbon], y: '+=10', duration: 2400, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
   }
 
   private buildMenu(): void {

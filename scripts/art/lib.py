@@ -98,6 +98,12 @@ def reset(samples: int = 64) -> bpy.types.Scene:
     return sc
 
 
+# House look: a dimmer sky fill and a stronger key light than the per-scene values ask for, so
+# every render gets directional light with readable cast shadows instead of flat overcast.
+FILL_K = 0.7
+KEY_K = 1.28
+
+
 def world_light(strength: float = 1.0, zenith: str = '#9ccfff', horizon: str = '#ffe9cf', ground: str = '#b9a58a'):
     """Soft sky fill: blue from above, warm near the horizon, earthy from below."""
     sc = bpy.context.scene
@@ -125,14 +131,14 @@ def world_light(strength: float = 1.0, zenith: str = '#9ccfff', horizon: str = '
     e = els.new(0.5)
     e.color = col(horizon)
     nt.links.new(ramp.outputs['Color'], bg.inputs['Color'])
-    bg.inputs['Strength'].default_value = strength
+    bg.inputs['Strength'].default_value = strength * FILL_K
     nt.links.new(bg.outputs['Background'], out.inputs['Surface'])
 
 
 def sun(energy: float = 4.0, elevation: float = 48.0, azimuth: float = -35.0, angle: float = 4.0, color: str = '#fff0d8'):
     """Key light. azimuth 0 = light travelling towards +Y (away from camera); negative = from the left."""
     ld = bpy.data.lights.new('sun', 'SUN')
-    ld.energy = energy
+    ld.energy = energy * KEY_K
     ld.angle = math.radians(angle)
     ld.color = col(color)[:3]
     ob = bpy.data.objects.new('sun', ld)

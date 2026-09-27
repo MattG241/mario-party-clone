@@ -12,6 +12,10 @@ uniform vec3 uTint;
 uniform vec2 uTexel;
 uniform float uTilt;
 uniform float uFocusH;
+uniform float uGlow;
+uniform float uGlowThreshold;
+uniform vec3 uShadowTint;
+uniform vec3 uHighTint;
 varying vec2 outTexCoord;
 
 void main() {
@@ -30,6 +34,20 @@ void main() {
       c = acc / 13.0;
     }
   }
+  // Bloom-lite: bright neighbours (golden-angle spiral of taps) bleed a soft glow onto this pixel.
+  vec3 glow = vec3(0.0);
+  if (uGlow > 0.0) {
+    for (int i = 0; i < 12; i++) {
+      float fi = float(i) + 0.5;
+      float a = fi * 2.39996;
+      float rr = sqrt(fi / 12.0) * 18.0;
+      vec4 s = texture2D(uMainSampler, outTexCoord + vec2(cos(a), sin(a)) * rr * uTexel);
+      vec3 srgb = s.rgb;
+      float sl = dot(srgb, vec3(0.2126, 0.7152, 0.0722));
+      glow += srgb * max(sl - uGlowThreshold, 0.0) / max(sl, 0.001);
+    }
+    glow *= uGlow / 12.0;
+  }
   if (c.a <= 0.0) {
     gl_FragColor = c;
     return;
@@ -42,6 +60,10 @@ void main() {
   rgb = mix(vec3(l), rgb, uSaturation);
   rgb = (rgb - 0.5) * uContrast + 0.5;
   rgb *= uTint;
+  // Split toning: cool shadows, warm highlights (adds depth without shifting the mid-tones much).
+  float tl = dot(clamp(rgb, 0.0, 1.0), vec3(0.2126, 0.7152, 0.0722));
+  rgb *= mix(uShadowTint, uHighTint, smoothstep(0.12, 0.88, tl));
+  rgb += glow;
   // Soft oval vignette.
   vec2 d = (outTexCoord - 0.5) * vec2(1.0, 0.82);
   float v = smoothstep(0.78, 0.28, length(d));
@@ -60,13 +82,30 @@ export interface GradeSettings {
   tilt: number;
   /** Half-height of the sharp band (texture space, 0..0.5). */
   focusH: number;
+  /** Bloom strength (0 = off) and the luminance above which pixels glow. */
+  glow: number;
+  glowThreshold: number;
+  shadowTint: [number, number, number];
+  highTint: [number, number, number];
 }
 
-export const DEFAULT_GRADE: GradeSettings = { gamma: 1.12, saturation: 1.12, contrast: 1.05, vignette: 0.22, tint: [1, 0.99, 0.97], tilt: 0, focusH: 0.22 };
+export const DEFAULT_GRADE: GradeSettings = {
+  gamma: 1.12,
+  saturation: 1.15,
+  contrast: 1.1,
+  vignette: 0.26,
+  tint: [1, 0.99, 0.97],
+  tilt: 0,
+  focusH: 0.22,
+  glow: 0.55,
+  glowThreshold: 0.74,
+  shadowTint: [0.93, 0.97, 1.08],
+  highTint: [1.05, 1.0, 0.93],
+};
 
 /**
- * Camera colour grade shared by the world scenes: a mid-tone curve, saturation, contrast and a
- * vignette in a single full-screen pass (replacing the stock vignette FX, so it costs nothing extra).
+ * Camera colour grade shared by the world scenes: a mid-tone curve, saturation, contrast, split
+ * toning, a light bloom and a vignette in a single full-screen pass.
  */
 export class GradePipeline extends Phaser.Renderer.WebGL.Pipelines.PostFXPipeline {
   settings: GradeSettings = { ...DEFAULT_GRADE };
@@ -85,6 +124,10 @@ export class GradePipeline extends Phaser.Renderer.WebGL.Pipelines.PostFXPipelin
     this.set2f('uTexel', 1 / Math.max(1, this.renderer.width), 1 / Math.max(1, this.renderer.height));
     this.set1f('uTilt', s.tilt);
     this.set1f('uFocusH', s.focusH);
+    this.set1f('uGlow', s.glow);
+    this.set1f('uGlowThreshold', s.glowThreshold);
+    this.set3f('uShadowTint', s.shadowTint[0], s.shadowTint[1], s.shadowTint[2]);
+    this.set3f('uHighTint', s.highTint[0], s.highTint[1], s.highTint[2]);
   }
 }
 

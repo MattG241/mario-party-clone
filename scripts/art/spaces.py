@@ -82,16 +82,25 @@ def icon_texture(kind, top, hl):
     ink = (43, 35, 64, 255)
     gold, gold_d = (244, 184, 59, 255), (201, 138, 27, 255)
     if kind == 'gleam':
-        hexp = [(c + math.cos(math.pi / 6 + k * math.pi / 3) * S * 0.26, c + math.sin(math.pi / 6 + k * math.pi / 3) * S * 0.26) for k in range(6)]
-        d.polygon(hexp, fill=gold, outline=gold_d, width=int(S * 0.02))
-        spiral(d, c, c, S * 0.015, S * 0.15, 2.3, int(S * 0.035), (17, 122, 119, 255))
+        # a little stack of chips with a plus: "you gain chips" at a glance (no spiral here)
+        for k, dy in enumerate([0.16, 0.06, -0.04]):
+            cy_ = c + dy * S
+            d.ellipse([c - S * 0.2, cy_ - S * 0.075, c + S * 0.2, cy_ + S * 0.085], fill=gold_d)
+            d.ellipse([c - S * 0.2, cy_ - S * 0.095, c + S * 0.2, cy_ + S * 0.065], fill=gold, outline=gold_d, width=int(S * 0.01))
+        d.rounded_rectangle([c - S * 0.03, c - S * 0.3, c + S * 0.03, c - S * 0.1], radius=int(S * 0.02), fill=(255, 255, 255, 255))
+        d.rounded_rectangle([c - S * 0.1, c - S * 0.23, c + S * 0.1, c - S * 0.17], radius=int(S * 0.02), fill=(255, 255, 255, 255))
     elif kind == 'festival':
         star(d, c, c, S * 0.3, S * 0.13, 8, (255, 224, 138, 255), outline=(184, 90, 22, 255), width=int(S * 0.018))
         star(d, c, c, S * 0.14, S * 0.07, 8, (255, 255, 255, 255), rot=-math.pi / 2 + math.pi / 8)
     elif kind == 'mischief':
-        spiral(d, c, c, S * 0.02, S * 0.27, 1.7, int(S * 0.05), (255, 255, 255, 255))
-        for (dx, dy, r) in [(0.24, -0.2, 0.05), (-0.26, 0.18, 0.04), (0.22, 0.24, 0.03)]:
-            star(d, c + dx * S, c + dy * S, r * S, r * S * 0.4, 4, (255, 240, 170, 255))
+        # a grumpy storm cloud with a zig-zag bolt
+        cloud_c = (74, 44, 120, 255)
+        for (dx, dy, r) in [(-0.12, -0.06, 0.13), (0.02, -0.12, 0.15), (0.15, -0.05, 0.12), (0.0, -0.02, 0.14)]:
+            d.ellipse([c + (dx - r) * S, c + (dy - r) * S, c + (dx + r) * S, c + (dy + r) * S], fill=cloud_c)
+        bolt = [(0.02, 0.02), (-0.08, 0.2), (0.0, 0.2), (-0.06, 0.34), (0.12, 0.13), (0.03, 0.13), (0.1, 0.02)]
+        d.polygon([(c + x * S, c + y * S) for (x, y) in bolt], fill=(255, 224, 102, 255), outline=(200, 140, 20, 255))
+        for (dx, dy) in [(-0.08, -0.07), (0.08, -0.07)]:
+            d.ellipse([c + (dx - 0.022) * S, c + (dy - 0.022) * S, c + (dx + 0.022) * S, c + (dy + 0.022) * S], fill=(255, 255, 255, 255))
     elif kind == 'market':
         # a little shop: striped awning over a counter with a coin
         aw = [(c - S * 0.26, c - S * 0.08), (c + S * 0.26, c - S * 0.08), (c + S * 0.2, c - S * 0.24), (c - S * 0.2, c - S * 0.24)]
@@ -105,8 +114,17 @@ def icon_texture(kind, top, hl):
         d.rounded_rectangle([c - S * 0.22, c - S * 0.02, c + S * 0.22, c + S * 0.2], radius=int(S * 0.03), fill=(201, 139, 80, 255), outline=ink, width=int(S * 0.01))
         d.ellipse([c - S * 0.09, c + S * 0.0, c + S * 0.09, c + S * 0.18], fill=gold, outline=gold_d, width=int(S * 0.015))
     elif kind == 'portal':
-        for k, rr in enumerate([0.3, 0.22, 0.14, 0.07]):
-            d.ellipse([c - rr * S, c - rr * S, c + rr * S, c + rr * S], outline=(255, 255, 255, 255) if k % 2 == 0 else (17, 122, 119, 255), width=int(S * 0.035))
+        # two chasing arrows around a glowing core: "warp"
+        d.ellipse([c - S * 0.1, c - S * 0.1, c + S * 0.1, c + S * 0.1], fill=(230, 255, 250, 255))
+        wdt = int(S * 0.05)
+        for k in range(2):
+            a0 = k * 180 + 20
+            d.arc([c - S * 0.26, c - S * 0.26, c + S * 0.26, c + S * 0.26], a0, a0 + 130, fill=(255, 255, 255, 255), width=wdt)
+            ah = math.radians(a0 + 130)
+            tip = (c + math.cos(ah + 0.28) * S * 0.26, c + math.sin(ah + 0.28) * S * 0.26)
+            b1 = (c + math.cos(ah) * S * 0.34, c + math.sin(ah) * S * 0.34)
+            b2 = (c + math.cos(ah) * S * 0.18, c + math.sin(ah) * S * 0.18)
+            d.polygon([tip, b1, b2], fill=(255, 255, 255, 255))
     elif kind == 'relic':
         gem = [(c, c - S * 0.3), (c + S * 0.2, c - S * 0.1), (c + S * 0.13, c + S * 0.27), (c - S * 0.13, c + S * 0.27), (c - S * 0.2, c - S * 0.1)]
         d.polygon(gem, fill=(92, 225, 255, 255), outline=(40, 120, 170, 255), width=int(S * 0.018))

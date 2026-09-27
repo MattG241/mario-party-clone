@@ -73,7 +73,8 @@ export class OrbitDodgeScene extends BaseMinigame {
     const rendered = this.textures.exists('rendered-scene-orbit');
     if (rendered) {
       // Pre-rendered observatory rooftop (engraved stone, brass rings, crystal lights).
-      if (this.textures.exists('rendered-sky-day')) this.add.image(GAME_WIDTH / 2, 540, 'rendered-sky-day').setDisplaySize(GAME_WIDTH * 1.04, 1124).setDepth(-100);
+      const sky = ['rendered-sky-clear', 'rendered-sky-day'].find((k) => this.textures.exists(k));
+      if (sky) this.add.image(GAME_WIDTH / 2, 480, sky).setDisplaySize(GAME_WIDTH * 1.12, 1210).setDepth(-100);
       this.add.image(0, 0, 'rendered-scene-orbit').setOrigin(0).setDepth(-10);
       this.buildSpectators();
     } else {
@@ -115,17 +116,30 @@ export class OrbitDodgeScene extends BaseMinigame {
       ['ora', 'cheer', 1665, -10],
       ['mimi', 'happy', 1735, 6],
     ];
-    folk.forEach(([id, pose, x, dy], i) => {
+    // a second, smaller row at the back of each deck
+    const back: [NpcId, string, number, number][] = [
+      ['pipper', 'wave', 150, -34],
+      ['wrench', 'idea', 220, -40],
+      ['ora', 'flag', 290, -40],
+      ['packsprout', 'happy', 360, -34],
+      ['mimi', 'surprised', 1560, -34],
+      ['packsprout', 'cheer', 1630, -40],
+      ['pipper', 'coin', 1700, -40],
+      ['wrench', 'tool', 1770, -34],
+    ];
+    [...back.map((b) => [...b, 0.3] as const), ...folk.map((f) => [...f, 0.36] as const)].forEach(([id, pose, x, dy, sc], i) => {
       const spr = this.add.sprite(x, deckY + dy, 'npcs', npcFrame(id, pose));
       const o = standOrigin('npcs', npcFrame(id, pose));
-      spr.setOrigin(o.x, o.y).setScale(0.36).setDepth(-5 + i * 0.01).setFlipX(x > 960);
+      spr.setOrigin(o.x, o.y).setScale(sc).setDepth(-5 + i * 0.01).setFlipX(x > 960);
+      if (sc < 0.36) spr.setTint(0xe6ebf4);
       this.tweens.add({ targets: spr, y: deckY + dy - 7, duration: 380 + (i % 3) * 90, yoyo: true, repeat: -1, ease: 'Sine.InOut', delay: i * 80 });
     });
   }
 
   protected createPlayer(p: MgPlayer, index: number): void {
     const n = this.players.length;
-    const base = Math.PI / 2;
+    // Start on the diagonals so nobody stands right in front of (or behind) the central hub.
+    const base = Math.PI * 0.75;
     const angle = base + (index * Math.PI * 2) / n;
     const x = CX + Math.cos(angle) * RX;
     const y = CY + Math.sin(angle) * RY;

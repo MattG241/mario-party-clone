@@ -55,6 +55,11 @@ lib.BETA = math.radians(90 - 52)
 lib.COSB, lib.SINB = math.cos(lib.BETA), math.sin(lib.BETA)
 
 
+# spectator bleacher tiers behind the back wall: (distance behind the wall, height) in world units
+TIERS = [(0.75, 0.32), (1.3, 0.62), (1.85, 0.92)]
+STAND_W = 15.0
+
+
 def bpx(X, Y):
     return X * 100.0, -Y * 100.0 * lib.COSB
 
@@ -118,6 +123,42 @@ def plaza_texture(path, S=2048, squash=1.0):
         px, py = cx + math.cos(a) * r, cy + math.sin(a) * r
         shade = rnd.randint(-14, 10)
         d.rounded_rectangle([px - 8, py - 8, px + 8, py + 8], radius=3, fill=(246 + min(0, shade), 190 + shade, 72 + shade))
+    # a smooth brass-and-grout frame hides the stepped edge of the tesserae
+    d.ellipse([cx - R - 6, cy - R - 6, cx + R + 6, cy + R + 6], outline=(92, 66, 48), width=16)
+    d.ellipse([cx - R + 4, cy - R + 4, cx + R - 4, cy + R - 4], outline=(232, 186, 84), width=12)
+    d.ellipse([cx - R + 6, cy - R + 6, cx + R - 6, cy + R - 6], outline=(252, 220, 140), width=3)
+    # a ring of large radial slabs around the mosaic breaks up the running bond
+    R2 = R * 1.42
+    ring_img = Image.new('L', (w, h), 0)
+    ImageDraw.Draw(ring_img).ellipse([cx - R2, cy - R2, cx + R2, cy + R2], fill=255)
+    ImageDraw.Draw(ring_img).ellipse([cx - R - 14, cy - R - 14, cx + R + 14, cy + R + 14], fill=0)
+    slabs = Image.new('RGB', (w, h), (120, 94, 74))
+    sd = ImageDraw.Draw(slabs)
+    nseg = 28
+    for k in range(nseg):
+        a0, a1 = k / nseg * 360, (k + 1) / nseg * 360
+        c = rnd.choice([(214, 196, 170), (204, 186, 160), (222, 206, 180), (196, 178, 152)])
+        sd.pieslice([cx - R2 + 4, cy - R2 + 4, cx + R2 - 4, cy + R2 - 4], a0 + 0.6, a1 - 0.6, fill=c)
+    im.paste(slabs, (0, 0), ring_img)
+    d = ImageDraw.Draw(im)
+    d.ellipse([cx - R2, cy - R2, cx + R2, cy + R2], outline=(110, 84, 64), width=8)
+    # festival litter: confetti near the middle, a few leaves and petals toward the edges
+    for _ in range(420):
+        a = rnd.uniform(0, math.tau)
+        r = rnd.uniform(R * 1.5, min(w, h) * 0.62)
+        px, py = cx + math.cos(a) * r * 1.3, cy + math.sin(a) * r * 0.9
+        if not (bw < px < w - bw and bw < py < h - bw):
+            continue
+        c = rnd.choice([(255, 107, 94), (31, 165, 160), (242, 193, 78), (142, 92, 217), (255, 255, 255)])
+        ang = rnd.uniform(0, math.pi)
+        L = rnd.uniform(5, 9)
+        d.line([(px, py), (px + math.cos(ang) * L, py + math.sin(ang) * L)], fill=c, width=4)
+    for _ in range(90):
+        side = rnd.choice(['l', 'r', 't', 'b'])
+        px = rnd.uniform(bw + 10, bw + 120) if side == 'l' else rnd.uniform(w - bw - 120, w - bw - 10) if side == 'r' else rnd.uniform(bw, w - bw)
+        py = rnd.uniform(bw + 10, bw + 90) if side == 't' else rnd.uniform(h - bw - 90, h - bw - 10) if side == 'b' else rnd.uniform(bw, h - bw)
+        c = rnd.choice([(120, 170, 70), (150, 180, 80), (200, 150, 60)])
+        d.ellipse([px - 7, py - 4, px + 7, py + 4], fill=c)
     im = im.resize((w // 2, h // 2), Image.LANCZOS)
     im.save(path)
 
@@ -265,7 +306,7 @@ def main():
     # scenery: trees and bushes around the plaza, stalls on the island to either side
     rnd = random.Random(5)
     leaves, wood, flowers = lib.MeshBuilder(), lib.MeshBuilder(), lib.MeshBuilder()
-    for (X, Y, s_) in [(-10.2, 7.8, 1.25), (10.2, 7.8, 1.25), (-11.0, 3.2, 1.1), (11.0, 3.4, 1.1), (-8.6, 10.6, 1.0), (8.8, 10.6, 1.0), (-4.0, 11.3, 0.95), (4.2, 11.4, 0.95)]:
+    for (X, Y, s_) in [(-10.2, 7.8, 1.25), (10.2, 7.8, 1.25), (-11.0, 3.2, 1.1), (11.0, 3.4, 1.1), (-8.9, 10.9, 1.0), (9.1, 10.9, 1.0), (-4.0, 11.95, 0.95), (4.2, 12.0, 0.95)]:
         terrain.tree_round(leaves, wood, *bpx(X, Y), rnd, s_)
     for (X, Y) in [(-9.6, -1.4), (9.6, -1.2), (-5.5, -2.0), (5.8, -2.1), (0.0, -2.3), (-11.2, 1.0), (11.3, 1.2)]:
         terrain.bush(leaves, *bpx(X, Y), rnd, 1.4, berries=flowers)
@@ -279,10 +320,23 @@ def main():
     flowers.build('flowers', lib.attr_mat('flower', rough=0.55))
     props.stall(*bpx(-9.7, 5.4), 1.6, stripe=('#ff6b5e', '#fff4dc'))
     props.stall(*bpx(9.7, 5.4), 1.6, stripe=('#1fa5a0', '#fff4dc'))
-    for X in (-7.6, -2.6, 2.6, 7.6):
-        props.lantern(*bpx(X, PD + 0.9), 1.9)
-    props.bunting(*bpx(-5.1, PD + 0.95), 500, 1.9)
-    props.bunting(*bpx(5.1, PD + 0.95), 500, 1.9)
+    # spectator bleachers behind the back wall (the in-game crowd stands on these tiers)
+    stands, stand_trim = lib.MeshBuilder(), lib.MeshBuilder()
+    for i, (dy, dz) in enumerate(TIERS):
+        v, f = lib.box((0.0, PD + dy, SLAB_Z + dz - 0.06), (STAND_W, 0.55, 0.12))
+        stands.add(v, f, col(['#b07a45', '#a06a3e', '#b88048'][i % 3]))
+        v, f = lib.box((0.0, PD + dy - 0.26, SLAB_Z + (dz - 0.06) / 2), (STAND_W, 0.06, dz))
+        stands.add(v, f, col('#7a5234'))
+        v, f = lib.box((0.0, PD + dy - 0.29, SLAB_Z + dz - 0.02), (STAND_W + 0.04, 0.05, 0.05))
+        stand_trim.add(v, f, col('#e0a93f'))
+    for X in (-STAND_W / 2, STAND_W / 2):
+        v, f = lib.box((X, PD + 1.4, SLAB_Z + 0.5), (0.18, 1.8, 1.0))
+        stands.add(v, f, col('#6e4a2c'))
+    stands.build('stands', mats['wood'])
+    stand_trim.build('stands_trim', mats['metal'])
+    # kept low: the HUD owns the top strip
+    for X in (-9.4, 9.4):
+        props.lantern(*bpx(X, PD + 0.5), 1.3)
 
     path = os.path.join(OUT, 'gleam3d.png')
     lib.render_to(path)
@@ -298,7 +352,9 @@ def main():
     corners = [scr(-GX, GY1), scr(GX, GY1), scr(GX, GY0), scr(-GX, GY0)]
     wall_top = scr(0.0, PD, SLAB_Z + 0.62)
     meta = {'arena': list(ARENA), 'corners': corners, 'wallTopY': wall_top[1], 'backY': scr(0.0, PD)[1], 'backLeftX': scr(-PW / 2, PD)[0],
-            'backRightX': scr(PW / 2, PD)[0]}
+            'backRightX': scr(PW / 2, PD)[0],
+            'tiers': [{'y': scr(0.0, PD + dy, SLAB_Z + dz)[1], 'x0': scr(-STAND_W / 2 + 0.4, PD + dy, SLAB_Z + dz)[0], 'x1': scr(STAND_W / 2 - 0.4, PD + dy, SLAB_Z + dz)[0],
+                       'scale': abs(scr(1.0, PD + dy, SLAB_Z + dz)[0] - scr(0.0, PD + dy, SLAB_Z + dz)[0]) / 100.0} for (dy, dz) in TIERS]}
     print('corners', meta)
     # Front layer: the back wall alone (everything else held out, lighting unchanged).
     for ob in sc.objects:

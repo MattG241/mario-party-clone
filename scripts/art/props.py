@@ -196,8 +196,20 @@ def windmill(bx, by, s=1.0):
     x, y = p.x, p.y
     v, f = lib.lathe([(0.62 * s, 0.0), (0.58 * s, 0.25 * s), (0.5 * s, 1.9 * s), (0.46 * s, 2.3 * s)], 24, (x, y, 0))
     P.b['stone'].add(v, f, col('#efe4d4'))
-    v, f = lib.lathe([(0.56 * s, 2.3 * s), (0.56 * s, 2.36 * s), (0.0, 3.05 * s)], 24, (x, y, 0))
-    P.b['paint'].add(v, f, col('#d9534a'))
+    # cap: a dark timber rim under six stepped rows of clay shingles (a single smooth cone read as
+    # a flat red disc from the board camera) and a brass finial
+    v, f = lib.lathe([(0.46 * s, 2.26 * s), (0.6 * s, 2.28 * s), (0.6 * s, 2.37 * s), (0.46 * s, 2.37 * s)], 28, (x, y, 0), cap_bottom=False, cap_top=False)
+    P.b['wood'].add(v, f, DARKWOOD)
+    z0, z1, r0, rows = 2.36 * s, 3.08 * s, 0.62 * s, 6
+    for r in range(rows):
+        t0, t1 = r / rows, (r + 1) / rows
+        za, zb = z0 + (z1 - z0) * t0, z0 + (z1 - z0) * t1 + 0.03 * s
+        ra, rb = r0 * (1 - t0), r0 * (1 - t1)
+        prof = [(ra + 0.04 * s, za - 0.025 * s), (ra + 0.025 * s, za + 0.012 * s), (rb + 0.012 * s, zb)]
+        v, f = lib.lathe(prof, 28, (x, y, 0), cap_bottom=False, cap_top=(r == rows - 1))
+        P.b['paint'].add(v, f, col(['#c8453c', '#d65a4c', '#b93f36'][r % 3]))
+    v, f = lib.blob((x, y, z1 + 0.1 * s), 0.07 * s, rough=0.0, subdiv=2)
+    P.b['metal'].add(v, f, BRASS)
     v, f = lib.box((x, y - 0.5 * s, 0.35 * s), (0.34 * s, 0.1 * s, 0.6 * s))
     P.b['wood'].add(v, f, DARKWOOD)
     for zc in (1.1, 1.7):
@@ -284,8 +296,13 @@ def workshop(bx, by, s=1.0) -> list:
     sx0 = x + W / 2
     v, f = lib.box((sx0 + 0.28 * s, y + 0.1 * s, 0.33 * s), (0.56 * s, 0.7 * s, 0.66 * s))
     P.b['wood'].add(v, f, col('#a8744a'))
-    lean = [(sx0 - 0.02, y - 0.3 * s, 0.86 * s), (sx0 + 0.66 * s, y - 0.3 * s, 0.66 * s), (sx0 + 0.66 * s, y + 0.5 * s, 0.66 * s), (sx0 - 0.02, y + 0.5 * s, 0.86 * s)]
-    P.b['wood'].add(lean, [(0, 1, 2, 3), (3, 2, 1, 0)], col('#6b4428'))
+    # lean-to roof: five sloped boards with real thickness (a double-sided quad rendered as a dark
+    # slab from above)
+    ang = math.atan2(0.2, 0.68)
+    for k in range(5):
+        v, f = lib.box((0, 0, 0), (0.76 * s, 0.165 * s, 0.035 * s))
+        v = lib.transform(v, loc=(sx0 + 0.32 * s, y - 0.3 * s + (k + 0.5) * 0.16 * s, 0.78 * s), rot=(0.0, ang, 0.0))
+        P.b['wood'].add(v, f, col(['#9a6a40', '#8a5a34', '#a4744a'][k % 3]))
     # brass water tank on stilts behind the workshop
     tx, ty = x - W / 2 + 0.2 * s, y + D / 2 + 0.35 * s
     for (dx, dy) in [(-0.15, -0.15), (0.15, -0.15), (-0.15, 0.15), (0.15, 0.15)]:

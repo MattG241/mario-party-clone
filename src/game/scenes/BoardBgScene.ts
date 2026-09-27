@@ -14,6 +14,10 @@ export class BoardBgScene extends Phaser.Scene {
   private rendered: Phaser.GameObjects.Image | null = null;
   private dusk: Phaser.GameObjects.Image | null = null;
   private drift = 0;
+  /** Mid-distance floating islets (parallax between the sky and the board). */
+  private islets: { img: Phaser.GameObjects.Image; x: number; y: number; depth: number; bob: number }[] = [];
+  /** Little flocks of birds crossing the sky. */
+  private birds: { spr: Phaser.GameObjects.Sprite; x: number; y: number; speed: number; phase: number }[] = [];
   /** Festival sky-lanterns drifting up through the backdrop (depth = parallax factor). */
   private lanterns: { img: Phaser.GameObjects.Container; x: number; y: number; depth: number; speed: number; sway: number }[] = [];
   intensity = 0;
@@ -37,10 +41,68 @@ export class BoardBgScene extends Phaser.Scene {
       this.islandsFar = this.add.tileSprite(0, 330, GAME_WIDTH, 640, 'bg-islands-far').setOrigin(0).setAlpha(0.75);
       this.cloudsLow = this.add.tileSprite(0, 640, GAME_WIDTH, 560, 'bg-clouds-below').setOrigin(0).setAlpha(0.9);
     }
+    this.buildIslets();
+    this.buildBirds();
     this.buildLanterns();
     // Festival lights overlay (intensifies in the final round).
     this.glow = this.add.graphics();
-    applyGrade(this, { vignette: 0.18 });
+    applyGrade(this, { vignette: 0.18, glow: 0 });
+  }
+
+  private buildIslets(): void {
+    this.islets = [];
+    const spots: [number, number, number, number][] = [
+      // key index, x, y, parallax depth
+      [0, 150, 760, 0.35],
+      [1, 1790, 650, 0.28],
+      [2, 1450, 930, 0.4],
+      [1, 420, 330, 0.18],
+    ];
+    for (const [k, x, y, depth] of spots) {
+      const key = `rendered-islet-${k}`;
+      if (!this.textures.exists(key)) continue;
+      const img = this.add.image(x, y, key).setScale(0.45 + depth * 0.9).setAlpha(0.75 + depth * 0.6);
+      // atmospheric haze: further islets are lighter and bluer
+      img.setTint(Phaser.Display.Color.GetColor(210 + depth * 100, 222 + depth * 80, 240));
+      this.islets.push({ img, x, y, depth, bob: Math.random() * Math.PI * 2 });
+    }
+  }
+
+  private buildBirds(): void {
+    this.birds = [];
+    if (!this.textures.exists('fx-bird')) {
+      const tex = this.textures.createCanvas('fx-bird', 64, 16);
+      if (tex) {
+        const ctx = tex.getContext();
+        ctx.strokeStyle = 'rgba(30,42,66,0.9)';
+        ctx.lineWidth = 2.4;
+        ctx.lineCap = 'round';
+        // frame 0: wings up, frame 1: wings level
+        ctx.beginPath();
+        ctx.moveTo(3, 5);
+        ctx.quadraticCurveTo(9, 13, 16, 10);
+        ctx.quadraticCurveTo(23, 13, 29, 5);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(35, 11);
+        ctx.quadraticCurveTo(41, 8, 48, 10);
+        ctx.quadraticCurveTo(55, 8, 61, 11);
+        ctx.stroke();
+        tex.refresh();
+        tex.add('0', 0, 0, 0, 32, 16);
+        tex.add('1', 0, 32, 0, 32, 16);
+      }
+    }
+    const flocks: [number, number, number][] = [
+      [300, 170, 34],
+      [1300, 300, 26],
+    ];
+    flocks.forEach(([fx, fy, speed], f) => {
+      for (let i = 0; i < 5; i++) {
+        const spr = this.add.sprite(fx + i * 38 - (i % 2) * 12, fy + Math.abs(i - 2) * 16, 'fx-bird', '0').setScale(0.9 - f * 0.2).setAlpha(0.8);
+        this.birds.push({ spr, x: spr.x, y: spr.y, speed, phase: i * 0.7 + f });
+      }
+    });
   }
 
   private buildLanterns(): void {
@@ -94,8 +156,18 @@ export class BoardBgScene extends Phaser.Scene {
       this.cloudsLow.tilePositionX = sx * 0.16 + this.drift * 10;
       this.cloudsLow.y = 640 - sy * 0.05;
     }
-    // Sky-lanterns rise and sway; nearer ones move faster and parallax more with the board camera.
     const dt = delta / 1000;
+    for (const it of this.islets) {
+      it.img.setPosition(it.x - (sx - 1000) * 0.05 * it.depth, it.y - (sy - 700) * 0.04 * it.depth + Math.sin(this.drift * 0.4 + it.bob) * 8 * it.depth);
+    }
+    // Birds glide left with lazy wingbeats, wrapping around the view.
+    for (const b of this.birds) {
+      b.x -= b.speed * dt;
+      if (b.x < -60) b.x += GAME_WIDTH + 220;
+      b.spr.setPosition(b.x - sx * 0.02, b.y + Math.sin(this.drift * 1.2 + b.phase) * 6 - sy * 0.015);
+      b.spr.setFrame(Math.sin(this.drift * 9 + b.phase * 2) > 0 ? '0' : '1');
+    }
+    // Sky-lanterns rise and sway; nearer ones move faster and parallax more with the board camera.
     for (const l of this.lanterns) {
       l.y -= l.speed * dt;
       if (l.y < -80) {

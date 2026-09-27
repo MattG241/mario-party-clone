@@ -9,7 +9,8 @@ import { glyphKindFor, makeGlyph, PromptBar } from '../ui/ControllerPrompt';
 import { addPortrait } from '../ui/Portrait';
 import { addText, addTitle } from '../ui/theme';
 import { enterScene, goTo } from '../ui/Transition';
-import { centerOrigin } from '../util/spriteUtil';
+import { centerOrigin, solidHeight } from '../util/spriteUtil';
+import { drawNavyPanel } from '../ui/Screen';
 
 /** "MINIGAME!" card: name, instructions, controls, and a ready check for every human. */
 export class MinigameIntroScene extends Phaser.Scene {
@@ -116,35 +117,36 @@ export class MinigameIntroScene extends Phaser.Scene {
     }
     const RX = 1050;
     const RW = 720;
-    // Frosted cream card with a header band in the minigame's colour (bright, like the world).
+    // Navy card with a header band in the minigame's colour (the same material as every panel).
     const panel = this.add.graphics();
-    panel.fillStyle(0x06141a, 0.22);
-    panel.fillRoundedRect(RX + 5, PY + 9, RW, PH, 28);
-    panel.fillStyle(0xfff8ea, 0.95);
-    panel.fillRoundedRect(RX, PY, RW, PH, 28);
-    panel.fillStyle(this.info.color, 1);
-    panel.fillRoundedRect(RX, PY, RW, 76, { tl: 28, tr: 28, bl: 0, br: 0 });
-    panel.fillStyle(0xffffff, 0.18);
-    panel.fillRoundedRect(RX + 10, PY + 6, RW - 20, 28, { tl: 22, tr: 22, bl: 6, br: 6 });
-    panel.lineStyle(3, 0xffffff, 0.9);
-    panel.strokeRoundedRect(RX, PY, RW, PH, 28);
+    drawNavyPanel(panel, RX, PY, RW, PH, { header: { color: this.info.color, height: 76 }, border: this.info.color });
     addText(this, RX + 34, PY + 39, 'HOW TO PLAY', 28, { color: '#ffffff', weight: 700, align: 'left', stroke: '#06141a', strokeThickness: 4 });
     addText(this, RX + RW - 30, PY + 39, `${this.info.players}  ·  ${this.info.duration}`, 20, { color: '#ffffff', weight: 700, align: 'right', stroke: '#06141a', strokeThickness: 3 });
     const lines = mode === 'on' ? this.info.instructions : [this.info.description];
     lines.forEach((line, i) => {
-      const y = PY + 116 + i * 78;
+      const y = PY + 118 + i * 80;
       const g = this.add.graphics();
-      g.fillStyle(this.info.color, 1);
-      g.fillCircle(RX + 56, y, 22);
-      g.lineStyle(3, 0xfff4dc, 0.9);
-      g.strokeCircle(RX + 56, y, 22);
-      addText(this, RX + 56, y - 1, String(i + 1), 24, { color: '#ffffff', weight: 700, stroke: '#06141a', strokeThickness: 4 });
-      addText(this, RX + 96, y, line, 25, { color: CSS.ink, weight: 600, align: 'left', wrap: RW - 130 });
+      g.fillStyle(0xffffff, 0.06);
+      g.fillRoundedRect(RX + 22, y - 34, RW - 44, 68, 20);
+      g.fillStyle(0x06141a, 0.5);
+      g.fillCircle(RX + 62, y, 28);
+      g.lineStyle(3, this.info.color, 1);
+      g.strokeCircle(RX + 62, y, 28);
+      const icon = this.info.ruleIcons?.[i];
+      if (icon && this.textures.exists(icon.texture)) {
+        const img = icon.frame !== undefined ? this.add.image(RX + 62, y, icon.texture, icon.frame) : this.add.image(RX + 62, y, icon.texture);
+        if (icon.frame !== undefined) {
+          const o = centerOrigin(icon.texture, icon.frame);
+          img.setOrigin(o.x, o.y);
+          img.setScale(40 / solidHeight(icon.texture, icon.frame));
+        } else img.setScale(40 / Math.max(img.width, img.height));
+      } else addText(this, RX + 62, y - 1, String(i + 1), 26, { color: '#ffffff', weight: 700, stroke: '#06141a', strokeThickness: 4 });
+      addText(this, RX + 108, y, line, 24, { color: CSS.cream, weight: 600, align: 'left', wrap: RW - 140 });
     });
     const cg = this.add.graphics();
-    cg.fillStyle(0x0c2630, 0.1);
+    cg.fillStyle(0x06141a, 0.45);
     cg.fillRoundedRect(RX + 24, PY + PH - 92, RW - 48, 70, 35);
-    new PromptBar(this, RX + RW / 2, PY + PH - 57, this.info.controls, { size: 42, fontSize: 26, color: CSS.ink });
+    new PromptBar(this, RX + RW / 2, PY + PH - 57, this.info.controls, { size: 42, fontSize: 26 });
 
     // Ready check: slim capsules with portraits, like the lobby.
     const n = this.launchData.players.length;
@@ -181,7 +183,8 @@ export class MinigameIntroScene extends Phaser.Scene {
   private buildArenaPreview(key: string, x0: number, y0: number, w: number, h: number): void {
     const scale = w / GAME_WIDTH;
     const root = this.add.container(x0, y0);
-    const sky = this.textures.exists('rendered-sky-day') ? this.add.image(w / 2, h / 2, 'rendered-sky-day').setDisplaySize(w * 1.2, h * 1.2) : null;
+    const skyKey = ['rendered-sky-clear', 'rendered-sky-day'].find((k) => this.textures.exists(k));
+    const sky = skyKey ? this.add.image(w / 2, h / 2, skyKey).setDisplaySize(w * 1.2, h * 1.2).setFlipX(this.info.id === 'gleam-grab') : null;
     const arena = this.add.image(0, (h - GAME_HEIGHT * scale) / 2, key).setOrigin(0).setScale(scale);
     if (sky) root.add(sky);
     root.add(arena);
@@ -213,10 +216,44 @@ export class MinigameIntroScene extends Phaser.Scene {
         onRepeat: () => c.face(!!(i % 2)),
       });
     });
+    this.previewProps(root, scale, cy);
     const chip = this.add.graphics();
     chip.fillStyle(0x0c2630, 0.85);
     chip.fillRoundedRect(x0 + 18, y0 + 18, 132, 36, 18);
     addText(this, x0 + 84, y0 + 36, 'PREVIEW', 18, { color: CSS.cream, weight: 700 });
+  }
+
+  /** The minigame's own objects in the preview (so it illustrates the rules, not just the arena). */
+  private previewProps(root: Phaser.GameObjects.Container, scale: number, cy: number): void {
+    if (this.info.id === 'gleam-grab') {
+      const spots: [number, number, string][] = [
+        [720, 640, '0'],
+        [1180, 560, '0'],
+        [1340, 780, '12'],
+        [900, 820, '0'],
+        [1500, 600, '0'],
+      ];
+      spots.forEach(([ax, ay, frame], i) => {
+        const fx = ax * scale;
+        const fy = cy + ay * scale;
+        const sh = this.add.image(fx, fy, 'fx-contact').setScale(0.09, 0.035).setAlpha(0.5);
+        const spr = this.add.sprite(fx, fy - 40, 'items', frame);
+        const o = centerOrigin('items', frame);
+        spr.setOrigin(o.x, o.y).setScale(frame === '12' ? 0.2 : 0.2);
+        spr.play(frame === '12' ? 'capsule-idle' : 'chip-spin');
+        root.add([sh, spr]);
+        // fall, bounce, rest, repeat
+        this.tweens.add({ targets: spr, y: { from: fy - 170, to: fy - 12 }, duration: 700, ease: 'Bounce.Out', delay: i * 380, hold: 1500, repeat: -1, repeatDelay: 600 });
+      });
+    } else if (this.info.id === 'orbit-dodge' && this.textures.exists('rendered-orbit-arms')) {
+      const tex = this.textures.get('rendered-orbit-arms');
+      const n = tex.getFrameNames().filter((f) => f.startsWith('low_')).length;
+      const meta = (tex.customData as { meta?: { scale?: number } }).meta;
+      const arm = this.add.sprite(0, cy, 'rendered-orbit-arms', 'low_00').setOrigin(0).setScale((1 / (meta?.scale ?? 0.6)) * scale);
+      root.add(arm);
+      let f = 0;
+      this.time.addEvent({ delay: 60, loop: true, callback: () => arm.setFrame(`low_${String((f = (f + 1) % n)).padStart(2, '0')}`) });
+    }
   }
 
   private start(): void {

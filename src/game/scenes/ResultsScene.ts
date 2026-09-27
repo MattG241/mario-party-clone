@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { audio } from '../audio/AudioManager';
 import { animHeadTop, Character } from '../characters/Character';
+import { CHARACTERS } from '../data/characters';
 import { COLORS, CSS, GAME_HEIGHT, GAME_WIDTH, PLAYER_COLORS } from '../constants';
 import { EffectsManager } from '../effects/EffectsManager';
 import { input } from '../input/InputManager';
@@ -13,6 +14,7 @@ import { PlayerBadge } from '../ui/PlayerBadge';
 import { addText, addTitle } from '../ui/theme';
 import { enterScene, goTo } from '../ui/Transition';
 import { randomSeed } from '../util/Random';
+import { applyGrade } from '../effects/GradePipeline';
 
 /** Podium x and height by finishing place (1st in the centre). Must match scripts/art/scenes.py. */
 const PODIUM_X = [960, 600, 1320, 1680];
@@ -86,12 +88,13 @@ export class ResultsScene extends Phaser.Scene {
 
   create(): void {
     enterScene(this);
+    applyGrade(this, { glow: 0.35, glowThreshold: 0.8, vignette: 0.2 });
     audio.playMusic('results');
     const fx = new EffectsManager(this, 800);
-    // Festive dusk for the podium (the board is day, the title golden hour).
-    const skyKey = ['rendered-sky-dusk', 'rendered-sky-golden', 'rendered-sky-day'].find((k) => this.textures.exists(k));
+    // Warm late-afternoon sky for the podium (the board is day, the title golden hour).
+    const skyKey = ['rendered-sky-sunset', 'rendered-sky-golden', 'rendered-sky-day'].find((k) => this.textures.exists(k));
     if (skyKey) {
-      this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, skyKey).setDisplaySize(GAME_WIDTH * 1.05, GAME_HEIGHT * 1.05).setDepth(-10);
+      this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, skyKey).setDisplaySize(GAME_WIDTH * 1.05, GAME_HEIGHT * 1.05).setDepth(-10).setFlipX(true);
     } else {
       this.add.image(0, 0, 'bg-sky').setOrigin(0).setDisplaySize(GAME_WIDTH, GAME_HEIGHT).setDepth(-10);
       this.add.tileSprite(0, 640, GAME_WIDTH, 560, 'bg-clouds-below').setOrigin(0).setDepth(-10);
@@ -177,7 +180,20 @@ export class ResultsScene extends Phaser.Scene {
           const rays = this.add.image(x, baseY - h - 120, 'fx-rays').setDisplaySize(1180, 1180).setTint(0xffe7a6).setBlendMode(Phaser.BlendModes.ADD).setDepth(-5).setAlpha(0);
           this.tweens.add({ targets: rays, alpha: 0.6, duration: 400 });
           this.tweens.add({ targets: rays, angle: 360, duration: 24000, repeat: -1 });
-          const ribbon = addTitle(this, x, baseY - h - 330, 'WINNER!', 48, CSS.goldLight).setScale(0.3);
+          // Winner banner: the character's name on a gold-rimmed navy ribbon above the podium.
+          const winners = ranked.filter((r) => r.place === 1).length;
+          const nm = winners > 1 ? 'TIE!' : `${CHARACTERS[lp.characterId].name.split(' ')[0].toUpperCase()} WINS!`;
+          const ribbon = this.add.container(x, baseY - h - 336).setScale(0.3).setDepth(5);
+          const rw = Math.max(300, nm.length * 34 + 90);
+          const rg = this.add.graphics();
+          rg.fillStyle(0x06141a, 0.35);
+          rg.fillRoundedRect(-rw / 2 + 4, -38 + 7, rw, 76, 38);
+          rg.fillStyle(0x0c2630, 0.94);
+          rg.fillRoundedRect(-rw / 2, -38, rw, 76, 38);
+          rg.lineStyle(4, COLORS.gold, 1);
+          rg.strokeRoundedRect(-rw / 2, -38, rw, 76, 38);
+          ribbon.add(rg);
+          ribbon.add(addTitle(this, 0, -2, nm, 54, CSS.goldLight));
           this.tweens.add({ targets: ribbon, scale: 1, duration: 360, ease: 'Back.Out' });
           if (!lp.isCpu) {
             input.rumbleSlot(lp.slot, 0.6, 0.6, 150);

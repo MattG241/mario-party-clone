@@ -106,7 +106,7 @@ export abstract class BaseMinigame extends Phaser.Scene {
       };
     });
     this.createArena();
-    applyGrade(this, { vignette: 0.2 });
+    applyGrade(this, { vignette: 0.2, glow: 0.35, glowThreshold: 0.8 });
     this.players.forEach((p, i) => this.createPlayer(p, i));
     this.buildHud();
     this.startCountdown();
@@ -347,7 +347,8 @@ export abstract class BaseMinigame extends Phaser.Scene {
     return this.players.map((p) => {
       const outIndex = this.eliminated.indexOf(p.slot);
       const score = p.alive ? 1000 + extra(p) : outIndex * 10 + extra(p);
-      return { slot: p.slot, score, label: p.alive ? 'Survived!' : `Out #${this.players.length - outIndex}` };
+      const lasted = Math.max(1, Math.round((p.doneAt ?? this.elapsed) / 1000));
+      return { slot: p.slot, score, label: p.alive ? 'Last one standing!' : `Lasted ${lasted}s` };
     });
   }
 

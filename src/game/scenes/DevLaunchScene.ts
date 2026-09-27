@@ -1,6 +1,9 @@
 import Phaser from 'phaser';
 import type { CpuLevel } from '../constants';
+import { BoardGraph } from '../board/BoardGraph';
+import type { BoardDef } from '../board/types';
 import { findBoard } from '../data/boards';
+import type { ItemId } from '../data/items';
 import { CHARACTER_IDS } from '../data/characters';
 import { URL_PARAMS } from '../debug/debug';
 import { input } from '../input/InputManager';
@@ -23,7 +26,7 @@ interface DevLaunchData {
  *   ?minigame=<id>   jump straight into a minigame (P1 = keyboard / first pad, CPUs fill)
  *   ?quick           start a board match immediately (P1 human + 3 CPUs)
  * Modifiers: &humans=0..4 (0 = all CPU), &players=2..4, &rounds=N, &seed=N, &cpu=easy|normal|hard,
- *            &intro (play the board intro), &instructions=on|quick|off.
+ *            &intro (play the board intro), &instructions=on|quick|off, &midgame (round 4, spread out).
  */
 export class DevLaunchScene extends Phaser.Scene {
   private data0: DevLaunchData = {};
@@ -91,6 +94,33 @@ export class DevLaunchScene extends Phaser.Scene {
     return v === 'on' || v === 'quick' || v === 'off' ? v : 'quick';
   }
 
+  /**
+   * &midgame: jump to round 4 with players spread along the trail and varied chips, relics and
+   * items (for testing and screenshots of a match in progress).
+   */
+  private midgame(board: BoardDef): void {
+    const m = session.match;
+    if (!m) return;
+    const graph = new BoardGraph(board);
+    const walk = (n: number): string => {
+      let id = board.startNode;
+      for (let i = 0; i < n; i++) id = graph.node(id).next[0] ?? id;
+      return id;
+    };
+    const spread = [6, 3, 11, 8];
+    const chips = [23, 14, 31, 9];
+    const relics = [1, 0, 2, 1];
+    const items: ItemId[][] = [['wingstep_boots'], ['snare_seed', 'bubble_shield'], [], ['mystery_capsule']];
+    m.round = Math.min(4, m.config.rounds);
+    m.players.forEach((p, i) => {
+      p.nodeId = walk(spread[i % 4]);
+      p.trail = [];
+      p.chips = chips[i % 4];
+      p.relics = relics[i % 4];
+      p.items = items[i % 4];
+    });
+  }
+
   /** Returns an error message, or null when a scene was started. */
   private launch(): string | null {
     if (this.data0.minigame) {
@@ -128,6 +158,7 @@ export class DevLaunchScene extends Phaser.Scene {
         parts,
         board,
       );
+      if (URL_PARAMS.has('midgame')) this.midgame(board);
       saves.save(session.match);
       goTo(this, 'Board', { intro: URL_PARAMS.has('intro') });
       return null;

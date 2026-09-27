@@ -22,10 +22,10 @@ const SCENARIOS = [
     q: '?realtime',
     steps: [['waitFor', ready, 60000], ['wait', 1200], ['key', 'Enter'], ['wait', 1500], ['key', 'Enter'], ['waitFor', sceneActive('CharacterSelect'), 60000], ['wait', 1500], ['key', 'Enter'], ['wait', 1800], ['shot', 'select.png']],
   },
-  { name: 'board', q: '?quick&humans=1&seed=21&realtime&noflow', steps: [['waitFor', sceneActive('BoardUI'), 60000], ['wait', 4000], ['shot', 'board-overview.png']] },
+  { name: 'board', q: '?quick&humans=1&seed=21&realtime&noflow&midgame', steps: [['waitFor', sceneActive('BoardUI'), 60000], ['wait', 4000], ['shot', 'board-overview.png']] },
   {
     name: 'turn',
-    q: '?quick&humans=1&seed=21&realtime',
+    q: '?quick&humans=1&seed=21&realtime&midgame',
     steps: [['waitFor', sceneActive('BoardUI'), 60000], ['wait', 11000], ['shot', 'board-turn.png'], ['key', 'Enter'], ['wait', 1600], ['shot', 'board-dial.png'], ['key', 'Enter'], ['wait', 2600], ['shot', 'board-move.png']],
   },
   {

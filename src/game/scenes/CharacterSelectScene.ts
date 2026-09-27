@@ -13,6 +13,7 @@ import { drawPanel } from '../ui/Panel';
 import { PlayerBadge } from '../ui/PlayerBadge';
 import { addText, addTitle } from '../ui/theme';
 import { enterScene, goTo } from '../ui/Transition';
+import { applyGrade } from '../effects/GradePipeline';
 
 type SlotPhase = 'empty' | 'choosing' | 'ready';
 
@@ -53,6 +54,7 @@ export class CharacterSelectScene extends Phaser.Scene {
 
   create(): void {
     enterScene(this);
+    applyGrade(this, { glow: 0.35, glowThreshold: 0.8, vignette: 0.2 });
     this.leaving = false;
     this.slots = [];
     this.chars = [];
@@ -63,8 +65,9 @@ export class CharacterSelectScene extends Phaser.Scene {
     audio.playMusic('menu');
     this.renderedStage = this.textures.exists('rendered-scene-select');
     if (this.renderedStage) {
-      const skyKey = ['rendered-sky-day', 'rendered-sky-golden'].find((k) => this.textures.exists(k));
-      if (skyKey) this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, skyKey).setDisplaySize(GAME_WIDTH * 1.04, GAME_HEIGHT * 1.04);
+      // Its own sky: the clear variant, mirrored (the title and board use other skies).
+      const skyKey = ['rendered-sky-clear', 'rendered-sky-day', 'rendered-sky-golden'].find((k) => this.textures.exists(k));
+      if (skyKey) this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, skyKey).setDisplaySize(GAME_WIDTH * 1.04, GAME_HEIGHT * 1.04).setFlipX(true);
       this.add.image(0, 0, 'rendered-scene-select').setOrigin(0);
     } else {
       this.add.image(0, 0, 'bg-sky').setOrigin(0).setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
@@ -324,7 +327,10 @@ export class CharacterSelectScene extends Phaser.Scene {
       const ch = this.chars[ci];
       const target = active ? 1.12 : 1.02;
       this.tweens.add({ targets: ch, scale: target, duration: 180, ease: 'Back.Out' });
-      ch.sprite.setAlpha(lockedBy !== null ? 1 : 1);
+      // Characters nobody is pointing at (or has picked) step back into the shade.
+      const lit = active || lockedBy !== null || this.slots.every((v) => v.phase === 'empty');
+      if (lit) ch.sprite.clearTint();
+      else ch.sprite.setTint(0x7d8196);
       const plate = this.namePlates[ci];
       this.tweens.add({ targets: plate, scale: active || lockedBy !== null ? 1 : 0.94, duration: 160 });
       // Cursor badges hover above the head, side by side.
