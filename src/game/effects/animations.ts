@@ -88,6 +88,31 @@ export function generateFxTextures(scene: Phaser.Scene): void {
       tex.refresh();
     }
   }
+  if (!scene.textures.exists('fx-rays')) {
+    // Soft sunburst: blurred wedges that fade out from the centre (results spotlight).
+    const S = 512;
+    const tex = scene.textures.createCanvas('fx-rays', S, S);
+    if (tex) {
+      const ctx = tex.getContext();
+      const c = S / 2;
+      ctx.filter = 'blur(7px)';
+      for (let i = 0; i < 16; i++) {
+        const a0 = (i / 16) * Math.PI * 2;
+        const grd = ctx.createRadialGradient(c, c, 16, c, c, c - 10);
+        grd.addColorStop(0, 'rgba(255,255,255,0.95)');
+        grd.addColorStop(0.45, 'rgba(255,255,255,0.4)');
+        grd.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = grd;
+        ctx.beginPath();
+        ctx.moveTo(c, c);
+        ctx.arc(c, c, c - 12, a0, a0 + (i % 2 ? 0.1 : 0.16));
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.filter = 'none';
+      tex.refresh();
+    }
+  }
   if (!scene.textures.exists('fx-contact')) {
     // Tighter contact shadow: a dense core with a short falloff, so it reads around the feet.
     const tex = scene.textures.createCanvas('fx-contact', 128, 128);

@@ -41,7 +41,7 @@ def args():
     p.add_argument('--scale', type=float, default=None)
     p.add_argument('--samples', type=int, default=None)
     p.add_argument('--out', default=os.path.join(lib.ROOT, 'art-out', 'board'))
-    p.add_argument('--only', default='')
+    p.add_argument('--only', default='', help='with --props-only: comma-separated landmark ids to re-render')
     p.add_argument('--crop', default='', help='x0,y0,x1,y1 board px region to render at --scale')
     p.add_argument('--export', action='store_true', help='slice into WebP tiles under public/assets/rendered')
     p.add_argument('--props-only', action='store_true', help='only re-render the landmark sprites')
@@ -316,7 +316,15 @@ def render_props(built, terrain_objs, frame):
     os.makedirs(dest, exist_ok=True)
     entries = []
     dg = bpy.context.evaluated_depsgraph_get()
+    # --only id,id: re-render just those sprites and keep every other manifest entry as it was
+    only = {t for t in A.only.split(',') if t}
+    man_path0 = os.path.join(dest, 'manifest.json')
+    old_entries = {e['id']: e for e in json.load(open(man_path0)).get('props', [])} if only and os.path.exists(man_path0) else {}
     for pid, (lm, obs) in built.items():
+        if only and pid not in only:
+            if pid in old_entries:
+                entries.append(old_entries[pid])
+            continue
         for o in all_prop_objs:
             o.hide_render = o not in obs
         for o in obs:

@@ -174,14 +174,8 @@ export class ResultsScene extends Phaser.Scene {
           beam.fillEllipse(x, baseY - h + 8, 360, 80);
           this.tweens.add({ targets: beam, alpha: 1, duration: 500 });
           // Sunburst behind the winner and a ribbon above.
-          const rays = this.add.graphics({ x, y: baseY - h - 120 }).setDepth(-5).setAlpha(0);
-          for (let i = 0; i < 18; i++) {
-            const a0 = (i / 18) * Math.PI * 2;
-            rays.fillStyle(i % 2 ? 0xffe08a : 0xffffff, 0.22);
-            rays.slice(0, 0, 520, a0, a0 + 0.17, false);
-            rays.fillPath();
-          }
-          this.tweens.add({ targets: rays, alpha: 1, duration: 400 });
+          const rays = this.add.image(x, baseY - h - 120, 'fx-rays').setDisplaySize(1180, 1180).setTint(0xffe7a6).setBlendMode(Phaser.BlendModes.ADD).setDepth(-5).setAlpha(0);
+          this.tweens.add({ targets: rays, alpha: 0.6, duration: 400 });
           this.tweens.add({ targets: rays, angle: 360, duration: 24000, repeat: -1 });
           const ribbon = addTitle(this, x, baseY - h - 330, 'WINNER!', 48, CSS.goldLight).setScale(0.3);
           this.tweens.add({ targets: ribbon, scale: 1, duration: 360, ease: 'Back.Out' });

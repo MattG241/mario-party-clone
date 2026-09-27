@@ -195,8 +195,9 @@ export class GleamGrabScene extends BaseMinigame {
     if (kind === 'capsule') shadow.setTint(0x6a1830);
     // Landing telegraph: a colour-coded ring that closes in on the landing spot as the drop falls
     // (danger red for fake capsules).
-    const ringColor = kind === 'capsule' ? 0xff4a4a : kind === 'gold' ? 0xffe066 : 0xffc94a;
-    const ring = this.add.image(q.x, q.y, 'fx-ring').setTint(ringColor).setAlpha(0.2).setScale(1.5 * q.s, 0.6 * q.s).setDepth(q.y - 0.5).setBlendMode(Phaser.BlendModes.ADD);
+    // Colours chosen to contrast with the warm floor: cyan for chips, amber for gold, red for danger.
+    const ringColor = kind === 'capsule' ? 0xff2a2a : kind === 'gold' ? 0xffa600 : 0x14c8f0;
+    const ring = this.add.image(q.x, q.y, 'fx-ring').setTint(ringColor).setAlpha(0.35).setScale(1.5 * q.s, 0.6 * q.s).setDepth(q.y - 0.5);
     this.drops.push({ kind, x: px, y: py, fallT: FALL_MS, fallTotal: FALL_MS, state: 'falling', life: 4500, sprite, shadow, ring, glow, sx: q.x, sy: q.y, ss: q.s });
   }
 
@@ -211,7 +212,7 @@ export class GleamGrabScene extends BaseMinigame {
         d.shadow.setScale((0.15 + t * 0.62) * d.ss, (0.05 + t * 0.2) * d.ss).setAlpha(0.3 + t * 0.55);
         const rs = 1.5 - t * 0.95;
         const wob = d.kind === 'capsule' ? Math.sin(t * 40) * 0.06 : 0;
-        d.ring.setScale((rs + wob) * d.ss, (rs - wob) * 0.4 * d.ss).setAlpha(0.25 + t * 0.7);
+        d.ring.setScale((rs + wob) * d.ss, (rs - wob) * 0.4 * d.ss).setAlpha(0.4 + t * 0.6);
         if (d.fallT <= 0) {
           d.ring.destroy();
           d.sprite.y = d.sy - 20 * d.ss;
