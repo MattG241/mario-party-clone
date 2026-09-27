@@ -116,7 +116,8 @@ src/game/
   input/         Gamepad + keyboard devices, player slots, virtual CPU controls
   state/         Match state, scoring, session
   effects/       Particles/VFX, colour-grade post pipeline
-  ui/            HUD, panels, prompts (controller glyphs follow the active device), menus
+  ui/            HUD, panels, prompts (controller glyphs follow the active device), menus;
+                 Style.ts holds the house style (white cards, calm slate HUD, slim outlines)
   data/          Characters, board definition, items, NPCs, rendered-asset metadata
 scripts/
   art/           Blender (bpy) scripts that render the environment art

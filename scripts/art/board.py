@@ -405,10 +405,13 @@ def water_material():
     wave.inputs['Distortion'].default_value = 4.0
     wave.inputs['Detail'].default_value = 2.0
     m.link(pos, wave.inputs['Vector'])
-    streak = m.maprange(wave.outputs['Fac'], 0.3, 0.9)
-    c = m.mix(streak, lib.col('#7fd0f0'), lib.col('#f4fdff'))
+    # clear blue water with pale streaks at the lip, turning to white foam as it falls
+    streak = m.maprange(wave.outputs['Fac'], 0.35, 0.85)
+    water = m.mix(streak, lib.col('#2e9fd6'), lib.col('#d9f5ff'))
+    foam = m.maprange(Z, -0.4, -2.4, 0.0, 1.0)
+    c = m.mix(m.math('MULTIPLY', foam, 0.75), water, lib.col('#ffffff'))
     fade = m.maprange(Z, -3.6, -1.2, 0.0, 1.0)
-    b = m.bsdf(c, 0.15, emission=c, emission_strength=0.55, coat=0.4, alpha=m.math('MULTIPLY', fade, 0.92))
+    m.bsdf(c, 0.12, emission=c, emission_strength=0.28, coat=0.6, alpha=m.math('MULTIPLY', fade, 0.95))
     return m.mat
 
 

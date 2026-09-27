@@ -119,10 +119,13 @@ def title_waterfall(ring, nrm, target_x=1560):
     wave.inputs['Scale'].default_value = 7.0
     wave.inputs['Distortion'].default_value = 5.0
     m.link(pos, wave.inputs['Vector'])
-    streak = m.maprange(wave.outputs['Fac'], 0.3, 0.9)
-    c = m.mix(streak, col('#8fd8f4'), col('#f6feff'))
+    # clear blue water with pale streaks at the lip, turning to white foam as it falls
+    streak = m.maprange(wave.outputs['Fac'], 0.35, 0.85)
+    water = m.mix(streak, col('#2e9fd6'), col('#d9f5ff'))
+    foam = m.maprange(Z, top.z - 1.2, top.z - 3.8, 0.0, 1.0)
+    c = m.mix(m.math('MULTIPLY', foam, 0.75), water, col('#ffffff'))
     fade = m.maprange(Z, top.z - 4.2, top.z - 1.0, 0.0, 1.0)
-    m.bsdf(c, 0.15, emission=c, emission_strength=0.6, coat=0.4, alpha=m.math('MULTIPLY', fade, 0.92))
+    m.bsdf(c, 0.12, emission=c, emission_strength=0.28, coat=0.6, alpha=m.math('MULTIPLY', fade, 0.95))
     verts, faces = [], []
     rows = 22
     for r in range(rows + 1):
