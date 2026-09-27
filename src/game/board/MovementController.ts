@@ -80,9 +80,9 @@ export class MovementController {
       const counterText = addText(this.scene, 0, -2, '0', 48, { color: CSS.ink, weight: 700, fixed: true });
       counter.add([cg, counterText]);
       const shield = this.scene.add.sprite(0, 0, 'items', '24').play('bubble-idle').setVisible(false).setAlpha(0.7).setScale(0.42);
-      // Soft glow in the player's colour behind the active player's badge (every badge is the same
-      // size; the active one is picked out by this glow and a gentle bob instead of a bigger pin).
-      const glow = this.scene.add.image(0, 0, 'fx-dot').setTint(PLAYER_COLORS[p.slot]).setBlendMode(Phaser.BlendModes.ADD).setScale(4.2).setAlpha(0);
+      // A faint steady halo in the player's colour behind the active player's badge (every badge is
+      // the same size; the active one is picked out by this halo and a gentle bob).
+      const glow = this.scene.add.image(0, 0, 'fx-dot').setTint(PLAYER_COLORS[p.slot]).setScale(3.4).setAlpha(0);
       container.add([glow, stem, badge, counter]);
       this.tags.set(p.slot, { container, badge, head: animHeadTop(p.characterId) * TOKEN_SCALE, counter, counterText, shield, glow });
       c.add(shield);
@@ -200,7 +200,7 @@ export class MovementController {
       const bob = active ? Math.sin(this.scene.time.now / 260) * 5 : 0;
       tag.container.setPosition(c.x, c.y + tag.head * (c.scale / TOKEN_SCALE) - 36 + lift + bob);
       tag.container.setDepth(DEPTH.worldUi + (active ? 10 : 0));
-      tag.glow.setAlpha(active ? 0.5 + 0.2 * Math.sin(this.scene.time.now / 200) : 0);
+      tag.glow.setAlpha(active ? 0.28 : 0);
       // One marker size for everyone; markers grow when the camera pulls back so players stay easy
       // to find on the overview.
       const zoomK = Phaser.Math.Clamp(0.85 / this.scene.cameras.main.zoom, 1, 1.9);
