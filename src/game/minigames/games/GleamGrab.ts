@@ -6,6 +6,7 @@ import { CHARACTERS } from '../../data/characters';
 import type { VirtualControls } from '../../input/PlayerInput';
 import { npcFrame, type NpcId } from '../../data/npcs';
 import { centerOrigin, standOrigin } from '../../util/spriteUtil';
+import { SPRITE_META } from '../../data/spriteMeta.generated';
 import { BaseMinigame, type MgPlayer } from '../BaseMinigame';
 import { clampRect, dist, drift, separate, steer, type Mover } from '../common';
 import { QuadMap } from '../../util/QuadMap';
@@ -16,6 +17,9 @@ interface Grabber extends Mover {
   dashT: number;
   dashCd: number;
   stunT: number;
+  /** Recent score pop-ups (fanned out so quick pickups don't stack on top of each other). */
+  popN: number;
+  popAt: number;
 }
 
 type DropKind = 'chip' | 'gold' | 'capsule';
@@ -44,7 +48,7 @@ interface Drop {
 const ARENA = { x: 250, y: 290, w: 1420, h: 640 };
 /** Character scale at a depth scale of 1 (the perspective arena scales it by depth). */
 const CHAR_SCALE = 0.58;
-const CHAR_SCALE_3D = 0.5;
+const CHAR_SCALE_3D = 0.62;
 const FALL_MS = 950;
 const DASH_MS = 190;
 const DASH_CD = 1200;
@@ -171,18 +175,30 @@ export class GleamGrabScene extends BaseMinigame {
     };
     let n = 0;
     tiers.forEach((t, ti) => {
-      const count = 10 - ti;
+      const count = 12 - ti;
       const step = (t.x1 - t.x0) / count;
       for (let k = 0; k < count; k++) {
         const id = ids[(n * 2 + ti) % ids.length];
         const pose = poses[id][(n + ti) % 4];
         const x = t.x0 + (k + 0.5) * step + (((n * 37) % 17) - 8);
-        const spr = this.add.sprite(x, t.y + 2, 'npcs', npcFrame(id, pose));
-        const o = standOrigin('npcs', npcFrame(id, pose));
-        const sc = 0.46 * t.scale;
+        const frame = npcFrame(id, pose);
+        const spr = this.add.sprite(x, t.y, 'npcs', frame);
+        const o = standOrigin('npcs', frame);
+        // Seated behind the tier's front board: show the upper body only, a bit smaller than
+        // the players (they are further away), with colour variants so neighbours differ.
+        const sc = 0.36 * t.scale;
+        const fm = SPRITE_META.npcs?.frames[Number(frame)];
         spr.setOrigin(o.x, o.y).setScale(sc).setDepth(200 - ti + k * 0.001).setFlipX((n + ti) % 2 === 0);
-        if (ti > 0) spr.setTint(ti === 1 ? 0xeef2f8 : 0xdde4ef);
-        this.tweens.add({ targets: spr, y: spr.y - 6 - (2 - ti), duration: 360 + ((n * 53) % 5) * 70, yoyo: true, repeat: -1, ease: 'Sine.InOut', delay: (n * 61) % 400 });
+        if (fm) {
+          const keep = fm.solid[1] + fm.solid[3] * 0.64;
+          spr.setCrop(0, 0, fm.w, keep);
+          spr.y = t.y + fm.solid[3] * 0.36 * sc;
+        }
+        const tints = [0xffffff, 0xffe9e0, 0xe6efff, 0xeeffe6, 0xfff3d6];
+        const haze = ti === 0 ? 1 : ti === 1 ? 0.95 : 0.9;
+        const tc = Phaser.Display.Color.IntegerToColor(tints[(n * 3 + ti) % tints.length]);
+        spr.setTint(Phaser.Display.Color.GetColor(tc.red * haze, tc.green * haze, tc.blue * (haze + (1 - haze) * 0.6)));
+        this.tweens.add({ targets: spr, y: spr.y - 5 - (2 - ti), duration: 360 + ((n * 53) % 5) * 70, yoyo: true, repeat: -1, ease: 'Sine.InOut', delay: (n * 61) % 400 });
         this.crowd.push(spr);
         n++;
       }
@@ -215,7 +231,7 @@ export class GleamGrabScene extends BaseMinigame {
     const c = new Character(this, q.x, q.y, p.characterId, { scale: (this.map ? CHAR_SCALE_3D : CHAR_SCALE) * q.s, slot: p.slot, marker: true });
     c.face(x > 960);
     p.character = c;
-    this.grabbers.push({ p, c, x, y, vx: 0, vy: 0, dashT: 0, dashCd: 0, stunT: 0 });
+    this.grabbers.push({ p, c, x, y, vx: 0, vy: 0, dashT: 0, dashCd: 0, stunT: 0, popN: 0, popAt: 0 });
   }
 
   protected override onStart(): void {
@@ -254,7 +270,8 @@ export class GleamGrabScene extends BaseMinigame {
     // (danger red for fake capsules).
     // Colours chosen to contrast with the warm floor: cyan for chips, amber for gold, red for danger.
     const ringColor = kind === 'capsule' ? 0xff2a2a : kind === 'gold' ? 0xffa600 : 0x14c8f0;
-    const ring = this.add.image(q.x, q.y, 'fx-ring').setTint(ringColor).setAlpha(0.35).setScale(1.5 * q.s, 0.6 * q.s).setDepth(q.y - 0.5);
+    // A filled target disc (soft fill + bright rim) that tightens as the drop falls.
+    const ring = this.add.image(q.x, q.y, 'fx-target').setTint(ringColor).setAlpha(0.5).setScale(1.5 * q.s, 0.6 * q.s).setDepth(q.y - 0.5);
     this.drops.push({ kind, x: px, y: py, fallT: FALL_MS, fallTotal: FALL_MS, state: 'falling', life: 4500, sprite, shadow, ring, glow, sx: q.x, sy: q.y, ss: q.s });
   }
 
@@ -346,8 +363,11 @@ export class GleamGrabScene extends BaseMinigame {
     const value = d.kind === 'gold' ? 3 : 1;
     g.p.score += value;
     audio.play('chipGain', { rate: d.kind === 'gold' ? 0.8 : 1 + Math.random() * 0.15, throttleMs: 30 });
-    // Pop the score off to the side of the grabber so it never sits on their marker.
-    this.fx.floatText(d.sx + 70 * d.ss, d.sy - 60 * d.ss, `+${value}`, d.kind === 'gold' ? '#fff1a0' : '#ffffff', {
+    // Pop the score off to the side of the grabber (never on the marker); quick pickups fan out.
+    g.popN = this.time.now - g.popAt < 650 ? g.popN + 1 : 0;
+    g.popAt = this.time.now;
+    const side = g.popN % 2 === 0 ? 1 : -1;
+    this.fx.floatText(d.sx + side * (70 + g.popN * 18) * d.ss, d.sy - (60 + g.popN * 30) * d.ss, `+${value}`, d.kind === 'gold' ? '#fff1a0' : '#ffffff', {
       size: d.kind === 'gold' ? 84 : 66,
       rise: 80,
       duration: 750,
@@ -426,7 +446,7 @@ export class GleamGrabScene extends BaseMinigame {
       for (let j = i + 1; j < this.grabbers.length; j++) {
         const a = this.grabbers[i];
         const b = this.grabbers[j];
-        separate(a, b, 104, CHARACTERS[a.p.characterId].handling.weight, CHARACTERS[b.p.characterId].handling.weight);
+        separate(a, b, 118, CHARACTERS[a.p.characterId].handling.weight, CHARACTERS[b.p.characterId].handling.weight);
       }
     }
     // Pickups (a chip can be snatched just as it lands).

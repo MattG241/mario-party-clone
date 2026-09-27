@@ -1185,7 +1185,8 @@ export class RelicRelayScene extends BaseMinigame {
     if (r.prompt) {
       const show = !r.carrying && pc.state === 'ground' && Math.abs(pc.x - r.x) < PICK_RANGE * 1.6 && !r.finished && this.phase === 'playing';
       r.prompt.setVisible(show);
-      if (show) r.prompt.setPosition(pc.x, r.y - 130 + Math.sin(now / 150) * 4);
+      // Above the player badge, so the two never overlap.
+      if (show) r.prompt.setPosition(pc.x, r.y - 190 + Math.sin(now / 150) * 4);
     }
   }
 

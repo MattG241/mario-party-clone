@@ -782,14 +782,15 @@ def spr_sky_tile(meta):
     P = props.Prop('tile')
     W = 2.1
     D = 1.2 / lib.COSB
-    T = 0.3
+    T = 0.17  # thin, so rows stay visibly apart (the 16 px gaps read as gaps)
     rnd = random.Random(3)
     n = 6
     for k in range(n):
         x = c.x - W / 2 + (k + 0.5) * W / n
         v, f = lib.box((x, c.y, -T / 2), (W / n - 0.012, D, T))
         v = [(vx, vy, vz + rnd.uniform(-0.01, 0.01)) for (vx, vy, vz) in v]
-        P.b['wood'].add(v, f, col(rnd.choice(['#c08850', '#b07a45', '#caa060', '#a86e40'])))
+        top_c = col(rnd.choice(['#c08850', '#b07a45', '#caa060', '#a86e40']))
+        P.b['wood'].add(v, f, lambda vv, top_c=top_c: top_c if vv[2] > -T * 0.5 else col('#5e3b22'))
     for dy in (-D / 2 + 0.12, D / 2 - 0.12):
         v, f = lib.box((c.x, c.y + dy, 0.02), (W + 0.06, 0.14, 0.06))
         P.b['wood'].add(v, f, col('#6e4a2c'))

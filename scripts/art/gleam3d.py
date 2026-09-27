@@ -250,7 +250,8 @@ def box(mb, cx, cy, cz, sx, sy, sz, color):
 def main():
     sc = lib.reset(12 if A.preview else 40)
     lib.world_light(0.8)
-    lib.sun(energy=3.6, elevation=44, azimuth=-35, angle=2.5, color='#ffe9c9')
+    # a lower afternoon sun: walls, bleachers and trees throw readable shadows across the floor
+    lib.sun(energy=3.7, elevation=30, azimuth=-42, angle=2.5, color='#ffe6c2')
     sc.render.resolution_x, sc.render.resolution_y = (SW // 2, SH // 2) if A.preview else (SW, SH)
     cd = bpy.data.cameras.new('cam')
     cd.type = 'PERSP'

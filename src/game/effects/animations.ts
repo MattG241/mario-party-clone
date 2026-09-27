@@ -143,6 +143,23 @@ export function generateFxTextures(scene: Phaser.Scene): void {
       tex.refresh();
     }
   }
+  if (!scene.textures.exists('fx-target')) {
+    // Landing target: a soft filled disc with a bright rim (tinted per use).
+    const tex = scene.textures.createCanvas('fx-target', 128, 128);
+    if (tex) {
+      const ctx = tex.getContext();
+      const grd = ctx.createRadialGradient(64, 64, 8, 64, 64, 60);
+      grd.addColorStop(0, 'rgba(255,255,255,0.28)');
+      grd.addColorStop(0.75, 'rgba(255,255,255,0.45)');
+      grd.addColorStop(0.9, 'rgba(255,255,255,0.95)');
+      grd.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = grd;
+      ctx.beginPath();
+      ctx.arc(64, 64, 62, 0, Math.PI * 2);
+      ctx.fill();
+      tex.refresh();
+    }
+  }
   if (!scene.textures.exists('fx-ring')) {
     g.lineStyle(6, 0xffffff, 1);
     g.strokeCircle(64, 64, 58);

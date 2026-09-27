@@ -166,7 +166,7 @@ export class BoardManager {
         const b = this.graph.node(to);
         const ang = Math.atan2(b.y - n.y, b.x - n.x);
         const chev = s.add.image(n.x + Math.cos(ang) * 100, n.y + Math.sin(ang) * 78, 'fork-chevron').setRotation(ang).setDepth(DEPTH.spaces - 1).setScale(1.4);
-        s.tweens.add({ targets: chev, alpha: { from: 1, to: 0.55 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+        s.tweens.add({ targets: chev, alpha: { from: 1, to: 0.75 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
         this.chevrons.push(chev);
       }
     }
@@ -283,11 +283,11 @@ export class BoardManager {
   private makeTextures(): void {
     const s = this.scene;
     if (!s.textures.exists('fork-chevron')) {
-      // Cream double chevron with a teal outline (points along +x).
+      // Cream double chevron with a dark outline, painted on the trail (points along +x).
       const g = s.make.graphics({ x: 0, y: 0 }, false);
       const chevron = (ox: number, fill: number, line: number) => {
         g.fillStyle(fill, 1);
-        g.lineStyle(4, line, 1);
+        g.lineStyle(5, line, 1);
         g.beginPath();
         g.moveTo(ox, 6);
         g.lineTo(ox + 16, 20);
@@ -299,10 +299,10 @@ export class BoardManager {
         g.fillPath();
         g.strokePath();
       };
-      g.fillStyle(0x0b1a24, 0.25);
-      g.fillEllipse(26, 24, 50, 20);
-      chevron(6, 0xfff4dc, 0x117a77);
-      chevron(22, 0xffe08a, 0x117a77);
+      g.fillStyle(0x0b1a24, 0.3);
+      g.fillEllipse(28, 24, 52, 22);
+      chevron(6, 0xfff8ea, 0x4a2e16);
+      chevron(22, 0xffe7a8, 0x4a2e16);
       g.generateTexture('fork-chevron', 56, 40);
       g.destroy();
     }

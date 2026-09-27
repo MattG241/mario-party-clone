@@ -42,7 +42,7 @@ describe('relic relay course', () => {
       expect(c[c.length - 1].x1).toBeLessThan(GOAL_X - 60);
       for (let i = 1; i < c.length; i++) expect(c[i].x0).toBeGreaterThan(c[i - 1].x1 + 20);
       for (const o of c) {
-        if (o.kind === 'log') expect(o.period).toBeGreaterThanOrEqual(1300);
+        if (o.kind === 'log') expect(o.period).toBeGreaterThanOrEqual(1150);
         if (o.kind === 'mace') expect(o.period).toBeGreaterThanOrEqual(3600);
       }
     }

@@ -45,6 +45,7 @@ def args():
     p.add_argument('--crop', default='', help='x0,y0,x1,y1 board px region to render at --scale')
     p.add_argument('--export', action='store_true', help='slice into WebP tiles under public/assets/rendered')
     p.add_argument('--props-only', action='store_true', help='only re-render the landmark sprites')
+    p.add_argument('--no-lowland', action='store_true', help='skip the valley floor under the plateaus')
     return p.parse_args(sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else sys.argv[1:])
 
 
@@ -465,10 +466,260 @@ def add_waterfall(water_mb, pond_mb, rock_mb, ring, nrm, pm, rnd):
             a = j * (cols + 1) + i
             faces.append((a, a + 1, a + cols + 2, a + cols + 1))
     water_mb.add(verts, faces, (1, 1, 1, 1))
+    # foam where the water tips over the lip, and a mist puff where the ribbon thins out
+    for k in range(5):
+        u = (k / 4 - 0.5) * width * 0.9
+        v, f = lib.blob((w0.x + ox * 0.08 + px * u, w0.y + oy * 0.08 + py * u, -0.02), 0.07, squash=(1.2, 1.0, 0.5), rough=0.3, subdiv=1, seed=k)
+        water_mb.add(v, f, (1, 1, 1, 1))
+    for k in range(7):
+        u = rnd.uniform(-0.5, 0.5) * width * 1.4
+        zz = -2.6 - rnd.uniform(0.0, 0.9)
+        # (the water material fades with depth, so these read as translucent spray)
+        v, f = lib.blob((w0.x + ox * 0.5 + px * u, w0.y + oy * 0.5 + py * u, zz), rnd.uniform(0.16, 0.3), rough=0.25, subdiv=2, seed=rnd.random())
+        water_mb.add(v, f, (1, 1, 1, 1))
+    # splash pool where the ribbon meets the valley floor
+    tl = (-LOW_Z / 3.6) ** (1 / 1.15) if not A.no_lowland else 1.0
+    out_l = 0.06 + 0.42 * min(1.0, tl * 3.0) ** 0.5
+    lx, ly = w0.x + ox * out_l, w0.y + oy * out_l
+    v, f = lib.lathe([(0.55, 0.0), (0.0, 0.0)], 24, (lx, ly, LOW_Z + 0.04), cap_bottom=False, cap_top=False, squash_y=0.7)
+    if not A.no_lowland:
+        pond_mb.add(v, f, (1, 1, 1, 1))
+    for k in range(9 if not A.no_lowland else 0):
+        a = k / 9 * math.tau
+        v, f = lib.blob((lx + math.cos(a) * 0.3, ly + math.sin(a) * 0.2, LOW_Z + 0.08), rnd.uniform(0.08, 0.14), squash=(1.2, 1.0, 0.45), rough=0.3, subdiv=1, seed=k * 7)
+        water_mb.add(v, f, (1, 1, 1, 1))
     # the channel over the lip
     v, f = lib.box(((w0.x + c.x) / 2, (w0.y + c.y) / 2, 0.006), (0.16, math.hypot(w0.x - c.x, w0.y - c.y), 0.01), rot_z=math.atan2(w0.y - c.y, w0.x - c.x) - math.pi / 2)
     pond_mb.add(v, f, (1, 1, 1, 1))
     return True
+
+
+# ------------------------------------------------------------------------------------------
+# Lowland: a meadow valley below the plateaus, so every view is filled with ground instead of sky.
+LOW_Z = -2.6
+LOW_SHIFT = -LOW_Z * PX * lib.SINB  # a lowland point appears this many px below its board y
+
+
+def lowland_mask():
+    """A big rounded blob under the whole board (inside the mask canvas, so its rim closes)."""
+    gw, gh = W // GRID, H // GRID
+    yy, xx = np.mgrid[0:gh, 0:gw].astype(np.float32) * GRID
+    cx, cy = W / 2, H / 2
+    # keep the wobbly rim clear of the canvas edge, or its contour comes back open
+    ax, ay = (W / 2 - 60) / 1.04, (H / 2 - 60) / 1.04
+    ang = np.arctan2(yy - cy, xx - cx)
+    wob = 1 + 0.02 * np.sin(ang * 5 + 1.3) + 0.012 * np.sin(ang * 11 + 0.4)
+    r = (np.abs((xx - cx) / ax) ** 6 + np.abs((yy - cy) / ay) ** 6) ** (1 / 6)
+    m = r < wob
+    m[:3, :] = m[-3:, :] = False
+    m[:, :3] = m[:, -3:] = False
+    return m
+
+
+def lowland_material():
+    m = lib.NT('lowland')
+    pos = m.position()
+    nz = m.sep(m.normal())[2]
+    n1 = m.noise(0.45, 5, 0.6, pos)
+    n2 = m.noise(4.0, 3, 0.5, pos)
+    gfac = m.math('ADD', m.math('MULTIPLY', n1.outputs['Fac'], 0.8), m.math('MULTIPLY', n2.outputs['Fac'], 0.35))
+    # a touch cooler and softer than the plateau grass (reads as further away)
+    grass = m.ramp(gfac, [(0.28, '#255f35'), (0.42, '#32743f'), (0.55, '#448a49'), (0.68, '#5c9f56'), (0.82, '#7eb46a')])
+    patches = m.noise(0.11, 3, 0.5, pos)
+    grass = m.mix(m.maprange(patches.outputs['Fac'], 0.56, 0.7), grass, lib.col('#a1bf5c'))
+    wave = m.node('ShaderNodeTexWave')
+    wave.wave_type = 'BANDS'
+    wave.bands_direction = 'Z'
+    wave.inputs['Scale'].default_value = 1.4
+    wave.inputs['Distortion'].default_value = 6.0
+    m.link(pos, wave.inputs['Vector'])
+    rn = m.noise(1.8, 6, 0.6, pos)
+    rf = m.math('ADD', m.math('MULTIPLY', wave.outputs['Fac'], 0.55), m.math('MULTIPLY', rn.outputs['Fac'], 0.5))
+    rock = m.ramp(rf, [(0.25, '#5a3d3a'), (0.4, '#7b5140'), (0.55, '#99694b'), (0.7, '#6e5566'), (0.85, '#8a7a8e')])
+    top = m.maprange(nz, 0.55, 0.8)
+    colr = m.mix(top, rock, grass)
+    ao = m.ao(0.9, 8)
+    colr = m.mult(colr, m.mix(ao, lib.col('#3c4a52'), lib.col('#ffffff')))
+    colr = m.mix(0.2, colr, lib.col('#b4cfea'))  # height haze
+    m.bsdf(colr, 0.85, normal=m.bump(m.math('ADD', rn.outputs['Fac'], m.math('MULTIPLY', gfac, 0.2)), 0.3, 0.08), sheen=0.2)
+    return m.mat
+
+
+def lowland_height(x, y):
+    """Gentle rolling ground (world units, applied on top of LOW_Z)."""
+    return 0.2 * noise.noise(Vector((x * 0.16, y * 0.16, 7.7)))
+
+
+def drop_to_lowland(mb):
+    """Move a builder's geometry (authored at z = 0) down onto the rolling lowland."""
+    mb.v = [(x, y, z + LOW_Z + lowland_height(x, y)) for (x, y, z) in mb.v]
+
+
+def build_lowland(island_info, canopy_clear, mats):
+    """The valley floor plus forests, meadows, ponds, farms and rubble at the cliff feet."""
+    leaf_m, wood_m, flower_m, grass_m, rock_m, pond_m = mats
+    rnd = random.Random(404)
+    lm = lowland_mask()
+    ob, ldist, _under, lring, lnrm = build_island(['lowland', 'valley'], lm, 'lowland', lowland_material())
+    me = ob.data
+    for v in me.vertices:
+        if v.co.z > -0.05:
+            bx, by = lib.world_to_board(v.co)
+            taper = min(1.0, dist_at(ldist, bx, by) / 160.0)
+            v.co.z += LOW_Z + lowland_height(v.co.x, v.co.y) * taper
+        else:
+            v.co.z += LOW_Z
+    for poly in me.polygons:
+        poly.use_smooth = True
+    upper = np.zeros_like(lm)
+    for (_, m, _, _) in island_info:
+        upper |= m
+    upper_d = ndimage.binary_dilation(upper, iterations=int(28 / GRID))
+
+    def seen(bx, by):
+        gx, gy = int(bx / GRID), int((by + LOW_SHIFT) / GRID)
+        if not (0 <= gx < upper_d.shape[1]):
+            return False
+        if gy < 0 or gy >= upper_d.shape[0]:
+            return True
+        return not upper_d[gy, gx]
+
+    def on_low(bx, by, edge=30):
+        return dist_at(ldist, bx, by) > edge
+
+    def clear_of_paths(bx, by, width, height_units):
+        return canopy_clear(bx, by + LOW_SHIFT, width, height_units * PX * lib.SINB)
+
+    def pick(edge=30, tries=40):
+        for _ in range(tries):
+            bx, by = rnd.uniform(40, W - 40), rnd.uniform(40, H - 40)
+            if on_low(bx, by, edge) and seen(bx, by):
+                return bx, by
+        return None
+
+    grass, flowers, leaves, wood, rocks, reeds, water = (lib.MeshBuilder() for _ in range(7))
+    area = float(lm.sum()) * GRID * GRID
+    for _ in range(int(area / (36 * 36))):
+        bx, by = rnd.uniform(20, W - 20), rnd.uniform(20, H - 20)
+        if on_low(bx, by, 8) and seen(bx, by):
+            grass_tuft(grass, bx, by, rnd, rnd.uniform(0.9, 1.4))
+    for _ in range(int(area / 30000)):
+        pt = pick(20)
+        if pt:
+            flower_bed(flowers, leaves, *pt, rnd)
+    for _ in range(int(area / 30000)):
+        pt = pick(16)
+        if pt and clear_of_paths(pt[0], pt[1], 40, 0.9):
+            bush(leaves, *pt, rnd, rnd.uniform(0.8, 1.3), berries=flowers)
+    for _ in range(int(area / 45000)):
+        pt = pick(12)
+        if pt:
+            rock(rocks, *pt, rnd, rnd.uniform(0.9, 1.8))
+    # forests: clumps of round trees and pines (cooler palettes, they sit further away)
+    low_pals = [('#1f5f2c', '#5aa84e'), ('#1a5a3a', '#4fa86a'), ('#2a6a24', '#80b843'), ('#245a2a', '#6aa24a')]
+    for _ in range(24):
+        c = pick(80)
+        if not c:
+            continue
+        for _k in range(rnd.randint(5, 10)):
+            bx, by = c[0] + rnd.uniform(-130, 130), c[1] + rnd.uniform(-80, 80)
+            if not (on_low(bx, by, 50) and seen(bx, by) and clear_of_paths(bx, by, 95, 2.6)):
+                continue
+            if rnd.random() < 0.6:
+                tree_round(leaves, wood, bx, by, rnd, rnd.uniform(0.9, 1.25), palette=rnd.choice(low_pals))
+            else:
+                tree_pine(leaves, wood, bx, by, rnd, rnd.uniform(0.9, 1.2))
+    # rubble and shrubs where the plateau cliffs meet the valley floor (hides the seam)
+    for (_, m, _, _) in island_info:
+        dd = ndimage.distance_transform_edt(m) * GRID
+        rim = level_contour(ndimage.gaussian_filter(dd, 1.2), 2.0)
+        if rim is None:
+            continue
+        for k in range(0, len(rim), 3):
+            bx, by = rim[k]
+            for off in (18, 34):
+                qx, qy = bx, by + off
+                if on_low(qx, qy, 10) and seen(qx, qy) and rnd.random() < 0.3:
+                    if rnd.random() < 0.7:
+                        rock(rocks, qx + rnd.uniform(-8, 8), qy, rnd, rnd.uniform(1.0, 2.0))
+                    else:
+                        bush(leaves, qx + rnd.uniform(-8, 8), qy, rnd, rnd.uniform(0.7, 1.1), berries=flowers)
+    # ponds in the most open stretches of visible valley, with reeds, rocks and lily pads
+    free = ~upper_d
+    shift = int(round(LOW_SHIFT / GRID))
+    vis = np.zeros_like(free)
+    vis[: vis.shape[0] - shift, :] = free[shift:, :]
+    vis &= lm
+    openness = ndimage.distance_transform_edt(vis) * GRID
+    ponds = 0
+    for _ in range(6):
+        gy, gx = np.unravel_index(np.argmax(openness), openness.shape)
+        rpx = float(openness[gy, gx])
+        if rpx < 110:
+            break
+        cx, cy = gx * GRID, gy * GRID
+        pr = min(190.0, rpx * 0.55)
+        yy, xx = np.ogrid[: openness.shape[0], : openness.shape[1]]
+        openness[(yy - gy) ** 2 + (xx - gx) ** 2 < ((pr + 260) / GRID) ** 2] = 0
+        if not clear_of_paths(cx, cy, pr, 0.4):
+            continue
+        c = board_to_world(cx, cy, 0.0)
+        pts = []
+        for a in np.linspace(0, math.tau, 40, endpoint=False):
+            w = 1 + 0.12 * math.sin(a * 3 + cx) + 0.06 * math.sin(a * 7 + cy)
+            pts.append((math.cos(a) * pr * w / PX, math.sin(a) * pr * w * 0.62 / PX / lib.COSB))
+        verts = [(c.x, c.y, 0.02)] + [(c.x + px_, c.y + py_, 0.02) for (px_, py_) in pts]
+        faces = [(0, 1 + k, 1 + (k + 1) % len(pts)) for k in range(len(pts))]
+        water.add(verts, faces, (1, 1, 1, 1))
+        for k, (px_, py_) in enumerate(pts):
+            if k % 2 == 0:
+                bx_, by_ = lib.world_to_board(Vector((c.x + px_ * 1.06, c.y + py_ * 1.06, 0.0)))
+                rock(rocks, bx_, by_, rnd, rnd.uniform(0.6, 1.1), moss=True)
+            if k % 3 == 0 and py_ > 0:
+                for _j in range(rnd.randint(3, 6)):
+                    ox, oy = rnd.uniform(-0.15, 0.15), rnd.uniform(-0.1, 0.1)
+                    hgt = rnd.uniform(0.35, 0.7)
+                    base = (c.x + px_ * 1.02 + ox, c.y + py_ * 1.02 + oy, 0.0)
+                    vv, ff = lib.tube([base, (base[0] + rnd.uniform(-0.08, 0.08), base[1], hgt)], 0.014, 5)
+                    reeds.add(vv, ff, col(rnd.choice(['#5f9e3a', '#6fb04a', '#4f8a30'])))
+        for _j in range(rnd.randint(4, 8)):
+            a, rr = rnd.uniform(0, math.tau), rnd.uniform(0.2, 0.75)
+            vv, ff = lib.lathe([(0.1, 0.0), (0.0, 0.0)], 12, (c.x + math.cos(a) * pr * rr / PX, c.y + math.sin(a) * pr * rr * 0.62 / PX / lib.COSB, 0.03),
+                               cap_bottom=False, cap_top=False)
+            leaves.add(vv, ff, col('#4f9a3a'))
+        ponds += 1
+    # a farm in the largest remaining open stretch: fenced crop rows, hay and a cottage
+    import props
+    gy, gx = np.unravel_index(np.argmax(openness), openness.shape)
+    if openness[gy, gx] > 140:
+        fx, fy = gx * GRID, gy * GRID
+        fw, fh = 260, 150
+        if clear_of_paths(fx, fy, fw, 1.6):
+            for k in range(7):
+                ry = fy - fh / 2 + (k + 0.5) * fh / 7
+                for j in range(12):
+                    rx = fx - fw / 2 + (j + 0.5) * fw / 12
+                    p_ = board_to_world(rx + rnd.uniform(-3, 3), ry, 0.0)
+                    vv, ff = lib.blob((p_.x, p_.y, 0.06), 0.07, squash=(1.0, 1.0, 0.8), rough=0.2, subdiv=1, seed=k * 13 + j)
+                    leaves.add(vv, ff, col(rnd.choice(['#6cb33e', '#7fc24a', '#5da536'])))
+            corners = [(fx - fw / 2 - 12, fy - fh / 2 - 10), (fx + fw / 2 + 12, fy - fh / 2 - 10), (fx + fw / 2 + 12, fy + fh / 2 + 10), (fx - fw / 2 - 12, fy + fh / 2 + 10)]
+            for k in range(4):
+                fence_run(wood, *corners[k], *corners[(k + 1) % 4], rnd)
+            for k in range(3):
+                hay_bale(wood, fx + fw / 2 + 50 + k * 26, fy + rnd.uniform(-30, 30), rnd)
+            cottage = props.workshop(fx - fw / 2 - 110, fy - 20, 1.3)
+            for o in cottage:
+                o.location.z += LOW_Z + lowland_height(o.location.x, o.location.y)
+    for mb in (grass, flowers, leaves, wood, rocks, reeds, water):
+        drop_to_lowland(mb)
+    grass.build('low_grass', grass_m, smooth=False)
+    flowers.build('low_flowers', flower_m)
+    leaves.build('low_leaves', leaf_m)
+    wood.build('low_wood', wood_m)
+    rocks.build('low_rocks', rock_m)
+    reeds.build('low_reeds', leaf_m)
+    water.build('low_ponds', pond_m, smooth=False)
+    print('lowland', int(area), 'ponds', ponds)
 
 
 def main():
@@ -633,6 +884,9 @@ def main():
                 pv, fv = lib.prism((v[0] + rnd.uniform(-0.12, 0.12), v[1] + rnd.uniform(-0.12, 0.12), v[2] + 0.15), rnd.uniform(0.07, 0.14), rnd.uniform(0.5, 1.1),
                                    tilt=(math.pi + rnd.uniform(-0.5, 0.5), rnd.uniform(-0.5, 0.5)), twist=rnd.random())
                 crystals.add(pv, fv, col(rnd.choice(['#5ce1ff', '#8ff0ff', '#c49bff', '#7fd8ff'])))
+
+    if not A.no_lowland:
+        build_lowland(island_info, canopy_clear, (leaf_m, wood_m, flower_m, grass_m, rock_m, pond_material()))
 
     # little lamps along the trails (beside the path, midway between spaces)
     rnd = random.Random(77)

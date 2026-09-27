@@ -177,7 +177,7 @@ export const MINIGAMES: MinigameInfo[] = [
     name: 'Relic Relay',
     tagline: 'Carry the parcel to the finish!',
     description: 'Race your glowing relic parcel through an obstacle course of spiked logs, springs and swinging maces. Get bonked and you drop it!',
-    instructions: ['A to jump, B to pick up your parcel', 'X throws the parcel ahead (then go get it!)', 'Obstacles make you drop your parcel', 'First to the finish with a parcel wins'],
+    instructions: ['A jumps — springs launch you over the next obstacle', 'X throws the parcel ahead, B picks it up', 'Logs and maces knock your parcel loose', 'First to the finish with a parcel wins'],
     controls: [
       { button: 'STICK', label: 'Run' },
       { button: 'A', label: 'Jump' },

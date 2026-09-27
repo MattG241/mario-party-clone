@@ -153,7 +153,7 @@ def face_material(name, img_path):
     m.link(tc.outputs['Generated'], img.inputs['Vector'])
     lum = m.node('ShaderNodeRGBToBW')
     m.link(img.outputs['Color'], lum.inputs['Color'])
-    m.bsdf(img.outputs['Color'], 0.32, normal=m.bump(lum.outputs['Val'], 0.25, 0.01), coat=0.45)
+    m.bsdf(img.outputs['Color'], 0.24, normal=m.bump(lum.outputs['Val'], 0.2, 0.01), coat=0.85)
     return m.mat
 
 
@@ -172,14 +172,15 @@ for kind in names:
     lib.camera_for_region(*region, scale=SCALE)
     c = board_to_world(BX, BY, 0.0)
     P = props.Prop(f'space_{kind}')
-    # stone socket sitting on the ground (a shadow-catcher floor shows its contact shadow)
-    v, f = lib.lathe([(0.66, 0.0), (0.66, 0.05), (0.62, 0.075), (0.555, 0.075), (0.54, 0.05)], 48, (c.x, c.y, 0.0), cap_bottom=False, cap_top=False)
-    P.b['stone'].add(v, f, col('#e6dccb'))
-    # enamel body: coloured side band, domed top (separate object so it can carry the icon)
-    v, f = lib.lathe([(0.54, 0.02), (R_TOP + 0.02, 0.1), (R_TOP, 0.12)], 48, (c.x, c.y, 0.0), cap_bottom=False, cap_top=False)
+    # a thin cream bevel lip set into the path (no stone socket: the disc reads as an inlay, and
+    # the shadow-catcher floor gives it a soft contact shadow)
+    v, f = lib.lathe([(0.575, 0.0), (0.575, 0.03), (0.555, 0.052), (0.525, 0.056), (0.51, 0.05)], 64, (c.x, c.y, 0.0), cap_bottom=False, cap_top=False)
+    P.b['paint'].add(v, f, col('#fff4dc'))
+    # enamel body: a short coloured side band under the glossy domed face
+    v, f = lib.lathe([(0.51, 0.05), (R_TOP + 0.005, 0.07), (R_TOP, 0.078)], 64, (c.x, c.y, 0.0), cap_bottom=False, cap_top=False)
     P.b['paint'].add(v, f, col(side))
     P.build()
-    rings = [(R_TOP, 0.12), (R_TOP * 0.8, 0.135), (R_TOP * 0.5, 0.143), (0.0, 0.146)]
+    rings = [(R_TOP, 0.078), (R_TOP * 0.8, 0.09), (R_TOP * 0.5, 0.097), (0.0, 0.1)]
     v, f = lib.lathe(rings, 64, (c.x, c.y, 0.0), cap_bottom=False, cap_top=False)
     lib.mesh_object(f'face_{kind}', v, f, smooth=True, material=face_material(f'face_{kind}', icon_texture(kind, top, hl)))
     floor = lib.mesh_object('floor', *lib.lathe([(1.2, 0.0), (0.0, 0.0)], 48, (c.x, c.y, 0.0), cap_bottom=False, cap_top=False), smooth=False,

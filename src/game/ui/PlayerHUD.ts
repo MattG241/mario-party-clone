@@ -24,6 +24,8 @@ interface PanelView {
   chipsText: Phaser.GameObjects.Text;
   relicText: Phaser.GameObjects.Text;
   rankText: Phaser.GameObjects.Text;
+  medal: Phaser.GameObjects.Container;
+  medalG: Phaser.GameObjects.Graphics;
   items: Phaser.GameObjects.Container;
   shownChips: number;
   shownRelics: number;
@@ -40,7 +42,19 @@ export function hudCorner(slot: number): { x: number; y: number } {
   return { x: left ? PAD : GAME_WIDTH - PAD - W, y: top ? PAD + 6 : GAME_HEIGHT - PAD - H - 6 };
 }
 
-const RANK_COLORS = ['#ffd45c', '#e3ecf2', '#f0a868', '#b9b2cc'];
+/** Medal face / rim colours by place. */
+const MEDAL_COLORS: [number, number][] = [
+  [0xffd45c, 0xc9901f],
+  [0xe8eef3, 0x9aa8b4],
+  [0xf0a868, 0xa8622a],
+  [0xb9b2cc, 0x6f6a86],
+];
+
+/** Stat positions inside the capsule: relic then chips left to right, clear of the portrait end. */
+function statX(flip: boolean): { relicIcon: number; relicText: number; chipIcon: number; chipText: number } {
+  const x0 = flip ? 26 : 118;
+  return { relicIcon: x0, relicText: x0 + 18, chipIcon: x0 + 70, chipText: x0 + 88 };
+}
 
 /**
  * Compact corner HUD: a translucent capsule with the character portrait breaking its outer end,
@@ -116,18 +130,22 @@ export class PlayerHUD {
       tag.fillRoundedRect(tx, 12, tw, 24, 12);
       parts.push(tag, addText(s, tx + tw / 2, 24, 'CPU', 13, { color: CSS.creamDark, weight: 700 }));
     }
-    // Relics and chips
-    const relicIcon = s.add.image(this.lx(f, 118), 58, 'prism-relic').setScale(0.15);
-    const relicText = addText(s, this.lx(f, 136), 59, '0', 38, { color: CSS.cream, weight: 700, align: flip ? 'right' : 'left', stroke: '#06141a', strokeThickness: 4 });
-    const chipIcon = s.add.sprite(this.lx(f, 188), 58, 'items', '0');
+    // Relics then chips, in the same left-to-right order in every corner (only the portrait mirrors).
+    const sx = statX(flip);
+    const relicIcon = s.add.image(sx.relicIcon, 58, 'prism-relic').setScale(0.15);
+    const relicText = addText(s, sx.relicText, 59, '0', 38, { color: CSS.cream, weight: 700, align: 'left', stroke: '#06141a', strokeThickness: 4 }).setOrigin(0, 0.5);
+    const chipIcon = s.add.sprite(sx.chipIcon, 58, 'items', '0');
     const co = centerOrigin('items', '0');
     chipIcon.setOrigin(co.x, co.y).setScale(0.19);
-    const chipsText = addText(s, this.lx(f, 206), 59, '0', 38, { color: CSS.cream, weight: 700, align: flip ? 'right' : 'left', stroke: '#06141a', strokeThickness: 4 });
-    // Big rank numeral tucked under the portrait
-    const rankText = addText(s, 0, PR - 4, '1st', 32, { color: RANK_COLORS[0], weight: 700, stroke: '#06141a', strokeThickness: 7 });
+    const chipsText = addText(s, sx.chipText, 59, '0', 38, { color: CSS.cream, weight: 700, align: 'left', stroke: '#06141a', strokeThickness: 4 }).setOrigin(0, 0.5);
+    // Rank medal on the portrait's outer lower edge (gold / silver / bronze / steel).
+    const medal = s.add.container(flip ? PR * 0.78 : -PR * 0.78, PR * 0.7);
+    const medalG = s.add.graphics();
+    const rankText = addText(s, 0, -1, '1st', 17, { color: '#3a2410', weight: 700 });
+    medal.add([medalG, rankText]);
     // Owned items as bubbles hanging below (top row) or above (bottom row) the capsule.
-    const items = s.add.container(this.lx(f, 122), top ? H + 22 : -22);
-    portraitRoot.add(rankText);
+    const items = s.add.container(this.lx(f, 128), top ? H + 26 : -26);
+    portraitRoot.add(medal);
     root.add([glow, bg, ...parts, relicIcon, relicText, chipIcon, chipsText, items, portraitRoot]);
     return {
       slot: p.slot,
@@ -138,6 +156,8 @@ export class PlayerHUD {
       chipsText,
       relicText,
       rankText,
+      medal,
+      medalG,
       items,
       shownChips: p.chips,
       shownRelics: p.relics,
@@ -150,14 +170,12 @@ export class PlayerHUD {
   /** Where a slot's chip counter sits on screen (for flying-chip effects). */
   chipAnchor(slot: number): { x: number; y: number } {
     const { x, y } = hudCorner(slot);
-    const flip = slot % 2 === 1;
-    return { x: x + (flip ? W - 188 : 188), y: y + 58 };
+    return { x: x + statX(slot % 2 === 1).chipIcon, y: y + 58 };
   }
 
   relicAnchor(slot: number): { x: number; y: number } {
     const { x, y } = hudCorner(slot);
-    const flip = slot % 2 === 1;
-    return { x: x + (flip ? W - 118 : 118), y: y + 58 };
+    return { x: x + statX(slot % 2 === 1).relicIcon, y: y + 58 };
   }
 
   setActive(slot: number | null): void {
@@ -202,8 +220,22 @@ export class PlayerHUD {
       const suffix = st.place === 1 ? 'st' : st.place === 2 ? 'nd' : st.place === 3 ? 'rd' : 'th';
       const txt = allTied ? '' : `${st.place}${suffix}`;
       if (v.rankText.text !== txt) {
-        v.rankText.setText(txt).setColor(RANK_COLORS[Math.min(3, st.place - 1)]);
-        if (!instant) this.scene.tweens.add({ targets: v.rankText, scale: { from: 1.4, to: 1 }, duration: 260, ease: 'Back.Out' });
+        v.rankText.setText(txt);
+        v.medal.setVisible(txt !== '');
+        const mc = MEDAL_COLORS[Math.min(3, st.place - 1)];
+        const g = v.medalG;
+        g.clear();
+        g.fillStyle(0x06141a, 0.35);
+        g.fillCircle(2, 3, 24);
+        g.fillStyle(mc[1], 1);
+        g.fillCircle(0, 0, 24);
+        g.fillStyle(mc[0], 1);
+        g.fillCircle(0, -1, 20);
+        g.fillStyle(0xffffff, 0.35);
+        g.fillEllipse(-5, -9, 22, 10);
+        g.lineStyle(2, 0x3a2410, 0.55);
+        g.strokeCircle(0, 0, 24);
+        if (!instant) this.scene.tweens.add({ targets: v.medal, scale: { from: 1.4, to: 1 }, duration: 260, ease: 'Back.Out' });
       }
     }
   }
@@ -243,18 +275,20 @@ export class PlayerHUD {
     const list: { texture: string; frame?: string; scale: number }[] = items.map((id) => ITEMS[id].icon);
     if (shielded) list.push({ texture: 'items', frame: '24', scale: 0.46 });
     list.forEach((icon, i) => {
-      const bx = (v.flip ? -1 : 1) * i * 44;
+      const bx = (v.flip ? -1 : 1) * i * 56;
       const g = this.scene.add.graphics();
-      g.fillStyle(0x0c2630, 0.8);
-      g.fillCircle(bx, 0, 19);
-      g.lineStyle(3, i === items.length ? COLORS.crystal : COLORS.creamDark, 0.9);
-      g.strokeCircle(bx, 0, 19);
+      g.fillStyle(0x06141a, 0.3);
+      g.fillCircle(bx + 2, 3, 25);
+      g.fillStyle(0x0c2630, 0.9);
+      g.fillCircle(bx, 0, 25);
+      g.lineStyle(3, i === items.length ? COLORS.crystal : COLORS.gold, 0.95);
+      g.strokeCircle(bx, 0, 25);
       const img = icon.frame !== undefined ? this.scene.add.sprite(bx, 0, icon.texture, icon.frame) : this.scene.add.image(bx, 0, icon.texture);
       if (icon.frame !== undefined) {
         const o = centerOrigin(icon.texture, icon.frame);
         img.setOrigin(o.x, o.y);
       }
-      img.setScale(icon.scale * 0.26);
+      img.setScale(icon.scale * 0.34);
       v.items.add([g, img]);
     });
   }

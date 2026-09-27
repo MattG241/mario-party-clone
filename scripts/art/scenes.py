@@ -485,12 +485,12 @@ def astro_texture(path, size=1400):
     for k in range(48):
         a = k / 48 * math.tau
         r0, r1 = (0.83 if k % 4 else 0.78) * R, 0.92 * R
-        d.line([(c + math.cos(a) * r0, c + math.sin(a) * r0), (c + math.cos(a) * r1, c + math.sin(a) * r1)], fill=(120, 108, 98), width=5 if k % 4 else 9)
+        d.line([(c + math.cos(a) * r0, c + math.sin(a) * r0), (c + math.cos(a) * r1, c + math.sin(a) * r1)], fill=(164, 150, 136), width=4 if k % 4 else 7)
     # glowing crystal inlays
     for k in range(12):
         a = k / 12 * math.tau + 0.13
         r = 0.59 * R
-        d.ellipse([c + math.cos(a) * r - 14, c + math.sin(a) * r - 14, c + math.cos(a) * r + 14, c + math.sin(a) * r + 14], fill=(92, 225, 255))
+        d.ellipse([c + math.cos(a) * r - 10, c + math.sin(a) * r - 10, c + math.cos(a) * r + 10, c + math.sin(a) * r + 10], fill=(140, 208, 222))
     # brass spokes between the inner rings
     for k in range(8):
         a = k / 8 * math.tau
@@ -501,7 +501,7 @@ def astro_texture(path, size=1400):
         a = k / 36 * math.tau
         gx, gy = c + math.cos(a) * 0.775 * R, c + math.sin(a) * 0.775 * R
         kind = k % 4
-        col_r = (120, 104, 92)
+        col_r = (168, 152, 136)
         if kind == 0:
             d.ellipse([gx - 9, gy - 9, gx + 9, gy + 9], outline=col_r, width=4)
         elif kind == 1:
@@ -512,7 +512,7 @@ def astro_texture(path, size=1400):
         else:
             d.arc([gx - 10, gy - 10, gx + 10, gy + 10], 30, 300, fill=col_r, width=4)
         if k % 6 == 0:
-            d.ellipse([gx - 5, gy - 5, gx + 5, gy + 5], fill=(92, 225, 255))
+            d.ellipse([gx - 4, gy - 4, gx + 4, gy + 4], fill=(150, 205, 215))
     # gear-tooth rim
     for k in range(72):
         a0 = k / 72 * math.tau
@@ -525,7 +525,7 @@ def astro_texture(path, size=1400):
     pts = [(c + math.cos(a) * r * R, c + math.sin(a) * r * R) for (a, r) in stars]
     for i in range(len(pts) - 1):
         if i % 3 != 2:
-            d.line([pts[i], pts[i + 1]], fill=(150, 132, 116), width=3)
+            d.line([pts[i], pts[i + 1]], fill=(176, 160, 144), width=3)
     for (x, y) in pts:
         d.ellipse([x - 6, y - 6, x + 6, y + 6], fill=(255, 236, 170))
     im.save(path)
@@ -855,11 +855,11 @@ def stage_planks_texture(path, region):
     im.save(path)
 
 
-def stage_dressing(region, colors=('#1fa5a0', '#ff6b5e', '#f2c14e')):
+def stage_dressing(region, colors=('#1fa5a0', '#ff6b5e', '#f2c14e'), banners=True, lamps=True):
     """Banner skirt along the stage front and brass lamp posts at both ends."""
     x0, y0, x1, y1 = region
     cloth, metal, glow = lib.MeshBuilder(), lib.MeshBuilder(), lib.MeshBuilder()
-    n = int((x1 - x0) / 120)
+    n = int((x1 - x0) / 120) if banners else 0
     for k in range(n):
         bx = x0 + (k + 0.5) * (x1 - x0) / n
         w = board_to_world(bx, y1, 0.0)
@@ -868,7 +868,7 @@ def stage_dressing(region, colors=('#1fa5a0', '#ff6b5e', '#f2c14e')):
         cloth.add(v, [(0, 1, 2, 3, 4), (9, 8, 7, 6, 5)], col(colors[k % len(colors)]))
         vv, ff = lib.blob((w.x, w.y - 0.09, -0.12), 0.05, rough=0.0, subdiv=1)
         metal.add(vv, ff, col('#f2c14e'))
-    for bx in (x0 + 30, x1 - 30):
+    for bx in ((x0 + 30, x1 - 30) if lamps else ()):
         w = board_to_world(bx, y1 - 10, 0.0)
         vv, ff = lib.cylinder((w.x, w.y, 0.08), 0.06, 0.05, 1.6, 10)
         metal.add(vv, ff, col('#e0a93f'))
@@ -881,7 +881,7 @@ def stage_dressing(region, colors=('#1fa5a0', '#ff6b5e', '#f2c14e')):
     glow.build('stage_lamps', props.mats()['glow'])
 
 
-def festival_stage(base_y, region, trees=True):
+def festival_stage(base_y, region, trees=True, dressing=True):
     tex = os.path.join(OUT, f'stage_floor_{int(base_y)}.png')
     stage_planks_texture(tex, region)
     floor_m = ground_image_material('stage', tex, region, rough=0.55)
@@ -898,7 +898,8 @@ def festival_stage(base_y, region, trees=True):
     v, f = lib.box(((a.x + b.x) / 2, a.y - 0.02, 0.03), (b.x - a.x, 0.08, 0.12))
     trim.add(v, f, col('#e0a93f'))
     trim.build('stage_trim', props.mats()['metal'])
-    stage_dressing(region)
+    if dressing:
+        stage_dressing(region)
 
 
 def results():
@@ -907,7 +908,7 @@ def results():
     lights(44, -30)
     lib.camera_for_region(0, 0, SW, SH, scale=0.5 if A.preview else 1.0)
     base_y = RESULT_BASE
-    festival_stage(base_y, (130, base_y - 150, 1790, base_y + 70))
+    festival_stage(base_y, (130, base_y - 150, 1790, base_y + 70), dressing=False)
     stage_island(960, base_y - 30, 1010, 190, seed=9)
     for rank in range(4):
         result_podium(RESULT_X[rank], base_y, RESULT_H[rank], rank)
