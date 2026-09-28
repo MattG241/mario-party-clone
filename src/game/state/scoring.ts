@@ -74,11 +74,11 @@ export interface BonusDef {
 
 export const BONUSES: Record<BonusId, BonusDef> = {
   trailblazer: { id: 'trailblazer', name: 'Trailblazer', description: 'Most spaces travelled', stat: 'spacesMoved', unit: 'spaces' },
-  treasureKeeper: { id: 'treasureKeeper', name: 'Treasure Keeper', description: 'Most Gleam Chips earned', stat: 'chipsEarned', unit: 'chips' },
+  treasureKeeper: { id: 'treasureKeeper', name: 'Treasure Keeper', description: 'Most coins earned', stat: 'chipsEarned', unit: 'coins' },
   gameChampion: { id: 'gameChampion', name: 'Game Champion', description: 'Most minigame victories', stat: 'minigameWins', unit: 'wins' },
   itemExpert: { id: 'itemExpert', name: 'Item Expert', description: 'Most items used', stat: 'itemsUsed', unit: 'items' },
   eventExplorer: { id: 'eventExplorer', name: 'Event Explorer', description: 'Most event spaces triggered', stat: 'eventsTriggered', unit: 'events' },
-  bigSpender: { id: 'bigSpender', name: 'Big Spender', description: 'Most Gleam Chips spent', stat: 'chipsSpent', unit: 'chips' },
+  bigSpender: { id: 'bigSpender', name: 'Big Spender', description: 'Most coins spent', stat: 'chipsSpent', unit: 'coins' },
   luckyLanding: { id: 'luckyLanding', name: 'Lucky Landing', description: 'Most positive special spaces', stat: 'luckyLandings', unit: 'landings' },
 };
 

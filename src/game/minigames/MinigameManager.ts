@@ -62,9 +62,9 @@ const CORE_MINIGAMES: MinigameInfo[] = [
     id: 'gleam-grab',
     sceneKey: 'mg-gleam-grab',
     name: 'Gleam Grab',
-    tagline: 'Chips are raining from the sky!',
-    description: 'Scramble around the plaza catching falling Gleam Chips. Dodge the wobbly fake capsules — they pop and knock you back.',
-    instructions: ['Catch falling chips — golden ones are worth 3!', 'Fake capsules wobble before they burst — keep clear', 'Dash to reach chips first (short cooldown)', 'Most chips after 45 seconds wins'],
+    tagline: 'Coins are raining from the sky!',
+    description: 'Scramble around the plaza catching falling coins. Dodge the wobbly fake capsules — they pop and knock you back.',
+    instructions: ['Catch falling coins — the big shiny ones are worth 3!', 'Fake capsules wobble before they burst — keep clear', 'Dash to reach coins first (short cooldown)', 'Most coins after 45 seconds wins'],
     controls: [
       { button: 'STICK', label: 'Move' },
       { button: 'A', label: 'Dash' },
