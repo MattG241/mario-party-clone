@@ -28,13 +28,14 @@ computer plugged into the TV still gives the best experience.
 
 **Games consoles.** On **Xbox** (One or Series X|S), open **Microsoft Edge**, go to the address above and
 pair the controllers to the Xbox as usual. Then:
-- **Hold the Menu button** (three lines) and choose **Use game controls**, so the controller plays the
-  game instead of moving a cursor.
+- **Hold the Menu button** (three lines) until a menu appears and switch to **game controls**, so the
+  controller plays the game instead of moving a cursor.
 - **Hold the View button** (two squares) to switch between full screen and the browser.
-- For the full picture, turn off *Settings → System → Hide border → Apps can add a border* on the Xbox.
+- For the full picture, untick *Settings → General → TV & display options → Video fidelity & overscan →
+  Apps can add a border* on the Xbox.
 
 The game starts in Lite on consoles (their browsers get little memory); Series X|S can try
-**Settings → Graphics → Full**. PlayStation and Switch have no browser that can run games, so there
+**Settings → Graphics → Full detail**. PlayStation and Switch have no browser that can run games, so there
 use a computer, a Steam Deck or a streaming stick plugged into the TV instead.
 
 **Controllers.** Up to four at once, plus the keyboard:
