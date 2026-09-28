@@ -20,7 +20,7 @@ import { setDebugInfo } from '../debug/debug';
 
 /** Podium x and height by finishing place (1st in the centre). Must match scripts/art/scenes.py. */
 const PODIUM_X = [960, 600, 1320, 1680];
-const PODIUM_H = [230, 160, 110, 60];
+const PODIUM_H = [270, 200, 150, 105];
 const PODIUM_BASE = 880;
 /** Camera elevation of the rendered results stage (degrees). */
 const STAGE_ELEV = 16;
