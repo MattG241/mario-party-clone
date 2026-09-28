@@ -22,7 +22,7 @@ import {
   newSwinger,
   ordinal,
   pickAnchor,
-  raceScore,
+  raceResults,
   stepSwinger,
   SWING,
   swingCpu,
@@ -923,7 +923,8 @@ export class WebSwingScene extends BaseMinigame {
   }
 
   protected finalScores(): { slot: number; score: number; label: string }[] {
-    return this.racers.map((r) => ({ slot: r.p.slot, ...raceScore(!!r.place, r.finishedAt, r.s.x) }));
+    const rows = raceResults(this.racers.map((r) => ({ done: !!r.place, doneAt: r.finishedAt, x: r.s.x })));
+    return this.racers.map((r, i) => ({ slot: r.p.slot, ...rows[i] }));
   }
 }
 

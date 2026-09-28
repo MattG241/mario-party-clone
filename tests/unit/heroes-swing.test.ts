@@ -8,6 +8,7 @@ import {
   newEvents,
   newSwinger,
   pickAnchor,
+  raceResults,
   raceScore,
   stepSwinger,
   SWING,
@@ -45,6 +46,21 @@ describe('web swing: the course', () => {
     expect(at(-20)).toBe('early');
     expect(at(62)).toBe('late');
     expect(judgeRelease(-300, -300)).toBe('back');
+  });
+
+  it('never shows a tie on the podium that is not one', () => {
+    const rows = raceResults([
+      { done: false, doneAt: 0, x: COURSE_LEN * 0.192 },
+      { done: false, doneAt: 0, x: COURSE_LEN * 0.197 },
+      { done: false, doneAt: 0, x: COURSE_LEN * 0.5 },
+      { done: true, doneAt: 31000, x: COURSE_LEN },
+    ]);
+    expect(rows[0].label).toBe('19.2% of the way');
+    expect(rows[1].label).toBe('19.7% of the way');
+    expect(rows[2].label).toBe('50% of the way');
+    expect(rows[3].label).toBe('31.0 s');
+    expect(rows[1].score).toBeGreaterThan(rows[0].score);
+    expect(rows[3].score).toBeGreaterThan(rows[2].score);
   });
 
   it('scores finishers by time, then the rest by distance', () => {

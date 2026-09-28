@@ -403,6 +403,20 @@ export function raceScore(done: boolean, doneAt: number, x: number): { score: nu
   return { score: Math.max(0, Math.round(x)), label: `${pct}% of the way` };
 }
 
+/**
+ * Results rows for everyone: finishers by time, the rest by distance. Two racers still on the course
+ * whose rounded share of the way would read the same (though one got further) get a decimal, so the
+ * podium never shows a tie that isn't one.
+ */
+export function raceResults(rows: readonly { done: boolean; doneAt: number; x: number }[]): { score: number; label: string }[] {
+  const out = rows.map((r) => raceScore(r.done, r.doneAt, r.x));
+  const clash = out.map((a, i) => !rows[i].done && out.some((b, j) => j !== i && !rows[j].done && b.label === a.label && b.score !== a.score));
+  out.forEach((o, i) => {
+    if (clash[i]) o.label = `${Math.max(0, Math.min(99.9, (rows[i].x / COURSE_LEN) * 100)).toFixed(1)}% of the way`;
+  });
+  return out;
+}
+
 export function ordinal(n: number): string {
   return `${n}${n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th'}`;
 }

@@ -936,7 +936,8 @@ export class RooftopGlideScene extends BaseMinigame {
     const k = CANOPY_W / 232 / CHAR_SCALE;
     g.canopy.setAlpha(Math.min(1, g.cape * 1.6)).setScale(k * (0.35 + 0.65 * g.cape), k * (0.6 + 0.4 * g.cape));
     g.canopy.setY((CANOPY_Y + (1 - g.cape) * 30) / CHAR_SCALE);
-    const trail = air && f.mode !== 'stun' ? 1 - g.cape : 0;
+    // The streamer only shows once the canopy has mostly folded (no ghost of both mid-change).
+    const trail = air && f.mode !== 'stun' ? Phaser.Math.Clamp((0.6 - g.cape) / 0.6, 0, 1) : 0;
     g.streamer.setAlpha(trail).setFlipX(f.face < 0).setOrigin(f.face < 0 ? 0 : 1, 0.4);
     g.streamer.setX((-f.face * 10) / CHAR_SCALE).setScale((0.8 + Math.min(0.4, Math.hypot(f.vx, f.vy) / 1800)) / CHAR_SCALE, 0.95 / CHAR_SCALE);
     // Badge: over the canopy while gliding, over the head otherwise; always upright.
