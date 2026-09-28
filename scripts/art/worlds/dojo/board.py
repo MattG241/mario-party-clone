@@ -65,7 +65,7 @@ CLOUD_EDGES = {('g0', 'i0'), ('i0', 'i1'), ('i1', 'i2'), ('i4', 'i5'), ('i5', 'h
 
 # Landmarks: sprites (depth-sorted in game) and the island discs they need. `tex` names the placeholder
 # decoration each replaces (the board switches to the rendered set wholesale anyway).
-PAGODA = (1470, 468)
+PAGODA = (1470, 385)
 RING = (2930, 588)
 FALLS_POOL = (505, 1075)
 FALLS_DROP = 2.1
@@ -75,25 +75,25 @@ MIMI = (2020, 1500)
 STAGE = (1990, 1946)
 LANDMARKS = [
     dict(id='pagoda', kind='pagoda', x=PAGODA[0], y=PAGODA[1], s=1.28, tex='observatory'),
-    dict(id='gate', kind='gate', x=1722, y=2012, s=1.0, tex='prism-gate'),
-    dict(id='noodle-stall', kind='stall', x=975, y=1972, s=0.95, tex='stall'),
+    dict(id='gate', kind='gate', x=1722, y=1985, s=1.15, tex='prism-gate'),
+    dict(id='noodle-stall', kind='stall', x=905, y=1890, s=1.15, tex='stall'),
     dict(id='hut', kind='hut', x=HUT[0], y=HUT[1], s=1.1, tex='workshop'),
     dict(id='palm', kind='palm', x=PALM[0], y=PALM[1], s=1.0, tex=''),
     dict(id='stage', kind='stage', x=STAGE[0], y=STAGE[1], s=1.0, tex='', depth_y=STAGE[1] - 70),
     dict(id='bunting-ring', kind='bunting', x=RING[0], y=RING[1] - 172, s=1.35, width=380, tex='bunting'),
-    dict(id='bunting-gate', kind='bunting', x=2060, y=1962, s=1.1, width=150, tex=''),
-    dict(id='lantern-summit-w', kind='lantern', x=1290, y=560, s=1.0, tex='lantern', style='stone'),
-    dict(id='lantern-summit-e', kind='lantern', x=1655, y=548, s=1.0, tex='lantern', style='stone'),
-    dict(id='lantern-gate-w', kind='lantern', x=1555, y=2020, s=1.0, tex='lantern', style='stone'),
-    dict(id='lantern-gate-e', kind='lantern', x=2175, y=1990, s=1.0, tex='lantern', style='stone'),
-    dict(id='lantern-peak', kind='lantern', x=1705, y=1540, s=0.95, tex='lantern', style='stone'),
-    dict(id='lantern-ring-w', kind='lantern', x=2665, y=585, s=1.0, tex='lantern', style='paper'),
-    dict(id='lantern-ring-e', kind='lantern', x=3190, y=770, s=1.0, tex='lantern', style='paper'),
-    dict(id='lantern-village', kind='lantern', x=1080, y=1965, s=1.0, tex='lantern', style='paper'),
-    dict(id='lantern-village-2', kind='lantern', x=640, y=1985, s=1.0, tex='lantern', style='paper'),
-    dict(id='lantern-falls', kind='lantern', x=600, y=1345, s=0.95, tex='lantern', style='stone'),
-    dict(id='lantern-terrace', kind='lantern', x=2700, y=1760, s=0.95, tex='lantern', style='stone'),
-    dict(id='lantern-boulders', kind='lantern', x=3375, y=1105, s=0.95, tex='lantern', style='paper'),
+    dict(id='bunting-gate', kind='bunting', x=1990, y=1868, s=1.1, width=150, tex=''),
+    dict(id='lantern-summit-w', kind='lantern', x=1290, y=560, s=1.4, tex='lantern', style='stone'),
+    dict(id='lantern-summit-e', kind='lantern', x=1655, y=548, s=1.4, tex='lantern', style='stone'),
+    dict(id='lantern-gate-w', kind='lantern', x=1555, y=2020, s=1.4, tex='lantern', style='stone'),
+    dict(id='lantern-gate-e', kind='lantern', x=2140, y=1965, s=1.4, tex='lantern', style='stone'),
+    dict(id='lantern-peak', kind='lantern', x=1705, y=1540, s=1.4, tex='lantern', style='stone'),
+    dict(id='lantern-ring-w', kind='lantern', x=2680, y=572, s=1.4, tex='lantern', style='paper'),
+    dict(id='lantern-ring-e', kind='lantern', x=3190, y=770, s=1.4, tex='lantern', style='paper'),
+    dict(id='lantern-village', kind='lantern', x=1090, y=1948, s=1.4, tex='lantern', style='paper'),
+    dict(id='lantern-village-2', kind='lantern', x=640, y=1985, s=1.4, tex='lantern', style='paper'),
+    dict(id='lantern-falls', kind='lantern', x=600, y=1345, s=1.4, tex='lantern', style='stone'),
+    dict(id='lantern-terrace', kind='lantern', x=2700, y=1760, s=1.4, tex='lantern', style='stone'),
+    dict(id='lantern-boulders', kind='lantern', x=3375, y=1105, s=1.4, tex='lantern', style='paper'),
 ]
 RELIC_GATES = B.data['relicGates']
 SHRINES = []
@@ -134,7 +134,7 @@ def canopy_clear(bx, by, width, height):
 
 def near_landmark(bx, by, pad=0.0):
     for lm in LANDMARKS:
-        rr = {'pagoda': 175, 'stall': 95, 'hut': 90, 'palm': 50, 'stage': 105, 'bunting': 0, 'lantern': 34, 'pedestal': 40, 'gate': 120}.get(lm['kind'], 60)
+        rr = {'pagoda': 175, 'stall': 115, 'hut': 90, 'palm': 50, 'stage': 105, 'bunting': 0, 'lantern': 34, 'pedestal': 40, 'gate': 120}.get(lm['kind'], 60)
         if lm['kind'] == 'bunting':
             half = lm.get('width', 240) / 2
             if any((bx - px) ** 2 + (by - lm['y']) ** 2 < (30 + pad) ** 2 for px in (lm['x'] - half, lm['x'] + half)):
@@ -272,7 +272,7 @@ PALETTES['summit'] = dict(PALETTES['base'], trail=[(0.3, '#c9c0b0'), (0.5, '#d8d
 PALETTES['ring'] = dict(PALETTES['base'], grass=[(0.28, '#35702e'), (0.42, '#468a36'), (0.55, '#5ea343'), (0.68, '#7cb853'), (0.82, '#a1cc66')])
 PALETTES['village'] = dict(PALETTES['base'], trail=[(0.3, '#aa8a66'), (0.5, '#bf9f7a'), (0.7, '#d2b894')], flowers=0.6)
 PALETTES['isle'] = dict(PALETTES['base'], grass=[(0.3, '#cdb27a'), (0.5, '#dcc38d'), (0.7, '#e8d3a2'), (0.85, '#f1e0b5')],
-                        trail=[(0.3, '#c0a06a'), (0.5, '#cfb07a'), (0.7, '#dcc08e')], flowers=0.0, moss=0.2, edge='#f4e6c2')
+                        trail=[(0.3, '#9c7e52'), (0.5, '#ad8f60'), (0.7, '#bea070')], flowers=0.0, moss=0.2, edge='#f4e6c2')
 PALETTES['terrace'] = dict(PALETTES['base'], flowers=1.3)
 PALETTES['peak'] = dict(PALETTES['base'], trail=[(0.3, '#c9c0b0'), (0.5, '#d8d0c0'), (0.7, '#e6dfd1')], paving=0.75, edge='#e2dacb', flowers=1.0)
 PALETTES['islet'] = dict(PALETTES['base'])
@@ -311,7 +311,7 @@ def main():
     cloud_m = K.cloud_material()
     water_m = lib.falls_material('falls', 0.0, -3.0)
     pond_m = pond_material()
-    G = K.Builders(['grass', 'flowers', 'leaves', 'flora', 'trunks', 'rocks', 'clouds', 'water', 'ponds', 'leaf_plain', 'paving',
+    G = K.Builders(['grass', 'flowers', 'leaves', 'flora', 'trunks', 'rocks', 'clouds', 'water', 'ponds', 'leaf_plain', 'paving', 'tiles',
                     'stone', 'stone_big', 'metal', 'paint', 'wood', 'glow', 'crystal'])
     top_mats = {}
     island_objs = []
@@ -337,7 +337,7 @@ def main():
         G.merge(L, z)
 
     built_mats = dict(grass=grass_m, flowers=flower_m, leaves=leaf_m, flora=flora_m, trunks=wood_m, rocks=rock_m, clouds=cloud_m,
-                      water=water_m, ponds=pond_m, leaf_plain=cane_m, paving=terrain.paving_material())
+                      water=water_m, ponds=pond_m, leaf_plain=cane_m, paving=terrain.paving_material(), tiles=K.floor_tiles_material())
     for k, mb in G.items():
         m = built_mats.get(k) or mats[k]
         mb.build(f'terrain_{k}', m, smooth=k not in ('grass', 'crystal', 'stone', 'stone_big', 'paint'))

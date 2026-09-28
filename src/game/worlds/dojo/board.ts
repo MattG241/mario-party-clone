@@ -203,7 +203,7 @@ export const DOJO_BOARD: BoardDef | null = {
       repairRounds: 2,
     },
   ],
-  gates: [{ id: 'stairs', from: 's1', to: 'c0', prop: { x: 1722, y: 2010, scale: 0.5 } }],
+  gates: [{ id: 'stairs', from: 's1', to: 'c0', prop: { x: 1722, y: 1985, scale: 0.5 } }],
   edgeStyles: {
     's3>v0': 'steps',
     'v1>f0': 'steps',

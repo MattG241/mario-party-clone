@@ -56,7 +56,7 @@ N = B.nodes
 lib.seeded(17)
 AXIS = 1800  # the park's centre line
 
-HALL = (1260, 470)
+HALL = (1260, 455)
 OBELISK = (1850, 520)
 MANSION = (2455, 560)
 FOUNTAIN = (2410, 958)
@@ -64,23 +64,23 @@ POOL = (1190, 858, 2290, 990)  # x0, y0, x1, y1
 COURT = (560, 1255)
 GREEN = (2 * AXIS - COURT[0], COURT[1])
 SPORT_S = 1.3  # the court and the green share one size
-BANDSTAND = (2010, 1946)
+BANDSTAND = (2010, 1928)
 MIMI = (2020, 1500)
 
 LANDMARKS = [
-    dict(id='hall', kind='hall', x=HALL[0], y=HALL[1], s=1.3, tex='observatory'),
-    dict(id='obelisk', kind='obelisk', x=OBELISK[0], y=OBELISK[1], s=1.15, tex=''),
-    dict(id='mansion', kind='mansion', x=MANSION[0], y=MANSION[1], s=1.2, tex='workshop'),
-    dict(id='gate', kind='gate', x=1725, y=2032, s=1.0, tex='prism-gate'),
+    dict(id='hall', kind='hall', x=HALL[0], y=HALL[1], s=1.45, tex='observatory'),
+    dict(id='obelisk', kind='obelisk', x=OBELISK[0], y=OBELISK[1], s=1.3, tex=''),
+    dict(id='mansion', kind='mansion', x=MANSION[0], y=MANSION[1], s=1.3, tex='workshop'),
+    dict(id='gate', kind='gate', x=1725, y=2040, s=1.0, tex='prism-gate'),
     dict(id='arbor', kind='arbor', x=1185, y=1745, s=1.0, tex=''),
-    dict(id='bandstand', kind='stage', x=BANDSTAND[0], y=BANDSTAND[1], s=1.0, tex='', depth_y=BANDSTAND[1] - 66),
+    dict(id='bandstand', kind='stage', x=BANDSTAND[0], y=BANDSTAND[1], s=1.05, tex='', depth_y=BANDSTAND[1] - 70),
     dict(id='bunting-promenade', kind='bunting', x=2560, y=1610, s=1.1, width=200, tex='bunting'),
     dict(id='bunting-green', kind='bunting', x=2280, y=1850, s=1.05, width=180, tex=''),
     dict(id='bunting-hall', kind='bunting', x=1645, y=572, s=1.05, width=150, tex=''),
     dict(id='bunting-mansion', kind='bunting', x=2105, y=598, s=1.05, width=170, tex=''),
-    dict(id='lamp-gate-w', kind='lamp', x=1560, y=2025, s=1.0, tex='lantern'),
-    dict(id='lamp-gate-e', kind='lamp', x=2170, y=2040, s=1.0, tex=''),
-    dict(id='lamp-avenue', kind='lamp', x=1690, y=1385, s=1.0, tex=''),
+    dict(id='lamp-gate-w', kind='lamp', x=1560, y=2025, s=1.2, tex='lantern'),
+    dict(id='lamp-gate-e', kind='lamp', x=2108, y=1990, s=1.2, tex=''),
+    dict(id='lamp-avenue', kind='lamp', x=1700, y=1468, s=1.2, tex=''),
 ]
 RELIC_GATES = B.data['relicGates']
 SHRINES = []
@@ -128,7 +128,7 @@ def near_landmark(bx, by, pad=0.0):
     for (sx, sy, _) in SHRINES:
         if ((bx - sx) / (95 + pad)) ** 2 + ((by - sy) / (70 + pad)) ** 2 < 1.0:
             return True
-    if in_box(bx, by, HALL[0], HALL[1] + 20, 220 + pad, 150 + pad) or in_box(bx, by, MANSION[0], MANSION[1] + 30, 250 + pad, 150 + pad):
+    if in_box(bx, by, HALL[0], HALL[1] + 20, 245 + pad, 160 + pad) or in_box(bx, by, MANSION[0], MANSION[1] + 30, 265 + pad, 160 + pad):
         return True
     if in_box(bx, by, (POOL[0] + POOL[2]) / 2, (POOL[1] + POOL[3]) / 2, (POOL[2] - POOL[0]) / 2 + 20 + pad, (POOL[3] - POOL[1]) / 2 + 20 + pad):
         return True

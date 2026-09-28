@@ -118,11 +118,12 @@ def pagoda(bx, by, s=1.0) -> list:
     P.b['stone'].add(v, f, col('#d9d2c6'))
     v, f = lib.box((x, y, 0.28 * s), (2.5 * s, 2.15 * s, 0.18 * s))
     P.b['stone'].add(v, f, col('#e6dfd3'))
-    for k in range(3):
-        v, f = lib.box((x, y - (1.25 + 0.14 * k) * s, (0.3 - 0.1 * k) * s), (0.9 * s, 0.14 * s, 0.1 * s))
+    for k in range(2):
+        v, f = lib.box((x, y - (1.2 + 0.12 * k) * s, (0.24 - 0.1 * k) * s), (0.9 * s, 0.12 * s, 0.1 * s))
         P.b['stone'].add(v, f, col('#d4ccc0'))
     z = 0.37 * s
-    tiers = [(1.75, 0.95), (1.4, 0.72), (1.08, 0.64)]
+    # five storeys, each narrower than the one below
+    tiers = [(1.75, 0.8), (1.46, 0.6), (1.22, 0.52), (1.0, 0.46), (0.8, 0.42)]
     for ti, (w, h) in enumerate(tiers):
         w *= s
         h *= s
@@ -163,15 +164,16 @@ def pagoda(bx, by, s=1.0) -> list:
             P.b['paint'].add(v, f, col(VERMILION_DK))
         # roof
         rz = z + h
-        hip_roof(P.b['paint'], x, y, rz, w, d, 0.42 * s * (1 - ti * 0.1), over=0.34 * s, upturn=0.16 * s, rnd=rnd)
-        # lanterns hanging from the front eave corners
-        for sx in (-1, 1):
-            lx, ly = x + sx * (w / 2 + 0.22 * s), y - d / 2 - 0.3 * s
-            v, f = lib.tube([(lx, ly, rz - 0.02 * s), (lx, ly, rz - 0.14 * s)], 0.01 * s, 4)
-            P.b['wood'].add(v, f, col(TIMBER))
-            v, f = lib.blob((lx, ly, rz - 0.24 * s), 0.1 * s, squash=(1, 1, 1.25), rough=0.0, subdiv=2)
-            P.b['glow'].add(v, f, col('#ff7a4a'))
-        z = rz + 0.16 * s
+        hip_roof(P.b['paint'], x, y, rz, w, d, 0.36 * s * (1 - ti * 0.08), over=0.3 * s, upturn=0.15 * s, rnd=rnd)
+        # lanterns hanging from the front eave corners of the lower storeys
+        if ti < 3:
+            for sx in (-1, 1):
+                lx, ly = x + sx * (w / 2 + 0.2 * s), y - d / 2 - 0.27 * s
+                v, f = lib.tube([(lx, ly, rz - 0.02 * s), (lx, ly, rz - 0.12 * s)], 0.01 * s, 4)
+                P.b['wood'].add(v, f, col(TIMBER))
+                v, f = lib.blob((lx, ly, rz - 0.21 * s), 0.09 * s, squash=(1, 1, 1.25), rough=0.0, subdiv=2)
+                P.b['glow'].add(v, f, col('#ff7a4a'))
+        z = rz + 0.15 * s
     # spire: a golden rod with rings and a jewel
     top = z + 0.3 * s
     v, f = lib.lathe([(0.16 * s, z - 0.05 * s), (0.12 * s, z + 0.12 * s), (0.05 * s, z + 0.2 * s)], 12, (x, y, 0))
@@ -256,11 +258,11 @@ def noodle_stall(bx, by, s=1.0) -> list:
         v, f = lib.lathe([(0.0, 0.0), (0.05 * s, 0.0), (0.09 * s, 0.07 * s), (0.08 * s, 0.075 * s), (0.0, 0.03 * s)], 12,
                          (x - 0.45 * s + k * 0.24 * s, y - D * 0.3, 0.65 * s))
         P.b['paint'].add(v, f, col(['#f4efe6', '#e9564a', '#f4efe6'][k]))
-    # stools at the ends
+    # two stools at the counter
     for sx in (-1, 1):
-        v, f = lib.cylinder((x + sx * (W / 2 + 0.22 * s), y - D * 0.4, 0.0), 0.1 * s, 0.1 * s, 0.34 * s, 10)
+        v, f = lib.cylinder((x + sx * 0.32 * s, y - D * 0.48, 0.0), 0.09 * s, 0.09 * s, 0.32 * s, 10)
         P.b['wood'].add(v, f, col('#6e4a2c'))
-        v, f = lib.cylinder((x + sx * (W / 2 + 0.22 * s), y - D * 0.4, 0.34 * s), 0.13 * s, 0.13 * s, 0.05 * s, 12)
+        v, f = lib.cylinder((x + sx * 0.32 * s, y - D * 0.48, 0.32 * s), 0.12 * s, 0.12 * s, 0.05 * s, 12)
         P.b['paint'].add(v, f, col('#e9564a'))
     return P.build()
 
@@ -429,7 +431,7 @@ def tournament_ring(B, bx, by, s=1.0, w=3.0, d=2.1):
     v, f = lib.box((x, y, Hh / 2), (W + 0.16 * s, D + 0.16 * s, Hh))
     B['stone_big'].add(v, f, col('#b9b1a4'))
     v, f = lib.box((x, y, Hh + 0.015 * s), (W, D, 0.03 * s))
-    B['stone'].add(v, f, col('#eee8dc'))
+    B['tiles'].add(v, f, col('#eee8dc'))
     # front stairs
     for k in range(3):
         v, f = lib.box((x, y - D / 2 - 0.08 * s - 0.14 * k * s, Hh - (k + 1) * 0.08 * s), (1.0 * s, 0.16 * s, 0.08 * s))

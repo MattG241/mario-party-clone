@@ -229,38 +229,31 @@ def mansion(bx, by, s=1.0) -> list:
     return P.build()
 
 
-def garden_gate(bx, by, s=1.0) -> list:
-    """The Cherry Avenue's garden gate: two stone piers topped with urns of flowers and an openwork
-    iron arch between them (the arch stands open; the key opens the way)."""
+def garden_gate(bx, by, s=1.0, span=1.1) -> list:
+    """The Cherry Avenue's garden gateway: two stone piers, set wide either side of the walk, topped with
+    urns of flowers, with a stub of clipped hedge running outwards from each (the key opens the way)."""
     p = _at(bx, by)
     P = Prop('garden_gate')
     x, y = p.x, p.y
     for sx in (-1, 1):
-        px = x + sx * 0.7 * s
+        px = x + sx * span * s
         v, f = lib.box((px, y, 0.5 * s), (0.28 * s, 0.28 * s, 1.0 * s))
         P.b['stone'].add(v, f, col('#ebe6dc'))
         v, f = lib.box((px, y, 1.04 * s), (0.34 * s, 0.34 * s, 0.08 * s))
         P.b['stone'].add(v, f, col('#f4f0e8'))
+        v, f = lib.box((px, y, 0.08 * s), (0.36 * s, 0.36 * s, 0.16 * s))
+        P.b['stone'].add(v, f, col('#e0dacd'))
         v, f = lib.lathe([(0.06 * s, 0.0), (0.12 * s, 0.1 * s), (0.1 * s, 0.2 * s), (0.13 * s, 0.24 * s)], 14, (px, y, 1.08 * s))
         P.b['stone'].add(v, f, col('#e3ddd1'))
-        for k in range(5):
-            a = k / 5 * math.tau
-            v, f = lib.blob((px + math.cos(a) * 0.07 * s, y + math.sin(a) * 0.07 * s, 1.36 * s), 0.07 * s, rough=0.2, subdiv=1, seed=k)
+        for k in range(6):
+            a = k / 6 * math.tau
+            v, f = lib.blob((px + math.cos(a) * 0.07 * s, y + math.sin(a) * 0.07 * s, 1.37 * s), 0.07 * s, rough=0.2, subdiv=1, seed=k)
             P.b['leaf'].add(v, f, col(['#ff5d73', '#ff8fa8', '#ffd1dc'][k % 3]))
-    pts = [(x + math.cos(t) * 0.7 * s, y, 1.1 * s + math.sin(t) * 0.42 * s) for t in [i / 16 * math.pi for i in range(17)]]
-    v, f = lib.tube(pts, 0.035 * s, 6)
-    P.b['metal'].add(v, f, col(IRON))
-    pts2 = [(x + math.cos(t) * 0.6 * s, y, 1.1 * s + math.sin(t) * 0.33 * s) for t in [i / 16 * math.pi for i in range(17)]]
-    v, f = lib.tube(pts2, 0.025 * s, 6)
-    P.b['metal'].add(v, f, col(IRON))
-    for k in range(7):
-        t = (k + 0.5) / 7 * math.pi
-        a = (x + math.cos(t) * 0.6 * s, y, 1.1 * s + math.sin(t) * 0.33 * s)
-        b = (x + math.cos(t) * 0.7 * s, y, 1.1 * s + math.sin(t) * 0.42 * s)
-        v, f = lib.tube([a, b], 0.018 * s, 5)
-        P.b['metal'].add(v, f, col(IRON))
-    v, f = lib.blob((x, y, 1.58 * s), 0.06 * s, rough=0.0, subdiv=2)
-    P.b['metal'].add(v, f, col(GOLD))
+        v, f = lib.blob((px, y, 1.44 * s), 0.06 * s, rough=0.2, subdiv=1, seed=9)
+        P.b['leaf'].add(v, f, col('#ffe07a'))
+        # a stub of clipped hedge running outwards from the pier
+        v, f = lib.box((px + sx * 0.45 * s, y + 0.02 * s, 0.17 * s), (0.62 * s, 0.22 * s, 0.34 * s))
+        P.b['leaf'].add(v, f, col('#2f7a33'))
     return P.build()
 
 
@@ -313,8 +306,9 @@ def bandstand(bx, by, s=1.0) -> list:
     pts = [(x + math.cos(a) * 0.8 * s, y + math.sin(a) * 0.8 * s, 0.52 * s) for a in [math.radians(-57 + i * 7) for i in range(1, 51)] if math.sin(a) >= -0.55]
     v, f = lib.tube(pts, 0.022 * s, 6)
     P.b['paint'].add(v, f, col(TRIM))
+    # steps up at the back (the front stays clear of the trail in front)
     for k in range(3):
-        v, f = lib.box((x, y - 0.86 * s - 0.1 * s - 0.1 * k * s, (0.2 - 0.07 * k) * s), (0.6 * s, 0.12 * s, 0.06 * s))
+        v, f = lib.box((x, y + 0.86 * s + 0.1 * s + 0.1 * k * s, (0.2 - 0.07 * k) * s), (0.6 * s, 0.12 * s, 0.06 * s))
         P.b['stone'].add(v, f, col('#ece7dd'))
     for k, a in enumerate((2.3, 0.84)):
         px, py = x + math.cos(a) * 0.74 * s, y + math.sin(a) * 0.74 * s

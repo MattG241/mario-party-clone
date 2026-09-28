@@ -514,6 +514,33 @@ def top_material(name, mask_path, W, H, pal, z_top=0.0):
     return m.mat
 
 
+def floor_tiles_material(name='floor_tiles', scale=2.2):
+    """Flat stone flooring: square slabs (vertex colour x a world-space tile grid on the ground plane),
+    fine grain and contact occlusion. For ring floors, plazas and platform tops."""
+    m = lib.NT(name)
+    pos = m.position()
+    X, Y, _Z = m.sep(pos)
+    br = m.node('ShaderNodeTexBrick')
+    br.offset = 0.5
+    br.inputs['Scale'].default_value = scale
+    br.inputs['Mortar Size'].default_value = 0.018
+    br.inputs['Brick Width'].default_value = 1.0
+    br.inputs['Row Height'].default_value = 1.0
+    br.inputs['Color1'].default_value = lib.col('#ffffff')
+    br.inputs['Color2'].default_value = lib.col('#e8e2d6')
+    br.inputs['Mortar'].default_value = lib.col('#a39886')
+    comb = m.node('ShaderNodeCombineXYZ')
+    m.link(X, comb.inputs['X'])
+    m.link(Y, comb.inputs['Y'])
+    m.link(comb.outputs['Vector'], br.inputs['Vector'])
+    c = m.mult(m.attr('col'), br.outputs['Color'])
+    n = m.noise(24.0, 3, 0.6, pos)
+    c = m.mult(c, m.mix(m.maprange(n.outputs['Fac'], 0.35, 0.7), lib.col('#ffffff'), lib.col('#dcd3c4')))
+    c = m.mult(c, m.mix(terrain.cam_ao(m, 0.3, 4), lib.col('#6d6272'), lib.col('#ffffff')))
+    m.bsdf(c, 0.72, normal=m.bump(br.outputs['Fac'], 0.25, 0.02))
+    return m.mat
+
+
 def cloud_material(name='cloud', tint='#ffffff', shade='#b9c9ec'):
     """Soft cumulus: bright tops, cool blue-lilac shading underneath, a little glow so the cloud sea
     never goes grey in the islands' shadow."""

@@ -168,7 +168,7 @@ export const CAPITOL_BOARD: BoardDef | null = {
   relicGates: ['k1', 'n4', 'g1', 'p4', 'x4'],
   portals: [['rh2', 'p1']],
   bridges: [],
-  gates: [{ id: 'avenue', from: 'a1', to: 'w0', prop: { x: 1725, y: 2032, scale: 0.5 } }],
+  gates: [{ id: 'avenue', from: 'a1', to: 'w0', prop: { x: 1725, y: 2040, scale: 0.5 } }],
   // One broad park isle: every trail is a garden path.
   edgeStyles: {},
   islands,
