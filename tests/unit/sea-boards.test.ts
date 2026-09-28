@@ -72,6 +72,13 @@ describe.each([
     }
   });
 
+  it('can reach every Star Coin space from every space (the HUD counts the steps)', () => {
+    const { state, graph } = setup(board);
+    for (const n of board.nodes) {
+      for (const g of board.relicGates) expect(graph.distance(n.id, g, state.board), `${n.id} → ${g}`).toBeLessThan(Infinity);
+    }
+  });
+
   it('only triggers its own events, which exist', () => {
     const spaces = board.nodes.filter((n) => n.type === 'event');
     expect(spaces.length).toBeGreaterThanOrEqual(3);

@@ -383,6 +383,7 @@ def lagoon_falls(water, raise_z):
     for k in range(5):
         v, f = lib.blob((w0.x + (k - 2) * 0.12, w0.y - 0.02, w0.z + 0.01), 0.06, squash=(1.2, 1.0, 0.5), rough=0.3, subdiv=1, seed=k + 9)
         water.add(v, f, (1, 1, 1, 1))
+    print('lagoon falls: lip screen', (lx, round(ly - w0.z * 100 * lib.SINB)), 'splash screen', (px, round(py - 20 + 0.1 * 100 * lib.SINB)))
     return w0.z
 
 

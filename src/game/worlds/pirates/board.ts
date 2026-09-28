@@ -107,7 +107,7 @@ export const PIRATES_BOARD: BoardDef | null = {
   name: 'Pirate Cove',
   subtitle: 'Floating archipelago of the moored galleon',
   description:
-    'Palm beaches, a tangerine terrace, a hidden treasure cave and a lighthouse ring a turquoise cove. Cut across the galleon’s deck or take the long way past the waterfall and the dojo, and mind the tide!',
+    'Palm beaches, a tangerine terrace, a treasure cave and a lighthouse ring a turquoise cove. Cut across the galleon’s deck or go the long way past the waterfall and the dojo, and mind the tide!',
   width: 3600,
   height: 2400,
   nodes,
