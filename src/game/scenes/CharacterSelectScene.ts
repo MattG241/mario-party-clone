@@ -339,7 +339,7 @@ export class CharacterSelectScene extends Phaser.Scene {
       // Characters nobody is pointing at (or has picked) step back into the shade.
       const lit = active || lockedBy !== null || this.slots.every((v) => v.phase === 'empty');
       if (lit) ch.sprite.clearTint();
-      else ch.sprite.setTint(0x8e94a8);
+      else ch.sprite.setTint(0x9ba1b4);
       this.tweens.add({ targets: this.pools[ci], alpha: active || lockedBy !== null ? 0.62 : 0, duration: 200 });
       const plate = this.namePlates[ci];
       this.tweens.add({ targets: plate, scale: active || lockedBy !== null ? 1 : 0.94, duration: 160 });
