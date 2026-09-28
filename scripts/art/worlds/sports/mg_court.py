@@ -285,8 +285,8 @@ def court_scene():
                blossom=[(1080, 230, 0.9), (620, 240, 0.85)])
     for (x, y) in [(275, 440), (1645, 440), (275, 1010), (1645, 1010)]:
         props.lantern(x, y, 1.05)
-    dress.pennant_swag(board_to_world(275, 440, 1.02), board_to_world(275, 1010, 1.02), sag=0.3, n=12, size=0.16)
-    dress.pennant_swag(board_to_world(1645, 440, 1.02), board_to_world(1645, 1010, 1.02), sag=0.3, n=12, size=0.16, offset=2)
+    dress.pennant_swag(board_to_world(275, 440, 1.42), board_to_world(275, 1010, 1.42), sag=0.3, n=12, size=0.16)
+    dress.pennant_swag(board_to_world(1645, 440, 1.42), board_to_world(1645, 1010, 1.42), sag=0.3, n=12, size=0.16, offset=2)
     for i, (x, y) in enumerate([(40, 470), (1880, 470)]):
         dress.planter(x, y, w=0.9, s=0.9, name=f'planter{i}')
     keep = dress.Keep().rect(x0 - 20, y0 - 30, x1 + 20, y1 + 20)

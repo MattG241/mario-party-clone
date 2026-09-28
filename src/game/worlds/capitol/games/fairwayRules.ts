@@ -265,6 +265,49 @@ export function simulateShot(x: number, y: number, kind: ShotKind, angle: number
   return { holed: false, x: sim.x, y: sim.y, t };
 }
 
+export interface ShotPlan {
+  angle: number;
+  power: number;
+}
+
+/**
+ * The CPU golfers' read of a shot: simulate a coarse sweep of aims and powers, then a finer one round
+ * the best, scoring a holed ball highest and otherwise how close it stops (sand is worse). The green
+ * is read through readK (1 = perfectly, less = the slopes and wind half-noticed). A generator that
+ * pauses every `batch` simulations so a caller can spread the search over frames; the best shot is
+ * written into `out`.
+ */
+export function* searchShot(x: number, y: number, kind: ShotKind, wind: Vec, cup: Vec, readK: number, out: ShotPlan, batch = 24): Generator<void, void, void> {
+  const base = Math.atan2(cup.y - y, cup.x - x);
+  let bestA = base;
+  let bestP = 0.5;
+  let bestS = -Infinity;
+  let n = 0;
+  const span = kind === 'chip' ? 0.35 : 0.42;
+  for (let pass = 0; pass < 2; pass++) {
+    const a0 = pass === 0 ? base : bestA;
+    const p0 = bestP;
+    const na = pass === 0 ? 11 : 5;
+    const np = pass === 0 ? 17 : 7;
+    for (let i = 0; i < na; i++) {
+      const angle = pass === 0 ? a0 - span + (2 * span * i) / (na - 1) : a0 + (i - 2) * 0.016;
+      for (let j = 0; j < np; j++) {
+        const power = pass === 0 ? 0.04 + (0.96 * j) / (np - 1) : Math.min(1, Math.max(0.02, p0 + (j - 3) * 0.012));
+        const r = simulateShot(x, y, kind, angle, power, wind, cup, readK, readK, pass === 0 ? 1 / 40 : 1 / 60);
+        const score = r.holed ? 10000 - r.t * 10 : -Math.hypot(r.x - cup.x, r.y - cup.y) - (surfaceAt(r.x, r.y) === 'sand' ? 160 : 0);
+        if (score > bestS) {
+          bestS = score;
+          bestA = angle;
+          bestP = power;
+        }
+        if (++n % batch === 0) yield;
+      }
+    }
+  }
+  out.angle = bestA;
+  out.power = bestP;
+}
+
 /** Points for holing out in n strokes (x2 in the final stretch). */
 export function holePoints(strokes: number, double: boolean): number {
   const base = strokes <= 1 ? 5 : strokes === 2 ? 3 : strokes === 3 ? 2 : 0;

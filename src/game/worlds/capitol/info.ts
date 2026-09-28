@@ -17,7 +17,7 @@ export const CAPITOL_INFO: WorldMinigameInfo = {
         'Press A to stop the power bar in the green',
         'Press A again to stop the aim needle in the green',
         'A basket scores 2, a swish 3 — the golden ball doubles it',
-        'The hoop slides for the last 10 seconds — most points wins',
+        'Last 10 seconds: the hoop slides, baskets +1 — most points wins',
       ],
       controls: [{ button: 'A', label: 'Power, then aim' }],
       players: '1–4 players',

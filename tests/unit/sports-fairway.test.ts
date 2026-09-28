@@ -18,6 +18,7 @@ import {
   keepInBounds,
   rollStep,
   ROUND_MS,
+  searchShot,
   shotKind,
   simulateShot,
   surfaceAt,
@@ -99,6 +100,17 @@ describe('fairway: shots and holes', () => {
     }
     expect(holed).toBe(true);
     expect(simulateShot(start.x, start.y, 'putt', angle, 1, { x: 0, y: 0 }, cup).holed).toBe(false);
+  });
+
+  it("lets a CPU that reads the green perfectly find a putt that drops", () => {
+    const cup = cupOf(1);
+    const start = { x: cup.x + 90, y: cup.y - 160 };
+    const plan = { angle: 0, power: 0 };
+    const search = searchShot(start.x, start.y, 'putt', { x: 0, y: 0 }, cup, 1, plan);
+    let pauses = 0;
+    while (!search.next().done) pauses++;
+    expect(pauses).toBeGreaterThan(3);
+    expect(simulateShot(start.x, start.y, 'putt', plan.angle, plan.power, { x: 0, y: 0 }, cup).holed).toBe(true);
   });
 
   it('puts every tee the same distance from its cup, on the lawn', () => {
