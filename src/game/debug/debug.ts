@@ -16,6 +16,9 @@ export const DEBUG_ENABLED: boolean = (import.meta.env?.DEV ?? false) || URL_PAR
 /** Lock game time to wall time even at very low frame rates (automated tests on software GL). */
 export const REALTIME_CLOCK: boolean = URL_PARAMS.has('realtime');
 
+/** Promotional capture (scripts/dev/record.mjs): CPU players are shown like people, without "CPU" chips. */
+export const HIDE_CPU_TAGS: boolean = URL_PARAMS.has('nocputag');
+
 /** Free-form values scenes publish for the F2 overlay. */
 export const debugInfo: Record<string, string | number | boolean> = {};
 

@@ -7,6 +7,7 @@ import { computeStandings } from '../state/scoring';
 import { centerOrigin } from '../util/spriteUtil';
 import { PlayerBadge } from './PlayerBadge';
 import { placePortraitSprite } from './Portrait';
+import { HIDE_CPU_TAGS } from '../debug/debug';
 import { drawCapsule } from './Screen';
 import { UI } from './Style';
 import { addText } from './theme';
@@ -131,7 +132,7 @@ export class PlayerHUD {
       align: flip ? 'right' : 'left',
     }).setShadow(0, 2, NUM_SHADOW, 4, false, true);
     const parts: Phaser.GameObjects.GameObject[] = [name];
-    if (p.isCpu) {
+    if (p.isCpu && !HIDE_CPU_TAGS) {
       const tw = 44;
       const tx = flip ? nameX - name.width - 10 - tw : nameX + name.width + 10;
       const tag = s.add.graphics();

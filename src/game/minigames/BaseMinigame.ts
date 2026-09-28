@@ -3,7 +3,7 @@ import { audio } from '../audio/AudioManager';
 import type { Character } from '../characters/Character';
 import { COLORS, CSS, GAME_WIDTH, PLAYER_COLORS, type CpuLevel } from '../constants';
 import { CHARACTERS, type CharacterId } from '../data/characters';
-import { REALTIME_CLOCK, setDebugInfo } from '../debug/debug';
+import { HIDE_CPU_TAGS, REALTIME_CLOCK, setDebugInfo } from '../debug/debug';
 import { EffectsManager } from '../effects/EffectsManager';
 import { applyGrade } from '../effects/GradePipeline';
 import type { Controls } from '../input/Controls';
@@ -172,7 +172,7 @@ export abstract class BaseMinigame extends Phaser.Scene {
       const align = flip ? 'right' : 'left';
       const name = addText(this, lx(92), 22, CHARACTERS[p.characterId].name.split(' ')[0].toUpperCase(), 19, { color: '#dfe5ee', weight: 700, align });
       const parts: Phaser.GameObjects.GameObject[] = [bg, name];
-      if (p.isCpu) {
+      if (p.isCpu && !HIDE_CPU_TAGS) {
         const tw = 44;
         const tx = flip ? lx(92) - name.width - 8 - tw : lx(92) + name.width + 8;
         const tag = this.add.graphics();

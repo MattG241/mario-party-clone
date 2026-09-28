@@ -1,39 +1,308 @@
 [
-  {"name": "title", "url": "",
-   "steps": [["waitReal", "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.ready && window.__GLEAMTRAIL__.game.scene.isActive('Title')", 120000],
-             ["eval", "(() => { const s = window.__GLEAMTRAIL__.game.scene.getScene('Title'); for (const k of ['logo', 'pressText', 'hint', 'audioHint', 'prompts']) s[k] && s[k].setVisible(false); })()"],
-             ["skip", 0.5], ["record", 9]]},
-  {"name": "select", "url": "",
-   "steps": [["waitReal", "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.ready && window.__GLEAMTRAIL__.game.scene.isActive('Title')", 120000],
-             ["wait", 1500], ["key", "Enter"], ["wait", 2000], ["key", "Enter"],
-             ["waitReal", "window.__GLEAMTRAIL__.game.scene.isActive('CharacterSelect')", 60000], ["wait", 2500],
-             ["skip", 0.5], ["record", 0.6], ["press", "Enter"], ["record", 1.4],
-             ["press", "ArrowRight"], ["record", 1.3], ["press", "ArrowRight"], ["record", 1.3], ["press", "ArrowRight"], ["record", 1.3],
-             ["press", "Enter"], ["record", 2.5]]},
-  {"name": "board_intro", "url": "?quick&humans=0&seed=21&speed=normal&intro",
-   "steps": [["waitReal", "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('BoardUI')", 120000], ["record", 16]]},
-  {"name": "board_turns", "url": "?quick&humans=0&seed=21&speed=normal&midgame",
-   "steps": [["waitReal", "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('BoardUI')", 120000], ["record", 45]]},
-  {"name": "board_final", "url": "?quick&humans=0&seed=33&speed=normal&midgame&rounds=4",
-   "steps": [["waitReal", "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('BoardUI')", 120000], ["record", 24]]},
-  {"name": "intro_card", "url": "?minigame=gleam-grab&humans=0&instructions=on&seed=11",
-   "steps": [["waitReal", "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('MinigameIntro')", 120000], ["skip", 0.3], ["record", 5]]},
-  {"name": "mg_gleam", "url": "?minigame=gleam-grab&humans=0&instructions=off&seed=11",
-   "steps": [["waitReal", "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('mg-gleam-grab')", 120000], ["record", 14]]},
-  {"name": "mg_orbit", "url": "?minigame=orbit-dodge&humans=0&instructions=off&seed=5",
-   "steps": [["waitReal", "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('mg-orbit-dodge')", 120000], ["record", 14]]},
-  {"name": "mg_crate", "url": "?minigame=crate-craze&humans=0&instructions=off&seed=5",
-   "steps": [["waitReal", "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('mg-crate-craze')", 120000], ["record", 12]]},
-  {"name": "mg_skybridge", "url": "?minigame=skybridge-scramble&humans=0&instructions=off&seed=5",
-   "steps": [["waitReal", "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('mg-skybridge-scramble')", 120000], ["record", 14]]},
-  {"name": "mg_totem", "url": "?minigame=totem-tug&humans=0&instructions=off&seed=5",
-   "steps": [["waitReal", "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('mg-totem-tug')", 120000], ["record", 12]]},
-  {"name": "mg_splash", "url": "?minigame=spiral-splash&humans=0&instructions=off&seed=5",
-   "steps": [["waitReal", "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('mg-spiral-splash')", 120000], ["record", 12]]},
-  {"name": "mg_relay", "url": "?minigame=relic-relay&humans=0&instructions=off&seed=5",
-   "steps": [["waitReal", "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('mg-relic-relay')", 120000], ["record", 12]]},
-  {"name": "mg_tower", "url": "?minigame=tumble-tower&humans=0&instructions=off&seed=5",
-   "steps": [["waitReal", "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('mg-tumble-tower')", 120000], ["record", 12]]},
-  {"name": "results", "url": "?minigame=orbit-dodge&humans=0&instructions=off&seed=5&realtime",
-   "steps": [["waitReal", "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('Results')", 600000], ["record", 7]]}
+ {
+  "name": "title",
+  "url": "",
+  "steps": [
+   [
+    "waitReal",
+    "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.ready && window.__GLEAMTRAIL__.game.scene.isActive('Title')",
+    120000
+   ],
+   [
+    "eval",
+    "(() => { const s = window.__GLEAMTRAIL__.game.scene.getScene('Title'); for (const k of ['logo', 'pressText', 'hint', 'audioHint', 'prompts']) s[k] && s[k].setVisible(false); })()"
+   ],
+   [
+    "skip",
+    0.5
+   ],
+   [
+    "record",
+    9
+   ]
+  ]
+ },
+ {
+  "name": "select",
+  "url": "",
+  "steps": [
+   [
+    "waitReal",
+    "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.ready && window.__GLEAMTRAIL__.game.scene.isActive('Title')",
+    120000
+   ],
+   [
+    "wait",
+    1500
+   ],
+   [
+    "key",
+    "Enter"
+   ],
+   [
+    "wait",
+    2000
+   ],
+   [
+    "key",
+    "Enter"
+   ],
+   [
+    "waitReal",
+    "window.__GLEAMTRAIL__.game.scene.isActive('CharacterSelect')",
+    60000
+   ],
+   [
+    "wait",
+    2500
+   ],
+   [
+    "skip",
+    0.5
+   ],
+   [
+    "record",
+    0.6
+   ],
+   [
+    "press",
+    "Enter"
+   ],
+   [
+    "record",
+    1.4
+   ],
+   [
+    "press",
+    "ArrowRight"
+   ],
+   [
+    "record",
+    1.3
+   ],
+   [
+    "press",
+    "ArrowRight"
+   ],
+   [
+    "record",
+    1.3
+   ],
+   [
+    "press",
+    "ArrowRight"
+   ],
+   [
+    "record",
+    1.3
+   ],
+   [
+    "press",
+    "Enter"
+   ],
+   [
+    "record",
+    2.5
+   ]
+  ]
+ },
+ {
+  "name": "board_intro",
+  "url": "?quick&humans=0&seed=21&speed=normal&intro&nocputag",
+  "steps": [
+   [
+    "waitReal",
+    "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('BoardUI')",
+    120000
+   ],
+   [
+    "record",
+    16
+   ]
+  ]
+ },
+ {
+  "name": "board_turns",
+  "url": "?quick&humans=0&seed=21&speed=normal&midgame&nocputag",
+  "steps": [
+   [
+    "waitReal",
+    "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('BoardUI')",
+    120000
+   ],
+   [
+    "record",
+    45
+   ]
+  ]
+ },
+ {
+  "name": "board_final",
+  "url": "?quick&humans=0&seed=33&speed=normal&midgame&rounds=4&nocputag",
+  "steps": [
+   [
+    "waitReal",
+    "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('BoardUI')",
+    120000
+   ],
+   [
+    "record",
+    24
+   ]
+  ]
+ },
+ {
+  "name": "intro_card",
+  "url": "?minigame=gleam-grab&humans=0&instructions=on&seed=11&nocputag",
+  "steps": [
+   [
+    "waitReal",
+    "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('MinigameIntro')",
+    120000
+   ],
+   [
+    "skip",
+    0.3
+   ],
+   [
+    "record",
+    5
+   ]
+  ]
+ },
+ {
+  "name": "mg_gleam",
+  "url": "?minigame=gleam-grab&humans=0&instructions=off&seed=11&nocputag",
+  "steps": [
+   [
+    "waitReal",
+    "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('mg-gleam-grab')",
+    120000
+   ],
+   [
+    "record",
+    14
+   ]
+  ]
+ },
+ {
+  "name": "mg_orbit",
+  "url": "?minigame=orbit-dodge&humans=0&instructions=off&seed=5&nocputag",
+  "steps": [
+   [
+    "waitReal",
+    "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('mg-orbit-dodge')",
+    120000
+   ],
+   [
+    "record",
+    14
+   ]
+  ]
+ },
+ {
+  "name": "mg_crate",
+  "url": "?minigame=crate-craze&humans=0&instructions=off&seed=5&nocputag",
+  "steps": [
+   [
+    "waitReal",
+    "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('mg-crate-craze')",
+    120000
+   ],
+   [
+    "record",
+    12
+   ]
+  ]
+ },
+ {
+  "name": "mg_skybridge",
+  "url": "?minigame=skybridge-scramble&humans=0&instructions=off&seed=5&nocputag",
+  "steps": [
+   [
+    "waitReal",
+    "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('mg-skybridge-scramble')",
+    120000
+   ],
+   [
+    "record",
+    14
+   ]
+  ]
+ },
+ {
+  "name": "mg_totem",
+  "url": "?minigame=totem-tug&humans=0&instructions=off&seed=5&nocputag",
+  "steps": [
+   [
+    "waitReal",
+    "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('mg-totem-tug')",
+    120000
+   ],
+   [
+    "record",
+    12
+   ]
+  ]
+ },
+ {
+  "name": "mg_splash",
+  "url": "?minigame=spiral-splash&humans=0&instructions=off&seed=5&nocputag",
+  "steps": [
+   [
+    "waitReal",
+    "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('mg-spiral-splash')",
+    120000
+   ],
+   [
+    "record",
+    12
+   ]
+  ]
+ },
+ {
+  "name": "mg_relay",
+  "url": "?minigame=relic-relay&humans=0&instructions=off&seed=5&nocputag",
+  "steps": [
+   [
+    "waitReal",
+    "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('mg-relic-relay')",
+    120000
+   ],
+   [
+    "record",
+    12
+   ]
+  ]
+ },
+ {
+  "name": "mg_tower",
+  "url": "?minigame=tumble-tower&humans=0&instructions=off&seed=5&nocputag",
+  "steps": [
+   [
+    "waitReal",
+    "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('mg-tumble-tower')",
+    120000
+   ],
+   [
+    "record",
+    12
+   ]
+  ]
+ },
+ {
+  "name": "results",
+  "url": "?minigame=orbit-dodge&humans=0&instructions=off&seed=5&realtime&nocputag",
+  "steps": [
+   [
+    "waitReal",
+    "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('Results')",
+    600000
+   ],
+   [
+    "record",
+    7
+   ]
+  ]
+ }
 ]
