@@ -67,6 +67,11 @@ export abstract class BaseMinigame extends Phaser.Scene {
   private timerText?: Phaser.GameObjects.Text;
   private timerArc?: Phaser.GameObjects.Graphics;
   private ending = false;
+  /** Real milliseconds left of a hit-stop freeze and of a slow-motion stretch (see hitStop, slowMo). */
+  private freezeLeft = 0;
+  private slowLeft = 0;
+  private slowFactor = 1;
+  private clockK = 1;
 
   constructor(key: string) {
     super(key);
@@ -83,6 +88,13 @@ export abstract class BaseMinigame extends Phaser.Scene {
     this.hudTags.clear();
     this.timerText = undefined;
     this.timerArc = undefined;
+    this.freezeLeft = 0;
+    this.slowLeft = 0;
+    this.slowFactor = 1;
+    this.clockK = 1;
+    // The clocks outlive a restart, and a round can end mid-freeze.
+    this.tweens.timeScale = 1;
+    this.time.timeScale = 1;
   }
 
   create(): void {
@@ -130,6 +142,40 @@ export abstract class BaseMinigame extends Phaser.Scene {
   /** Games with lives can show them as hearts in the HUD instead of a number. */
   protected hudPips(_p: MgPlayer): { filled: number; total: number } | null {
     return null;
+  }
+
+  /**
+   * Freeze the game for a few frames (a hit landing, a pickup snapping in): the classic impact
+   * freeze-frame. Game time, tweens and timers all hold, then carry on. Keep it short (40–140 ms).
+   */
+  hitStop(ms: number): void {
+    this.freezeLeft = Math.max(this.freezeLeft, ms);
+  }
+
+  /** Run the game at `factor` speed (0.2–0.6) for `ms` real milliseconds: decisive moments. */
+  slowMo(factor: number, ms: number): void {
+    this.slowFactor = Phaser.Math.Clamp(factor, 0.05, 1);
+    this.slowLeft = Math.max(this.slowLeft, ms);
+  }
+
+  /** This frame's game-clock scale: 0 during a hit-stop, the slow-motion factor during one. */
+  private clockScale(real: number): number {
+    let k = 1;
+    if (this.freezeLeft > 0) {
+      this.freezeLeft -= real;
+      k = 0;
+    } else if (this.slowLeft > 0) {
+      this.slowLeft -= real;
+      k = this.slowFactor;
+    }
+    if (k !== this.clockK) {
+      this.clockK = k;
+      this.tweens.timeScale = k;
+      this.time.timeScale = k;
+      // Character flipbooks run on the global animation clock, so scale each one directly.
+      for (const p of this.players) if (p.character) p.character.sprite.anims.timeScale = k;
+    }
+    return k;
   }
 
   protected skill(p: MgPlayer) {
@@ -347,7 +393,8 @@ export abstract class BaseMinigame extends Phaser.Scene {
   }
 
   override update(_time: number, delta: number): void {
-    const dt = Math.min(delta, REALTIME_CLOCK ? 120 : 50);
+    const real = Math.min(delta, REALTIME_CLOCK ? 120 : 50);
+    const dt = real * this.clockScale(real);
     for (const p of this.players) p.vc?.step();
     this.ambient(dt);
     if (this.phase !== 'playing') {
