@@ -9,6 +9,24 @@ async function waitForScene(page: Page, key: string, timeout = 120_000): Promise
   await page.waitForFunction((k) => !!window.__GLEAMTRAIL__?.game.scene.isActive(k), key, { timeout });
 }
 
+/**
+ * Press a key until the game reaches a state. On software GL a frame can take half a second, so a
+ * quick tap may fall between two polls (or land during a screen's entrance) and simply retrying
+ * is the honest fix.
+ */
+async function pressUntil(page: Page, key: string, reached: () => boolean, tries = 6): Promise<void> {
+  for (let i = 0; i < tries; i++) {
+    await page.keyboard.press(key);
+    try {
+      await page.waitForFunction(reached, null, { timeout: 5_000 });
+      return;
+    } catch {
+      // not there yet: press again
+    }
+  }
+  throw new Error(`pressing ${key} ${tries} times never reached the expected state`);
+}
+
 async function runtimeErrors(page: Page): Promise<string[]> {
   return page.evaluate(() => window.__GLEAMTRAIL__?.errors ?? []);
 }
@@ -27,13 +45,13 @@ test.describe('Gleamtrail smoke', () => {
   test('keyboard reaches character select and joins player 1', async ({ page }) => {
     await page.goto('/?realtime');
     await page.waitForFunction(() => window.__GLEAMTRAIL__?.ready === true, null, { timeout: 90_000 });
-    await page.keyboard.press('Enter'); // attract -> menu
+    // attract -> menu
+    await pressUntil(page, 'Enter', () => (window.__GLEAMTRAIL__?.game.scene.getScene('Title') as unknown as { phase?: string } | undefined)?.phase === 'menu');
+    // PLAY
+    await pressUntil(page, 'Enter', () => !!window.__GLEAMTRAIL__?.game.scene.isActive('CharacterSelect'));
     await page.waitForTimeout(1200);
-    await page.keyboard.press('Enter'); // PLAY
-    await waitForScene(page, 'CharacterSelect', 30_000);
-    await page.waitForTimeout(1200);
-    await page.keyboard.press('Enter'); // join
-    await page.waitForFunction(() => window.__GLEAMTRAIL__?.session.slots[0].joined === true, null, { timeout: 15_000 });
+    // join
+    await pressUntil(page, 'Enter', () => window.__GLEAMTRAIL__?.session.slots[0].joined === true);
     expect(await runtimeErrors(page)).toEqual([]);
   });
 
