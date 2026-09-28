@@ -53,6 +53,8 @@ const HAND = 74;
 const MARK = -104;
 /** Race bar along the bottom (screen px). */
 const BAR = { x0: 560, x1: 1360, y: 1042 };
+/** Height offsets for markers stacked on the race bar when racers are bunched together. */
+const BAR_STACK = [0, -12, 12, -24] as const;
 const DEPTH = { back: -60, tower: -20, hook: -10, street: -5, web: 60, swinger: 100, words: 7000, bar: 8100 } as const;
 const WORDS = {
   perfect: { key: 'hws-w-perfect', text: 'PERFECT!', size: 56, fill: ['#ffffff', '#8fe6ff'] },
@@ -873,15 +875,21 @@ export class WebSwingScene extends BaseMinigame {
       order.push(...this.racers);
     }
     order.sort((a, b) => a.s.x - b.s.x);
-    order.forEach((r, k) => {
+    // Racers bunched together stack up (the one ahead on top), so every marker stays readable.
+    let prev = -Infinity;
+    let level = 0;
+    for (const r of order) {
       const f = Phaser.Math.Clamp(r.s.x / COURSE_LEN, 0, 1);
       const px = x0 + f * (x1 - x0);
-      drawPlayerShape(g, PLAYER_SHAPES[r.p.slot], px, y - 8 - (k % 2) * 6, 13, PLAYER_COLORS[r.p.slot], 0xffffff, 3);
+      level = px - prev < 22 ? Math.min(3, level + 1) : 0;
+      prev = px;
+      const my = y - 4 + BAR_STACK[level];
+      drawPlayerShape(g, PLAYER_SHAPES[r.p.slot], px, my, 13, PLAYER_COLORS[r.p.slot], 0xffffff, 3);
       if (r.place) {
         g.fillStyle(0xffd86a, 1);
-        g.fillCircle(px + 11, y - 22 - (k % 2) * 6, 5);
+        g.fillCircle(px + 11, my - 14, 5);
       }
-    });
+    }
   }
 
   protected override end(): void {
