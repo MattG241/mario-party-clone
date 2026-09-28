@@ -3,6 +3,7 @@ import { audio } from '../audio/AudioManager';
 import { COLORS, CSS, DEPTH } from '../constants';
 import type { Controls } from '../input/Controls';
 import { addText } from '../ui/theme';
+import { onSceneUpdate } from '../util/sceneEvents';
 import type { BoardManager } from './BoardManager';
 import type { PathOption } from './flowTypes';
 
@@ -61,9 +62,10 @@ export class PathChooser {
     return new Promise((resolve) => {
       let t = 0;
       let lastMove = 0;
+      let stop = () => {};
       const target = opts.cpu ? Math.max(0, options.findIndex((o) => o.to === opts.cpu)) : 0;
       const done = (i: number) => {
-        s.events.off(Phaser.Scenes.Events.UPDATE, update);
+        stop();
         audio.play('confirm');
         const a = arrows[i];
         s.tweens.add({ targets: a.root, scale: 1.4, duration: 120, yoyo: true });
@@ -122,7 +124,7 @@ export class PathChooser {
         }
         if (c.pressed('A')) done(index);
       };
-      s.events.on(Phaser.Scenes.Events.UPDATE, update);
+      stop = onSceneUpdate(s, update);
     });
   }
 }

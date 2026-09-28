@@ -5,6 +5,7 @@ import { NPC_ATLAS, NPCS, npcFrame, type NpcId } from '../data/npcs';
 import type { Controls } from '../input/Controls';
 import { settings } from '../save/SettingsManager';
 import { standOrigin } from '../util/spriteUtil';
+import { onSceneUpdate } from '../util/sceneEvents';
 import { PromptBar } from './ControllerPrompt';
 import { drawPanel } from './Panel';
 import { shade } from './Style';
@@ -120,7 +121,7 @@ export class DialogBox extends Phaser.GameObjects.Container {
         scene.tweens.add({ targets: this.portrait, scaleY: { from: 0.88, to: 0.95 }, duration: 200, ease: 'Back.Out' });
       };
       const finish = () => {
-        scene.events.off(Phaser.Scenes.Events.UPDATE, update);
+        stop();
         scene.tweens.add({
           targets: this,
           alpha: 0,
@@ -171,7 +172,7 @@ export class DialogBox extends Phaser.GameObjects.Container {
           if (autoTimer > readMs) next();
         }
       };
-      scene.events.on(Phaser.Scenes.Events.UPDATE, update);
+      const stop = onSceneUpdate(scene, update);
       next();
     });
   }

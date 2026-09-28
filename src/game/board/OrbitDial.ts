@@ -8,6 +8,7 @@ import { lerpColor } from './DayCycle';
 import { punch } from '../minigames/juice';
 import { LITE } from '../perf';
 import { addText } from '../ui/theme';
+import { onSceneUpdate } from '../util/sceneEvents';
 import { setDebugInfo } from '../debug/debug';
 
 /** Tick interval (ms) at which the number reads as a blur rather than a count. */
@@ -135,8 +136,7 @@ export class OrbitDial {
       ghost.setAlpha((1 - e) * (blur ? 0.5 : 0.7));
     };
     const onUpdate = (_t: number, dt: number) => tick(dt);
-    s.events.on(Phaser.Scenes.Events.UPDATE, onUpdate);
-    const stopListener = () => s.events.off(Phaser.Scenes.Events.UPDATE, onUpdate);
+    const stopListener = onSceneUpdate(s, onUpdate);
     // Wait for the stop press (or CPU reaction time).
     if (opts.controls) await opts.waitForInput(opts.controls);
     else await new Promise<void>((r) => s.time.delayedCall(opts.cpuDelay, () => r()));

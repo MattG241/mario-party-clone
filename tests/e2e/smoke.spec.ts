@@ -45,6 +45,9 @@ test.describe('Gleamtrail smoke', () => {
   });
 
   test('an all-CPU one-round board match reaches the final results', async ({ page }) => {
+    // A board turn, a whole minigame and the results run end to end; software GL renders them at
+    // 1–3 fps, where ?realtime stretches game time, so this needs a generous budget.
+    test.setTimeout(600_000);
     await page.goto('/?quick&humans=0&rounds=1&realtime&seed=33');
     await waitForScene(page, 'Board', 90_000);
     // Debug shortcut (dev builds): end the round's turns and go straight to the minigame.
@@ -58,7 +61,7 @@ test.describe('Gleamtrail smoke', () => {
       null,
       { timeout: 120_000 },
     );
-    await waitForScene(page, 'FinalResults', 280_000);
+    await waitForScene(page, 'FinalResults', 520_000);
     const state = await page.evaluate(() => window.__GLEAMTRAIL__?.session.match?.phase.kind);
     expect(state).toBe('over');
     expect(await runtimeErrors(page)).toEqual([]);

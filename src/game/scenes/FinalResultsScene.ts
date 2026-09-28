@@ -12,6 +12,7 @@ import { settings } from '../save/SettingsManager';
 import { createMatch, type MatchState, type PlayerState } from '../state/MatchState';
 import { BONUSES, computeStandings, type BonusAward } from '../state/scoring';
 import { session } from '../state/Session';
+import { onSceneUpdate } from '../util/sceneEvents';
 import { Confetti, Fireworks, godRays, Spotlight, stageDressing, winnerBanner } from '../ui/Celebration';
 import { PromptBar } from '../ui/ControllerPrompt';
 import { TitleLockup } from '../ui/Lockup';
@@ -138,13 +139,13 @@ export class FinalResultsScene extends Phaser.Scene {
         t += dt;
         const pressed = humans.some((s) => input.controls(s).pressed('A')) || (humans.length === 0 && input.any.pressed('A'));
         if (pressed || (humans.length === 0 && t > autoMs)) {
-          this.events.off(Phaser.Scenes.Events.UPDATE, tick);
+          stop();
           this.prompt.setPrompts([]);
           audio.play('confirm');
           resolve();
         }
       };
-      this.events.on(Phaser.Scenes.Events.UPDATE, tick);
+      const stop = onSceneUpdate(this, tick);
     });
   }
 
