@@ -68,6 +68,8 @@ export class PreloadScene extends Phaser.Scene {
     // title). Minigame arenas load with each minigame's intro card (data/minigameRenders.ts).
     const scenes = LITE && !half ? ['title'] : LITE_HALF_SCENES;
     for (const v of scenes) this.load.image(`rendered-scene-${v}`, `assets/${half ? 'lite' : 'rendered'}/scene_${v}.webp`);
+    // The Star Coin (scripts/art/coins.py; the key is the old Prism Relic's, at its 220×260 size).
+    this.load.image('prism-relic', 'assets/rendered/items/star_coin.webp');
     this.load.image('rendered-ui-dial', 'assets/rendered/ui_dial.webp');
     this.load.image('rendered-ui-logo', 'assets/rendered/ui_logo.webp');
     // Sprites for the later minigames (scripts/art/mg_arenas.py) and the sky islets.

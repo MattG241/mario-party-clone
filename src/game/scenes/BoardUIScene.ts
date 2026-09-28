@@ -71,6 +71,8 @@ export class BoardUIScene extends Phaser.Scene {
   private scoreboard: Phaser.GameObjects.Container | null = null;
   /** Returns true when the flow wants pending menus cancelled (debug interrupts). */
   interruptCheck: () => boolean = () => false;
+  /** Steps from a player to the Star Coin (set by the board; the HUD shows it under each capsule). */
+  stepsTo: ((p: PlayerState) => number) | null = null;
   private stateRef!: MatchState;
 
   constructor() {
@@ -105,6 +107,7 @@ export class BoardUIScene extends Phaser.Scene {
     for (const p of [...this.pollers]) {
       if (p(dt)) this.pollers.delete(p);
     }
+    if (this.stepsTo) this.hud?.syncSteps(this.stateRef, this.stepsTo);
   }
 
   /** Run `fn` every frame until it returns a value. */
@@ -142,7 +145,7 @@ export class BoardUIScene extends Phaser.Scene {
       if (!first) this.roundSwoosh(old, final);
     } else this.roundText.setText(label);
     const price = currentRelicPrice(state);
-    this.relicText.setText(price < 20 ? `Relic Rush! Relic costs ${price}` : `Prism Relic · ${price} chips`);
+    this.relicText.setText(price < 20 ? `Star Coin Sale! Only ${price} coins` : `Star Coin · ${price} coins`);
     this.hud?.update(state);
   }
 
