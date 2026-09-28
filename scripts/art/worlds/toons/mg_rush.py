@@ -610,16 +610,19 @@ def sprites():
     B.add(v, f, col('#9b4dff'))
     v, f = C.torus((c.x, c.y, hz), 0.335, 0.04, 48, 10, axis='z')
     Bm.add(v, f, col('#e8b04a'))
-    # visor: a wide glowing band on the front
-    v, f = lib.blob((c.x - 0.26, c.y, hz + 0.06), 0.13, squash=(0.5, 1.5, 0.75), rough=0.0, subdiv=2)
-    Bg.add(v, f, col('#7ff3ff'))
-    v, f = lib.blob((c.x - 0.33, c.y - 0.04, hz + 0.08), 0.045, rough=0.0, subdiv=1)
-    Bk.add(v, f, col('#20183a'))
-    for sgn in (-1, 1):
-        v, f = lib.tube([(c.x - 0.05, c.y + sgn * 0.3, hz - 0.05), (c.x - 0.22, c.y + sgn * 0.42, hz - 0.2)], 0.035, 8)
-        Bm.add(v, f, col('#c9d0da'))
-        v, f = lib.blob((c.x - 0.24, c.y + sgn * 0.44, hz - 0.22), 0.06, rough=0.0, subdiv=1)
-        Bm.add(v, f, col('#c9d0da'))
+    # two big lamp eyes on the side facing the runners, turned a little towards the camera, under a
+    # stern brass brow (no arms: a clean silhouette reads best at speed)
+    for k, sgn in enumerate((-1, 1)):
+        a = math.radians(200 + sgn * 22)
+        ex, ey = c.x + math.cos(a) * 0.27, c.y + math.sin(a) * 0.25 - 0.08
+        ez = hz + 0.08
+        v, f = lib.blob((ex, ey, ez), 0.1, squash=(0.8, 0.8, 1.0), rough=0.0, subdiv=2)
+        Bg.add(v, f, col('#fffbe0'))
+        v, f = lib.blob((ex - 0.05, ey - 0.06, ez + 0.005), 0.045, rough=0.0, subdiv=1)
+        Bk.add(v, f, col('#20183a'))
+        v, f = lib.box((ex - 0.02, ey - 0.03, ez + 0.12), (0.16, 0.05, 0.035), rot_z=a + math.pi / 2)
+        v = [(x, y, z + sgn * (x - ex) * 0.4) for (x, y, z) in v]
+        Bm.add(v, f, col('#e8b04a'))
     v, f = lib.cylinder((c.x, c.y, hz + 0.3), 0.035, 0.03, 0.2, 8)
     Bm.add(v, f, col('#c9d0da'))
     v, f = lib.lathe([(0.12, 0.0), (0.06, -0.14), (0.0, -0.16)], 16, (c.x, c.y, hz - 0.3))

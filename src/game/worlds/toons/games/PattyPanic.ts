@@ -92,6 +92,8 @@ interface Station {
   stackH: number;
   cpuDelay: number;
   ringKey: number;
+  /** A topping still in the air (its tween moves a proxy, so it is stopped by hand). */
+  toss?: Phaser.Tweens.Tween;
 }
 
 /**
@@ -451,6 +453,8 @@ export class PattyPanicScene extends BaseMinigame {
   }
 
   private resetStack(st: Station, animate: boolean): void {
+    st.toss?.stop();
+    st.toss = undefined;
     for (const l of st.layers) {
       this.tweens.killTweensOf(l);
       l.setVisible(false).setAngle(0).setAlpha(1).setPosition(0, 0).setScale(1);
@@ -463,26 +467,43 @@ export class PattyPanicScene extends BaseMinigame {
   }
 
   /** Drop a layer onto the stack: it falls in from above and lands with a squash. */
-  private addLayer(st: Station, name: Layer, animate: boolean): void {
+  /**
+   * Put a layer on the stack. Toppings are tossed from the cook's hand in a little arc (buns just
+   * drop in from above); either way it lands with a squash.
+   */
+  private addLayer(st: Station, name: Layer, animate: boolean, toss = false): void {
     const img = st.layers[st.layerN++];
     if (!img) return;
     this.setLayer(img, name);
     const y = -st.stackH;
     st.stackH += THICK[name];
-    img.setVisible(true).setAlpha(1).setAngle(0).setScale(1);
+    img.setVisible(true).setAlpha(1).setAngle(0).setScale(1).setX(0);
     if (!animate) {
       img.setY(y);
       return;
     }
-    img.setY(y - 150);
-    this.tweens.add({
-      targets: img,
-      y,
-      duration: 150,
-      ease: 'Quad.In',
-      onComplete: () => {
-        this.tweens.add({ targets: img, scaleX: { from: 1.12, to: 1 }, scaleY: { from: 0.8, to: 1 }, duration: 160, ease: 'Back.Out' });
+    const land = () => this.tweens.add({ targets: img, scaleX: { from: 1.12, to: 1 }, scaleY: { from: 0.8, to: 1 }, duration: 160, ease: 'Back.Out' });
+    if (!toss) {
+      img.setY(y - 150);
+      this.tweens.add({ targets: img, y, duration: 150, ease: 'Quad.In', onComplete: land });
+      return;
+    }
+    // from the cook's hand (in the stack's own coordinates) over to its place on the stack
+    const hx = (st.x + COOK_DX + 46 - st.stack.x) / STACK_SCALE;
+    const hy = (COOK_FEET_Y - 150 - st.stack.y) / STACK_SCALE;
+    const k = { u: 0 };
+    img.setPosition(hx, hy).setAngle(-30);
+    st.toss?.stop();
+    st.toss = this.tweens.add({
+      targets: k,
+      u: 1,
+      duration: 170,
+      ease: 'Sine.In',
+      onUpdate: () => {
+        const u = k.u;
+        img.setPosition(hx * (1 - u), hy + (y - hy) * u - 70 * 4 * u * (1 - u)).setAngle(-30 * (1 - u));
       },
+      onComplete: land,
     });
   }
 
@@ -530,8 +551,9 @@ export class PattyPanicScene extends BaseMinigame {
     this.tweens.add({ targets: row.check, scale: 1, duration: 180, ease: 'Back.Out' });
     row.icon.setAlpha(0.55);
     st.placed++;
-    this.addLayer(st, ing, true);
+    this.addLayer(st, ing, true, true);
     this.drawHighlight(st);
+    if (st.c.current === 'idle' || st.c.current === 'throw' || st.c.current === 'wave') st.c.play('throw', { force: true, returnTo: 'idle' });
     const rate = ing === 'patty' ? 0.75 : ing === 'lettuce' ? 1.25 : ing === 'tomato' ? 1.05 : 1.45;
     audio.play('pop', { volume: 0.5, rate });
     if (ing === 'patty') {
@@ -539,7 +561,6 @@ export class PattyPanicScene extends BaseMinigame {
       // a sizzle of steam off the hot patty
       if (!LITE && !calmMotion()) this.fx.vfx('smoke', st.stack.x, st.stack.y - st.stackH * STACK_SCALE - 10, { scale: 0.26, duration: 520, alpha: 0.5, dy: -36, depth: 1150 });
     }
-    st.c.squash(0.08, 120);
     this.rumble(st.p, 0.08, 0.15, 40);
     if (res === 'complete') this.serve(st);
   }
@@ -631,6 +652,8 @@ export class PattyPanicScene extends BaseMinigame {
     const sy = st.stack.y - st.stackH * STACK_SCALE;
     this.words.pop(WORDS.oops.key, sx, sy - 70, { owner: st.p.slot, depth: 7000, rise: 40, tilt: -8 });
     st.c.play('surprised', { force: true });
+    st.toss?.stop();
+    st.toss = undefined;
     const dir = Math.random() < 0.5 ? -1 : 1;
     for (let i = 0; i < st.layerN; i++) {
       const l = st.layers[i];

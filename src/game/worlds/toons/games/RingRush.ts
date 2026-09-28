@@ -86,6 +86,11 @@ const WORDS = {
 
 type Kind = ItemKind | 'scatter';
 
+/** Whether a gap along the lane that moved from lo to hi this frame came within ±w of zero. */
+function swept(lo: number, hi: number, w: number): boolean {
+  return lo < w && hi > -w;
+}
+
 interface Item {
   id: number;
   kind: Kind;
@@ -117,6 +122,8 @@ interface Runner {
   laneFrom: number;
   laneT: number;
   x: number;
+  /** Where the runner was at the start of this frame (collisions sweep between the two). */
+  x0: number;
   xv: number;
   z: number;
   vz: number;
@@ -154,6 +161,8 @@ export class RingRushScene extends BaseMinigame {
   private pending: { kind: ItemKind; lane: number; wx: number; z: number }[] = [];
   private course!: RushCourse;
   private scroll = 0;
+  /** The scroll at the start of this frame (collisions sweep across the frame's movement). */
+  private scroll0 = 0;
   private speed = 0;
   /** 0 before GO, easing to 1 as the runners set off (and back to 0 after the finish). */
   private speedK = 0;
@@ -374,6 +383,7 @@ export class RingRushScene extends BaseMinigame {
       laneFrom: lane,
       laneT: 1,
       x,
+      x0: x,
       xv: 0,
       z: 0,
       vz: 0,
@@ -520,6 +530,7 @@ export class RingRushScene extends BaseMinigame {
   private advanceWorld(dt: number): void {
     const s = dt / 1000;
     this.speed = scrollSpeed(this.elapsed, this.fever) * this.speedK;
+    this.scroll0 = this.scroll;
     this.scroll += this.speed * s;
     const off = this.scroll % PERIOD;
     const farOff = (this.scroll * FAR_PARALLAX) % PERIOD;
@@ -613,6 +624,7 @@ export class RingRushScene extends BaseMinigame {
   // --- Runners -----------------------------------------------------------------------------------
   private stepRunner(r: Runner, dt: number): void {
     const s = dt / 1000;
+    r.x0 = r.x;
     const c = r.p.controls;
     const wasCd = r.dashCd;
     r.dashCd = Math.max(0, r.dashCd - dt);
@@ -767,21 +779,25 @@ export class RingRushScene extends BaseMinigame {
     for (const r of this.runners) {
       const lane = Math.round(r.laneF);
       for (const it of this.items) {
-        if (!it.active || it.dying) continue;
+        if (!it.active || it.dying || it.lane !== lane) continue;
+        // the gap along the lane at the start and at the end of this frame: anything it swept past counts
         const dx = it.wx - this.scroll - r.x;
-        if (dx < -80 || dx > 80 || it.lane !== lane) continue;
+        const dxa = it.wx - this.scroll0 - r.x0;
+        const lo = Math.min(dx, dxa);
+        const hi = Math.max(dx, dxa);
+        if (lo > 90 || hi < -90) continue;
         switch (it.kind) {
           case 'ring':
           case 'bigring':
           case 'scatter':
-            if (Math.abs(dx) < RING_DX + (it.kind === 'bigring' ? 16 : 0) && Math.abs(it.z - r.z) < RING_DZ + (it.kind === 'bigring' ? 30 : 0) && (it.kind !== 'scatter' || it.grab <= 0) && r.stun <= 0) this.collect(r, it);
+            if (swept(lo, hi, RING_DX + (it.kind === 'bigring' ? 16 : 0)) && Math.abs(it.z - r.z) < RING_DZ + (it.kind === 'bigring' ? 30 : 0) && (it.kind !== 'scatter' || it.grab <= 0) && r.stun <= 0) this.collect(r, it);
             break;
           case 'spring':
-            if (Math.abs(dx) < 46 && r.z < 14 && r.vz <= 0) this.springUp(r, it);
+            if (swept(lo, hi, 46) && r.z < 14 && r.vz <= 0) this.springUp(r, it);
             break;
           case 'crawler':
           case 'buzzer': {
-            if (Math.abs(dx) >= BOT_DX) break;
+            if (!swept(lo, hi, BOT_DX)) break;
             if (r.dashT > 0) {
               this.smash(r, it);
               break;
