@@ -595,22 +595,21 @@ def pedestal(bx, by, s=1.0) -> list:
     p = _at(bx, by)
     P = Prop('pedestal')
     x, y = p.x, p.y
-    # stepped round plinth
-    v, f = lib.lathe([(0.21 * s, 0.0), (0.21 * s, 0.05 * s), (0.17 * s, 0.07 * s), (0.17 * s, 0.1 * s), (0.12 * s, 0.12 * s), (0.0, 0.12 * s)], 24, (x, y, 0))
-    P.b['stone'].add(v, f, col('#f4ecdf'))
-    v, f = lib.lathe([(0.215 * s, 0.045 * s), (0.215 * s, 0.06 * s)], 24, (x, y, 0), cap_bottom=False, cap_top=False)
+    # two-step marble plinth with a gold band
+    v, f = lib.lathe([(0.17 * s, 0.0), (0.17 * s, 0.045 * s), (0.135 * s, 0.055 * s), (0.135 * s, 0.095 * s), (0.09 * s, 0.105 * s), (0.0, 0.105 * s)], 28, (x, y, 0))
+    P.b['paint'].add(v, f, col('#f4ecdf'))
+    v, f = lib.lathe([(0.174 * s, 0.03 * s), (0.174 * s, 0.045 * s)], 28, (x, y, 0), cap_bottom=False, cap_top=False)
     P.b['metal'].add(v, f, GOLD)
-    # fluted shaft: twelve shallow ribs catch the key light
-    prof = [(0.085 * s, 0.12 * s), (0.078 * s, 0.4 * s)]
-    v, f = lib.lathe(prof, 24, (x, y, 0), cap_bottom=False, cap_top=False)
-    P.b['stone'].add(v, f, col('#fbf5ea'))
-    for k in range(12):
-        a = k / 12 * math.tau
-        pts = [(x + math.cos(a) * 0.084 * s, y + math.sin(a) * 0.084 * s, 0.13 * s), (x + math.cos(a) * 0.077 * s, y + math.sin(a) * 0.077 * s, 0.39 * s)]
-        v, f = lib.tube(pts, 0.012 * s, 5)
-        P.b['stone'].add(v, f, col('#fffaf2'))
+    # fluted marble shaft: shallow ribs catch the key light
+    v, f = lib.lathe([(0.066 * s, 0.1 * s), (0.06 * s, 0.4 * s)], 20, (x, y, 0), cap_bottom=False, cap_top=False)
+    P.b['paint'].add(v, f, col('#f7f1e6'))
+    for k in range(10):
+        a = k / 10 * math.tau
+        pts = [(x + math.cos(a) * 0.066 * s, y + math.sin(a) * 0.066 * s, 0.11 * s), (x + math.cos(a) * 0.06 * s, y + math.sin(a) * 0.06 * s, 0.39 * s)]
+        v, f = lib.tube(pts, 0.009 * s, 5)
+        P.b['paint'].add(v, f, col('#fffcf6'))
     # gold collar and a shallow dish holding the glowing seat
-    v, f = lib.lathe([(0.1 * s, 0.39 * s), (0.115 * s, 0.41 * s), (0.115 * s, 0.44 * s), (0.09 * s, 0.46 * s), (0.13 * s, 0.5 * s), (0.0, 0.5 * s)], 24, (x, y, 0))
+    v, f = lib.lathe([(0.075 * s, 0.39 * s), (0.09 * s, 0.41 * s), (0.09 * s, 0.44 * s), (0.07 * s, 0.46 * s), (0.12 * s, 0.5 * s), (0.0, 0.5 * s)], 24, (x, y, 0))
     P.b['metal'].add(v, f, GOLD)
     v, f = lib.lathe([(0.0, 0.505 * s), (0.08 * s, 0.505 * s), (0.05 * s, 0.53 * s), (0.0, 0.535 * s)], 16, (x, y, 0))
     P.b['glow'].add(v, f, col('#7ff0ff'))

@@ -49,6 +49,7 @@ def args():
     p.add_argument('--no-lowland', action='store_true', help='skip the valley floor under the plateaus')
     p.add_argument('--plan', action='store_true', help='draw the valley layout map (plan.png) and exit without rendering')
     p.add_argument('--bands', type=int, default=1, help='render the terrain in N horizontal bands (saved as they finish), then stitch')
+    p.add_argument('--band', type=int, default=-1, help='with --bands: render only this band (band_<i>.png) and exit')
     return p.parse_args(sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else sys.argv[1:])
 
 
@@ -136,15 +137,17 @@ def crisp(path, radius=1.1, amount=55):
     _, (iy, ix) = ndimage.distance_transform_edt(~solid, return_indices=True)
     filled = Image.fromarray(np.ascontiguousarray(a[..., :3][iy, ix]), 'RGB')
     del iy, ix
-    rgb = filled.filter(ImageFilter.UnsharpMask(radius=radius, percent=amount, threshold=2))
-    Image.merge('RGBA', (*rgb.split(), im.getchannel('A'))).save(path)
+    rgb = np.asarray(filled.filter(ImageFilter.UnsharpMask(radius=radius, percent=amount, threshold=2))).copy()
+    rgb[a[..., 3] == 0] = 0  # fully transparent pixels stay black
+    Image.fromarray(np.dstack([rgb, a[..., 3]]), 'RGBA').save(path)
 
 
-def render_bands(frame, n, path, overlap=24):
-    """Render the terrain as n horizontal bands (each saved as soon as it is done, so a long render
-    on the shared machine shows progress and a failure costs one band), then stitch them. Bands
-    overlap a little and are cut in the middle of the overlap, so the denoiser leaves no seam; each
-    band's row offset is checked against its neighbour in case the border rounds by a pixel."""
+def render_bands(frame, n, path, overlap=24, only=-1):
+    """Render the terrain as n horizontal bands, then stitch them. Each band can be its own Blender
+    run (--band i), so a render of several hours on the shared machine goes in short turns and a
+    failure costs one band. Bands are rendered `overlap` px taller at both ends and cut at the
+    nominal boundaries, so the denoiser's edge effects never show; each band's row offset is checked
+    against its neighbour in case the render border rounds by a pixel."""
     fx, fy, fw, fh = frame
     rh = int(round(fh * SCALE))
     cuts = [round(rh * i / n) for i in range(n + 1)]
@@ -152,12 +155,17 @@ def render_bands(frame, n, path, overlap=24):
     for i in range(n):
         y0, y1 = max(0, cuts[i] - overlap), min(rh, cuts[i + 1] + overlap)
         band = os.path.join(os.path.dirname(path), f'band_{i}.png')
+        if only >= 0 and i != only:
+            continue
         if os.path.exists(band) and os.environ.get('BOARD_REUSE_BANDS'):
             print('band', i, 'reused')
         else:
             lib.set_border((fx, fy + y0 / SCALE, fx + fw, fy + y1 / SCALE), frame)
             lib.render_to(band)
             print('band', i, 'done', flush=True)
+        if only >= 0:
+            lib.clear_border()
+            return
         im = Image.open(band).convert('RGBA')
         top = y0
         if bands:
@@ -2213,6 +2221,9 @@ def main():
         lib.set_border((x0, y0, x1, y1), frame)
         lib.render_to(os.path.join(out, 'crop.png'))
         crisp(os.path.join(out, 'crop.png'))
+        return
+    if A.band >= 0:
+        render_bands(frame, A.bands, os.path.join(out, 'terrain.png'), only=A.band)
         return
     if not A.props_only:
         if A.bands > 1:

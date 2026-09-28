@@ -182,8 +182,9 @@ THEMES = {
 
 
 def cam_ao(m, distance, samples=4):
-    """Ambient occlusion traced for camera rays only: bounce light barely shows it, and a zero
-    distance lets Cycles skip the lookup, which roughly halves the cost of the board render."""
+    """Ambient occlusion for camera rays only: bounce light barely shows it, and on bounces the zero
+    trace distance makes the lookup almost free (it is paid at every hit otherwise, which adds up
+    on the huge board render)."""
     lp = m.node('ShaderNodeLightPath')
     n = m.node('ShaderNodeAmbientOcclusion')
     n.samples = samples
@@ -313,7 +314,7 @@ def island_material_fine(mask_path, theme='plaza'):
     nrm = m.normal()
     nz = m.sep(nrm)[2]
     X, Y, Z = m.sep(pos)
-    # --- path mask lookup (world -> board uv); R = trails, G = relic shrine paving
+    # --- path mask lookup (world -> board uv)
     mp = m.node('ShaderNodeMapping')
     mp.inputs['Scale'].default_value = (PX / W, lib.COSB * PX / H, 1.0)
     mp.inputs['Location'].default_value = (0.0, 1.0, 0.0)

@@ -616,16 +616,20 @@ def greenhouse(B, bx, by, s, rnd):
 
 
 def campsite(B, bx, by, rnd):
-    """A little camp: an A-frame tent, a campfire with glowing embers and two log seats."""
+    """A little camp: a ridge tent with its door facing the camera, a campfire with glowing embers
+    and two log seats."""
     p = _w(bx, by)
     x, y = p.x, p.y
-    L, Wd, Hh = 0.42, 0.34, 0.3
-    tent = [(x - L / 2, y - Wd / 2, 0.0), (x + L / 2, y - Wd / 2, 0.0), (x + L / 2, y + Wd / 2, 0.0), (x - L / 2, y + Wd / 2, 0.0),
-            (x - L / 2, y, Hh), (x + L / 2, y, Hh)]
-    B['cloth'].add(tent, [(0, 1, 5, 4), (2, 3, 4, 5), (4, 5, 1, 0), (5, 4, 3, 2)], col('#f4b83b'))
-    B['cloth'].add([tent[0], tent[4], tent[3]], [(0, 1, 2), (2, 1, 0)], col('#e89a2c'))
-    B['cloth'].add([tent[1], tent[2], tent[5]], [(0, 1, 2), (2, 1, 0)], col('#e89a2c'))
-    fx, fy = x + 0.05, y - 0.38
+    Wd, L, Hh = 0.36, 0.46, 0.4  # across, along the ridge (north-south), ridge height
+    fy0, fy1 = y - L / 2, y + L / 2
+    tent = [(x - Wd / 2, fy0, 0.0), (x + Wd / 2, fy0, 0.0), (x + Wd / 2, fy1, 0.0), (x - Wd / 2, fy1, 0.0), (x, fy0 - 0.03, Hh), (x, fy1, Hh)]
+    B['cloth'].add(tent, [(0, 4, 5, 3), (1, 2, 5, 4)], lambda vv: col('#f4b83b') if vv[0] < x else col('#e0962c'))
+    B['cloth'].add([tent[0], tent[1], tent[4]], [(0, 1, 2), (2, 1, 0)], col('#ffd166'))  # front gable
+    B['cloth'].add([(x - 0.07, fy0 - 0.004, 0.0), (x + 0.07, fy0 - 0.004, 0.0), (x, fy0 - 0.02, Hh * 0.62)], [(0, 1, 2), (2, 1, 0)], col('#5a3a2a'))  # door
+    B['cloth'].add([tent[3], tent[5], tent[2]], [(0, 1, 2), (2, 1, 0)], col('#e0962c'))
+    v, f = lib.tube([(x, fy0 - 0.03, Hh), (x, fy1, Hh)], 0.008, 4)
+    B['wood'].add(v, f, col('#6e4a2c'))
+    fx, fy = x + 0.34, y - 0.2
     for k in range(7):
         a = k / 7 * math.tau
         v, f = lib.blob((fx + math.cos(a) * 0.09, fy + math.sin(a) * 0.07, 0.02), 0.03, squash=(1.2, 1, 0.7), rough=0.3, subdiv=1, seed=k)
@@ -639,7 +643,7 @@ def campsite(B, bx, by, rnd):
         B['glow'].add(v, f, col(['#ff7a2a', '#ffb347', '#ffe08a'][k]))
     for sgn in (-1, 1):
         v, f = lib.cylinder((0, 0, 0), 0.04, 0.04, 0.22, 8)
-        v = lib.transform(v, loc=(fx + sgn * 0.2 - 0.11, fy - 0.03, 0.04), rot=(0.0, math.pi / 2, 0.25 * sgn))
+        v = lib.transform(v, loc=(fx + sgn * 0.2 - 0.11, fy - 0.03 + (0.12 if sgn > 0 else 0.0), 0.04), rot=(0.0, math.pi / 2, 0.35 * sgn))
         B['wood'].add(v, f, col('#7a5234'))
 
 
