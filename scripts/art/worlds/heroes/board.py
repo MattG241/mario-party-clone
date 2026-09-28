@@ -695,7 +695,21 @@ def deck_style(na, nb):
 
 
 def block_extras(P: Parts, b, ids, ring, nrm, look, rnd):
-    cp.facade_signs(P, ring, nrm, FACADE_WORDS.get(look.get('surface'), ['OPEN']), rnd, count=2 if len(ids) > 2 else 1)
+    signs = cp.facade_signs(P, ring, nrm, FACADE_WORDS.get(look.get('surface'), ['OPEN']), rnd, count=2 if len(ids) > 2 else 1)
+    # fire escapes down the camera-facing walls of the brick blocks (clear of the neon signs)
+    n_fe = {'block': 3, 'plaza': 1, 'neonrow': 1, 'garden': 1}.get(look.get('surface'), 0)
+    cand = [k for k in range(len(ring)) if nrm[k][1] > 0.92]
+    rnd.shuffle(cand)
+    used, placed = list(signs), 0
+    for k in cand:
+        if placed >= n_fe:
+            break
+        bx, by = ring[k]
+        if any(abs(bx - u) < 220 for u in used):
+            continue
+        used.append(bx)
+        placed += 1
+        cp.fire_escape(P, bx, by, rnd, floors=3 if look.get('fh', 2.3) >= 2.3 else 2)
     if look.get('surface') == 'gothic':
         gargoyle_rim(P, ring, nrm, rnd)
 

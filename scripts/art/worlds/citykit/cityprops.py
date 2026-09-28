@@ -682,6 +682,42 @@ def jukebox(P: Parts, bx, by, rnd, s=1.0):
         P['neon'].add(v, f, col(rnd.choice(['#ff5ab4', '#4de8ff', '#ffcf4a'])))
 
 
+def fire_escape(P: Parts, bx, by, rnd, floors=3, width=0.72, iron='#2e2b33'):
+    """Iron balconies and zig-zag stairs down a camera-facing wall (the wall's top edge at board
+    (bx, by), the rim at z = 0), with a warm window glow on each landing."""
+    w = W(bx, by + 3)
+    x, y = w.x, w.y
+    dep = 0.26
+    for k in range(floors):
+        z = -0.42 - k * 0.58
+        # grated landing and its front rail
+        v, f = lib.box((x, y - dep / 2, z), (width, dep, 0.025))
+        P['metal'].add(v, f, col(iron))
+        v, f = lib.tube([(x - width / 2, y - dep, z + 0.2), (x + width / 2, y - dep, z + 0.2)], 0.012, 4)
+        P['metal'].add(v, f, col(iron))
+        for dx in (-width / 2, 0.0, width / 2):
+            v, f = lib.cylinder((x + dx, y - dep, z), 0.008, 0.008, 0.2, 4)
+            P['metal'].add(v, f, col(iron))
+        v, f = lib.box((x + rnd.uniform(-0.15, 0.15), y + 0.003, z + 0.2), (0.16, 0.01, 0.2))
+        P['glow'].add(v, f, col(rnd.choice(['#ffc66a', '#ffe0a0', '#9fd0ff'])))
+        if k + 1 < floors:
+            # stairs down to the next landing, alternating direction
+            s = 1 if k % 2 == 0 else -1
+            p0 = (x - s * width * 0.42, y - dep * 0.55, z)
+            p1 = (x + s * width * 0.42, y - dep * 0.55, z - 0.58)
+            v, f = lib.tube([p0, p1], 0.014, 4)
+            P['metal'].add(v, f, col(iron))
+            for t in [i / 6 for i in range(1, 6)]:
+                q = (p0[0] + (p1[0] - p0[0]) * t, p0[1], p0[2] + (p1[2] - p0[2]) * t)
+                v, f = lib.box(q, (0.1, dep * 0.8, 0.012))
+                P['metal'].add(v, f, col(iron))
+    # a drop ladder under the lowest landing
+    zl = -0.42 - (floors - 1) * 0.58
+    for dx in (-0.08, 0.08):
+        v, f = lib.tube([(x + width * 0.3 + dx, y - dep + 0.02, zl), (x + width * 0.3 + dx, y - dep + 0.02, zl - 0.45)], 0.008, 4)
+        P['metal'].add(v, f, col(iron))
+
+
 def bollard(P: Parts, bx, by, glow='#ffd08a'):
     p = W(bx, by)
     v, f = lib.cylinder((p.x, p.y, 0.0), 0.04, 0.035, 0.18, 8)
@@ -760,6 +796,7 @@ def facade_signs(P: Parts, ring, nrm, words, rnd, count=2):
         w = board_to_world(bx, by + 5, 0.0)
         word = rnd.choice(words)
         neon_text(P, word, (w.x, w.y - 0.05, -0.62 - rnd.uniform(0.0, 0.4)), 0.2, NEON[rnd.choice(NEON_COLS)], backing='#1c1a26', pad=0.07)
+    return used
 
 
 def backdrop_tower(P: Parts, tower_mats, bx, by, rnd, w=0.9, d=0.7, h=3.0, style='brick'):
