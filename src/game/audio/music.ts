@@ -190,6 +190,8 @@ class TrackPlayer {
   private nextTime = 0;
   readonly gain: GainNode;
   private timer: number | null = null;
+  /** Tempo multiplier (1 = the track's own bpm); the look-ahead scheduler picks changes up at the next step. */
+  tempo = 1;
 
   constructor(
     private ctx: AudioContext,
@@ -226,7 +228,7 @@ class TrackPlayer {
   }
 
   private schedule(): void {
-    const stepDur = 60 / this.def.bpm / 4;
+    const stepDur = 60 / (this.def.bpm * this.tempo) / 4;
     while (this.nextTime < this.ctx.currentTime + 0.14) {
       const swing = this.step % 2 === 1 ? this.def.swing * stepDur : 0;
       this.playStep(this.nextTime + swing, stepDur);
@@ -350,5 +352,10 @@ export class MusicEngine {
   stop(fade = 0.8): void {
     this.current?.player.stop(fade);
     this.current = null;
+  }
+
+  /** Speed the current loop up or back down (1 = normal); a new track always starts at 1. */
+  setTempo(k: number): void {
+    if (this.current) this.current.player.tempo = Math.max(0.5, Math.min(2, k));
   }
 }

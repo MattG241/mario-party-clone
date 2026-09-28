@@ -177,6 +177,16 @@ export class AudioManager {
     this.music?.play(key);
   }
 
+  /**
+   * Quicken the music (1 = normal), e.g. for the last seconds of a timed minigame. The procedural
+   * loops change tempo on their next step; a file loop plays faster (and so a touch higher).
+   */
+  setMusicTempo(k: number): void {
+    this.music?.setTempo(k);
+    const fm = this.fileMusic;
+    if (fm && this.ctx) fm.src.playbackRate.setTargetAtTime(Math.max(0.5, Math.min(2, k)), this.ctx.currentTime, 0.15);
+  }
+
   get currentMusic(): MusicKey | null {
     return this.fileMusic?.key ?? this.music?.currentKey ?? null;
   }
