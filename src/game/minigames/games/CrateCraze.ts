@@ -11,6 +11,8 @@ import { Random } from '../../util/Random';
 import { standOrigin } from '../../util/spriteUtil';
 import { BaseMinigame, type MgPlayer } from '../BaseMinigame';
 import { drift, steer } from '../common';
+import { banner, kick, popToHud } from '../juice';
+import { AFX, burst, ensureArenaFxTextures, every, RingPool, Spray } from './arenaFx';
 import {
   applyFriction,
   boxBoxContact,
@@ -104,8 +106,25 @@ const ZONE_TOL = 6;
 const ZONE_KEEP = 10;
 /** Physics sub-step (ms): keeps fast crates from tunnelling at low frame rates. */
 const SUBSTEP = 16;
+const RAD = 180 / Math.PI;
 /** Supply-drop events (ms since GO): a golden crate plus two plain ones fall together. */
-const EVENTS = [17000, 34000, 48000];
+const EVENTS = [17000, 31000];
+/**
+ * The final stretch (15 s left): a "GOLDEN RUSH!" rains golden crates into the yard, and until the
+ * whistle drops come faster and are often golden. The rush may overfill the yard by RUSH_EXTRA.
+ */
+const RUSH_AT = 45000;
+const RUSH_EXTRA = 3;
+/** Freeze-frame as a crate lands in a zone (ms): the score has weight. */
+const BANK_STOP = 55;
+const BANK_STOP_GOLD = 90;
+/** Strongest forward lean while straining against a crate (radians). */
+const LEAN = 0.17;
+/** Soft floor glow under a loose golden crate (worth 3: it should catch the eye). */
+const GOLD_GLOW = 0xffc23a;
+/** Dust kicked up in the yard. */
+const DUST_TINTS = [0xe9d3aa, 0xdcc193, 0xf4e6c8];
+const WOOD_TINTS = [0xc08a58, 0x9a6a40, 0xe2b882, 0x7a5234];
 
 type Mode = 'work' | 'wander' | 'guard';
 
@@ -153,6 +172,10 @@ interface Pusher extends Body {
   trailT: number;
   tele: Phaser.GameObjects.Graphics;
   brain: Brain;
+  /** 0..1: how hard they are straining against a crate (drives the forward lean and foot dust). */
+  strain: number;
+  puffT: number;
+  puffN: number;
 }
 
 interface Crate extends Body {
@@ -178,6 +201,8 @@ interface Crate extends Body {
   dustT: number;
   clackT: number;
   lastPusher: Pusher | null;
+  /** Sprite scale at rest (squash-and-stretch springs back to it). */
+  base: number;
 }
 
 interface Zone {
@@ -187,6 +212,11 @@ interface Zone {
   slots: { x: number; y: number }[];
   sign: Phaser.GameObjects.Container;
   count: Phaser.GameObjects.Text;
+  /** Owner-colour flash over the zone when a crate is banked. */
+  flash: Phaser.GameObjects.Graphics;
+  /** Bright rim that pulses while a crate is sliding over the line. */
+  hot: Phaser.GameObjects.Graphics;
+  heat: number;
 }
 
 /**
@@ -206,6 +236,17 @@ export class CrateCrazeScene extends BaseMinigame {
   private eventIdx = 0;
   private renderedCrate = false;
   private finished = false;
+  /** The final stretch's golden rush has started. */
+  private rush = false;
+  /** Points on their way to each HUD capsule (the HUD counts them when the pop-up lands). */
+  private pending = [0, 0, 0, 0];
+  /** Camera kicks are rationed so a pile-up doesn't turn into a judder. */
+  private kickCd = 0;
+  private rings!: RingPool;
+  /** Dust at the feet and around landings (floor level). */
+  private motes!: Spray;
+  /** Wood splinters knocked off crates in hard hits. */
+  private chips!: Spray;
 
   constructor() {
     super('mg-crate-craze');
@@ -224,7 +265,32 @@ export class CrateCrazeScene extends BaseMinigame {
     this.dropT = 5200;
     this.eventIdx = 0;
     this.finished = false;
+    this.rush = false;
+    this.pending = [0, 0, 0, 0];
+    this.kickCd = 0;
     this.renderedCrate = this.textures.exists('rendered-mg-crate');
+    ensureArenaFxTextures(this);
+    this.rings = new RingPool(this, 12);
+    // Dust stays at floor level (under anyone standing in front of it); splinters fly over everything.
+    this.motes = new Spray(this, 'fx-dot', {
+      depth: 6,
+      reserve: burst(90),
+      lifespan: [380, 620],
+      gravity: -40,
+      scale: { start: 0.9, end: 2.4 },
+      alpha: { start: 0.85, end: 0 },
+      tint: DUST_TINTS,
+    });
+    this.chips = new Spray(this, AFX.chip, {
+      depth: 7000,
+      reserve: burst(60),
+      lifespan: [420, 640],
+      gravity: 1300,
+      scale: { start: 1.5, end: 1 },
+      alpha: { start: 1, end: 0.1 },
+      tint: WOOD_TINTS,
+      spin: 0.04,
+    });
     this.buildBackdrop();
     const used = new Set(this.players.map((p) => p.slot));
     for (let corner = 0; corner < 4; corner++) {
@@ -318,6 +384,16 @@ export class CrateCrazeScene extends BaseMinigame {
     const rim = this.add.graphics().setDepth(4.6);
     dashedRect(rim, screen.x + 4, screen.y + 4, screen.w - 8, screen.h - 8, 26, 14, 7, color, 1);
     dashedRect(rim, screen.x + 4, screen.y + 4, screen.w - 8, screen.h - 8, 26, 14, 2.5, 0xffffff, 0.9);
+    // A flash of the owner's colour when a crate is banked, and a solid bright rim that pulses
+    // while a crate is sliding over the line (both drawn once; only their alpha changes).
+    const flash = this.add.graphics().setDepth(4.3).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0);
+    flash.fillStyle(color, 1);
+    flash.fillRect(screen.x, screen.y, screen.w, screen.h);
+    const hot = this.add.graphics().setDepth(4.65).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0);
+    hot.lineStyle(20, color, 0.55);
+    hot.strokeRect(screen.x + 4, screen.y + 4, screen.w - 8, screen.h - 8);
+    hot.lineStyle(6, 0xffffff, 0.95);
+    hot.strokeRect(screen.x + 4, screen.y + 4, screen.w - 8, screen.h - 8);
     // Count sign beside the zone, outside the fence, so crates and players never hide it.
     const sign = this.add.container(right ? SIGN_X_RIGHT : SIGN_X_LEFT, my).setDepth(8000);
     const bg = this.add.graphics();
@@ -336,7 +412,7 @@ export class CrateCrazeScene extends BaseMinigame {
     drawCrateIcon(icon, 2, 0);
     const count = addText(this, 52, 1, '0', 40, { color: CSS.cream, weight: 700, stroke: '#06141a', strokeThickness: 5, fixed: true });
     sign.add([bg, badge, tag, icon, count]);
-    this.zones[corner] = { slot: corner, rect, screen, slots: zoneSlots(rect, corner, CRATE, 3, 2, 3), sign, count };
+    this.zones[corner] = { slot: corner, rect, screen, slots: zoneSlots(rect, corner, CRATE, 3, 2, 3), sign, count, flash, hot, heat: 0 };
     this.zoneRects[corner] = rect;
   }
 
@@ -430,7 +506,9 @@ export class CrateCrazeScene extends BaseMinigame {
       dustT: 0,
       clackT: 0,
       lastPusher: null,
+      base: scale,
     };
+    if (gold && !dropping) glow.setTint(GOLD_GLOW).setVisible(true);
     if (dropping) {
       // Landing telegraph: a shadow that darkens and a ring that closes in on the spot.
       const sx = x;
@@ -506,8 +584,8 @@ export class CrateCrazeScene extends BaseMinigame {
     return this.crates.filter((k) => k.zone < 0).length;
   }
 
-  private dropCrate(gold: boolean, near?: { x: number; y: number }): void {
-    if (this.crates.length >= MAX_CRATES) return;
+  private dropCrate(gold: boolean, near?: { x: number; y: number }, extra = 0): void {
+    if (this.crates.length >= MAX_CRATES + extra) return;
     let spot: { x: number; y: number } | null = null;
     if (near) {
       for (let i = 0; i < 12 && !spot; i++) {
@@ -527,10 +605,7 @@ export class CrateCrazeScene extends BaseMinigame {
 
   private supplyDrop(): void {
     audio.play('eventAlert', { volume: 0.55 });
-    const t = addText(this, GAME_WIDTH / 2, 262, 'SUPPLY DROP!', 70, { color: CSS.goldLight, stroke: '#3a2208', strokeThickness: 10, weight: 700, fixed: true }).setDepth(9000);
-    t.setScale(0.4);
-    this.tweens.add({ targets: t, scale: 1, duration: 260, ease: 'Back.Out' });
-    this.tweens.add({ targets: t, y: 222, alpha: 0, delay: 1100, duration: 450, onComplete: () => t.destroy() });
+    banner(this, 'SUPPLY DROP!', { y: 262, size: 84, hold: 950 });
     this.crowdCheer();
     const centre = { x: WORLD.x + WORLD.w / 2 + this.rng.range(-220, 220), y: WORLD.h / 2 + this.rng.range(-120, 120) };
     this.dropCrate(true, centre);
@@ -538,17 +613,37 @@ export class CrateCrazeScene extends BaseMinigame {
     this.time.delayedCall(520, () => this.phase === 'playing' && this.dropCrate(false, centre));
   }
 
+  /**
+   * The final stretch: announced, then a few golden crates rain into the middle of the yard, and
+   * the regular drops speed up and turn golden more often until the whistle.
+   */
+  private goldenRush(): void {
+    this.rush = true;
+    audio.play('fanfare', { volume: 0.5 });
+    banner(this, 'GOLDEN RUSH!', { y: 262, size: 110, hold: 1200 });
+    this.crowdCheer();
+    const n = this.players.length >= 4 ? 3 : 2;
+    for (let i = 0; i < n; i++) {
+      this.time.delayedCall(420 + i * 300, () => {
+        if (this.phase !== 'playing') return;
+        const spot = this.freeSpot(24, 0.62);
+        this.dropCrate(true, spot ?? undefined, RUSH_EXTRA);
+      });
+    }
+  }
+
   private updateDrops(dt: number): void {
     this.dropT -= dt;
     if (this.dropT <= 0) {
       const progress = this.elapsed / this.duration;
-      this.dropT = 4800 - progress * 1500 + this.rng.range(-500, 500);
-      if (this.loose() < MAX_LOOSE) this.dropCrate(this.rng.chance(0.16 + progress * 0.14));
+      this.dropT = (4800 - progress * 1500 + this.rng.range(-500, 500)) * (this.rush ? 0.7 : 1);
+      if (this.loose() < MAX_LOOSE) this.dropCrate(this.rng.chance(this.rush ? 0.5 : 0.16 + progress * 0.14));
     }
     if (this.eventIdx < EVENTS.length && this.elapsed >= EVENTS[this.eventIdx]) {
       this.eventIdx++;
       this.supplyDrop();
     }
+    if (!this.rush && this.elapsed >= RUSH_AT) this.goldenRush();
     for (const k of this.crates) {
       if (k.dropT <= 0) continue;
       k.dropT -= dt;
@@ -582,8 +677,14 @@ export class CrateCrazeScene extends BaseMinigame {
     ]) {
       this.fx.vfx('dust', sx + dx, sy + dy, { scale: 0.3, duration: 420, alpha: 0.7, depth: sy + 2 });
     }
-    this.tweens.add({ targets: k.sprite, scaleY: { from: k.sprite.scaleX * 0.82, to: k.sprite.scaleX }, scaleX: { from: k.sprite.scaleX * 1.1, to: k.sprite.scaleX }, duration: 220, ease: 'Back.Out' });
+    this.squashCrate(k, 1.13, 0.8, 260);
+    // A ring of dust rolls out across the floor and a few splinters jump off the lid.
+    this.rings.spawn(sx, sy, 44, 150, { squash: DEPTH_K, tint: 0xf0dcb4, alpha: 0.8, ms: 480, depth: 5.7 });
+    this.motes.fire(sx, sy + HALF * DEPTH_K * 0.4, burst(8), -90, 180, 90, 220);
+    this.chips.fire(sx, sy - CRATE * HEIGHT_K, burst(4), -90, 60, 180, 380);
     if (k.gold) {
+      k.glow.setTint(GOLD_GLOW).setVisible(true);
+      this.rings.spawn(sx, sy, 30, 130, { squash: DEPTH_K, tint: GOLD_GLOW, alpha: 0.9, ms: 420, depth: 5.8, add: true });
       this.fx.sparks(sx, sy - 60, 16);
       this.crowdCheer();
     }
@@ -603,9 +704,37 @@ export class CrateCrazeScene extends BaseMinigame {
       }
       u.x = k.x + dx * (HALF + PLAYER_R + 4);
       u.y = k.y + dy * (HALF + PLAYER_R + 4);
-      this.stun(u, 900, dx * (700 / u.weight), dy * (700 / u.weight));
+      this.stun(u, 900, dx * (700 / u.weight), dy * (700 / u.weight), 70);
       this.fx.floatText(u.x, this.sy(u.y) - 170, 'BONK!', '#fff4dc', { size: 46, rise: 60, duration: 800, stroke: '#6a1830' });
     }
+  }
+
+  /** Squash-and-stretch a crate (and its banked silhouette), springing back: impacts have weight. */
+  private squashCrate(k: Crate, sx: number, sy: number, ms = 200): void {
+    this.tweens.killTweensOf(k.sprite);
+    this.tweens.killTweensOf(k.aura);
+    k.sprite.setScale(k.base * sx, k.base * sy);
+    k.aura.setScale(k.base * sx, k.base * sy);
+    this.tweens.add({ targets: [k.sprite, k.aura], scaleX: k.base, scaleY: k.base, duration: ms, ease: 'Back.Out' });
+  }
+
+  /** Squash a crate along a contact direction (floor units): flattened against whatever it hit. */
+  private squashAlong(k: Crate, nx: number, ny: number, amount: number): void {
+    if (Math.abs(nx) >= Math.abs(ny)) this.squashCrate(k, 1 - amount, 1 + amount * 0.7, 190);
+    else this.squashCrate(k, 1 + amount * 0.7, 1 - amount, 190);
+  }
+
+  /**
+   * Knock the camera along a floor direction (a blow's direction of travel), rationed so a scrum
+   * of collisions reads as a few solid thumps rather than a judder.
+   */
+  private kickFloor(dx: number, dy: number, px: number, force = false): void {
+    if (this.kickCd > 0 && !force) return;
+    const sy = dy * DEPTH_K;
+    const m = Math.hypot(dx, sy);
+    if (m < 1e-3) return;
+    this.kickCd = 140;
+    kick(this, (dx / m) * px, (sy / m) * px);
   }
 
   // --- Players -------------------------------------------------------------------------------------
@@ -642,6 +771,9 @@ export class CrateCrazeScene extends BaseMinigame {
       stunT: 0,
       touching: null,
       trailT: 0,
+      strain: 0,
+      puffT: 0,
+      puffN: 0,
       tele: this.add.graphics().setDepth(6),
       brain: {
         think: 400 + index * 120,
@@ -675,18 +807,29 @@ export class CrateCrazeScene extends BaseMinigame {
     this.crowdCheer();
   }
 
+  /** The HUD counts a banked crate when its "+N" pop-up lands on the capsule. */
   protected override hudLabel(p: MgPlayer): string {
-    return `${p.score}`;
+    return `${Math.max(0, p.score - (this.pending[p.slot] ?? 0))}`;
   }
 
-  private stun(u: Pusher, ms: number, vx: number, vy: number): void {
+  /**
+   * Knock a player dizzy, sliding them along (vx, vy). A `stop` (ms) makes it a big hit: a
+   * freeze-frame and a camera kick the way they were knocked.
+   */
+  private stun(u: Pusher, ms: number, vx: number, vy: number, stop = 0): void {
     u.stunT = Math.max(u.stunT, ms);
     u.windT = 0;
     u.dashT = 0;
     u.vx = vx;
     u.vy = vy;
+    u.strain = 0;
+    u.c.sprite.setRotation(0);
     u.tele.clear();
     u.c.play('stunned', { force: true, returnTo: 'idle' });
+    if (stop > 0) {
+      this.hitStop(stop);
+      this.kickFloor(vx, vy, stop / 10, true);
+    }
     const sy = this.sy(u.y);
     this.fx.vfx('impact', u.x, sy - 90, { scale: 0.45, duration: 320, blend: 'add' });
     this.fx.vfx('starSwirl', u.x, sy + u.c.headY * CHAR_SCALE - 10, { scale: 0.32, duration: Math.max(500, ms), blend: 'add' });
@@ -728,7 +871,12 @@ export class CrateCrazeScene extends BaseMinigame {
       k.vy += (dy * SHOVE_IMPULSE) / k.mass;
       k.lastPusher = u;
       hit = true;
-      this.tweens.add({ targets: k.sprite, scaleX: { from: k.sprite.scaleY * 1.08, to: k.sprite.scaleY }, duration: 160, ease: 'Quad.Out' });
+      this.squashAlong(k, dx, dy, 0.12);
+      // Splinters off the struck face and a puff of dust where it starts to slide.
+      const fx = k.x - dx * HALF;
+      const fy = this.sy(k.y - dy * HALF);
+      this.chips.fire(fx, fy - 40, burst(3), Math.atan2(-0.6, dx) * RAD, 40, 140, 300);
+      this.motes.fire(k.x, this.sy(k.y) + HALF * DEPTH_K * 0.5, burst(4), Math.atan2(-dy * DEPTH_K, -dx) * RAD, 50, 60, 150);
     }
     for (const r of this.pushers) {
       if (r === u || r.stunT > 0) continue;
@@ -740,7 +888,7 @@ export class CrateCrazeScene extends BaseMinigame {
       const kx = (dx / d) * 0.5 + u.fx * 0.5;
       const ky = (dy / d) * 0.5 + u.fy * 0.5;
       const km = Math.hypot(kx, ky) || 1;
-      this.stun(r, SHOVE_STUN, (kx / km) * (SHOVE_KNOCK / r.weight), (ky / km) * (SHOVE_KNOCK / r.weight));
+      this.stun(r, SHOVE_STUN, (kx / km) * (SHOVE_KNOCK / r.weight), (ky / km) * (SHOVE_KNOCK / r.weight), 75);
       hit = true;
     }
     const sx = hx;
@@ -774,6 +922,7 @@ export class CrateCrazeScene extends BaseMinigame {
 
   // --- Frame ---------------------------------------------------------------------------------------
   protected tick(dt: number): void {
+    this.kickCd = Math.max(0, this.kickCd - dt);
     this.updateDrops(dt);
     this.updateActions(dt);
     const steps = Math.max(1, Math.ceil(dt / SUBSTEP));
@@ -781,7 +930,16 @@ export class CrateCrazeScene extends BaseMinigame {
     for (const u of this.pushers) u.touching = null;
     for (let i = 0; i < steps; i++) this.physicsStep(sdt);
     this.updateZones();
-    this.syncVisuals();
+    this.syncVisuals(dt);
+    for (const u of this.pushers) {
+      u.puffT -= dt;
+      if (u.strain < 0.6 || u.puffT > 0) continue;
+      u.puffT = every(200);
+      // Heels dig in: dust kicked back and up behind them, and a heavy footstep every other puff.
+      const sy = this.sy(u.y);
+      this.motes.fire(u.x - u.fx * 20, sy + 4, burst(3), Math.atan2(-0.9, -u.fx) * RAD, 35, 50, 130);
+      if (++u.puffN % 2 === 0) audio.play('step', { volume: 0.2, rate: 0.72 + Math.random() * 0.1, throttleMs: 140 });
+    }
     for (const k of this.crates) {
       k.dustT -= dt;
       k.clackT -= dt;
@@ -927,7 +1085,7 @@ export class CrateCrazeScene extends BaseMinigame {
             if (a.lastPusher && !b.lastPusher) b.lastPusher = a.lastPusher;
             else if (b.lastPusher && !a.lastPusher) a.lastPusher = b.lastPusher;
           }
-          if (imp > 260) this.clack(a, b, imp);
+          if (imp > 260) this.clack(a, b, imp, c.nx, c.ny);
         }
       }
     }
@@ -945,12 +1103,14 @@ export class CrateCrazeScene extends BaseMinigame {
         u.touching = k;
         if (own > 40) k.lastPusher = u;
         if (slammed) {
-          this.stun(u, 480, -c.nx * 260, -c.ny * 260);
+          this.stun(u, 480, -c.nx * 260, -c.ny * 260, 55);
         } else if (!settle && dashing && imp > 320 && k.clackT <= 0) {
           k.clackT = 120;
           audio.play('land', { volume: 0.55 });
           const sy = this.sy(k.y);
           this.fx.vfx('dust', u.x + c.nx * PLAYER_R, this.sy(u.y + c.ny * PLAYER_R), { scale: 0.26, duration: 320, alpha: 0.6, depth: sy + 1 });
+          this.squashAlong(k, c.nx, c.ny, 0.1);
+          this.kickFloor(c.nx, c.ny, 3);
         }
       }
     }
@@ -965,13 +1125,14 @@ export class CrateCrazeScene extends BaseMinigame {
         const bDash = b.dashT > 0;
         const imp = resolve(a, a.weight, b, b.weight, c, 0.2);
         // Dashing into a rival bumps them aside.
-        if (imp > 380 && aDash && !bDash && b.stunT <= 0) this.stun(b, 260, c.nx * 420, c.ny * 420);
-        else if (imp > 380 && bDash && !aDash && a.stunT <= 0) this.stun(a, 260, -c.nx * 420, -c.ny * 420);
+        if (imp > 380 && aDash && !bDash && b.stunT <= 0) this.stun(b, 260, c.nx * 420, c.ny * 420, 45);
+        else if (imp > 380 && bDash && !aDash && a.stunT <= 0) this.stun(a, 260, -c.nx * 420, -c.ny * 420, 45);
       }
     }
   }
 
-  private clack(a: Crate, b: Crate, imp: number): void {
+  /** Crate meets crate: (nx, ny) points from a to b, the way the blow travelled. */
+  private clack(a: Crate, b: Crate, imp: number, nx: number, ny: number): void {
     if (a.clackT > 0 && b.clackT > 0) return;
     a.clackT = b.clackT = 110;
     audio.play('land', { volume: Math.min(0.7, 0.25 + imp / 1800), rate: 1.3 + Math.random() * 0.2, throttleMs: 50 });
@@ -979,6 +1140,13 @@ export class CrateCrazeScene extends BaseMinigame {
     const y = (a.y + b.y) / 2;
     const sy = this.sy(y);
     this.fx.vfx('impact', x, sy - 40, { scale: Math.min(0.4, 0.15 + imp / 4000), duration: 220, blend: 'add' });
+    const amount = Math.min(0.11, imp / 6500);
+    this.squashAlong(a, nx, ny, amount);
+    this.squashAlong(b, nx, ny, amount);
+    if (imp > 600) {
+      this.chips.fire(x, sy - 45, burst(3), -90, 70, 120, 280);
+      this.kickFloor(nx, ny, Math.min(6, imp / 220));
+    }
   }
 
   private thud(k: Crate, hit: number): void {
@@ -987,6 +1155,11 @@ export class CrateCrazeScene extends BaseMinigame {
     audio.play('land', { volume: Math.min(0.7, 0.25 + hit / 1800), throttleMs: 50 });
     const sy = this.sy(k.y);
     this.fx.vfx('dust', k.x, sy + HALF * DEPTH_K, { scale: 0.26, duration: 360, alpha: 0.6, depth: sy + 1 });
+    // Which fence it hit (planter hits have no single axis: those just squash).
+    const nx = k.x - HALF <= WORLD.x + 1 ? -1 : k.x + HALF >= WORLD.x + WORLD.w - 1 ? 1 : 0;
+    const ny = nx !== 0 ? 0 : k.y - HALF <= WORLD.y + 1 ? -1 : k.y + HALF >= WORLD.y + WORLD.h - 1 ? 1 : 0;
+    this.squashAlong(k, nx, ny, Math.min(0.12, hit / 6000));
+    if (hit > 650 && (nx !== 0 || ny !== 0)) this.kickFloor(nx, ny, Math.min(5, hit / 260));
   }
 
   // --- Zones ---------------------------------------------------------------------------------------
@@ -1022,37 +1195,81 @@ export class CrateCrazeScene extends BaseMinigame {
   private onZoneChange(k: Crate, prev: number, z: number): void {
     const sx = k.x;
     const sy = this.sy(k.y);
-    if (z >= 0) {
-      const color = PLAYER_COLORS[z];
-      k.aura.setTintFill(color).setVisible(true);
-      k.glow.setTint(color).setVisible(true);
-      this.fx.floatText(sx, sy - 150, `+${k.points}`, PLAYER_COLORS_CSS[z], { size: k.gold ? 72 : 58, rise: 70, duration: 800, stroke: '#06141a' });
-      audio.play('chipGain', { rate: k.gold ? 0.8 : 1 + Math.random() * 0.1, volume: 0.8, throttleMs: 40 });
-      this.fx.vfx('sparkle', sx, sy - 70, { scale: 0.45, duration: 420, blend: 'add', tint: color });
-      if (k.gold) {
-        this.fx.sparks(sx, sy - 70, 20);
-        this.crowdCheer();
-      }
-      const owner = this.pushers.find((u) => u.p.slot === z);
-      if (owner && !owner.p.isCpu) this.rumble(owner.p, 0.15, 0.3, 70);
-      if (owner && owner.stunT <= 0 && owner.windT <= 0 && owner.dashT <= 0 && k.gold) owner.c.play('celebrate');
-    } else {
-      k.aura.setVisible(false).setAlpha(0);
-      k.glow.setVisible(false).setAlpha(0);
-    }
     if (prev >= 0 && prev !== z) {
+      // Pushed out: its points come off at once, whether or not the "+N" had landed yet.
+      this.pending[prev] = Math.max(0, this.pending[prev] - k.points);
       this.fx.floatText(sx, sy - 150, `-${k.points}`, '#ff8a7a', { size: 50, rise: 60, duration: 750, stroke: '#3a0e0a' });
       audio.play('chipLose', { volume: 0.4, throttleMs: 60 });
+      // A rival did it: say who, in their colour.
+      const thief = k.lastPusher && k.lastPusher.p.slot !== prev ? k.lastPusher.p.slot : -1;
+      if (thief >= 0) this.fx.floatText(sx, sy - 205, 'STOLEN!', PLAYER_COLORS_CSS[thief], { size: 44, rise: 60, duration: 850, stroke: '#06141a' });
+    }
+    if (z >= 0) this.bank(k, z, sx, sy);
+    else {
+      k.aura.setVisible(false).setAlpha(0);
+      // A loose golden crate keeps its gold glow.
+      if (k.gold) k.glow.setTint(GOLD_GLOW).setVisible(true);
+      else k.glow.setVisible(false).setAlpha(0);
     }
   }
 
+  /**
+   * A crate lands in a zone: a freeze-frame, a flash of the owner's colour, a ring of dust rolling
+   * out, and a "+N" that flies up to the owner's HUD capsule (which counts it as it lands).
+   */
+  private bank(k: Crate, z: number, sx: number, sy: number): void {
+    const color = PLAYER_COLORS[z];
+    k.aura.setTintFill(color).setVisible(true);
+    k.glow.setTint(color).setVisible(true);
+    this.hitStop(k.gold ? BANK_STOP_GOLD : BANK_STOP);
+    this.squashCrate(k, 1.12, 0.86, 240);
+    const zone = this.zones[z];
+    if (zone) {
+      this.tweens.killTweensOf(zone.flash);
+      zone.flash.setAlpha(k.gold ? 0.4 : 0.26);
+      this.tweens.add({ targets: zone.flash, alpha: 0, duration: 380, ease: 'Quad.Out' });
+    }
+    this.rings.spawn(sx, sy, 48, 150, { squash: DEPTH_K, tint: 0xf3e3c3, alpha: 0.85, ms: 460, depth: 5.7 });
+    this.rings.spawn(sx, sy, 34, 118, { squash: DEPTH_K, tint: color, alpha: 0.95, ms: 380, depth: 5.8, add: true });
+    this.motes.fire(sx, sy + HALF * DEPTH_K * 0.4, burst(10), -90, 180, 80, 200);
+    const pts = k.points;
+    this.pending[z] += pts;
+    const h = this.hudPoint(z);
+    popToHud(this, sx, sy - 120, `+${pts}`, h.x, h.y, {
+      color: PLAYER_COLORS_CSS[z],
+      size: k.gold ? 70 : 58,
+      onArrive: () => {
+        this.pending[z] = Math.max(0, this.pending[z] - pts);
+        this.bumpHud(z);
+        audio.play('pop', { volume: 0.3, rate: 1.1 + pts * 0.1, throttleMs: 50 });
+      },
+    });
+    audio.play('chipGain', { rate: k.gold ? 0.8 : 1 + Math.random() * 0.1, volume: 0.8, throttleMs: 40 });
+    this.fx.vfx('sparkle', sx, sy - 70, { scale: 0.45, duration: 420, blend: 'add', tint: color });
+    if (k.gold) {
+      this.fx.sparks(sx, sy - 70, 20);
+      this.crowdCheer();
+    }
+    const owner = this.pushers.find((u) => u.p.slot === z);
+    if (owner && !owner.p.isCpu) this.rumble(owner.p, 0.15, 0.3, 70);
+    if (owner && owner.stunT <= 0 && owner.windT <= 0 && owner.dashT <= 0 && k.gold) owner.c.play('celebrate');
+  }
+
   // --- Visuals -------------------------------------------------------------------------------------
-  private syncVisuals(): void {
+  private syncVisuals(dt: number): void {
     const now = this.time.now;
+    const playing = this.phase === 'playing';
     for (const u of this.pushers) {
       const sy = this.sy(u.y);
       u.c.setPosition(u.x, sy).setDepth(sy);
+      // Straining against a crate in front of them: lean into it (pivoting at the feet).
+      const k = u.touching;
+      const c = u.p.controls;
+      const straining =
+        playing && k !== null && u.stunT <= 0 && u.windT <= 0 && u.dashT <= 0 && Math.abs(c.moveX) + Math.abs(c.moveY) > 0.35 && (k.x - u.x) * u.fx + (k.y - u.y) * u.fy > 0;
+      u.strain += ((straining ? 1 : 0) - u.strain) * Math.min(1, dt / 90);
       if (u.stunT > 0) continue;
+      u.c.sprite.setRotation(u.strain * LEAN * Phaser.Math.Clamp(u.fx * 1.4, -1, 1));
       if (Math.abs(u.fx) > 0.2) u.c.face(u.fx < 0);
       if (u.windT > 0 || u.dashT > 0) continue;
       const cur = u.c.current;
@@ -1067,7 +1284,7 @@ export class CrateCrazeScene extends BaseMinigame {
         const pulse = 0.5 + 0.5 * Math.sin(now / 260 + k.id);
         k.aura.setAlpha(0.14 + 0.14 * pulse);
         k.glow.setAlpha(0.45 + 0.3 * pulse);
-      }
+      } else if (k.gold && k.dropT <= 0) k.glow.setAlpha(0.62 + 0.2 * Math.sin(now / 300 + k.id));
       if (k.twinkle) {
         // A glint that wanders over the golden crate's lid.
         const ph = (now / 900 + k.id * 0.37) % 1;
@@ -1078,20 +1295,46 @@ export class CrateCrazeScene extends BaseMinigame {
           .setAlpha(0.9 * Math.sin(ph * Math.PI));
       }
     }
+    // A zone's rim pulses bright while a loose crate is sliding over its line: about to score.
+    for (const zone of this.zones) {
+      if (!zone) continue;
+      const r = zone.rect;
+      let near = false;
+      if (playing) {
+        for (const k of this.crates) {
+          if (k.zone >= 0 || k.dropT > 0 || Math.abs(k.vx) + Math.abs(k.vy) < 25) continue;
+          if (k.x + HALF > r.x && k.x - HALF < r.x + r.w && k.y + HALF > r.y && k.y - HALF < r.y + r.h) {
+            near = true;
+            break;
+          }
+        }
+      }
+      zone.heat += ((near ? 1 : 0) - zone.heat) * Math.min(1, dt / (near ? 60 : 240));
+      zone.hot.setAlpha(zone.heat * (0.6 + 0.4 * Math.sin(now / 75)));
+    }
   }
 
-  protected override ambient(): void {
-    if (this.phase !== 'playing') this.syncVisuals();
+  protected override ambient(dt: number): void {
+    // Particles follow the minigame clock: frozen in a hit-stop, slowed in slow motion.
+    const ts = this.time.timeScale;
+    this.motes.sync(ts);
+    this.chips.sync(ts);
+    this.rings.update(dt);
+    if (this.phase !== 'playing') this.syncVisuals(dt);
   }
 
   protected override end(): void {
     if (this.finished) return;
     this.finished = true;
+    // The HUD shows the true totals for the finish, even with pop-ups still in the air.
+    this.pending.fill(0);
     const best = Math.max(0, ...this.players.map((p) => p.score));
     for (const u of this.pushers) {
       u.tele.clear();
       u.windT = 0;
       u.dashT = 0;
+      u.strain = 0;
+      u.c.sprite.setRotation(0);
       if (best > 0 && u.p.score === best) {
         u.c.play('victory', { force: true });
         const zone = this.zones[u.p.slot];
