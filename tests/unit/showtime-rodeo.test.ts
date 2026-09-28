@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildBucks, COMBO_GAP, FALL_PENALTY_MS, gapMs, LEAN_MIN, ridesOut, rideLabel, rideScore, ROUND_MS, WILD_MS, wildness, windMs } from '../../src/game/worlds/showtime/rodeoRules';
+import { buckPressure, buildBucks, COMBO_GAP, COMBO_WIND_MIN, cpuThrowChance, FALL_PENALTY_MS, gapMs, LEAN_MIN, ridesOut, rideLabel, rideScore, ROUND_MS, WILD_MS, wildness, windMs } from '../../src/game/worlds/showtime/rodeoRules';
 
 describe('rhinestone rodeo: the bucking schedule', () => {
   it('is the same for a seed (every pony bucks together) and differs across seeds', () => {
@@ -15,7 +15,7 @@ describe('rhinestone rodeo: the bucking schedule', () => {
       expect(bucks[bucks.length - 1].snapAt).toBeLessThan(ROUND_MS);
       for (let i = 0; i < bucks.length; i++) {
         const b = bucks[i];
-        expect(b.snapAt - b.windAt, `seed ${seed} buck ${i}`).toBeGreaterThanOrEqual(300);
+        expect(b.snapAt - b.windAt, `seed ${seed} buck ${i}`).toBeGreaterThanOrEqual(COMBO_WIND_MIN);
         if (i > 0) expect(b.windAt - bucks[i - 1].snapAt).toBeGreaterThanOrEqual(COMBO_GAP);
       }
     }
@@ -44,6 +44,29 @@ describe('rhinestone rodeo: the bucking schedule', () => {
     const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
     expect(avg(late.map((b) => b.snapAt - b.windAt))).toBeLessThan(avg(early.map((b) => b.snapAt - b.windAt)));
     expect(late.length / (WILD_MS / 1000)).toBeGreaterThan(early.length / 15);
+  });
+});
+
+describe('rhinestone rodeo: CPU riders', () => {
+  it('are thrown more by quick wind-ups, and more the slower they react', () => {
+    const easy = { reaction: 520, mistake: 0.24 };
+    const hard = { reaction: 170, mistake: 0.05 };
+    expect(buckPressure(1150)).toBe(0);
+    expect(buckPressure(COMBO_WIND_MIN)).toBe(1);
+    for (const sk of [easy, hard]) {
+      expect(cpuThrowChance(sk.mistake, sk.reaction, 520, false)).toBeGreaterThan(cpuThrowChance(sk.mistake, sk.reaction, 1150, false));
+    }
+    for (const wind of [COMBO_WIND_MIN, 520, 800, 1150]) {
+      expect(cpuThrowChance(easy.mistake, easy.reaction, wind, false)).toBeGreaterThan(cpuThrowChance(hard.mistake, hard.reaction, wind, false));
+    }
+    // Even the easiest rider stays on more often than not, and a slow wind-up is only a slip risk.
+    expect(cpuThrowChance(easy.mistake, easy.reaction, COMBO_WIND_MIN, false)).toBeLessThan(0.5);
+    expect(cpuThrowChance(hard.mistake, hard.reaction, 1150, false)).toBeLessThan(0.02);
+  });
+
+  it('only risk a slip on a follow-up that tips the way they already lean', () => {
+    expect(cpuThrowChance(0.11, 300, COMBO_WIND_MIN, true)).toBeLessThan(cpuThrowChance(0.11, 300, COMBO_WIND_MIN, false));
+    expect(cpuThrowChance(0.11, 300, COMBO_WIND_MIN, true)).toBe(cpuThrowChance(0.11, 300, 1150, false));
   });
 });
 

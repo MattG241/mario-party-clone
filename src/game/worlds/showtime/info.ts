@@ -59,7 +59,7 @@ const RHINESTONE_RODEO: MinigameInfo = {
   id: 'rhinestone-rodeo',
   sceneKey: 'mg-rhinestone-rodeo',
   name: 'Rhinestone Rodeo',
-  tagline: 'Hold on to your hat, cowgirl!',
+  tagline: 'Hold on to your hat, partner!',
   description: 'Ride a sparkly mechanical pony in a pink honky-tonk ring. Every buck is telegraphed: lean the right way to stay in the saddle. The bucks get wilder and wilder!',
   instructions: [
     'Before each buck your pony tips one way; an arrow shows which',

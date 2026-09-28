@@ -25,6 +25,8 @@ export const LEAN_MIN = 0.45;
 export const FALL_PENALTY_MS = 2000;
 /** A combination's next wind-up starts this soon after the previous buck. */
 export const COMBO_GAP = 170;
+/** A combination's follow-up winds up quicker, but never quicker than this (still time to react). */
+export const COMBO_WIND_MIN = 400;
 /** After the buzzer's last buck the pony needs this long to settle (no buck snaps in the final moment). */
 const END_MARGIN = 700;
 
@@ -65,7 +67,7 @@ export function buildBucks(seed: number, roundMs: number = ROUND_MS): Buck[] {
     let n = 1;
     if (rng.next() < comboChance(w)) n = w > 0.6 && rng.next() < 0.35 ? 3 : 2;
     for (let k = 0; k < n; k++) {
-      const wind = Math.round(windMs(w) * (k === 0 ? 1 : 0.62));
+      const wind = k === 0 ? windMs(w) : Math.max(COMBO_WIND_MIN, Math.round(windMs(w) * 0.62));
       let dir: Lean = rng.next() < 0.5 ? -1 : 1;
       if (dir === last && run >= 3) dir = dir === 1 ? -1 : 1;
       run = dir === last ? run + 1 : 1;
@@ -82,6 +84,21 @@ export function buildBucks(seed: number, roundMs: number = ROUND_MS): Buck[] {
 /** Does a rider leaning `lean` (-1..1, from the stick) ride out a buck that tipped `dir`? */
 export function ridesOut(lean: number, dir: Lean): boolean {
   return lean * dir >= LEAN_MIN;
+}
+
+/** How hard a buck is to react to, from its wind-up: 0 = plenty of time (0.9 s or more), 1 = a snap reaction (0.4 s). */
+export function buckPressure(wind: number): number {
+  return Math.min(1, Math.max(0, (900 - wind) / 500));
+}
+
+/**
+ * A CPU rider's chance of being thrown by a buck: a small slip chance, plus more the quicker the
+ * wind-up, scaled by the CPU's reaction time (easy riders tumble in the wild ride, hard ones rarely).
+ * A combination's follow-up that tips the way the rider is already leaning only risks the slip.
+ */
+export function cpuThrowChance(mistake: number, reaction: number, wind: number, alreadyLeaning: boolean): number {
+  const slip = mistake * 0.25;
+  return alreadyLeaning ? slip : slip + (reaction / 1300) * buckPressure(wind);
 }
 
 /** Ride score: time in the saddle less the penalty for each fall (never below zero). */

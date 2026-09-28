@@ -8,7 +8,7 @@ import { BaseMinigame, type MgPlayer } from '../../../minigames/BaseMinigame';
 import { bakeWord, calmMotion, liteCount, WordPops } from '../../../minigames/games/stageKit';
 import { kick, shockwave } from '../../../minigames/juice';
 import { standOrigin } from '../../../util/spriteUtil';
-import { buildBucks, type Buck, FALL_PENALTY_MS, ridesOut, rideLabel, rideScore } from '../rodeoRules';
+import { buildBucks, type Buck, cpuThrowChance, FALL_PENALTY_MS, LEAN_MIN, ridesOut, rideLabel, rideScore } from '../rodeoRules';
 import { finishSprites, glowTexture, queueSprites, releaseOnShutdown, sparkleTexture, spread, type SpriteFile } from '../showtimeKit';
 
 // --- Layout (side view). The rendered ring (scripts/art/worlds/showtime/mg_rodeo.py) matches these. ---
@@ -40,6 +40,8 @@ const ARROW_Y = 452;
 const FLY_MS = 420;
 const DOWN_MS = 1250;
 const CLIMB_MS = 700;
+/** CPUs keep leaning this long after a buck. */
+const HOLD_AFTER_MS = 320;
 /** Bleacher feet lines (the crowd) and the disco ball. */
 const CROWD_ROWS = [
   { y: 548, scale: 0.36, n: 14, depth: -18 },
@@ -587,22 +589,33 @@ export class RhinestoneRodeoScene extends BaseMinigame {
     const now = this.elapsed;
     const i = this.nextSnap;
     const b = this.bucks[i];
+    const prev = this.bucks[i - 1];
+    // Just after a buck: hold the lean a moment (a combination's follow-up may tip the same way).
+    const holding = !!prev && now < prev.snapAt + HOLD_AFTER_MS;
     r.cpuWobble += dt;
     if (b && i >= r.from && now >= b.windAt) {
       if (r.cpuFor !== i) {
         r.cpuFor = i;
-        // React after a moment (a combo's quick follow-up leaves less time), sometimes misreading it.
-        r.cpuAt = b.windAt + sk.reaction * (0.75 + Math.random() * 0.5);
-        const roll = Math.random();
-        r.cpuDir = roll < sk.mistake * 0.55 ? -b.dir : roll < sk.mistake ? 0 : b.dir;
+        // Quicker wind-ups are harder to catch, more so for slower CPUs (see cpuThrowChance).
+        const wind = b.snapAt - b.windAt;
+        const leaning = holding && vc.moveX * b.dir >= LEAN_MIN;
+        const thrown = Math.random() < cpuThrowChance(sk.mistake, sk.reaction, wind, leaning);
+        const react = Math.min(wind - 70, sk.reaction * (0.7 + Math.random() * 0.4));
+        r.cpuDir = b.dir;
+        r.cpuAt = leaning ? now : b.windAt + react;
+        if (thrown) {
+          const roll = Math.random();
+          if (leaning || roll < 0.15) r.cpuDir = 0; // lets go
+          else if (roll < 0.4) r.cpuDir = -b.dir; // misreads it
+          else r.cpuAt = b.snapAt + 40 + Math.random() * 120; // too late
+        }
       }
       if (now >= r.cpuAt) vc.setMove(r.cpuDir * (0.85 + Math.random() * 0.1), 0);
-      else vc.setMove(0.12 * Math.sin(r.cpuWobble / 300), 0);
+      else if (!holding) vc.setMove(0.12 * Math.sin(r.cpuWobble / 300), 0);
       return;
     }
-    // Between bucks: settle back upright (holding a lean for a moment after the buck).
-    const prev = this.bucks[i - 1];
-    if (prev && now < prev.snapAt + 160) return;
+    // Between bucks: settle back upright.
+    if (holding) return;
     vc.setMove(0.15 * Math.sin(r.cpuWobble / 350), 0);
   }
 

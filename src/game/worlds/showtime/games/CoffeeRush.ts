@@ -873,7 +873,8 @@ export class CoffeeRushScene extends BaseMinigame {
       if (!st.cpuPlanned) {
         st.cpuPlanned = true;
         st.cpuWait = sk.reaction * (0.7 + Math.random() * 0.8);
-        st.cpuRelease = st.target + gauss() * (0.012 + sk.aimNoise * 0.062);
+        // Release spread by skill: hard lands PERFECT about 4 times in 5, easy under half the time.
+        st.cpuRelease = st.target + gauss() * (0.02 + sk.aimNoise * 0.1);
         if (Math.random() < sk.mistake * 0.45) st.cpuRelease += (Math.random() < 0.5 ? -1 : 1) * (0.13 + Math.random() * 0.1);
         st.cpuRelease = Math.min(0.995, st.cpuRelease);
       }
