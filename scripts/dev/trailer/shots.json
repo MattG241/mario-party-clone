@@ -153,7 +153,7 @@
  },
  {
   "name": "intro_card",
-  "url": "?minigame=gleam-grab&humans=0&instructions=on&seed=11&nocputag",
+  "url": "?minigame=gleam-grab&humans=1&instructions=on&seed=11&nocputag",
   "steps": [
    [
     "waitReal",
@@ -161,12 +161,24 @@
     120000
    ],
    [
+    "wait",
+    1500
+   ],
+   [
     "skip",
-    0.3
+    0.4
    ],
    [
     "record",
-    5
+    2.6
+   ],
+   [
+    "press",
+    "Enter"
+   ],
+   [
+    "record",
+    1.8
    ]
   ]
  },
