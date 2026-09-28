@@ -22,8 +22,9 @@ export type SwirlGrade = 'perfect' | 'good' | 'messy';
 export function gradeShot(level: number, target: number): ShotGrade {
   if (level >= 1) return 'spill';
   const d = level - target;
-  if (Math.abs(d) <= SHOT.perfect) return 'perfect';
-  if (Math.abs(d) <= SHOT.good) return 'good';
+  // (a hair of slack so a release exactly on a band's edge isn't lost to rounding)
+  if (Math.abs(d) <= SHOT.perfect + 1e-9) return 'perfect';
+  if (Math.abs(d) <= SHOT.good + 1e-9) return 'good';
   return d < 0 ? 'weak' : 'over';
 }
 

@@ -49,6 +49,15 @@ const PROG = [0, 0, 0, 0, 5, 5, 0, 0, 7, 5, 0, 7];
 const WALK = [0, 4, 7, 9, 10, 9, 7, 4];
 const BASS_ROOT = 0.78;
 const STAB_ROOT = 0.25;
+/** Piano stab chord (a triad) and the band's final chord, in semitones. */
+const TRIAD = [0, 4, 7] as const;
+const FINALE = [0, 4, 7, 12] as const;
+/** Crash cymbals on GO and where each part of the routine begins. */
+const CRASH_BEATS = new Set([0, 24, 44, 68]);
+
+function semi(n: number): number {
+  return Math.pow(2, n / 12);
+}
 
 /** Arrow and pose colours (the arrows' shape is the main cue; colour helps). */
 const MOVE_COLORS: Record<Move, [string, string]> = {
@@ -310,7 +319,6 @@ export class HipShakeScene extends BaseMinigame {
     const sec = sectionAt(beat);
     const busy = sec === 'hot' || sec === 'encore';
     const root = PROG[bar % 12];
-    const semi = (n: number) => Math.pow(2, n / 12);
     if (!off) {
       if (inBar === 0 || inBar === 2) audio.play('land', { volume: 0.9 });
       if (inBar === 1 || inBar === 3) {
@@ -319,7 +327,7 @@ export class HipShakeScene extends BaseMinigame {
       }
       audio.play('tick', { rate: 1.9, volume: 0.14 });
       this.onBeat(beat, inBar);
-      if ((beat === 0 || [24, 44, 68].includes(beat)) && this.phase === 'playing') audio.play('cymbal', { volume: 0.26 });
+      if (CRASH_BEATS.has(beat) && this.phase === 'playing') audio.play('cymbal', { volume: 0.26 });
     } else {
       audio.play('tick', { rate: 2.2, volume: busy ? 0.22 : 0.17 });
       if (busy && inBar === 3) audio.play('land', { volume: 0.5 });
@@ -328,7 +336,7 @@ export class HipShakeScene extends BaseMinigame {
     if (beat >= 4 || !off) audio.play('step', { rate: BASS_ROOT * semi(root + WALK[inBar * 2 + (off ? 1 : 0)]), volume: 0.8 });
     // Piano stabs on the "and" of two and four once the groove is going.
     if (off && (inBar === 1 || inBar === 3) && beat >= 24) {
-      for (const n of [0, 4, 7]) audio.play('warn', { rate: STAB_ROOT * semi(root + n + 12), volume: 0.85, throttleMs: 0 });
+      for (const n of TRIAD) audio.play('warn', { rate: STAB_ROOT * semi(root + n + 12), volume: 0.85, throttleMs: 0 });
     }
     this.chase++;
   }
@@ -704,7 +712,7 @@ export class HipShakeScene extends BaseMinigame {
       // The band's big finish, and everyone back to neutral for the finish poses.
       audio.play('cymbal', { volume: 0.45 });
       audio.play('land', { volume: 0.7 });
-      for (const n of [0, 4, 7, 12]) audio.play('warn', { rate: STAB_ROOT * Math.pow(2, (n + 12) / 12), volume: 1.4, throttleMs: 0 });
+      for (const n of FINALE) audio.play('warn', { rate: STAB_ROOT * semi(n + 12), volume: 1.4, throttleMs: 0 });
       for (const d of this.dancers) {
         d.pose = null;
         d.poseT = 0;
@@ -916,15 +924,21 @@ export class HipShakeScene extends BaseMinigame {
         ctx.moveTo(40, 86);
         ctx.arc(75, 74, 38, Math.PI, 0);
       } else {
-        // both arms up
-        ctx.moveTo(30, 132);
-        ctx.bezierCurveTo(14, 100, 8, 60, 16, 30);
-        ctx.lineTo(34, 30);
-        ctx.bezierCurveTo(30, 62, 40, 100, 50, 122);
-        ctx.moveTo(120, 132);
-        ctx.bezierCurveTo(136, 100, 142, 60, 134, 30);
-        ctx.lineTo(116, 30);
-        ctx.bezierCurveTo(120, 62, 110, 100, 100, 122);
+        // both arms up, fists high (tapered arms from the shoulders)
+        ctx.moveTo(26, 140);
+        ctx.quadraticCurveTo(10, 98, 16, 50);
+        ctx.lineTo(34, 48);
+        ctx.quadraticCurveTo(32, 94, 54, 126);
+        ctx.closePath();
+        ctx.moveTo(124, 140);
+        ctx.quadraticCurveTo(140, 98, 134, 50);
+        ctx.lineTo(116, 48);
+        ctx.quadraticCurveTo(118, 94, 96, 126);
+        ctx.closePath();
+        ctx.moveTo(37, 40);
+        ctx.arc(25, 40, 12, 0, Math.PI * 2);
+        ctx.moveTo(137, 40);
+        ctx.arc(125, 40, 12, 0, Math.PI * 2);
       }
       if (stroke) {
         ctx.lineWidth = 4;
