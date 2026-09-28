@@ -7,7 +7,8 @@ import { LITE } from '../../../perf';
 import { BaseMinigame, type MgPlayer } from '../../../minigames/BaseMinigame';
 import { banner, kick, popToHud, punch, shockwave, titleTexture, type HudPop } from '../../../minigames/juice';
 import { bakeWord, liteCount, RingBursts, WordPops } from '../../../minigames/games/stageKit';
-import { calm, Crowd, finishAtlas, hasFrame, queueAtlas, thickPolyline } from '../piratesKit';
+import { calm, Crowd, finishAtlas, hasFrame, queueAtlas, startHint, thickPolyline } from '../piratesKit';
+import { GullFlock, type GullHost } from './snatchGulls';
 import {
   angleDelta,
   clampAim,
@@ -65,9 +66,6 @@ const CHAR_SCALE = 0.62;
 const SLAM_WARN = 950;
 const SLAM_R = 78;
 const SLAM_LIFT = 420;
-/** The gulls: dive time, and how close a fist must pass to bop one. */
-const DIVE_MS = 850;
-const GULL_BOP_R = 58;
 const POP_SIZE = 58;
 
 // --- Depth bands -------------------------------------------------------------------------------------
@@ -144,29 +142,6 @@ interface Snatcher {
   pop?: { h: HudPop; value: number };
 }
 
-type GullState = 'off' | 'enter' | 'circle' | 'dive' | 'flee';
-
-interface Gull {
-  state: GullState;
-  x: number;
-  y: number;
-  h: number;
-  t: number;
-  /** Leg start and end (table plane + height), for enter / dive / flee. */
-  x0: number;
-  y0: number;
-  h0: number;
-  x1: number;
-  y1: number;
-  h1: number;
-  ang: number;
-  target: Snatcher | Food | null;
-  loot: Food | null;
-  spr: Phaser.GameObjects.Image;
-  shadow: Phaser.GameObjects.Image;
-  flap: number;
-}
-
 type SlamState = 'idle' | 'wind' | 'drop' | 'lift';
 
 /**
@@ -178,7 +153,7 @@ type SlamState = 'idle' | 'wind' | 'drop' | 'lift';
 export class StretchSnatchScene extends BaseMinigame {
   private snatchers: Snatcher[] = [];
   private foods: Food[] = [];
-  private gulls: Gull[] = [];
+  private gulls!: GullFlock<Snatcher | Food, Food>;
   private tableAngle = 0;
   private omega = 0.42;
   private spinDir = 1;
@@ -186,7 +161,6 @@ export class StretchSnatchScene extends BaseMinigame {
   private frenzy = false;
   private serveT = 0;
   private roastAt: number[] = [];
-  private gullT = 0;
   private slamState: SlamState = 'idle';
   private slamT = 0;
   private slamNext = 0;
@@ -228,7 +202,6 @@ export class StretchSnatchScene extends BaseMinigame {
     this.duration = 45000;
     this.snatchers = [];
     this.foods = [];
-    this.gulls = [];
     this.tableAngle = 0;
     this.omega = spinSpeed(0, false);
     this.spinDir = 1;
@@ -236,7 +209,6 @@ export class StretchSnatchScene extends BaseMinigame {
     this.frenzy = false;
     this.serveT = 300;
     this.roastAt = [11500, 27000];
-    this.gullT = 8000;
     this.slamState = 'idle';
     this.slamT = 0;
     this.slamNext = 5500;
@@ -274,7 +246,7 @@ export class StretchSnatchScene extends BaseMinigame {
     this.cook.setDepth(D_COOK);
     this.pin = (this.hasAtlas ? this.add.image(0, 0, 'pirates-snatch', 'pin') : this.add.image(0, 0, 'fx-dot').setScale(6, 1.6).setTint(0xe6b87a)).setDepth(D_TENTACLE + 1).setVisible(false);
     for (let i = 0; i < 32; i++) this.foods.push(this.makeFood());
-    for (let i = 0; i < 2; i++) this.gulls.push(this.makeGull());
+    this.gulls = new GullFlock(this.gullHost(), D_GULL, D_DECAL + 3);
     this.buildCrowd();
     this.buildSteam();
     // a first spread of food so nobody reaches for an empty table
@@ -405,6 +377,7 @@ export class StretchSnatchScene extends BaseMinigame {
     for (const s of this.snatchers) s.c.play('wave');
     this.setCookMood('happy', 900);
     audio.play('cheer', { volume: 0.45 });
+    if (this.humanSlots().length) startHint(this, 'Aim with the stick, hold A to stretch \u2014 let go to snap back!', 1030);
   }
 
   protected override bannerY(): number {
@@ -1014,233 +987,93 @@ export class StretchSnatchScene extends BaseMinigame {
     this.rumble(s.p, 0.7, 0.5, 220);
   }
 
-  // --- Gulls ---------------------------------------------------------------------------------------
-  private makeGull(): Gull {
-    const spr = (this.hasAtlas ? this.add.image(0, 0, 'pirates-snatch', 'gull_1') : this.add.image(0, 0, 'fx-dot').setScale(4, 2)).setDepth(D_GULL).setVisible(false);
-    const shadow = this.add.image(0, 0, 'fx-contact').setDepth(D_DECAL + 3).setVisible(false);
-    return { state: 'off', x: 0, y: 0, h: 0, t: 0, x0: 0, y0: 0, h0: 0, x1: 0, y1: 0, h1: 0, ang: 0, target: null, loot: null, spr, shadow, flap: 0 };
+  // --- Gulls (snatchGulls.ts flies them; the scene says what they can dive at) -------------------------
+  private gullHost(): GullHost<Snatcher | Food, Food> {
+    return {
+      scene: this,
+      hasAtlas: this.hasAtlas,
+      rand: () => this.rng.next(),
+      screen: (x, y, z, out) => {
+        out.x = this.sx(x);
+        out.y = this.sy(y, z);
+        return out;
+      },
+      pickPrey: () => this.gullPrey(),
+      preyAt: (prey, out) => {
+        if ('arm' in prey) {
+          if (!this.armOut(prey.arm) || !prey.arm.haul.length) return false;
+          this.fistPos(prey, out);
+          return true;
+        }
+        if (prey.state !== 'table') return false;
+        out.x = prey.x;
+        out.y = prey.y;
+        return true;
+      },
+      snatch: (prey) => this.snatchFrom(prey),
+      fistHits: (x, y, r) => {
+        for (const s of this.snatchers) {
+          if (s.arm.state !== 'reach' && s.arm.state !== 'hold') continue;
+          const fp = this.fistPos(s, this.tmpB);
+          if (Math.hypot(fp.x - x, fp.y - y) <= r) return true;
+        }
+        return false;
+      },
+      drop: (f, x, y) => this.dropFood(f, x, y),
+      lose: (f) => this.releaseFood(f),
+      carry: (f, x, y, tilt) => {
+        f.spr.setPosition(x, y).setDepth(D_GULL - 1).setAngle(tilt);
+        f.glint?.setPosition(x, y - 14);
+      },
+      said: (word, x, y) => {
+        this.words.pop(word === 'squawk' ? 'pc-w-squawk' : 'pc-w-bop', x, y - 55, { scale: 0.88, near: 80 });
+        this.fx.vfx('confetti', x, y, { scale: 0.42, duration: 420, tint: 0xffffff, depth: D_GULL + 1 });
+      },
+    };
   }
 
-  private spawnGull(): void {
-    const g = this.gulls.find((q) => q.state === 'off');
-    if (!g) return;
-    const left = this.rng.next() < 0.5;
-    g.state = 'enter';
-    g.t = 0;
-    g.x0 = left ? -1150 : 1150;
-    g.y0 = -520 + this.rng.next() * 200;
-    g.h0 = 420;
-    g.ang = this.rng.next() * Math.PI * 2;
-    g.x1 = Math.cos(g.ang) * 180;
-    g.y1 = Math.sin(g.ang) * 150;
-    g.h1 = 240;
-    g.target = null;
-    g.loot = null;
-    g.spr.setVisible(true).setAlpha(1);
-    g.shadow.setVisible(true);
-    audio.play('warn', { volume: 0.3, rate: 1.9 });
-  }
-
-  private gullTargetPos(g: Gull, out: Pt): boolean {
-    const t = g.target;
-    if (!t) return false;
-    if ('arm' in t) {
-      if (!this.armOut(t.arm) || !t.arm.haul.length) return false;
-      this.fistPos(t, out);
-      return true;
-    }
-    if (t.state !== 'table') return false;
-    out.x = t.x;
-    out.y = t.y;
-    return true;
-  }
-
-  private chooseGullTarget(g: Gull): void {
+  /** A gull's pick: the fullest fist out over the table, else the most valuable item on it. */
+  private gullPrey(): Snatcher | Food | null {
     let best: Snatcher | Food | null = null;
     let bestV = 0;
     for (const s of this.snatchers) {
       if (!this.armOut(s.arm) || !s.arm.haul.length || s.arm.state === 'snap') continue;
-      let v = 0;
+      let v = 1.5;
       for (const f of s.arm.haul) v += FOOD_VALUE[f.kind];
-      v += 1.5;
       if (v > bestV) {
         bestV = v;
         best = s;
       }
     }
-    if (!best) {
-      for (const f of this.foods) {
-        if (f.state !== 'table') continue;
-        const v = FOOD_VALUE[f.kind] + this.rng.next() * 0.5;
-        if (v > bestV) {
-          bestV = v;
-          best = f;
-        }
+    if (best) return best;
+    for (const f of this.foods) {
+      if (f.state !== 'table') continue;
+      const v = FOOD_VALUE[f.kind] + this.rng.next() * 0.5;
+      if (v > bestV) {
+        bestV = v;
+        best = f;
       }
     }
-    g.target = best;
+    return best;
   }
 
-  private updateGulls(dt: number): void {
-    if (this.phase === 'playing') {
-      this.gullT -= dt;
-      if (this.gullT <= 0) {
-        this.gullT = 6500 + this.rng.next() * 3500 - (this.frenzy ? 2000 : 0);
-        const active = this.gulls.filter((g) => g.state !== 'off').length;
-        const cap = this.players.length >= 3 && this.elapsed > 20000 ? 2 : 1;
-        if (active < cap) this.spawnGull();
-      }
-    }
-    for (const g of this.gulls) {
-      if (g.state === 'off') continue;
-      g.t += dt;
-      g.flap += dt;
-      let u = 0;
-      if (g.state === 'enter') {
-        u = Math.min(1, g.t / 1300);
-        const e = 1 - (1 - u) * (1 - u);
-        g.x = g.x0 + (g.x1 - g.x0) * e;
-        g.y = g.y0 + (g.y1 - g.y0) * e;
-        g.h = g.h0 + (g.h1 - g.h0) * e;
-        if (u >= 1) {
-          g.state = 'circle';
-          g.t = 0;
-        }
-      } else if (g.state === 'circle') {
-        g.ang += (dt / 1000) * 1.6;
-        g.x = Math.cos(g.ang) * 180;
-        g.y = Math.sin(g.ang) * 150;
-        g.h = 240 + Math.sin(g.t / 200) * 8;
-        if (g.t > 1100) {
-          this.chooseGullTarget(g);
-          if (!g.target) this.flee(g);
-          else {
-            g.state = 'dive';
-            g.t = 0;
-            g.x0 = g.x;
-            g.y0 = g.y;
-            g.h0 = g.h;
-            audio.play('warn', { volume: 0.45, rate: 2.1 });
-            audio.play('whoosh', { volume: 0.4, rate: 0.8 });
-          }
-        }
-      } else if (g.state === 'dive') {
-        u = Math.min(1, g.t / DIVE_MS);
-        const ok = this.gullTargetPos(g, this.tmp);
-        if (ok) {
-          g.x1 = this.tmp.x;
-          g.y1 = this.tmp.y;
-        }
-        const e = u * u;
-        g.x = g.x0 + (g.x1 - g.x0) * e;
-        g.y = g.y0 + (g.y1 - g.y0) * e;
-        g.h = g.h0 * (1 - e) + 24 * e;
-        if (this.gullBopped(g)) continue;
-        if (u >= 1) this.gullStrike(g, ok);
-      } else if (g.state === 'flee') {
-        u = Math.min(1, g.t / 1200);
-        const e = u * u;
-        g.x = g.x0 + (g.x1 - g.x0) * e;
-        g.y = g.y0 + (g.y1 - g.y0) * e;
-        g.h = g.h0 + (g.h1 - g.h0) * u;
-        if (g.t < 350 && g.loot && this.gullBopped(g)) continue;
-        if (u >= 1) {
-          g.state = 'off';
-          g.spr.setVisible(false);
-          g.shadow.setVisible(false);
-          if (g.loot) this.releaseFood(g.loot);
-          g.loot = null;
-          continue;
-        }
-      }
-      this.drawGull(g);
-    }
-  }
-
-  private gullStrike(g: Gull, ok: boolean): void {
-    const t = g.target;
-    if (ok && t) {
-      let loot: Food | null = null;
-      let victim: Snatcher | null = null;
-      if ('arm' in t) {
-        const haul = t.arm.haul;
-        let bi = 0;
-        for (let i = 1; i < haul.length; i++) if (FOOD_VALUE[haul[i].kind] > FOOD_VALUE[haul[bi].kind]) bi = i;
-        loot = haul.splice(bi, 1)[0] ?? null;
-        victim = t;
-      } else if (t.state === 'table') {
-        loot = t;
-      }
+  /** The gull takes the best item from a fist, or the item itself off the table. */
+  private snatchFrom(prey: Snatcher | Food): Food | null {
+    let loot: Food | null = null;
+    if ('arm' in prey) {
+      const haul = prey.arm.haul;
+      let bi = 0;
+      for (let i = 1; i < haul.length; i++) if (FOOD_VALUE[haul[i].kind] > FOOD_VALUE[haul[bi].kind]) bi = i;
+      loot = haul.splice(bi, 1)[0] ?? null;
       if (loot) {
-        loot.state = 'gull';
-        loot.shadow.setVisible(false);
-        g.loot = loot;
-        audio.play('chipLose', { volume: 0.5 });
-        audio.play('warn', { volume: 0.5, rate: 2.3 });
-        const x = this.sx(g.x);
-        const y = this.sy(g.y, g.h);
-        this.words.pop('pc-w-squawk', x, y - 60, { scale: 0.85, near: 80 });
-        this.fx.vfx('confetti', x, y, { scale: 0.4, duration: 420, tint: 0xffffff, depth: D_GULL + 1 });
-        if (victim) {
-          victim.c.squash(0.16, 160);
-          this.rumble(victim.p, 0.3, 0.3, 120);
-        }
+        prey.c.squash(0.16, 160);
+        this.rumble(prey.p, 0.3, 0.3, 120);
       }
-    }
-    this.flee(g);
-  }
-
-  private flee(g: Gull): void {
-    g.state = 'flee';
-    g.t = 0;
-    g.x0 = g.x;
-    g.y0 = g.y;
-    g.h0 = g.h;
-    const right = g.x > 0 ? 1 : -1;
-    g.x1 = right * 1250;
-    g.y1 = -600;
-    g.h1 = 460;
-  }
-
-  /** A fist passing close to a low gull bops it: it drops what it carried back onto the table. */
-  private gullBopped(g: Gull): boolean {
-    if (g.h > 110) return false;
-    for (const s of this.snatchers) {
-      const a = s.arm;
-      if (a.state !== 'reach' && a.state !== 'hold') continue;
-      const fp = this.fistPos(s, this.tmp);
-      if (Math.hypot(fp.x - g.x, fp.y - g.y) > GULL_BOP_R) continue;
-      const x = this.sx(g.x);
-      const y = this.sy(g.y, g.h);
-      audio.play('bounce', { volume: 0.5, rate: 1.6 });
-      audio.play('warn', { volume: 0.35, rate: 2.4 });
-      this.words.pop('pc-w-bop', x, y - 50, { scale: 0.9, near: 80 });
-      this.fx.vfx('confetti', x, y, { scale: 0.45, duration: 420, tint: 0xffffff, depth: D_GULL + 1 });
-      if (g.loot) {
-        this.dropFood(g.loot, g.x, g.y);
-        g.loot = null;
-      }
-      g.target = null;
-      this.flee(g);
-      return true;
-    }
-    return false;
-  }
-
-  private drawGull(g: Gull): void {
-    const x = this.sx(g.x);
-    const y = this.sy(g.y);
-    const f = Math.floor(g.flap / (g.state === 'dive' ? 70 : 110)) % 4;
-    const frame = ['gull_0', 'gull_1', 'gull_2', 'gull_1'][f];
-    if (this.hasAtlas) g.spr.setFrame(frame);
-    const dx = g.x1 - g.x0;
-    g.spr.setPosition(x, y - g.h).setFlipX(dx < 0).setScale(1 + g.h / 900).setDepth(D_GULL + g.y * 0.001);
-    const k = Math.max(0.25, 1 - g.h / 420);
-    g.shadow.setPosition(x, y + 2).setScale(0.9 * (1.3 - k * 0.3), 0.3 * (1.3 - k * 0.3)).setAlpha(0.15 + 0.5 * k);
-    if (g.loot) {
-      g.loot.spr.setPosition(x, y - g.h + 34).setDepth(D_GULL - 1).setAngle(Math.sin(g.flap / 80) * 12);
-      g.loot.glint?.setPosition(x, y - g.h + 20);
-    }
+    } else if (prey.state === 'table') loot = prey;
+    if (!loot) return null;
+    loot.state = 'gull';
+    loot.shadow.setVisible(false);
+    return loot;
   }
 
   // --- Frame ---------------------------------------------------------------------------------------
@@ -1261,11 +1094,12 @@ export class StretchSnatchScene extends BaseMinigame {
     this.updateCook(dt);
     for (const sn of this.snatchers) this.updateArm(sn, dt);
     this.checkTangles();
-    this.updateGulls(dt);
+    this.gulls.update(dt, true, this.players.length >= 3 && this.elapsed > 20000, this.frenzy);
     this.drawArms();
   }
 
   protected override ambient(dt: number): void {
+    if (this.phase === 'finished') this.gulls?.update(dt, false, false, false);
     if (this.phase !== 'playing') {
       if (this.phase === 'countdown') {
         this.tableAngle += this.omega * 0.5 * (dt / 1000);
@@ -1480,7 +1314,7 @@ export class StretchSnatchScene extends BaseMinigame {
       b.target = undefined;
       return;
     }
-    const miss = sk.aimNoise * 46 * (Math.random() - 0.5) * 2;
+    const miss = sk.aimNoise * 95 * (Math.random() - 0.5) * 2;
     const ang = Math.atan2(best.y - s.sy, best.x - s.sx) + Math.PI / 2;
     b.target = { x: best.x + Math.cos(ang) * miss, y: best.y + Math.sin(ang) * miss };
     b.wait = best.len + 20 + (Math.random() < sk.mistake ? 140 : 0);
@@ -1505,7 +1339,7 @@ export class StretchSnatchScene extends BaseMinigame {
       const fp = this.fistPos(s, this.tmpA);
       if (distToSegment(this.slamX, this.slamY, s.sx, s.sy, fp.x, fp.y) < SLAM_R + 30) return true;
     }
-    for (const g of this.gulls) if (g.state === 'dive' && g.target === s && g.t > DIVE_MS * 0.3) return true;
+    if (this.gulls.divingAt(s) > 0.3) return true;
     return false;
   }
 

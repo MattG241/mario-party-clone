@@ -140,7 +140,7 @@ export function buildChart(rand: () => number, o: ChartOpts): Note[] {
     }
     if (used.length) prevLane = used[used.length - 1];
     // an off-beat note in another lane, now and then, once the round has warmed up
-    if (phase >= 2 && count === 1 && rand() < 0.2 + 0.1 * late) {
+    if (phase >= 2 && count === 1 && t + beat / 2 < o.duration - 250 && rand() < 0.2 + 0.1 * late) {
       const lane = pickLane(used);
       if (lane >= 0) add(t + beat / 2, lane, kindAt(t + beat / 2, false), beat);
     }
@@ -148,6 +148,21 @@ export function buildChart(rand: () => number, o: ChartOpts): Note[] {
   }
   notes.sort((a, b) => a.t - b.t || a.lane - b.lane);
   return notes;
+}
+
+/**
+ * The drum's beats: the same grid the chart's crossings sit on (four count-in beats before the first,
+ * and the quicker beat from the first grid point in the final stretch), so a crossing always lands on a
+ * drum hit (off-beat notes fall exactly halfway between two).
+ */
+export function beatTimes(o: ChartOpts): number[] {
+  const out: number[] = [];
+  let t = o.start - 4 * o.beat;
+  while (t < o.duration + o.beat) {
+    out.push(Math.round(t));
+    t += t >= o.fastFrom ? o.fastBeat : o.beat;
+  }
+  return out;
 }
 
 // --- Timing and scoring ------------------------------------------------------------------------------

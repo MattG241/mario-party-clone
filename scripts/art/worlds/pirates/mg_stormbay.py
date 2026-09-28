@@ -41,7 +41,7 @@ def inside_bay(x, y, pad=0.0):
 
 def shore_rocks(rnd):
     """Rock clusters and cliffs round the rim (outside the bay), grassy tops on the big ones."""
-    rocks, grass = MeshBuilder(), MeshBuilder()
+    rocks, grass, foam = MeshBuilder(), MeshBuilder(), MeshBuilder()
     spots = []
     # a dense chain along each edge
     for k in range(34):
@@ -59,13 +59,17 @@ def shore_rocks(rnd):
         if inside_bay(x, y, pad=-10):
             continue
         c = bw(x, y, 0.0)
-        tint = rnd.choice(['#6f6a66', '#7c766f', '#5f5b5a', '#85807a'])
+        tint = rnd.choice(['#6f6a66', '#7c766f', '#5f5b5a', '#85807a', '#7a6a58', '#6a5a4a', '#4f4d52'])
         K.rock(rocks, c.x, c.y, -0.3, r, seed=i, squash=(1.1, 1.0, 0.75), tint=tint)
+        # a collar of surf where the rock meets the water
+        v, f = lib.blob((c.x, c.y, 0.0), r * 1.12, squash=(1.12, 1.05, 0.05), rough=0.3, subdiv=2, seed=i + 300)
+        foam.add(v, f, col('#e6f2f4'))
         if r > 1.25 and rnd.random() < 0.6:
             v, f = lib.blob((c.x, c.y, -0.3 + r * 0.62), r * 0.62, squash=(1.1, 1.0, 0.28), rough=0.25, subdiv=2, seed=i + 100)
             grass.add(v, f, col(rnd.choice(['#3f7a3a', '#4a8a40', '#356b33'])))
-    rocks.build('shore_rocks', K.m()['rock'])
+    rocks.build('shore_rocks', K.rock_material('wet_rock', rough=0.55))
     grass.build('shore_grass', K.m()['leaf'])
+    foam.build('shore_foam', lib.attr_mat('surf', rough=0.7))
 
 
 def palms(rnd):
@@ -160,7 +164,7 @@ def main():
     scale = A.scale or (0.4 if A.preview else 1.0)
     lib.camera_for_region(0, 0, K.SW, K.SH, scale=scale)
     sea = K.sea_material('storm_sea', deep='#0b2a3a', mid='#174452', light='#2f6570', foam='#dcecee', foam_amt=0.9, wave_scale=0.3, rough=0.16,
-                         net=0.22, streaks=1.0, streak_dir=(0.9, 3.4))
+                         net=0.0, streaks=1.25, streak_dir=(0.9, 3.4), swell=1.0)
     K.plane('sea', -30, -40, 50, 30, 0.0, sea)
     rnd = random.Random(21)
     shore_rocks(rnd)

@@ -281,7 +281,7 @@ def dock():
     PR = props.Prop('dock_props')
     v, f = lib.box(((x0 + x1) / 2, y1 + 0.02, top - 0.12), (x1 - x0, 0.2, 0.3))
     PR.b['wood'].add(v, f, col('#6a4024'))
-    for x in [-5.6, -4.25, 0.0, 4.25, 5.6, -8.5, 8.5]:
+    for x in [-5.6, -4.25, 4.25, 5.6, -8.5, 8.5]:
         v, f = lib.lathe([(0.18, 0.0), (0.16, 0.3), (0.2, 0.36), (0.22, 0.42), (0.0, 0.46)], 14, (x, y1 - 0.3, top))
         PR.b['metal'].add(v, f, col('#3a3c44'))
     rope = MeshBuilder()
@@ -351,8 +351,9 @@ def quays():
     PR.b['wood'].add(v, f, col('#6a4024'))
     v, f = lib.tube([(cx + 4.0, cy - 1.5, 7.2), (cx + 4.0, cy - 1.5, 4.2)], 0.025, 4)
     PR.b['wood'].add(v, f, col('#3e3024'))
-    v, f = lib.blob((cx + 4.0, cy - 1.5, 3.6), 0.7, squash=(1.0, 1.0, 0.9), rough=0.2, subdiv=2)
-    PR.b['paint'].add(v, f, col('#c9a06a'))
+    wood = MeshBuilder()
+    K.crate(wood, cx + 4.0, cy - 1.5, 3.4, s=0.9, rot=0.3)
+    wood.build('crane_crate', props.mats()['wood'])
     PR.build()
     K.pennant_line((9.3, 10.0, 3.2), (9.3, 22.0, 3.6), n=12, sag=0.5, size=0.35, name='quay_pennants_r')
     K.pennant_line((-9.3, 10.0, 3.2), (-9.3, 24.0, 3.8), n=12, sag=0.5, size=0.35, colors=K.PLAYER, name='quay_pennants_l')

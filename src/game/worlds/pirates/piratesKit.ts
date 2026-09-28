@@ -7,6 +7,7 @@ import { LITE } from '../../perf';
 import { settings } from '../../save/SettingsManager';
 import { inflateTexture } from '../../util/texture';
 import { standOrigin } from '../../util/spriteUtil';
+import { addText } from '../../ui/theme';
 
 function halfSize(scene: Phaser.Scene): boolean {
   return LITE && scene.game.renderer instanceof Phaser.Renderer.WebGL.WebGLRenderer;
@@ -99,6 +100,22 @@ export class Crowd {
       spr.setY(y);
       this.scene.tweens.add({ targets: spr, y: y - (big ? 16 : 10), duration: 150, yoyo: true, repeat: big ? 2 : 1, delay: i * 30, ease: 'Quad.Out', onComplete: () => spr.setY(y) });
     });
+  }
+}
+
+/**
+ * A one-line reminder of the controls, shown for a few seconds after GO when a person is playing (the
+ * intro card explains the rules; this is the "right, which button?" nudge).
+ */
+export function startHint(scene: Phaser.Scene, text: string, y: number, depth = 8800): void {
+  const t = addText(scene, 960, y, text, 36, { color: '#fff4dc', stroke: '#06141a', strokeThickness: 7, weight: 700, fixed: true }).setDepth(depth);
+  const back = scene.add.graphics().setDepth(depth - 1);
+  back.fillStyle(0x06141a, 0.55);
+  back.fillRoundedRect(960 - t.width / 2 - 28, y - 32, t.width + 56, 64, 32);
+  for (const o of [t, back]) {
+    o.setAlpha(0);
+    scene.tweens.add({ targets: o, alpha: 1, delay: 500, duration: 250 });
+    scene.tweens.add({ targets: o, alpha: 0, delay: 3600, duration: 450, onComplete: () => o.destroy() });
   }
 }
 

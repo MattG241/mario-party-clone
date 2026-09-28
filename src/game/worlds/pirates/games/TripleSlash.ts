@@ -11,10 +11,11 @@ import { BaseMinigame, type MgPlayer } from '../../../minigames/BaseMinigame';
 import { kick, popToHud, punch, shockwave, titleTexture } from '../../../minigames/juice';
 import { AFX, burst, ensureArenaFxTextures, Spray } from '../../../minigames/games/arenaFx';
 import { bakeWord, WordPops } from '../../../minigames/games/stageKit';
-import { calm, Crowd, finishAtlas, hasFrame, queueAtlas } from '../piratesKit';
+import { calm, Crowd, finishAtlas, hasFrame, queueAtlas, startHint } from '../piratesKit';
 import {
   BOMB_PENALTY,
   BOMB_WINDOW,
+  beatTimes,
   buildChart,
   chutesFor,
   comboMult,
@@ -122,9 +123,9 @@ interface Slasher {
 export class TripleSlashScene extends BaseMinigame {
   private slashers: Slasher[] = [];
   private chart: Note[] = [];
-  private beatClock = 0;
+  private beats: number[] = [];
+  private beatNext = 0;
   private beatIdx = 0;
-  private fast = false;
   private hasAtlas = false;
   private padG!: Phaser.GameObjects.Graphics;
   private halves: Half[] = [];
@@ -153,14 +154,15 @@ export class TripleSlashScene extends BaseMinigame {
     this.slashers = [];
     this.halves = [];
     this.slashes = [];
-    this.beatClock = 0;
+    this.beatNext = 0;
     this.beatIdx = 0;
-    this.fast = false;
     this.pulse = 0;
     this.wrapped = false;
     finishAtlas(this, 'pirates-slash');
     this.hasAtlas = hasFrame(this, 'pirates-slash', 'barrel_0');
-    this.chart = buildChart(() => this.rng.next(), { duration: this.duration, beat: BEAT, fastBeat: FAST_BEAT, fastFrom: this.duration - 10000, start: 2200 });
+    const opts = { duration: this.duration, beat: BEAT, fastBeat: FAST_BEAT, fastFrom: this.duration - 10000, start: 2200 };
+    this.chart = buildChart(() => this.rng.next(), opts);
+    this.beats = beatTimes(opts);
     ensureArenaFxTextures(this);
     this.makeSlashTexture();
     for (const [key, text, fill] of [
@@ -316,6 +318,7 @@ export class TripleSlashScene extends BaseMinigame {
   protected override onStart(): void {
     audio.play('crack', { volume: 0.4 });
     for (const s of this.slashers) s.c.play('wave');
+    if (this.humanSlots().length) startHint(this, 'X, A and B slice the left, middle and right lanes \u2014 on the beat!', 560);
   }
 
   protected override bannerY(): number {
@@ -323,8 +326,7 @@ export class TripleSlashScene extends BaseMinigame {
   }
 
   protected override onFinalStretch(): void {
-    this.fast = true;
-    this.showFinalStretch('DOUBLE TIME!');
+    this.showFinalStretch('SPEED UP!');
     this.crowd?.cheer(true);
   }
 
@@ -448,8 +450,10 @@ export class TripleSlashScene extends BaseMinigame {
   private readLanes(s: Slasher): void {
     const c = s.p.controls;
     for (let lane = 0; lane < 3; lane++) {
-      if (!LANE_BUTTONS[lane].some((b) => c.pressed(b))) continue;
-      this.slash(s, lane);
+      const btns = LANE_BUTTONS[lane];
+      let hit = false;
+      for (let i = 0; i < btns.length && !hit; i++) hit = c.pressed(btns[i]);
+      if (hit) this.slash(s, lane);
     }
   }
 
@@ -509,19 +513,22 @@ export class TripleSlashScene extends BaseMinigame {
     const frame = spr.frame;
     const w = frame.realWidth;
     const h = frame.realHeight;
+    // cut through the middle of what's drawn (the frame's anchor is the contact point, below the object)
+    const ss = (frame as unknown as { data?: { spriteSourceSize?: { y: number; h: number } } }).data?.spriteSourceSize;
+    const mid = frame.trimmed && ss ? ss.y + ss.h / 2 : h / 2;
     for (let i = 0; i < 2; i++) {
       const hf = this.halves.find((q) => !q.active);
       if (!hf) break;
       hf.active = true;
       hf.t = 0;
       hf.x = spr.x;
-      hf.y = spr.y - (i === 0 ? h * spr.scaleY * 0.3 : 0);
+      hf.y = spr.y;
       const side = i === 0 ? -1 : 1;
       hf.vx = side * (160 + Math.random() * 120) + (lane - 1) * 60;
       hf.vy = -260 - Math.random() * 160 - (i === 0 ? 120 : 0);
       hf.spin = side * (240 + Math.random() * 240);
       hf.img.setTexture(spr.texture.key, frame.name).setScale(spr.scaleX, spr.scaleY).setOrigin(0.5, 0.5).setAngle(0).setAlpha(1).setVisible(true).setTint(0xffffff);
-      if (this.hasAtlas) hf.img.setCrop(0, i === 0 ? 0 : h * 0.5, w, h * 0.5);
+      if (this.hasAtlas) hf.img.setCrop(0, i === 0 ? 0 : mid, w, i === 0 ? mid : h - mid);
       hf.img.setPosition(hf.x, hf.y);
     }
     this.freeObj(o);
@@ -671,15 +678,14 @@ export class TripleSlashScene extends BaseMinigame {
   }
 
   // --- Beat ----------------------------------------------------------------------------------------
+  /** The drum: a thump on every beat of the chart's grid (a heavier one each bar); the pads pulse with it. */
   private updateBeat(dt: number): void {
-    const beat = this.fast ? FAST_BEAT : BEAT;
-    this.beatClock += dt;
     this.pulse *= Math.exp(-dt / 120);
-    if (this.beatClock >= beat) {
-      this.beatClock -= beat;
+    while (this.beatNext < this.beats.length && this.elapsed >= this.beats[this.beatNext]) {
+      this.beatNext++;
       this.beatIdx++;
-      const accent = this.beatIdx % 4 === 0;
-      if (this.phase === 'playing') audio.play('step', { volume: accent ? 0.5 : 0.32, rate: accent ? 0.72 : 0.9 });
+      const accent = this.beatIdx % 4 === 1;
+      audio.play('step', { volume: accent ? 0.5 : 0.32, rate: accent ? 0.72 : 0.9 });
       this.pulse = accent ? 1 : 0.6;
       if (accent && !calm()) for (const spr of this.crowd?.sprites ?? []) this.tweens.add({ targets: spr, scaleY: { from: spr.scaleY * 0.94, to: spr.scaleY }, duration: 160 });
     }
@@ -756,7 +762,7 @@ export class TripleSlashScene extends BaseMinigame {
     this.smoke?.sync(k);
     this.sparks?.sync(k);
     if (this.phase === 'countdown') {
-      this.updateBeat(dt);
+      this.pulse *= Math.exp(-dt / 120);
       this.drawPads(dt);
     }
   }

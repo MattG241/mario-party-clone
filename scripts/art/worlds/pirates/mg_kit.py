@@ -136,7 +136,7 @@ def plank_material(name, light='#c99462', dark='#a8764b', seam='#4a2e1c', plank_
     return mt.mat
 
 
-def rock_material(name):
+def rock_material(name, rough=0.86):
     """Chunky cartoon rock: vertex tint x broad noise, dark crevices, top faces a touch lighter."""
     mt = lib.NT(name)
     pos = mt.position()
@@ -146,7 +146,7 @@ def rock_material(name):
     nz = mt.sep(mt.normal())[2]
     c = mt.mix(mt.math('MULTIPLY', mt.maprange(nz, 0.55, 0.95), 0.25), c, col('#f3ead8'))
     c = mt.mult(c, mt.mix(mt.ao(0.6, 8), col('#4c4458'), col('#ffffff')))
-    mt.bsdf(c, 0.86, normal=mt.bump(mt.math('ADD', n1.outputs['Fac'], mt.math('MULTIPLY', n2.outputs['Fac'], 0.4)), 0.45, 0.08))
+    mt.bsdf(c, rough, normal=mt.bump(mt.math('ADD', n1.outputs['Fac'], mt.math('MULTIPLY', n2.outputs['Fac'], 0.4)), 0.45, 0.08))
     return mt.mat
 
 
@@ -159,7 +159,7 @@ def iron_material(name):
 
 
 def sea_material(name, deep='#12688f', mid='#1e8fb8', light='#46c0dc', foam='#e8fbff', foam_amt=1.0, wave_scale=0.22, rough=0.12, emit=0.0,
-                 net=1.0, streaks=0.0, streak_dir=(1.0, 3.2)):
+                 net=1.0, streaks=0.0, streak_dir=(1.0, 3.2), swell=0.0):
     """Stylised sea: broad swells in a deep-to-light ramp, an optional net of thin foam lines (`net`),
     wind-stretched whitecap streaks (`streaks`, long along the first axis of `streak_dir`) and flecks,
     glossy so the key light glints off it. World-space, so it tiles across any plane size."""
@@ -170,7 +170,18 @@ def sea_material(name, deep='#12688f', mid='#1e8fb8', light='#46c0dc', foam='#e8
     sc.inputs[1].default_value = (1.0, 1.35, 1.0)
     v = sc.outputs['Vector']
     sw = mt.noise(wave_scale, 3.0, 0.55, v, dist=0.6)
-    base = mt.ramp(sw.outputs['Fac'], [(0.3, deep), (0.52, mid), (0.72, light)])
+    fac = sw.outputs['Fac']
+    if swell > 0:
+        # long rolling swells: distorted bands across the bay, lighter on the crests
+        wv = mt.node('ShaderNodeTexWave')
+        wv.wave_type = 'BANDS'
+        wv.bands_direction = 'DIAGONAL'
+        wv.inputs['Scale'].default_value = 0.35
+        wv.inputs['Distortion'].default_value = 5.0
+        wv.inputs['Detail'].default_value = 2.0
+        mt.link(v, wv.inputs['Vector'])
+        fac = mt.math('ADD', mt.math('MULTIPLY', fac, 1.0 - 0.45 * swell), mt.math('MULTIPLY', wv.outputs['Fac'], 0.45 * swell))
+    base = mt.ramp(fac, [(0.3, deep), (0.52, mid), (0.72, light)])
     foam_f = mt.val(0.0)
     if net > 0:
         dn = mt.noise(0.8, 2.0, 0.5, v)
