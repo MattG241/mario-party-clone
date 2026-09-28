@@ -1,0 +1,944 @@
+{
+ "id": "capitol",
+ "width": 3600,
+ "height": 2400,
+ "nodes": [
+  {
+   "id": "a0",
+   "x": 1860,
+   "y": 2090,
+   "type": "start",
+   "region": "Bandstand Green",
+   "next": [
+    "a1"
+   ]
+  },
+  {
+   "id": "a1",
+   "x": 1690,
+   "y": 2120,
+   "type": "gleam",
+   "region": "Bandstand Green",
+   "next": [
+    "a2",
+    "w0"
+   ]
+  },
+  {
+   "id": "a2",
+   "x": 1520,
+   "y": 2100,
+   "type": "festival",
+   "region": "Bandstand Green",
+   "next": [
+    "a3"
+   ]
+  },
+  {
+   "id": "a3",
+   "x": 1350,
+   "y": 2050,
+   "type": "gleam",
+   "region": "Bandstand Green",
+   "next": [
+    "r0"
+   ]
+  },
+  {
+   "id": "r0",
+   "x": 1190,
+   "y": 1970,
+   "type": "mischief",
+   "region": "Rose Garden",
+   "next": [
+    "rm0",
+    "rh0"
+   ]
+  },
+  {
+   "id": "rm0",
+   "x": 1110,
+   "y": 1820,
+   "type": "gleam",
+   "region": "Rose Garden",
+   "next": [
+    "rm1"
+   ]
+  },
+  {
+   "id": "rm1",
+   "x": 1050,
+   "y": 1670,
+   "type": "event",
+   "region": "Rose Garden",
+   "next": [
+    "r1"
+   ]
+  },
+  {
+   "id": "rh0",
+   "x": 1020,
+   "y": 2000,
+   "type": "gleam",
+   "region": "Rose Garden",
+   "next": [
+    "rh1"
+   ]
+  },
+  {
+   "id": "rh1",
+   "x": 860,
+   "y": 1930,
+   "type": "market",
+   "region": "Rose Garden",
+   "next": [
+    "rh2"
+   ]
+  },
+  {
+   "id": "rh2",
+   "x": 750,
+   "y": 1810,
+   "type": "portal",
+   "region": "Rose Garden",
+   "next": [
+    "rh3"
+   ]
+  },
+  {
+   "id": "rh3",
+   "x": 720,
+   "y": 1660,
+   "type": "festival",
+   "region": "Rose Garden",
+   "next": [
+    "r1"
+   ]
+  },
+  {
+   "id": "r1",
+   "x": 850,
+   "y": 1535,
+   "type": "gleam",
+   "region": "Rose Garden",
+   "next": [
+    "k0"
+   ]
+  },
+  {
+   "id": "k0",
+   "x": 910,
+   "y": 1400,
+   "type": "gleam",
+   "region": "Basketball Court",
+   "next": [
+    "k1"
+   ]
+  },
+  {
+   "id": "k1",
+   "x": 880,
+   "y": 1255,
+   "type": "relic",
+   "region": "Basketball Court",
+   "next": [
+    "k2"
+   ]
+  },
+  {
+   "id": "k2",
+   "x": 920,
+   "y": 1110,
+   "type": "festival",
+   "region": "Basketball Court",
+   "next": [
+    "n0",
+    "x0"
+   ]
+  },
+  {
+   "id": "n0",
+   "x": 960,
+   "y": 950,
+   "type": "gleam",
+   "region": "Domed Hall",
+   "next": [
+    "n1"
+   ]
+  },
+  {
+   "id": "n1",
+   "x": 1040,
+   "y": 810,
+   "type": "mischief",
+   "region": "Domed Hall",
+   "next": [
+    "n2"
+   ]
+  },
+  {
+   "id": "n2",
+   "x": 1180,
+   "y": 710,
+   "type": "gleam",
+   "region": "Domed Hall",
+   "next": [
+    "n3"
+   ]
+  },
+  {
+   "id": "n3",
+   "x": 1340,
+   "y": 660,
+   "type": "event",
+   "region": "Domed Hall",
+   "next": [
+    "n4"
+   ]
+  },
+  {
+   "id": "n4",
+   "x": 1510,
+   "y": 640,
+   "type": "relic",
+   "region": "Domed Hall",
+   "next": [
+    "o0"
+   ]
+  },
+  {
+   "id": "o0",
+   "x": 1680,
+   "y": 640,
+   "type": "gleam",
+   "region": "Obelisk Walk",
+   "next": [
+    "o1"
+   ]
+  },
+  {
+   "id": "o1",
+   "x": 1850,
+   "y": 650,
+   "type": "festival",
+   "region": "Obelisk Walk",
+   "next": [
+    "o2"
+   ]
+  },
+  {
+   "id": "o2",
+   "x": 2020,
+   "y": 670,
+   "type": "gleam",
+   "region": "Obelisk Walk",
+   "next": [
+    "o3"
+   ]
+  },
+  {
+   "id": "o3",
+   "x": 2180,
+   "y": 710,
+   "type": "mischief",
+   "region": "Obelisk Walk",
+   "next": [
+    "m0"
+   ]
+  },
+  {
+   "id": "m0",
+   "x": 2330,
+   "y": 770,
+   "type": "gleam",
+   "region": "White Mansion",
+   "next": [
+    "m1"
+   ]
+  },
+  {
+   "id": "m1",
+   "x": 2480,
+   "y": 830,
+   "type": "event",
+   "region": "White Mansion",
+   "next": [
+    "m2"
+   ]
+  },
+  {
+   "id": "m2",
+   "x": 2620,
+   "y": 920,
+   "type": "market",
+   "region": "White Mansion",
+   "next": [
+    "g0"
+   ]
+  },
+  {
+   "id": "g0",
+   "x": 2680,
+   "y": 1110,
+   "type": "festival",
+   "region": "Putting Green",
+   "next": [
+    "g1"
+   ]
+  },
+  {
+   "id": "g1",
+   "x": 2720,
+   "y": 1255,
+   "type": "relic",
+   "region": "Putting Green",
+   "next": [
+    "g2"
+   ]
+  },
+  {
+   "id": "g2",
+   "x": 2690,
+   "y": 1400,
+   "type": "gleam",
+   "region": "Putting Green",
+   "next": [
+    "p0"
+   ]
+  },
+  {
+   "id": "p0",
+   "x": 2750,
+   "y": 1535,
+   "type": "mischief",
+   "region": "Pennant Promenade",
+   "next": [
+    "p1"
+   ]
+  },
+  {
+   "id": "p1",
+   "x": 2650,
+   "y": 1690,
+   "type": "portal",
+   "region": "Pennant Promenade",
+   "next": [
+    "p2"
+   ]
+  },
+  {
+   "id": "p2",
+   "x": 2520,
+   "y": 1820,
+   "type": "event",
+   "region": "Pennant Promenade",
+   "next": [
+    "p3"
+   ]
+  },
+  {
+   "id": "p3",
+   "x": 2370,
+   "y": 1925,
+   "type": "gleam",
+   "region": "Pennant Promenade",
+   "next": [
+    "p4"
+   ]
+  },
+  {
+   "id": "p4",
+   "x": 2200,
+   "y": 2005,
+   "type": "relic",
+   "region": "Pennant Promenade",
+   "next": [
+    "p5"
+   ]
+  },
+  {
+   "id": "p5",
+   "x": 2030,
+   "y": 2065,
+   "type": "gleam",
+   "region": "Pennant Promenade",
+   "next": [
+    "a0"
+   ]
+  },
+  {
+   "id": "x0",
+   "x": 1096,
+   "y": 1105,
+   "type": "gleam",
+   "region": "Reflecting Pool",
+   "next": [
+    "x1"
+   ]
+  },
+  {
+   "id": "x1",
+   "x": 1272,
+   "y": 1112,
+   "type": "mischief",
+   "region": "Reflecting Pool",
+   "next": [
+    "x2"
+   ]
+  },
+  {
+   "id": "x2",
+   "x": 1448,
+   "y": 1118,
+   "type": "event",
+   "region": "Reflecting Pool",
+   "next": [
+    "x3"
+   ]
+  },
+  {
+   "id": "x3",
+   "x": 1624,
+   "y": 1122,
+   "type": "gleam",
+   "region": "Reflecting Pool",
+   "next": [
+    "x4"
+   ]
+  },
+  {
+   "id": "x4",
+   "x": 1800,
+   "y": 1124,
+   "type": "relic",
+   "region": "Reflecting Pool",
+   "next": [
+    "x5"
+   ]
+  },
+  {
+   "id": "x5",
+   "x": 1976,
+   "y": 1122,
+   "type": "gleam",
+   "region": "Reflecting Pool",
+   "next": [
+    "x6"
+   ]
+  },
+  {
+   "id": "x6",
+   "x": 2152,
+   "y": 1118,
+   "type": "festival",
+   "region": "Reflecting Pool",
+   "next": [
+    "x7"
+   ]
+  },
+  {
+   "id": "x7",
+   "x": 2328,
+   "y": 1112,
+   "type": "mischief",
+   "region": "Reflecting Pool",
+   "next": [
+    "x8"
+   ]
+  },
+  {
+   "id": "x8",
+   "x": 2504,
+   "y": 1105,
+   "type": "gleam",
+   "region": "Reflecting Pool",
+   "next": [
+    "g0"
+   ]
+  },
+  {
+   "id": "w0",
+   "x": 1760,
+   "y": 1955,
+   "type": "gleam",
+   "region": "Cherry Avenue",
+   "next": [
+    "w1"
+   ]
+  },
+  {
+   "id": "w1",
+   "x": 1790,
+   "y": 1790,
+   "type": "festival",
+   "region": "Cherry Avenue",
+   "next": [
+    "w2"
+   ]
+  },
+  {
+   "id": "w2",
+   "x": 1800,
+   "y": 1625,
+   "type": "gleam",
+   "region": "Cherry Avenue",
+   "next": [
+    "w3"
+   ]
+  },
+  {
+   "id": "w3",
+   "x": 1800,
+   "y": 1460,
+   "type": "mischief",
+   "region": "Cherry Avenue",
+   "next": [
+    "w4"
+   ]
+  },
+  {
+   "id": "w4",
+   "x": 1800,
+   "y": 1295,
+   "type": "gleam",
+   "region": "Cherry Avenue",
+   "next": [
+    "x4"
+   ]
+  }
+ ],
+ "edges": [
+  {
+   "from": "a0",
+   "to": "a1",
+   "style": "path"
+  },
+  {
+   "from": "a1",
+   "to": "a2",
+   "style": "path"
+  },
+  {
+   "from": "a1",
+   "to": "w0",
+   "style": "path"
+  },
+  {
+   "from": "a2",
+   "to": "a3",
+   "style": "path"
+  },
+  {
+   "from": "a3",
+   "to": "r0",
+   "style": "path"
+  },
+  {
+   "from": "r0",
+   "to": "rm0",
+   "style": "path"
+  },
+  {
+   "from": "r0",
+   "to": "rh0",
+   "style": "path"
+  },
+  {
+   "from": "rm0",
+   "to": "rm1",
+   "style": "path"
+  },
+  {
+   "from": "rm1",
+   "to": "r1",
+   "style": "path"
+  },
+  {
+   "from": "rh0",
+   "to": "rh1",
+   "style": "path"
+  },
+  {
+   "from": "rh1",
+   "to": "rh2",
+   "style": "path"
+  },
+  {
+   "from": "rh2",
+   "to": "rh3",
+   "style": "path"
+  },
+  {
+   "from": "rh3",
+   "to": "r1",
+   "style": "path"
+  },
+  {
+   "from": "r1",
+   "to": "k0",
+   "style": "path"
+  },
+  {
+   "from": "k0",
+   "to": "k1",
+   "style": "path"
+  },
+  {
+   "from": "k1",
+   "to": "k2",
+   "style": "path"
+  },
+  {
+   "from": "k2",
+   "to": "n0",
+   "style": "path"
+  },
+  {
+   "from": "k2",
+   "to": "x0",
+   "style": "path"
+  },
+  {
+   "from": "n0",
+   "to": "n1",
+   "style": "path"
+  },
+  {
+   "from": "n1",
+   "to": "n2",
+   "style": "path"
+  },
+  {
+   "from": "n2",
+   "to": "n3",
+   "style": "path"
+  },
+  {
+   "from": "n3",
+   "to": "n4",
+   "style": "path"
+  },
+  {
+   "from": "n4",
+   "to": "o0",
+   "style": "path"
+  },
+  {
+   "from": "o0",
+   "to": "o1",
+   "style": "path"
+  },
+  {
+   "from": "o1",
+   "to": "o2",
+   "style": "path"
+  },
+  {
+   "from": "o2",
+   "to": "o3",
+   "style": "path"
+  },
+  {
+   "from": "o3",
+   "to": "m0",
+   "style": "path"
+  },
+  {
+   "from": "m0",
+   "to": "m1",
+   "style": "path"
+  },
+  {
+   "from": "m1",
+   "to": "m2",
+   "style": "path"
+  },
+  {
+   "from": "m2",
+   "to": "g0",
+   "style": "path"
+  },
+  {
+   "from": "g0",
+   "to": "g1",
+   "style": "path"
+  },
+  {
+   "from": "g1",
+   "to": "g2",
+   "style": "path"
+  },
+  {
+   "from": "g2",
+   "to": "p0",
+   "style": "path"
+  },
+  {
+   "from": "p0",
+   "to": "p1",
+   "style": "path"
+  },
+  {
+   "from": "p1",
+   "to": "p2",
+   "style": "path"
+  },
+  {
+   "from": "p2",
+   "to": "p3",
+   "style": "path"
+  },
+  {
+   "from": "p3",
+   "to": "p4",
+   "style": "path"
+  },
+  {
+   "from": "p4",
+   "to": "p5",
+   "style": "path"
+  },
+  {
+   "from": "p5",
+   "to": "a0",
+   "style": "path"
+  },
+  {
+   "from": "x0",
+   "to": "x1",
+   "style": "path"
+  },
+  {
+   "from": "x1",
+   "to": "x2",
+   "style": "path"
+  },
+  {
+   "from": "x2",
+   "to": "x3",
+   "style": "path"
+  },
+  {
+   "from": "x3",
+   "to": "x4",
+   "style": "path"
+  },
+  {
+   "from": "x4",
+   "to": "x5",
+   "style": "path"
+  },
+  {
+   "from": "x5",
+   "to": "x6",
+   "style": "path"
+  },
+  {
+   "from": "x6",
+   "to": "x7",
+   "style": "path"
+  },
+  {
+   "from": "x7",
+   "to": "x8",
+   "style": "path"
+  },
+  {
+   "from": "x8",
+   "to": "g0",
+   "style": "path"
+  },
+  {
+   "from": "w0",
+   "to": "w1",
+   "style": "path"
+  },
+  {
+   "from": "w1",
+   "to": "w2",
+   "style": "path"
+  },
+  {
+   "from": "w2",
+   "to": "w3",
+   "style": "path"
+  },
+  {
+   "from": "w3",
+   "to": "w4",
+   "style": "path"
+  },
+  {
+   "from": "w4",
+   "to": "x4",
+   "style": "path"
+  }
+ ],
+ "relicGates": [
+  "k1",
+  "n4",
+  "g1",
+  "p4",
+  "x4"
+ ],
+ "portals": [
+  [
+   "rh2",
+   "p1"
+  ]
+ ],
+ "decorations": [
+  {
+   "texture": "observatory",
+   "x": 1250,
+   "y": 575,
+   "scale": 0.62,
+   "sorted": true,
+   "tint": 16447231
+  },
+  {
+   "texture": "lantern",
+   "x": 1850,
+   "y": 575,
+   "scale": 0.7,
+   "sorted": true
+  },
+  {
+   "texture": "workshop",
+   "x": 2440,
+   "y": 640,
+   "scale": 0.8,
+   "sorted": true,
+   "tint": 16775922
+  },
+  {
+   "texture": "crystal-generator",
+   "x": 2440,
+   "y": 720,
+   "scale": 0.24,
+   "sorted": true,
+   "tint": 14218495
+  },
+  {
+   "texture": "tree-twist",
+   "x": 1690,
+   "y": 1760,
+   "scale": 0.2,
+   "sorted": true,
+   "tint": 16761562
+  },
+  {
+   "texture": "tree-twist",
+   "x": 1905,
+   "y": 1740,
+   "scale": 0.2,
+   "sorted": true,
+   "tint": 16763872
+  },
+  {
+   "texture": "tree-twist",
+   "x": 1700,
+   "y": 1430,
+   "scale": 0.2,
+   "sorted": true,
+   "tint": 16763872
+  },
+  {
+   "texture": "tree-twist",
+   "x": 1905,
+   "y": 1410,
+   "scale": 0.2,
+   "sorted": true,
+   "tint": 16761562
+  },
+  {
+   "texture": "tree-twist",
+   "x": 1180,
+   "y": 1030,
+   "scale": 0.18,
+   "sorted": true,
+   "tint": 16761562
+  },
+  {
+   "texture": "tree-twist",
+   "x": 2420,
+   "y": 1030,
+   "scale": 0.18,
+   "sorted": true,
+   "tint": 16763872
+  },
+  {
+   "texture": "tree-twist",
+   "x": 900,
+   "y": 1760,
+   "scale": 0.16,
+   "sorted": true,
+   "tint": 16752564
+  },
+  {
+   "texture": "tree-twist",
+   "x": 930,
+   "y": 1640,
+   "scale": 0.15,
+   "sorted": true,
+   "tint": 16758984
+  },
+  {
+   "texture": "bunting",
+   "x": 2500,
+   "y": 1700,
+   "scale": 0.6,
+   "sorted": false,
+   "depth": -15
+  },
+  {
+   "texture": "bunting",
+   "x": 1990,
+   "y": 1880,
+   "scale": 0.55,
+   "sorted": false,
+   "depth": -15
+  },
+  {
+   "texture": "bunting",
+   "x": 1800,
+   "y": 990,
+   "scale": 0.7,
+   "sorted": false,
+   "depth": -15
+  },
+  {
+   "texture": "lantern",
+   "x": 1560,
+   "y": 2000,
+   "scale": 0.45,
+   "sorted": true,
+   "bob": 4
+  },
+  {
+   "texture": "lantern",
+   "x": 2200,
+   "y": 1930,
+   "scale": 0.45,
+   "sorted": true,
+   "bob": 5
+  }
+ ],
+ "bridges": [],
+ "gates": [
+  {
+   "id": "avenue",
+   "from": "a1",
+   "to": "w0",
+   "prop": {
+    "x": 1725,
+    "y": 2032,
+    "scale": 0.5
+   }
+  }
+ ],
+ "hostSpot": {
+  "x": 2010,
+  "y": 1930
+ }
+}

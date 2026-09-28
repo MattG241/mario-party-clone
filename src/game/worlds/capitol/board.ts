@@ -149,6 +149,12 @@ const decorations: BoardDecoration[] = [
 /** The world's minigames that exist in this build (the minigame agents fill in info.ts). */
 const CAPITOL_GAMES = ['free-throw', 'fairway'].filter((id) => CAPITOL_INFO.infos.some((m) => m.id === id));
 
+/**
+ * The Blender diorama exists (scripts/art/worlds/capitol/board.py → public/assets/rendered/capitol and
+ * its Lite copy): it replaces the placeholder islands and landmarks wholesale.
+ */
+const RENDERED = false;
+
 export const CAPITOL_BOARD: BoardDef | null = {
   id: 'capitol',
   name: 'Capitol Gardens',
@@ -163,19 +169,20 @@ export const CAPITOL_BOARD: BoardDef | null = {
   portals: [['rh2', 'p1']],
   bridges: [],
   gates: [{ id: 'avenue', from: 'a1', to: 'w0', prop: { x: 1725, y: 2032, scale: 0.5 } }],
-  edgeStyles: {
-    'n0>n1': 'steps',
-    'm2>g0': 'steps',
-  },
+  // One broad park isle: every trail is a garden path.
+  edgeStyles: {},
   islands,
-  decorations,
+  decorations: RENDERED ? [] : decorations,
   // Ora hosts from the bandstand beside the start.
   hostSpot: { x: 2010, y: 1930 },
   theme: {
     world: 'capitol',
     time: 'day',
     minigames: CAPITOL_GAMES,
+    waterfalls: [],
     // Crystal Surge and Portal Storm frame Suncoil's own landmarks.
     skipEvents: ['crystal_surge', 'portal_storm'],
+    rendered: RENDERED,
+    preview: RENDERED ? 'assets/lite/previews/capitol.webp' : undefined,
   },
 };

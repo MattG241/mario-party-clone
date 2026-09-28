@@ -176,6 +176,12 @@ const decorations: BoardDecoration[] = [
 /** The world's minigames that exist in this build (the minigame agents fill in info.ts). */
 const DOJO_GAMES = ['cloud-rider', 'clone-chaos'].filter((id) => DOJO_INFO.infos.some((m) => m.id === id));
 
+/**
+ * The Blender diorama exists (scripts/art/worlds/dojo/board.py → public/assets/rendered/dojo and its
+ * Lite copy): it replaces the placeholder islands and landmarks wholesale.
+ */
+const RENDERED = false;
+
 export const DOJO_BOARD: BoardDef | null = {
   id: 'dojo',
   name: 'Dojo Summit',
@@ -223,14 +229,18 @@ export const DOJO_BOARD: BoardDef | null = {
     'c6>d3': 'steps',
   },
   islands,
-  decorations,
+  decorations: RENDERED ? [] : decorations,
   // Ora hosts from a little stage behind the Lantern Gate.
   hostSpot: { x: 1990, y: 1930 },
   theme: {
     world: 'dojo',
     time: 'cycle',
     minigames: DOJO_GAMES,
+    // The Training Falls pour into their pool (mist rises where they land).
+    waterfalls: [{ x: 505, y: 1068, lipX: 497, lipY: 854 }],
     // Crystal Surge and Portal Storm frame Suncoil's own landmarks.
     skipEvents: ['crystal_surge', 'portal_storm'],
+    rendered: RENDERED,
+    preview: RENDERED ? 'assets/lite/previews/dojo.webp' : undefined,
   },
 };

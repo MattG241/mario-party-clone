@@ -1,0 +1,1171 @@
+{
+ "id": "dojo",
+ "width": 3600,
+ "height": 2400,
+ "nodes": [
+  {
+   "id": "s0",
+   "x": 1880,
+   "y": 2080,
+   "type": "start",
+   "region": "Lantern Gate",
+   "next": [
+    "s1"
+   ]
+  },
+  {
+   "id": "s1",
+   "x": 1720,
+   "y": 2110,
+   "type": "gleam",
+   "region": "Lantern Gate",
+   "next": [
+    "s2",
+    "c0"
+   ]
+  },
+  {
+   "id": "s2",
+   "x": 1550,
+   "y": 2100,
+   "type": "festival",
+   "region": "Lantern Gate",
+   "next": [
+    "s3"
+   ]
+  },
+  {
+   "id": "s3",
+   "x": 1390,
+   "y": 2050,
+   "type": "gleam",
+   "region": "Lantern Gate",
+   "next": [
+    "v0"
+   ]
+  },
+  {
+   "id": "v0",
+   "x": 1230,
+   "y": 1980,
+   "type": "mischief",
+   "region": "Ninja Village",
+   "next": [
+    "r0",
+    "m0"
+   ]
+  },
+  {
+   "id": "r0",
+   "x": 1110,
+   "y": 1850,
+   "type": "gleam",
+   "region": "Ninja Village",
+   "next": [
+    "r1"
+   ]
+  },
+  {
+   "id": "r1",
+   "x": 1010,
+   "y": 1720,
+   "type": "event",
+   "region": "Ninja Village",
+   "next": [
+    "r2"
+   ]
+  },
+  {
+   "id": "r2",
+   "x": 930,
+   "y": 1590,
+   "type": "gleam",
+   "region": "Ninja Village",
+   "next": [
+    "v1"
+   ]
+  },
+  {
+   "id": "m0",
+   "x": 1060,
+   "y": 2020,
+   "type": "gleam",
+   "region": "Ninja Village",
+   "next": [
+    "m1"
+   ]
+  },
+  {
+   "id": "m1",
+   "x": 890,
+   "y": 1980,
+   "type": "market",
+   "region": "Ninja Village",
+   "next": [
+    "m2"
+   ]
+  },
+  {
+   "id": "m2",
+   "x": 750,
+   "y": 1880,
+   "type": "festival",
+   "region": "Ninja Village",
+   "next": [
+    "m3"
+   ]
+  },
+  {
+   "id": "m3",
+   "x": 660,
+   "y": 1750,
+   "type": "gleam",
+   "region": "Ninja Village",
+   "next": [
+    "m4"
+   ]
+  },
+  {
+   "id": "m4",
+   "x": 650,
+   "y": 1600,
+   "type": "relic",
+   "region": "Ninja Village",
+   "next": [
+    "v1"
+   ]
+  },
+  {
+   "id": "v1",
+   "x": 790,
+   "y": 1470,
+   "type": "gleam",
+   "region": "Ninja Village",
+   "next": [
+    "f0"
+   ]
+  },
+  {
+   "id": "f0",
+   "x": 700,
+   "y": 1330,
+   "type": "gleam",
+   "region": "Training Falls",
+   "next": [
+    "f1"
+   ]
+  },
+  {
+   "id": "f1",
+   "x": 620,
+   "y": 1190,
+   "type": "portal",
+   "region": "Training Falls",
+   "next": [
+    "f2"
+   ]
+  },
+  {
+   "id": "f2",
+   "x": 640,
+   "y": 1040,
+   "type": "event",
+   "region": "Training Falls",
+   "next": [
+    "f3"
+   ]
+  },
+  {
+   "id": "f3",
+   "x": 740,
+   "y": 910,
+   "type": "gleam",
+   "region": "Training Falls",
+   "next": [
+    "f4"
+   ]
+  },
+  {
+   "id": "f4",
+   "x": 870,
+   "y": 800,
+   "type": "mischief",
+   "region": "Training Falls",
+   "next": [
+    "d0"
+   ]
+  },
+  {
+   "id": "d0",
+   "x": 1050,
+   "y": 700,
+   "type": "gleam",
+   "region": "Summit Dojo",
+   "next": [
+    "d1"
+   ]
+  },
+  {
+   "id": "d1",
+   "x": 1210,
+   "y": 630,
+   "type": "relic",
+   "region": "Summit Dojo",
+   "next": [
+    "d2"
+   ]
+  },
+  {
+   "id": "d2",
+   "x": 1380,
+   "y": 590,
+   "type": "festival",
+   "region": "Summit Dojo",
+   "next": [
+    "d3"
+   ]
+  },
+  {
+   "id": "d3",
+   "x": 1560,
+   "y": 580,
+   "type": "gleam",
+   "region": "Summit Dojo",
+   "next": [
+    "d4"
+   ]
+  },
+  {
+   "id": "d4",
+   "x": 1740,
+   "y": 600,
+   "type": "event",
+   "region": "Summit Dojo",
+   "next": [
+    "d5"
+   ]
+  },
+  {
+   "id": "d5",
+   "x": 1910,
+   "y": 630,
+   "type": "mischief",
+   "region": "Summit Dojo",
+   "next": [
+    "b0",
+    "bd0"
+   ]
+  },
+  {
+   "id": "b0",
+   "x": 2080,
+   "y": 600,
+   "type": "gleam",
+   "region": "Rope Bridge",
+   "bridge": "rope",
+   "next": [
+    "b1"
+   ]
+  },
+  {
+   "id": "b1",
+   "x": 2250,
+   "y": 580,
+   "type": "mischief",
+   "region": "Rope Bridge",
+   "bridge": "rope",
+   "next": [
+    "b2"
+   ]
+  },
+  {
+   "id": "b2",
+   "x": 2420,
+   "y": 600,
+   "type": "gleam",
+   "region": "Rope Bridge",
+   "bridge": "rope",
+   "next": [
+    "t0"
+   ]
+  },
+  {
+   "id": "bd0",
+   "x": 2080,
+   "y": 790,
+   "type": "gleam",
+   "region": "Cloud Steps",
+   "detour": "rope",
+   "next": [
+    "bd1"
+   ]
+  },
+  {
+   "id": "bd1",
+   "x": 2250,
+   "y": 840,
+   "type": "festival",
+   "region": "Cloud Steps",
+   "detour": "rope",
+   "next": [
+    "bd2"
+   ]
+  },
+  {
+   "id": "bd2",
+   "x": 2430,
+   "y": 790,
+   "type": "gleam",
+   "region": "Cloud Steps",
+   "detour": "rope",
+   "next": [
+    "t0"
+   ]
+  },
+  {
+   "id": "t0",
+   "x": 2590,
+   "y": 640,
+   "type": "gleam",
+   "region": "Tournament Ring",
+   "next": [
+    "t1"
+   ]
+  },
+  {
+   "id": "t1",
+   "x": 2760,
+   "y": 690,
+   "type": "market",
+   "region": "Tournament Ring",
+   "next": [
+    "t2"
+   ]
+  },
+  {
+   "id": "t2",
+   "x": 2930,
+   "y": 740,
+   "type": "event",
+   "region": "Tournament Ring",
+   "next": [
+    "t3"
+   ]
+  },
+  {
+   "id": "t3",
+   "x": 3100,
+   "y": 800,
+   "type": "gleam",
+   "region": "Tournament Ring",
+   "next": [
+    "t4"
+   ]
+  },
+  {
+   "id": "t4",
+   "x": 3240,
+   "y": 900,
+   "type": "relic",
+   "region": "Tournament Ring",
+   "next": [
+    "g0"
+   ]
+  },
+  {
+   "id": "g0",
+   "x": 3270,
+   "y": 1060,
+   "type": "gleam",
+   "region": "Boulder Grounds",
+   "next": [
+    "g1",
+    "i0"
+   ]
+  },
+  {
+   "id": "g1",
+   "x": 3330,
+   "y": 1225,
+   "type": "gleam",
+   "region": "Boulder Grounds",
+   "next": [
+    "g2"
+   ]
+  },
+  {
+   "id": "g2",
+   "x": 3300,
+   "y": 1395,
+   "type": "event",
+   "region": "Boulder Grounds",
+   "next": [
+    "g3"
+   ]
+  },
+  {
+   "id": "g3",
+   "x": 3200,
+   "y": 1545,
+   "type": "festival",
+   "region": "Boulder Grounds",
+   "next": [
+    "g4"
+   ]
+  },
+  {
+   "id": "g4",
+   "x": 3060,
+   "y": 1660,
+   "type": "gleam",
+   "region": "Boulder Grounds",
+   "next": [
+    "h0"
+   ]
+  },
+  {
+   "id": "i0",
+   "x": 3100,
+   "y": 1090,
+   "type": "gleam",
+   "region": "Cloud Steps",
+   "next": [
+    "i1"
+   ]
+  },
+  {
+   "id": "i1",
+   "x": 2930,
+   "y": 1150,
+   "type": "mischief",
+   "region": "Cloud Steps",
+   "next": [
+    "i2"
+   ]
+  },
+  {
+   "id": "i2",
+   "x": 2760,
+   "y": 1230,
+   "type": "portal",
+   "region": "Cloud Isle",
+   "next": [
+    "i3"
+   ]
+  },
+  {
+   "id": "i3",
+   "x": 2640,
+   "y": 1370,
+   "type": "festival",
+   "region": "Cloud Isle",
+   "next": [
+    "i4"
+   ]
+  },
+  {
+   "id": "i4",
+   "x": 2600,
+   "y": 1540,
+   "type": "gleam",
+   "region": "Cloud Isle",
+   "next": [
+    "i5"
+   ]
+  },
+  {
+   "id": "i5",
+   "x": 2580,
+   "y": 1720,
+   "type": "gleam",
+   "region": "Cloud Steps",
+   "next": [
+    "h2"
+   ]
+  },
+  {
+   "id": "h0",
+   "x": 2900,
+   "y": 1750,
+   "type": "mischief",
+   "region": "Plum Terrace",
+   "next": [
+    "h1"
+   ]
+  },
+  {
+   "id": "h1",
+   "x": 2740,
+   "y": 1830,
+   "type": "gleam",
+   "region": "Plum Terrace",
+   "next": [
+    "h2"
+   ]
+  },
+  {
+   "id": "h2",
+   "x": 2570,
+   "y": 1900,
+   "type": "festival",
+   "region": "Plum Terrace",
+   "next": [
+    "h3"
+   ]
+  },
+  {
+   "id": "h3",
+   "x": 2400,
+   "y": 1965,
+   "type": "relic",
+   "region": "Plum Terrace",
+   "next": [
+    "h4"
+   ]
+  },
+  {
+   "id": "h4",
+   "x": 2230,
+   "y": 2020,
+   "type": "gleam",
+   "region": "Plum Terrace",
+   "next": [
+    "h5"
+   ]
+  },
+  {
+   "id": "h5",
+   "x": 2060,
+   "y": 2065,
+   "type": "gleam",
+   "region": "Plum Terrace",
+   "next": [
+    "s0"
+   ]
+  },
+  {
+   "id": "c0",
+   "x": 1730,
+   "y": 1940,
+   "type": "gleam",
+   "region": "Cherry Stairs",
+   "next": [
+    "c1"
+   ]
+  },
+  {
+   "id": "c1",
+   "x": 1800,
+   "y": 1760,
+   "type": "festival",
+   "region": "Cherry Stairs",
+   "next": [
+    "c2"
+   ]
+  },
+  {
+   "id": "c2",
+   "x": 1830,
+   "y": 1570,
+   "type": "relic",
+   "region": "Cherry Stairs",
+   "next": [
+    "c3"
+   ]
+  },
+  {
+   "id": "c3",
+   "x": 1800,
+   "y": 1380,
+   "type": "gleam",
+   "region": "Cherry Stairs",
+   "next": [
+    "c4"
+   ]
+  },
+  {
+   "id": "c4",
+   "x": 1740,
+   "y": 1190,
+   "type": "mischief",
+   "region": "Cherry Stairs",
+   "next": [
+    "c5"
+   ]
+  },
+  {
+   "id": "c5",
+   "x": 1680,
+   "y": 990,
+   "type": "festival",
+   "region": "Cherry Stairs",
+   "next": [
+    "c6"
+   ]
+  },
+  {
+   "id": "c6",
+   "x": 1620,
+   "y": 790,
+   "type": "gleam",
+   "region": "Cherry Stairs",
+   "next": [
+    "d3"
+   ]
+  }
+ ],
+ "edges": [
+  {
+   "from": "s0",
+   "to": "s1",
+   "style": "path"
+  },
+  {
+   "from": "s1",
+   "to": "s2",
+   "style": "path"
+  },
+  {
+   "from": "s1",
+   "to": "c0",
+   "style": "path"
+  },
+  {
+   "from": "s2",
+   "to": "s3",
+   "style": "path"
+  },
+  {
+   "from": "s3",
+   "to": "v0",
+   "style": "steps"
+  },
+  {
+   "from": "v0",
+   "to": "r0",
+   "style": "path"
+  },
+  {
+   "from": "v0",
+   "to": "m0",
+   "style": "path"
+  },
+  {
+   "from": "r0",
+   "to": "r1",
+   "style": "path"
+  },
+  {
+   "from": "r1",
+   "to": "r2",
+   "style": "path"
+  },
+  {
+   "from": "r2",
+   "to": "v1",
+   "style": "path"
+  },
+  {
+   "from": "m0",
+   "to": "m1",
+   "style": "path"
+  },
+  {
+   "from": "m1",
+   "to": "m2",
+   "style": "path"
+  },
+  {
+   "from": "m2",
+   "to": "m3",
+   "style": "path"
+  },
+  {
+   "from": "m3",
+   "to": "m4",
+   "style": "path"
+  },
+  {
+   "from": "m4",
+   "to": "v1",
+   "style": "path"
+  },
+  {
+   "from": "v1",
+   "to": "f0",
+   "style": "steps"
+  },
+  {
+   "from": "f0",
+   "to": "f1",
+   "style": "path"
+  },
+  {
+   "from": "f1",
+   "to": "f2",
+   "style": "path"
+  },
+  {
+   "from": "f2",
+   "to": "f3",
+   "style": "path"
+  },
+  {
+   "from": "f3",
+   "to": "f4",
+   "style": "path"
+  },
+  {
+   "from": "f4",
+   "to": "d0",
+   "style": "steps"
+  },
+  {
+   "from": "d0",
+   "to": "d1",
+   "style": "path"
+  },
+  {
+   "from": "d1",
+   "to": "d2",
+   "style": "path"
+  },
+  {
+   "from": "d2",
+   "to": "d3",
+   "style": "path"
+  },
+  {
+   "from": "d3",
+   "to": "d4",
+   "style": "path"
+  },
+  {
+   "from": "d4",
+   "to": "d5",
+   "style": "path"
+  },
+  {
+   "from": "d5",
+   "to": "b0",
+   "style": "bridge"
+  },
+  {
+   "from": "d5",
+   "to": "bd0",
+   "style": "steps"
+  },
+  {
+   "from": "b0",
+   "to": "b1",
+   "style": "bridge"
+  },
+  {
+   "from": "b1",
+   "to": "b2",
+   "style": "bridge"
+  },
+  {
+   "from": "b2",
+   "to": "t0",
+   "style": "bridge"
+  },
+  {
+   "from": "bd0",
+   "to": "bd1",
+   "style": "steps"
+  },
+  {
+   "from": "bd1",
+   "to": "bd2",
+   "style": "steps"
+  },
+  {
+   "from": "bd2",
+   "to": "t0",
+   "style": "steps"
+  },
+  {
+   "from": "t0",
+   "to": "t1",
+   "style": "path"
+  },
+  {
+   "from": "t1",
+   "to": "t2",
+   "style": "path"
+  },
+  {
+   "from": "t2",
+   "to": "t3",
+   "style": "path"
+  },
+  {
+   "from": "t3",
+   "to": "t4",
+   "style": "path"
+  },
+  {
+   "from": "t4",
+   "to": "g0",
+   "style": "steps"
+  },
+  {
+   "from": "g0",
+   "to": "g1",
+   "style": "path"
+  },
+  {
+   "from": "g0",
+   "to": "i0",
+   "style": "steps"
+  },
+  {
+   "from": "g1",
+   "to": "g2",
+   "style": "path"
+  },
+  {
+   "from": "g2",
+   "to": "g3",
+   "style": "path"
+  },
+  {
+   "from": "g3",
+   "to": "g4",
+   "style": "path"
+  },
+  {
+   "from": "g4",
+   "to": "h0",
+   "style": "steps"
+  },
+  {
+   "from": "i0",
+   "to": "i1",
+   "style": "steps"
+  },
+  {
+   "from": "i1",
+   "to": "i2",
+   "style": "steps"
+  },
+  {
+   "from": "i2",
+   "to": "i3",
+   "style": "path"
+  },
+  {
+   "from": "i3",
+   "to": "i4",
+   "style": "path"
+  },
+  {
+   "from": "i4",
+   "to": "i5",
+   "style": "steps"
+  },
+  {
+   "from": "i5",
+   "to": "h2",
+   "style": "steps"
+  },
+  {
+   "from": "h0",
+   "to": "h1",
+   "style": "path"
+  },
+  {
+   "from": "h1",
+   "to": "h2",
+   "style": "path"
+  },
+  {
+   "from": "h2",
+   "to": "h3",
+   "style": "path"
+  },
+  {
+   "from": "h3",
+   "to": "h4",
+   "style": "steps"
+  },
+  {
+   "from": "h4",
+   "to": "h5",
+   "style": "path"
+  },
+  {
+   "from": "h5",
+   "to": "s0",
+   "style": "path"
+  },
+  {
+   "from": "c0",
+   "to": "c1",
+   "style": "steps"
+  },
+  {
+   "from": "c1",
+   "to": "c2",
+   "style": "path"
+  },
+  {
+   "from": "c2",
+   "to": "c3",
+   "style": "path"
+  },
+  {
+   "from": "c3",
+   "to": "c4",
+   "style": "path"
+  },
+  {
+   "from": "c4",
+   "to": "c5",
+   "style": "path"
+  },
+  {
+   "from": "c5",
+   "to": "c6",
+   "style": "steps"
+  },
+  {
+   "from": "c6",
+   "to": "d3",
+   "style": "steps"
+  }
+ ],
+ "relicGates": [
+  "m4",
+  "d1",
+  "t4",
+  "h3",
+  "c2"
+ ],
+ "portals": [
+  [
+   "f1",
+   "i2"
+  ]
+ ],
+ "decorations": [
+  {
+   "texture": "observatory",
+   "x": 1480,
+   "y": 545,
+   "scale": 0.6,
+   "sorted": true,
+   "tint": 16757408
+  },
+  {
+   "texture": "lantern",
+   "x": 1300,
+   "y": 575,
+   "scale": 0.5,
+   "sorted": true,
+   "bob": 4
+  },
+  {
+   "texture": "lantern",
+   "x": 1665,
+   "y": 555,
+   "scale": 0.5,
+   "sorted": true,
+   "bob": 5
+  },
+  {
+   "texture": "bunting",
+   "x": 2930,
+   "y": 630,
+   "scale": 0.72,
+   "sorted": false,
+   "depth": -15
+  },
+  {
+   "texture": "lantern",
+   "x": 2690,
+   "y": 610,
+   "scale": 0.5,
+   "sorted": true,
+   "bob": 4
+  },
+  {
+   "texture": "lantern",
+   "x": 3170,
+   "y": 760,
+   "scale": 0.5,
+   "sorted": true,
+   "bob": 5
+  },
+  {
+   "texture": "workshop",
+   "x": 830,
+   "y": 1760,
+   "scale": 0.42,
+   "sorted": true,
+   "tint": 16044732
+  },
+  {
+   "texture": "workshop",
+   "x": 1180,
+   "y": 1700,
+   "scale": 0.38,
+   "sorted": true,
+   "tint": 15254704,
+   "flipX": true
+  },
+  {
+   "texture": "stall",
+   "x": 980,
+   "y": 1905,
+   "scale": 0.36,
+   "sorted": true,
+   "tint": 16763048
+  },
+  {
+   "texture": "lantern",
+   "x": 1060,
+   "y": 1935,
+   "scale": 0.42,
+   "sorted": true,
+   "bob": 4
+  },
+  {
+   "texture": "tree-twist",
+   "x": 1650,
+   "y": 1640,
+   "scale": 0.25,
+   "sorted": true,
+   "tint": 16761562
+  },
+  {
+   "texture": "tree-twist",
+   "x": 1950,
+   "y": 1300,
+   "scale": 0.24,
+   "sorted": true,
+   "tint": 16763872
+  },
+  {
+   "texture": "tree-twist",
+   "x": 1590,
+   "y": 1080,
+   "scale": 0.22,
+   "sorted": true,
+   "tint": 16761562
+  },
+  {
+   "texture": "tree-twist",
+   "x": 1580,
+   "y": 1990,
+   "scale": 0.24,
+   "sorted": true,
+   "tint": 16763872
+  },
+  {
+   "texture": "tree-twist",
+   "x": 2130,
+   "y": 1985,
+   "scale": 0.24,
+   "sorted": true,
+   "tint": 16761562
+  },
+  {
+   "texture": "tree-twist",
+   "x": 2500,
+   "y": 1860,
+   "scale": 0.24,
+   "sorted": true,
+   "tint": 16766698
+  },
+  {
+   "texture": "lantern",
+   "x": 1790,
+   "y": 2000,
+   "scale": 0.5,
+   "sorted": true,
+   "bob": 4
+  },
+  {
+   "texture": "lantern",
+   "x": 2000,
+   "y": 2010,
+   "scale": 0.5,
+   "sorted": true,
+   "bob": 5
+  },
+  {
+   "texture": "workshop",
+   "x": 2520,
+   "y": 1400,
+   "scale": 0.3,
+   "sorted": true,
+   "tint": 16773336
+  },
+  {
+   "texture": "cloud-puff",
+   "x": 2470,
+   "y": 1580,
+   "scale": 0.7,
+   "sorted": false,
+   "depth": -46,
+   "bob": 6
+  },
+  {
+   "texture": "cloud-puff",
+   "x": 2860,
+   "y": 1440,
+   "scale": 0.6,
+   "sorted": false,
+   "depth": -46,
+   "bob": 7
+  },
+  {
+   "texture": "cloud-puff",
+   "x": 2250,
+   "y": 960,
+   "scale": 0.6,
+   "sorted": false,
+   "depth": -46,
+   "bob": 5
+  }
+ ],
+ "bridges": [
+  {
+   "id": "rope",
+   "nodes": [
+    "b0",
+    "b1",
+    "b2"
+   ],
+   "detour": [
+    "bd0",
+    "bd1",
+    "bd2"
+   ],
+   "prop": {
+    "x": 2250,
+    "y": 610,
+    "scale": 1
+   },
+   "repairRounds": 2
+  }
+ ],
+ "gates": [
+  {
+   "id": "stairs",
+   "from": "s1",
+   "to": "c0",
+   "prop": {
+    "x": 1722,
+    "y": 2010,
+    "scale": 0.5
+   }
+  }
+ ],
+ "hostSpot": {
+  "x": 1990,
+  "y": 1930
+ }
+}
