@@ -712,7 +712,7 @@ def beam_object(name, origin, direction, length, r0, r1, color):
     fade = m.maprange(vm.outputs['Value'], 0.0, length, 0.28, 0.0)
     em = m.node('ShaderNodeEmission')
     em.inputs['Color'].default_value = col(color)
-    em.inputs['Strength'].default_value = 1.2
+    em.inputs['Strength'].default_value = 0.9
     tr_ = m.node('ShaderNodeBsdfTransparent')
     mix = m.node('ShaderNodeMixShader')
     m.link(fade, mix.inputs['Fac'])

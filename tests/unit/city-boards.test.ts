@@ -14,6 +14,11 @@ import { CONFIG, FOUR } from './fixtures';
 
 // Hero Heights and Showtime Strip (the B-CITY boards): their graphs, and the rules of their events.
 
+type Manifest = { tiles: { file: string }[]; props?: { file: string; tex: string }[]; shadow?: { file: string } };
+const A = '../../public/assets/';
+const MANIFESTS = import.meta.glob<Manifest>('../../public/assets/{rendered,lite}/{heroes,showtime}/manifest.json', { eager: true, import: 'default' });
+const FILES = new Set(Object.keys(import.meta.glob(['../../public/assets/{rendered,lite}/{heroes,showtime}/*.webp', '../../public/assets/lite/previews/*.webp'])).map((k) => k.slice(A.length)));
+
 /** Headless IO that also checks every event frames a space that exists on the board being played. */
 class CheckedIO extends HeadlessIO {
   focusErrors: string[] = [];
@@ -123,6 +128,23 @@ describe.each(CITY.map(([b, ev]) => [b.id, b, ev] as const))('city board %s', (_
       validate(board, state);
       expect(io.focusErrors).toEqual([]);
     }
+  });
+
+  it('ships the rendered art it claims (Full and Lite), with its landmarks replacing the placeholders', () => {
+    if (!board.theme?.rendered) return;
+    for (const dir of ['rendered', 'lite']) {
+      const man = MANIFESTS[`${A}${dir}/${board.id}/manifest.json`];
+      expect(man, `${dir}/${board.id}/manifest.json`).toBeTruthy();
+      expect(man.tiles.length, `${dir} tiles`).toBeGreaterThan(0);
+      for (const f of [...man.tiles.map((t) => t.file), ...(man.props ?? []).map((p) => p.file), ...(man.shadow ? [man.shadow.file] : [])]) {
+        expect(FILES.has(`${dir}/${board.id}/${f}`), `${dir}/${board.id}/${f}`).toBe(true);
+      }
+      // every placeholder decoration texture has a rendered landmark standing in for it
+      const replaced = new Set((man.props ?? []).map((p) => p.tex));
+      for (const d of board.decorations) expect(replaced.has(d.texture), `${dir}: ${d.texture} replaced`).toBe(true);
+    }
+    expect(board.theme.preview).toBe(`assets/lite/previews/${board.id}.webp`);
+    expect(FILES.has(`lite/previews/${board.id}.webp`)).toBe(true);
   });
 
   it('plays full matches (normal and chaotic) to a result, framing only its own spaces', async () => {

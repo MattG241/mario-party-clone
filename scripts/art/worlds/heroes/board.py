@@ -584,7 +584,7 @@ def scatter_block(P: Parts, b: kit.CityBoard, ids, mask, dist, look, rnd):
             if pt:
                 fn(*pt)
 
-    tall_ok = lambda bx, by, h: b.canopy_clear(bx, by, 60, h)  # noqa: E731
+    tall_ok = lambda bx, by, h: b.canopy_clear(bx, by, 60, h) and not b.near_landmark(bx, by + 40, 70)  # noqa: E731
     if surface in ('roof', 'block', 'neonrow', 'plaza', 'gothic', 'tech'):
         many(lambda bx, by: cp.hvac(P, bx, by, rnd, 1.0 if surface != 'tech' else 0.9), 26000)
         many(lambda bx, by: cp.vent(P, bx, by, rnd), 16000)
@@ -720,8 +720,6 @@ def main():
     kit.city_main(A, b, OUT, SCALE, SAMPLES, deck_style=deck_style, scatter_block=scatter_block, block_extras=block_extras,
                   terrain_extras=terrain_extras, build_landmarks=build_landmarks)
 
-
-import bpy  # noqa: E402
 
 if __name__ == '__main__':
     main()

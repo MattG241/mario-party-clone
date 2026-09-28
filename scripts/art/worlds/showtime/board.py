@@ -52,6 +52,8 @@ LANDMARKS = [
     dict(id='gate', kind='gate', x=2378, y=1095, s=1.0, tex='prism-gate'),
     dict(id='merch', kind='stall', x=3440, y=1228, s=1.0, fw=60, fd=36, h=160, tex='', owner='sa2'),
     dict(id='pennants-diner', kind='bunting', x=1300, y=1812, s=1.0, width=230, tex=''),
+    # keep the rink's ice clear of scatter (a zone, not a sprite)
+    dict(id='rink-zone', kind='zone', x=3010, y=1690, s=1.0, fw=160, fd=280, h=0, tex='', no_ground=True),
 ]
 RELIC_GATES = ['sl6', 'sl12', 'sr5', 'sa4', 'sv2']
 
@@ -853,7 +855,8 @@ def scatter_block(P: Parts, b, ids, mask, dist, look, rnd):
             if pt:
                 fn(*pt)
 
-    tall_ok = lambda bx, by, h: b.canopy_clear(bx, by, 60, h)  # noqa: E731
+    # tall things also keep clear of the landmarks (their crowns would poke into the sprites)
+    tall_ok = lambda bx, by, h: b.canopy_clear(bx, by, 60, h) and not b.near_landmark(bx, by + 40, 70)  # noqa: E731
     if surface in ('boulevard', 'checker', 'marquee'):
         many(lambda bx, by: cp.palm(P, bx, by, rnd, 1.0, glow=rnd.choice([None, '#ff5ab4', '#4de8ff'])) if tall_ok(bx, by, 150) else None, 30000, min_edge=24)
         many(lambda bx, by: cp.planter(P, bx, by, rnd, 1.0), 22000)

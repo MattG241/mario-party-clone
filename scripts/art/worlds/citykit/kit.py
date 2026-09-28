@@ -84,15 +84,15 @@ def mats() -> dict:
     # neon tubes, lit windows, bulbs: bright, saturated, not sampled as lights
     m = lib.NT('c_neon')
     c = m.attr('col')
-    m.bsdf(c, 0.3, emission=c, emission_strength=9.0)
+    m.bsdf(c, 0.3, emission=c, emission_strength=2.6)
     _MATS['neon'] = emission_off(m.mat)
     m = lib.NT('c_glow')
     c = m.attr('col')
-    m.bsdf(c, 0.3, emission=c, emission_strength=3.2)
+    m.bsdf(c, 0.3, emission=c, emission_strength=1.7)
     _MATS['glow'] = emission_off(m.mat)
     m = lib.NT('c_softglow')
     c = m.attr('col')
-    m.bsdf(c, 0.4, emission=c, emission_strength=1.3)
+    m.bsdf(c, 0.4, emission=c, emission_strength=0.9)
     _MATS['softglow'] = emission_off(m.mat)
     m = lib.NT('c_glass')
     c = m.attr('col')
@@ -243,7 +243,7 @@ def surface_material(name: str, style: str, mask_path: str, W: int, H: int):
     strength = 0.0
     if S.get('seams'):
         emis = m.mult(m.mix(m.math('MULTIPLY', seam, m.math('SUBTRACT', 1.0, walk)), col('#000000'), col(S['seams'])), col('#ffffff'))
-        strength = 2.2
+        strength = 1.3
     rough = 0.35 if S.get('ice') else 0.8
     bump = m.bump(m.math('ADD', m.math('MULTIPLY', br.outputs['Fac'], m.math('MULTIPLY', walk, -0.6)), m.math('MULTIPLY', speck.outputs['Fac'], 0.3)), 0.25, 0.03)
     b = m.bsdf(top, rough, normal=bump, emission=emis, emission_strength=strength, coat=0.5 if (S.get('puddles') or S.get('ice')) else 0.0)
@@ -315,7 +315,7 @@ def facade_material(name: str, style: str, fh: float, zmin: float | None = None,
     r = wn.outputs['Value']
     wcolr = wn.outputs['Color']
     lit_on = m.maprange(r, 1.0 - F['lit'] - 0.01, 1.0 - F['lit'])
-    light = terrain.ramp_const(m, m.sep(wcolr)[0], [(0.0, '#ffd48a'), (0.38, '#ffbf6e'), (0.62, '#fff0c8'), (0.8, '#bfe0ff'), (0.9, '#ff9ad2')])
+    light = terrain.ramp_const(m, m.sep(wcolr)[0], [(0.0, '#ffc66a'), (0.38, '#ffae54'), (0.62, '#ffe0a0'), (0.8, '#9fd0ff'), (0.9, '#ff8ccc')])
     dark = col('#1b2130') if not F.get('glassy') else col('#20304c')
     wcol = m.mix(lit_on, dark, light)
     # sills and the cornice
@@ -329,7 +329,7 @@ def facade_material(name: str, style: str, fh: float, zmin: float | None = None,
     c = m.mult(c, m.mix(low, col('#3c3a55'), col('#ffffff')))
     c = m.mult(c, m.mix(cam_ao(m, 0.5, 4), col('#4a4458'), col('#ffffff')))
     emis = m.mult(wcol, m.mix(m.math('MULTIPLY', win, lit_on), col('#000000'), col('#ffffff')))
-    b = m.bsdf(c, 0.55, emission=emis, emission_strength=3.6, coat=0.3 if F.get('glassy') else 0.0,
+    b = m.bsdf(c, 0.55, emission=emis, emission_strength=1.7, coat=0.3 if F.get('glassy') else 0.0,
                normal=m.bump(m.math('ADD', m.math('MULTIPLY', br.outputs['Fac'], 0.5), m.math('MULTIPLY', win, -0.8)), 0.3, 0.02))
     _ = (NZ, b)
     return emission_off(m.mat)
@@ -891,7 +891,7 @@ def save_plan(board: CityBoard, blocks, path: str, k: float = 0.25):
     for n in board.nodes.values():
         d.ellipse([n['x'] * k - 4, n['y'] * k - 3, n['x'] * k + 4, n['y'] * k + 3], fill=(255, 90, 90))
     for lm in board.landmarks:
-        fw, fd, hh = lm.get('fw', 20), lm.get('fd', 20), lm.get('h', 100)
+        fw, hh = lm.get('fw', 20), lm.get('h', 100)
         d.rectangle([(lm['x'] - fw) * k, (lm['y'] - hh) * k, (lm['x'] + fw) * k, lm['y'] * k], outline=(255, 200, 80))
         d.text(((lm['x'] - fw) * k + 1, (lm['y'] - hh) * k + 1), lm['id'][:10], fill=(255, 220, 120))
     d.rectangle([2020 * k - 3, 1500 * k - 6, 2020 * k + 3, 1500 * k], fill=(90, 160, 255))
