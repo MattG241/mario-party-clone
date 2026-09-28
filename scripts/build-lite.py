@@ -12,6 +12,7 @@ Re-run after re-rendering the board (scripts/art/board.py --export), the skies o
 """
 import json
 import os
+import sys
 import shutil
 
 from PIL import Image
@@ -71,6 +72,19 @@ def atlases():
 
 def main():
     os.makedirs(OUT, exist_ok=True)
+    args = sys.argv[1:]
+    # Just one board (--board <id>) or some images (--image <path under public/assets/rendered> ...):
+    # a world's own art, without rebuilding (or re-encoding) everyone else's.
+    if args[:1] == ['--board']:
+        board(args[1])
+        return
+    if args[:1] == ['--image']:
+        for rel in args[1:]:
+            dst = os.path.join(OUT, rel)
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            half(os.path.join(SRC, rel), dst)
+            print('lite', rel)
+        return
     board('suncoil')
     half(os.path.join(SRC, 'sky_day.webp'), os.path.join(OUT, 'sky_day.webp'))
     for v in SCENES + ARENAS:

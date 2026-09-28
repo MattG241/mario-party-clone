@@ -114,7 +114,7 @@ export interface BoardTheme {
   minigames?: string[];
   /** Where falls meet water on its rendered art (board px; lip = top of the falls), for mist. */
   waterfalls?: { x: number; y: number; lipX: number; lipY: number }[];
-  /** Setup-screen preview image path (e.g. 'assets/lite/<board>/preview.webp'). */
+  /** Setup-screen preview image path: 'assets/lite/previews/<board>.webp' (scripts/art/board_preview.py). */
   preview?: string;
   /** Festival events that don't suit this board (by id), left out of its random pools. */
   skipEvents?: string[];

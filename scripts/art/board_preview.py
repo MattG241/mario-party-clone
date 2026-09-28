@@ -3,7 +3,8 @@ composited from the manifest, scaled down and cropped to the islands.
 
     python3 scripts/art/board_preview.py <board-id> [--width 720]
 
-Writes public/assets/lite/<board-id>/preview.webp (the setup screen's board card picture).
+Writes public/assets/lite/previews/<board-id>.webp (the setup screen's board card picture; kept out of
+the board's own Lite folder, which scripts/build-lite.py rebuilds from scratch).
 """
 from __future__ import annotations
 
@@ -45,9 +46,9 @@ def main() -> None:
     box = canvas.getbbox()
     if box:
         canvas = canvas.crop(box)
-    out_dir = os.path.join(ROOT, 'public', 'assets', 'lite', a.board)
+    out_dir = os.path.join(ROOT, 'public', 'assets', 'lite', 'previews')
     os.makedirs(out_dir, exist_ok=True)
-    out = os.path.join(out_dir, 'preview.webp')
+    out = os.path.join(out_dir, f'{a.board}.webp')
     canvas.save(out, 'WEBP', quality=84, method=6)
     print('wrote', out, canvas.size)
 
