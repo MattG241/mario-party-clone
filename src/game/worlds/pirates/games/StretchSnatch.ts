@@ -428,10 +428,11 @@ export class StretchSnatchScene extends BaseMinigame {
     this.serveT -= dt;
     const target = tableTarget(this.players.length) + (this.frenzy ? 3 : 0);
     if (this.serveT <= 0) {
-      this.serveT = this.frenzy ? 480 : 1000 + this.rng.next() * 500;
+      // quick enough to keep a full table in front of four hungry pirates
+      this.serveT = this.frenzy ? 420 : 750 + this.rng.next() * 350;
       const short = target - this.table.count();
       if (short > 0) {
-        const n = Math.min(short, this.frenzy ? 3 : short > 4 ? 3 : 2);
+        const n = Math.min(short, this.frenzy ? 3 : short > 6 ? 4 : short > 3 ? 3 : 2);
         for (let i = 0; i < n; i++) this.time.delayedCall(i * 150, () => this.toss(serveKind(this.rng.next(), this.rng.next(), this.elapsed / this.duration)));
       }
     }
