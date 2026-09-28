@@ -26,6 +26,9 @@ from lib import MeshBuilder, col  # noqa: E402
 SW, SH = 1920, 1080
 PX = 100.0
 PITCH = math.radians(9.0)
+# The camera sits this far back along its view axis: view depths (as depth haze measures them) are
+# CAM_DIST at the front plane and grow into the scene.
+CAM_DIST = 200.0
 ROOT = lib.ROOT
 OUT = os.path.join(ROOT, 'art-out', 'heroes')
 PUB = os.path.join(ROOT, 'public', 'assets', 'rendered')
@@ -60,7 +63,7 @@ def camera(scale: float = 1.0, width_px: int = SW, height_px: int = SH, cx_px: f
     sc.camera = ob
     target = Vector((cx_px / PX, 0.0, (540 - cy_px) / (PX * math.cos(pitch))))
     d = Vector((0.0, math.cos(pitch), -math.sin(pitch)))
-    ob.location = target - d * 200.0
+    ob.location = target - d * CAM_DIST
     ob.rotation_euler = (math.pi / 2 - pitch, 0.0, 0.0)
     sc.render.resolution_x = int(round(width_px * scale))
     sc.render.resolution_y = int(round(height_px * scale))

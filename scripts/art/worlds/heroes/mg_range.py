@@ -105,7 +105,7 @@ def main():
         ob.location = (mx, 1.3, dz + 4.6)
         ob.rotation_euler = (math.radians(35), 0.0, math.radians(-60 if mx < 5 else 60))
         bpy.context.scene.collection.objects.link(ob)
-    dress.depth_haze(14.0, 90.0, 0.45, color='#8a6aa8', skip=('r_sky',))
+    dress.depth_haze(C.CAM_DIST + 12.0, C.CAM_DIST + 85.0, 0.45, color='#8a6aa8', skip=('r_sky',))
     path = os.path.join(C.OUT, 'range_prev.png' if PREVIEW else 'range.png')
     C.render(path)
     if not PREVIEW:

@@ -106,7 +106,7 @@ def backdrop():
     far.build('far', C.facade_material('s_far', lit='#ffcf8a', lit_frac=0.18, cell=(0.28, 0.3), win=(0.12, 0.14), seed=2.0, glass='#4a3666', emit=1.2))
     mid.build('mid', C.facade_material('s_mid', lit='#ffd9a0', lit_frac=0.26, cell=(0.36, 0.4), win=(0.18, 0.22), seed=6.0, glass='#4e3c6e', emit=1.6))
     import mg_dress as dress
-    dress.depth_haze(12.0, 80.0, 0.5, color='#e08a9a', skip=('s_sky',))
+    dress.depth_haze(C.CAM_DIST + 10.0, C.CAM_DIST + 75.0, 0.5, color='#e08a9a', skip=('s_sky',))
     path = os.path.join(C.OUT, 'skyline_prev.png' if PREVIEW else 'skyline.png')
     C.render(path)
     if not PREVIEW:

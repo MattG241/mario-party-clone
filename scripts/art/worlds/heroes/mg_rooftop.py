@@ -196,7 +196,7 @@ def main():
         bpy.context.scene.collection.objects.link(ob)
 
     import mg_dress as dress
-    dress.depth_haze(14.0, 80.0, 0.62, color='#2a3670', skip=('h_sky', 'h_moon', 'moon_halo_m', 'moon_glow_m'))
+    dress.depth_haze(C.CAM_DIST + 12.0, C.CAM_DIST + 75.0, 0.6, color='#2a3670', skip=('h_sky', 'h_moon', 'moon_halo_m', 'moon_glow_m'))
 
     path = os.path.join(C.OUT, 'rooftops_prev.png' if PREVIEW else 'rooftops.png')
     C.render(path)
