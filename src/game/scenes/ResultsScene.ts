@@ -5,29 +5,36 @@ import { CHARACTERS } from '../data/characters';
 import { COLORS, CSS, GAME_HEIGHT, GAME_WIDTH, PLAYER_COLORS } from '../constants';
 import { EffectsManager } from '../effects/EffectsManager';
 import { input } from '../input/InputManager';
+import { punch } from '../minigames/juice';
 import { minigameInfo, type MinigameLaunch, type MinigameResult } from '../minigames/MinigameManager';
+import { LITE } from '../perf';
+import { settings } from '../save/SettingsManager';
 import { rewardForPlace } from '../state/scoring';
 import { session } from '../state/Session';
+import { Confetti, godRays, stageDressing, winnerBanner } from '../ui/Celebration';
 import { PromptBar } from '../ui/ControllerPrompt';
 import { Menu } from '../ui/Menu';
-import { drawCard, UI } from '../ui/Style';
+import { drawCard, drawRibbon, UI } from '../ui/Style';
 import { PlayerBadge } from '../ui/PlayerBadge';
 import { addText, addTitle } from '../ui/theme';
-import { enterScene, goTo } from '../ui/Transition';
+import { coverThen, enterScene, goTo } from '../ui/Transition';
 import { randomSeed } from '../util/Random';
 import { applyGrade } from '../effects/GradePipeline';
 import { setDebugInfo } from '../debug/debug';
 import { addStrip } from '../ui/Screen';
 
 /** Podium x and height by finishing place (1st in the centre). Must match scripts/art/scenes.py. */
-const PODIUM_X = [920, 560, 1280, 1640];
-const PODIUM_H = [330, 215, 150, 95];
-const PODIUM_BASE = 880;
+export const PODIUM_X = [920, 560, 1280, 1640];
+export const PODIUM_H = [330, 215, 150, 95];
+export const PODIUM_BASE = 880;
 /** Camera elevation of the rendered results stage (degrees). */
 const STAGE_ELEV = 16;
+/** Figures on the podiums: the winner a head taller than the rest. */
+const WINNER_K = 1.3;
+const PLACED_K = 1.14;
 
 /** Screen y of the rank medallion on a rendered podium (same maths as the Blender scene). */
-function medalY(rank: number, h: number): number {
+export function medalY(rank: number, h: number): number {
   const beta = ((90 - STAGE_ELEV) * Math.PI) / 180;
   const sinb = Math.sin(beta);
   const cosb = Math.cos(beta);
@@ -94,6 +101,7 @@ export class ResultsScene extends Phaser.Scene {
     applyGrade(this, { vignette: 0.08 });
     audio.playMusic('results');
     const fx = new EffectsManager(this, 800);
+    const reduced = settings.get().reducedMotion;
     // Warm late-afternoon sky for the podium (the board is day, the title golden hour).
     const skyKey = ['rendered-sky-sunset', 'rendered-sky-golden', 'rendered-sky-day'].find((k) => this.textures.exists(k));
     if (skyKey) {
@@ -102,13 +110,27 @@ export class ResultsScene extends Phaser.Scene {
       this.add.image(0, 0, 'bg-sky').setOrigin(0).setDisplaySize(GAME_WIDTH, GAME_HEIGHT).setDepth(-10);
       addStrip(this, 0, 640, GAME_WIDTH, 560, 'bg-clouds-below').setOrigin(0).setDepth(-10);
     }
-    // Gives way to the winner's banner once they're revealed.
-    const header = addTitle(this, GAME_WIDTH / 2, 74, 'RESULTS', 80);
+    const info = minigameInfo(this.result.id);
+    // Until the winner is revealed, the minigame's name on a slim ribbon at the top.
+    const header = this.add.container(GAME_WIDTH / 2, 62).setDepth(5);
+    const hg = this.add.graphics();
+    const hname = addText(this, 0, -1, (info?.name ?? 'Results').toUpperCase(), 30, { color: '#ffffff', weight: 700, fixed: true });
+    drawRibbon(hg, 0, 0, hname.width + 120, 54, UI.slate, { tail: 40, shadow: 0.7 });
+    header.add([hg, hname]);
+    if (!reduced) {
+      header.setScale(0.6).setAlpha(0);
+      this.tweens.add({ targets: header, scale: 1, alpha: 1, duration: 260, ease: 'Back.Out' });
+    }
     const board = this.launchData.mode === 'board';
     const ranked = [...this.result.placements].sort((a, b) => a.place - b.place || a.slot - b.slot);
     // The rendered stage has all four podiums; fewer players fall back to drawn podiums.
     const stage = ranked.length === 4 && this.textures.exists('rendered-scene-results');
-    if (stage) this.add.image(0, 0, 'rendered-scene-results').setOrigin(0).setDepth(-8);
+    if (stage) {
+      this.add.image(0, 0, 'rendered-scene-results').setOrigin(0).setDepth(-8);
+      stageDressing(this, 40);
+    }
+    const winner = ranked[0];
+    const confetti = new Confetti(this, 60, winner ? PLAYER_COLORS[winner.slot] : undefined);
     const baseY = PODIUM_BASE;
     ranked.forEach((pl, rankIdx) => {
       const lp = this.launchData.players.find((p) => p.slot === pl.slot)!;
@@ -125,26 +147,28 @@ export class ResultsScene extends Phaser.Scene {
       ring.strokeEllipse(x, baseY - h + 4, 196, 50);
       ring.fillStyle(PLAYER_COLORS[pl.slot], 0.22);
       ring.fillEllipse(x, baseY - h + 4, 196, 50);
-      const c = new Character(this, x, baseY - h + 8, lp.characterId, { scale: rankIdx === 0 ? 1.12 : 1 });
+      const k = rankIdx === 0 ? WINNER_K : PLACED_K;
+      const c = new Character(this, x, baseY - h + 8, lp.characterId, { scale: k });
       c.setAlpha(0);
       // Marker hangs just above this character's head.
-      const badge = new PlayerBadge(this, x, baseY - h + 8 + animHeadTop(lp.characterId) * c.scale - 40, pl.slot, 24);
+      const badge = new PlayerBadge(this, x, baseY - h + 8 + animHeadTop(lp.characterId) * k - 40, pl.slot, 24);
       badge.setAlpha(0);
       const scoreLabel = this.result.scores.find((s) => s.slot === pl.slot)?.label ?? '';
-      // Score on a small white chip with a dot in the player's colour.
+      // Score on a small bevelled chip with a dot in the player's colour.
       const pill = this.add.graphics();
       const label = addText(this, x + 9, baseY + 53, scoreLabel, 21, { color: UI.inkCss, weight: 700 });
       const lw = Math.max(140, label.width + 58);
-      drawCard(pill, x - lw / 2, baseY + 34, lw, 38, { radius: 19, shadow: 0.8 });
+      drawCard(pill, x - lw / 2, baseY + 34, lw, 38, { radius: 19, shadow: 0.8, bevel: true });
       pill.fillStyle(PLAYER_COLORS[pl.slot], 1);
       pill.fillCircle(x - label.width / 2 - 8, baseY + 53, 7);
       label.setDepth(1);
+      let reward: { text: Phaser.GameObjects.Text; chip: Phaser.GameObjects.Sprite; target: number } | null = null;
       if (board) {
         const panel = this.add.graphics();
-        drawCard(panel, x - 70, baseY + 100, 140, 48, { radius: 24, shadow: 0.8 });
-        const chip = this.add.sprite(x - 34, baseY + 124, 'items', '0').setScale(0.18).play('chip-spin');
-        addText(this, x + 18, baseY + 124, `+${rewardForPlace(pl.place)}`, 28, { color: UI.inkCss, weight: 700 });
-        void chip;
+        drawCard(panel, x - 76, baseY + 100, 152, 50, { radius: 25, shadow: 0.8, bevel: true });
+        const chip = this.add.sprite(x - 38, baseY + 125, 'items', '0').setScale(0.18).play('chip-spin');
+        const text = addText(this, x + 18, baseY + 125, '+0', 30, { color: UI.inkCss, weight: 700 });
+        reward = { text, chip, target: rewardForPlace(pl.place) };
       }
       // Staggered reveal: 4th → 1st
       const delay = 400 + (ranked.length - 1 - rankIdx) * 450;
@@ -152,7 +176,16 @@ export class ResultsScene extends Phaser.Scene {
         c.setAlpha(1);
         this.tweens.add({ targets: badge, alpha: 1, duration: 200, delay: 300 });
         c.y -= 200;
-        this.tweens.add({ targets: c, y: c.y + 200, duration: 380, ease: 'Bounce.Out' });
+        this.tweens.add({
+          targets: c,
+          y: c.y + 200,
+          duration: 380,
+          ease: 'Bounce.Out',
+          onComplete: () => {
+            c.squash(0.12, 140);
+            fx.vfx('dust', x, baseY - h + 12, { scale: 0.38, alpha: 0.6 });
+          },
+        });
         audio.play('land');
         const last = pl.place === ranked.length && ranked.length > 1;
         this.time.delayedCall(380, () => {
@@ -161,40 +194,14 @@ export class ResultsScene extends Phaser.Scene {
           else if (pl.place === 1) {
             const cheer = () => {
               c.play('victory', { onComplete: () => c.hold('victory', 2) });
-              fx.confetti(x, baseY - h - 280, 50);
+              confetti.rain(26);
             };
             cheer();
             this.time.addEvent({ delay: 2600, loop: true, callback: cheer });
           } else c.play('celebrate', { onComplete: () => c.hold('celebrate', 2) });
+          if (reward) this.countReward(reward.text, reward.chip, reward.target, pl.place === 1);
         });
-        if (pl.place === 1) {
-          audio.play('victory');
-          fx.confetti(x, baseY - h - 280, 90);
-          // Winner card: the name in ink on a white card with a slim gold chip above it.
-          const winners = ranked.filter((r) => r.place === 1).length;
-          const team = minigameInfo(this.result.id)?.teamGame ?? false;
-          const nm = winners > 1 ? (team ? 'TEAM VICTORY!' : 'TIE!') : `${CHARACTERS[lp.characterId].name.split(' ')[0].toUpperCase()} WINS!`;
-          const ribbon = this.add.container(GAME_WIDTH / 2, 84).setScale(0.3).setDepth(5);
-          this.tweens.add({ targets: header, alpha: 0, scale: 0.9, duration: 200 });
-          const title = addText(this, 0, 0, nm, 52, { color: UI.inkCss, weight: 700, fixed: true });
-          const rw = Math.max(320, title.width + 110);
-          const rg = this.add.graphics();
-          drawCard(rg, -rw / 2, -40, rw, 80, { radius: 40, shadow: 1.3 });
-          ribbon.add([rg, title]);
-          // The winner stands in a warm pool of light.
-          const pool = this.add.image(x, baseY - h + 6, 'fx-dot').setScale(11, 3).setTint(0xfff0c8).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0).setDepth(-1);
-          this.tweens.add({ targets: pool, alpha: 0.45, duration: 400 });
-          // ...under a soft shaft of warm light from above.
-          if (this.textures.exists('fx-shaft')) {
-            const shaft = this.add.image(x, baseY - h + 30, 'fx-shaft').setOrigin(0.5, 1).setDisplaySize(330, 820).setTint(0xfff0cf).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0).setDepth(-1);
-            this.tweens.add({ targets: shaft, alpha: 0.32, duration: 600 });
-          }
-          this.tweens.add({ targets: ribbon, scale: 1, duration: 360, ease: 'Back.Out' });
-          if (!lp.isCpu) {
-            input.rumbleSlot(lp.slot, 0.6, 0.6, 150);
-            this.time.delayedCall(260, () => input.rumbleSlot(lp.slot, 0.6, 0.6, 150));
-          }
-        }
+        if (pl.place === 1) this.revealWinner(ranked, lp.characterId, x, baseY - h, header, confetti, fx);
       });
     });
     const revealDone = 600 + ranked.length * 450;
@@ -203,7 +210,7 @@ export class ResultsScene extends Phaser.Scene {
       this.canContinue = true;
       setDebugInfo('resultsReady', true);
       if (board) {
-        new PromptBar(this, GAME_WIDTH / 2, GAME_HEIGHT - 40, [{ button: 'A', label: 'Back to the board' }], { size: 40, fontSize: 28 });
+        new PromptBar(this, GAME_WIDTH / 2, GAME_HEIGHT - 40, [{ button: 'A', label: 'Back to the board' }], { size: 40, fontSize: 28 }).setDepth(70);
       } else {
         this.menu = new Menu(
           this,
@@ -214,9 +221,66 @@ export class ResultsScene extends Phaser.Scene {
             { label: 'CHANGE GAME', onSelect: () => goTo(this, 'MinigameMode') },
             { label: 'MAIN MENU', onSelect: () => goTo(this, 'Title') },
           ],
-          { horizontal: true, width: 300, itemHeight: 56, fontSize: 26, gap: 28 },
+          { horizontal: true, width: 300, itemHeight: 58, fontSize: 26, gap: 28 },
         );
+        this.menu.setDepth(70);
+        if (!settings.get().reducedMotion) {
+          this.menu.y += 90;
+          this.tweens.add({ targets: this.menu, y: this.menu.y - 90, duration: 320, ease: 'Back.Out' });
+        }
       }
+    });
+  }
+
+  /** The winner's moment: their banner replaces the header, light pours down and the cannons fire. */
+  private revealWinner(ranked: { slot: number; place: number }[], characterId: MinigameLaunch['players'][number]['characterId'], x: number, topY: number, header: Phaser.GameObjects.Container, confetti: Confetti, fx: EffectsManager): void {
+    const lp = this.launchData.players.find((p) => p.characterId === characterId)!;
+    const winners = ranked.filter((r) => r.place === 1);
+    const team = minigameInfo(this.result.id)?.teamGame ?? false;
+    const name = CHARACTERS[characterId].short.toUpperCase();
+    const title = winners.length > 1 ? (team ? 'TEAM VICTORY!' : 'TIE!') : `${name} WINS!`;
+    audio.play('victory');
+    this.tweens.add({ targets: header, alpha: 0, scale: 0.85, duration: 180 });
+    const portraits = winners.map((w) => ({ slot: w.slot, characterId: this.launchData.players.find((p) => p.slot === w.slot)!.characterId }));
+    winnerBanner(this, GAME_WIDTH / 2, 96, { title, color: PLAYER_COLORS[lp.slot], portraits, subtitle: minigameInfo(this.result.id)?.name.toUpperCase(), depth: 50 });
+    // A god-ray and a warm pool of light on the winner's podium.
+    const rays = godRays(this, x, topY + 6, { depth: -1 });
+    rays.setAlpha(0);
+    this.tweens.add({ targets: rays, alpha: 1, duration: 500 });
+    confetti.cannons(GAME_HEIGHT - 70, 80);
+    confetti.rain(40);
+    fx.sparks(x, topY - 150, LITE ? 14 : 26);
+    punch(this, 0.025, 320);
+    if (!settings.get().reducedMotion) this.cameras.main.flash(160, 255, 244, 214);
+    if (!lp.isCpu) {
+      input.rumbleSlot(lp.slot, 0.6, 0.6, 150);
+      this.time.delayedCall(260, () => input.rumbleSlot(lp.slot, 0.6, 0.6, 150));
+    }
+  }
+
+  /** "+10" chips counting up with a tick per chip, then a pop. */
+  private countReward(text: Phaser.GameObjects.Text, chip: Phaser.GameObjects.Sprite, target: number, big: boolean): void {
+    const holder = { n: 0 };
+    let shown = 0;
+    this.tweens.add({
+      targets: holder,
+      n: target,
+      duration: 90 + target * 55,
+      ease: 'Linear',
+      onUpdate: () => {
+        const n = Math.round(holder.n);
+        if (n === shown) return;
+        shown = n;
+        text.setText(`+${n}`);
+        audio.play('dialTick', { rate: 1 + n * 0.03, volume: 0.6, throttleMs: 30 });
+        chip.setScale(0.22);
+        this.tweens.add({ targets: chip, scale: 0.18, duration: 90 });
+      },
+      onComplete: () => {
+        text.setText(`+${target}`);
+        audio.play('chipGain', { rate: big ? 1.1 : 1, volume: 0.7 });
+        this.tweens.add({ targets: text, scale: { from: 1.35, to: 1 }, duration: 240, ease: 'Back.Out' });
+      },
     });
   }
 
@@ -248,9 +312,8 @@ export class ResultsScene extends Phaser.Scene {
     if (this.done) return;
     this.done = true;
     audio.play('confirm');
-    const cam = this.cameras.main;
-    cam.fadeOut(220, 13, 59, 71);
-    cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+    // Back to the board behind the wipe; the board reveals itself when it wakes.
+    coverThen(this, () => {
       this.game.events.emit('minigame:complete', this.result);
       this.scene.stop();
     });

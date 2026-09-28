@@ -74,3 +74,27 @@ export const BUTTON_COLORS: Record<string, number> = {
   X: 0x3b82f6,
   Y: 0xf5c542,
 };
+
+/** Festival gold, top to bottom (title lockups). */
+export const GOLD_STOPS: [number, string][] = [
+  [0, '#fffbe6'],
+  [0.45, '#ffe08a'],
+  [0.7, '#ffc23d'],
+  [1, '#f09a1f'],
+];
+
+/** Fill a text object with a vertical gradient (re-renders it). */
+export function setGradientFill(t: Phaser.GameObjects.Text, stops: [number, string][] = GOLD_STOPS): Phaser.GameObjects.Text {
+  const pad = t.padding;
+  const top = pad?.top ?? 0;
+  const h = Math.max(1, t.height - top - (pad?.bottom ?? 0));
+  const grd = t.context.createLinearGradient(0, top + h * 0.12, 0, top + h * 0.88);
+  for (const [at, css] of stops) grd.addColorStop(at, css);
+  t.setFill(grd);
+  return t;
+}
+
+/** A display title filled with festival gold (or the given stops), with the house outline and shadow. */
+export function addGradientTitle(scene: Phaser.Scene, x: number, y: number, text: string, size: number, stops: [number, string][] = GOLD_STOPS): Phaser.GameObjects.Text {
+  return setGradientFill(addTitle(scene, x, y, text, size), stops);
+}

@@ -9,6 +9,7 @@ import { drawPanel } from '../ui/Panel';
 import { PlayerBadge } from '../ui/PlayerBadge';
 import { addText } from '../ui/theme';
 import { drawNavyPanel } from '../ui/Screen';
+import { setWipeHost, Wipe } from '../ui/Wipe';
 
 /** Scenes that must pause when a player's controller disconnects. */
 function isGameplayScene(key: string): boolean {
@@ -32,6 +33,7 @@ export class SystemScene extends Phaser.Scene {
   private debugText!: Phaser.GameObjects.Text;
   private debugBg!: Phaser.GameObjects.Graphics;
   private debugVisible = false;
+  private wipe!: Wipe;
 
   constructor() {
     super({ key: 'System', active: false });
@@ -39,6 +41,11 @@ export class SystemScene extends Phaser.Scene {
 
   create(): void {
     this.scene.bringToTop();
+    // Scene transitions sweep across on top of every scene (under the captions, toasts and the
+    // disconnect notice, which must stay readable).
+    this.wipe = new Wipe(this, 700);
+    setWipeHost(this.wipe);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => setWipeHost(null));
     // Subtitles
     this.captionBg = this.add.graphics();
     this.captionText = addText(this, 0, 0, '', 30, { color: CSS.white, weight: 600, fixed: false });
@@ -109,7 +116,7 @@ export class SystemScene extends Phaser.Scene {
     this.toastText.setText(text);
     const w = this.toastText.width + 60;
     this.toastBg.clear();
-    drawPanel(this.toastBg, -w / 2, -34, w, 68, { radius: 30, borderWidth: 5, engraving: false, shadowOffset: 6 });
+    drawPanel(this.toastBg, -w / 2, -34, w, 68, { radius: 30, borderWidth: 5, engraving: false, shadowOffset: 6, bevel: true });
     this.tweens.killTweensOf(this.toastBox);
     this.toastBox.setY(-60);
     this.tweens.add({ targets: this.toastBox, y: 58, duration: 260, ease: 'Back.Out' });
@@ -134,7 +141,7 @@ export class SystemScene extends Phaser.Scene {
     const box = this.add.container(GAME_WIDTH / 2, GAME_HEIGHT / 2).setDepth(800);
     const dim = this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x06141a, 0.72);
     const g = this.add.graphics();
-    drawNavyPanel(g, -560, -210, 1120, 420, { border: COLORS.coral, header: { color: COLORS.coral, height: 64 } });
+    drawNavyPanel(g, -560, -210, 1120, 420, { border: COLORS.coral, header: { color: COLORS.coral, height: 64 }, gloss: true });
     const badge = new PlayerBadge(this, -430, -110, slot, 40);
     const title = addText(this, 40, -120, 'Controller disconnected', 54, { color: '#ffffff', weight: 700, stroke: '#06141a', strokeThickness: 5 });
     const body = addText(this, 0, 10, `Player ${slot + 1}, reconnect your controller\nor press Enter to continue on the keyboard.`, 36, { color: CSS.cream, weight: 500 });
@@ -183,6 +190,7 @@ export class SystemScene extends Phaser.Scene {
   // --- Frame ------------------------------------------------------------------------------------
   override update(_time: number, delta: number): void {
     this.scene.bringToTop();
+    this.wipe.update(delta);
     if (this.captionTimer > 0) {
       this.captionTimer -= delta;
       if (this.captionTimer <= 0) {

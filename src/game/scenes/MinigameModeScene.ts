@@ -11,7 +11,7 @@ import { session } from '../state/Session';
 import { glyphKindFor, makeGlyph, PromptBar } from '../ui/ControllerPrompt';
 import { addPortrait } from '../ui/Portrait';
 import { buildBackdrop, drawNavyPanel } from '../ui/Screen';
-import { addText, addTitle } from '../ui/theme';
+import { addGradientTitle, addText } from '../ui/theme';
 import { enterScene, goTo } from '../ui/Transition';
 import { centerOrigin } from '../util/spriteUtil';
 import { randomSeed } from '../util/Random';
@@ -28,6 +28,8 @@ interface Card {
   info: MinigameInfo;
   root: Phaser.GameObjects.Container;
   rim: Phaser.GameObjects.Graphics;
+  /** White overlay flashed when the card takes focus. */
+  flash: Phaser.GameObjects.Graphics;
   playable: boolean;
   reason: string;
 }
@@ -63,7 +65,7 @@ export class MinigameModeScene extends Phaser.Scene {
     audio.playMusic('menu');
     session.mode = 'minigame';
     buildBackdrop(this, 'day', 0.3);
-    addTitle(this, GAME_WIDTH / 2, 70, 'MINIGAME MODE', 68);
+    addGradientTitle(this, GAME_WIDTH / 2, 70, 'MINIGAME MODE', 68);
     this.players = this.resolvePlayers();
     this.buildPlayerStrip();
 
@@ -223,8 +225,11 @@ export class MinigameModeScene extends Phaser.Scene {
     }
 
     const rim = this.add.graphics();
-    root.add(rim);
-    return { info, root, rim, playable, reason };
+    const flash = this.add.graphics().setAlpha(0);
+    flash.fillStyle(0xffffff, 1);
+    flash.fillRoundedRect(L, T, CARD_W, CARD_H, 24);
+    root.add([rim, flash]);
+    return { info, root, rim, flash, playable, reason };
   }
 
   private drawRim(card: Card, focused: boolean): void {
@@ -248,15 +253,26 @@ export class MinigameModeScene extends Phaser.Scene {
   private focus(i: number, instant = false): void {
     const prev = this.cards[this.index];
     this.index = i;
+    const reduced = settings.get().reducedMotion;
     this.cards.forEach((c, k) => {
       const on = k === i;
       this.drawRim(c, on);
       c.root.setDepth(on ? 10 : 1);
-      this.tweens.killTweensOf(c.root);
+      this.tweens.killTweensOf([c.root, c.rim]);
+      c.rim.setAlpha(1);
       const scale = on ? 1.045 : 1;
-      if (instant) c.root.setScale(scale);
-      else this.tweens.add({ targets: c.root, scale, duration: 140, ease: 'Back.Out' });
+      if (instant || reduced) c.root.setScale(scale);
+      else if (on) this.tweens.add({ targets: c.root, scale: { from: 1.0, to: scale }, duration: 180, ease: 'Back.Out' });
+      else this.tweens.add({ targets: c.root, scale, duration: 140, ease: 'Quad.Out' });
       c.root.setAlpha(c.playable || on ? 1 : 0.82);
+      if (on && !reduced) {
+        // The same focus language as the menus: a quick flash, then a softly breathing rim.
+        if (!instant) {
+          c.flash.setAlpha(0.35);
+          this.tweens.add({ targets: c.flash, alpha: 0, duration: 220, ease: 'Quad.Out' });
+        }
+        this.tweens.add({ targets: c.rim, alpha: { from: 1, to: 0.55 }, duration: 760, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+      }
     });
     if (!instant && prev !== this.cards[i]) audio.play('menuMove');
     this.buildDetail(this.cards[i]);
@@ -321,6 +337,11 @@ export class MinigameModeScene extends Phaser.Scene {
     }
     this.leaving = true;
     audio.play('confirm');
+    // Press feedback: the card squashes and flashes as it's picked.
+    this.tweens.killTweensOf([card.root, card.flash]);
+    card.flash.setAlpha(0.6);
+    this.tweens.add({ targets: card.flash, alpha: 0, duration: 260, ease: 'Quad.Out' });
+    this.tweens.add({ targets: card.root, scaleX: 1.07, scaleY: 0.96, duration: 70, yoyo: true, ease: 'Quad.Out' });
     this.registry.set('mgmode-last', card.info.id);
     const launch: MinigameLaunch = {
       id: card.info.id,
