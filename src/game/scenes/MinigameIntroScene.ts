@@ -91,10 +91,10 @@ export class MinigameIntroScene extends Phaser.Scene {
       // The cards slide in from either side.
       preview.x -= 70;
       preview.alpha = 0;
-      this.tweens.add({ targets: preview, x: preview.x + 70, alpha: 1, duration: 320, delay: 120, ease: 'Cubic.Out' });
+      this.tweens.add({ targets: preview, x: preview.x + 70, alpha: 1, duration: 260, delay: 40, ease: 'Cubic.Out' });
       rules.x += 70;
       rules.alpha = 0;
-      this.tweens.add({ targets: rules, x: rules.x - 70, alpha: 1, duration: 320, delay: 200, ease: 'Cubic.Out' });
+      this.tweens.add({ targets: rules, x: rules.x - 70, alpha: 1, duration: 260, delay: 90, ease: 'Cubic.Out' });
     }
     this.buildReadyCheck(reduced);
     new PromptBar(this, GAME_WIDTH / 2, GAME_HEIGHT - 58, [{ button: 'A', label: 'Ready!' }], { size: 38, fontSize: 26 });
@@ -162,7 +162,7 @@ export class MinigameIntroScene extends Phaser.Scene {
       for (const o of [plate, line]) {
         o.setAlpha(0);
         o.y += 14;
-        this.tweens.add({ targets: o, alpha: 1, y: o.y - 14, duration: 260, delay: 620, ease: 'Cubic.Out' });
+        this.tweens.add({ targets: o, alpha: 1, y: o.y - 14, duration: 240, delay: 380, ease: 'Cubic.Out' });
       }
     }
   }
@@ -403,7 +403,7 @@ export class MinigameIntroScene extends Phaser.Scene {
       if (!reduced) {
         row.setAlpha(0);
         row.x = 40;
-        this.tweens.add({ targets: row, alpha: 1, x: 0, duration: 260, delay: 360 + i * 90, ease: 'Cubic.Out' });
+        this.tweens.add({ targets: row, alpha: 1, x: 0, duration: 220, delay: 200 + i * 55, ease: 'Cubic.Out' });
       }
     });
     // Controls on their own tray along the bottom of the card.
@@ -455,7 +455,7 @@ export class MinigameIntroScene extends Phaser.Scene {
       if (!reduced) {
         card.setAlpha(0);
         card.y = 60;
-        this.tweens.add({ targets: card, alpha: 1, y: 0, duration: 300, delay: 420 + i * 80, ease: 'Back.Out' });
+        this.tweens.add({ targets: card, alpha: 1, y: 0, duration: 260, delay: 240 + i * 55, ease: 'Back.Out' });
       }
     });
   }

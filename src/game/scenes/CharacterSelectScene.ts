@@ -253,10 +253,24 @@ export class CharacterSelectScene extends Phaser.Scene {
     const c = this.add.container(GAME_WIDTH / 2, 150).setDepth(100).setVisible(false);
     const g = this.add.graphics();
     drawCard(g, -440, -44, 880, 88, { radius: 44, fill: UI.focus, shadow: 1.3, bevel: true });
-    const t = addText(this, 0, -2, 'All set! Press A to continue', 36, { color: UI.inkCss, weight: 700 });
-    c.add([g, t]);
+    c.add([g, this.add.container(0, -2)]);
     this.tweens.add({ targets: c, alpha: { from: 1, to: 0.8 }, duration: 800, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
     return c;
+  }
+
+  /** "All set! [A] to continue", with the confirm button drawn for the device in use right now. */
+  private fillStartBanner(): void {
+    const line = this.startBanner.list[1] as Phaser.GameObjects.Container;
+    line.removeAll(true);
+    const lead = addText(this, 0, 0, 'All set!', 36, { color: UI.inkCss, weight: 700, align: 'left' });
+    const glyph = makeGlyph(this, 'A', 42, glyphKindFor());
+    const tail = addText(this, 0, 0, 'to continue', 36, { color: UI.inkCss, weight: 700, align: 'left' });
+    const gw = glyph.width || 46;
+    const total = lead.width + 16 + gw + 14 + tail.width;
+    lead.setX(-total / 2);
+    glyph.setPosition(-total / 2 + lead.width + 16 + gw / 2, 0);
+    tail.setX(-total / 2 + lead.width + 16 + gw + 14);
+    line.add([lead, glyph, tail]);
   }
 
   // --- Pedestals --------------------------------------------------------------------------------
@@ -497,6 +511,7 @@ export class CharacterSelectScene extends Phaser.Scene {
 
   private refreshFooter(): void {
     const ready = this.allReady();
+    if (ready && !this.startBanner.visible) this.fillStartBanner();
     this.startBanner.setVisible(ready);
     this.footer.setVisible(!ready);
     const anyJoined = this.slots.some((s) => s.phase !== 'empty');

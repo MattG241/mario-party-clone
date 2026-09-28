@@ -58,7 +58,7 @@ export class TitleLockup extends Phaser.GameObjects.Container {
   }
 
   /** Letters drop in one after another and settle with a bounce. Resolves once all have landed. */
-  play(delay = 0, stagger = 38): Promise<void> {
+  play(delay = 0, stagger = 30): Promise<void> {
     const scene = this.scene;
     const reduced = settings.get().reducedMotion;
     return new Promise((resolve) => {

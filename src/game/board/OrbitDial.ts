@@ -59,9 +59,9 @@ export class OrbitDial {
     // (Two halo layers: a wide soft bloom and a tighter bright core, strong enough to read on the
     // sunlit board.)
     const light = lerpColor(opts.color, 0xffffff, 0.35);
-    const bloom = s.add.image(0, 0, 'fx-dot').setTint(opts.color).setBlendMode(Phaser.BlendModes.ADD).setScale(18).setAlpha(0.6);
-    const halo = s.add.image(0, 0, 'fx-dot').setTint(light).setBlendMode(Phaser.BlendModes.ADD).setScale(12).setAlpha(0.85);
-    const rays = s.add.image(0, 0, s.textures.exists('fx-rays') ? 'fx-rays' : 'fx-dot').setTint(light).setBlendMode(Phaser.BlendModes.ADD).setScale(0.9).setAlpha(0.75);
+    const bloom = s.add.image(0, 0, 'fx-dot').setTint(opts.color).setBlendMode(Phaser.BlendModes.ADD).setScale(16).setAlpha(0.36);
+    const halo = s.add.image(0, 0, 'fx-dot').setTint(light).setBlendMode(Phaser.BlendModes.ADD).setScale(10).setAlpha(0.5);
+    const rays = s.add.image(0, 0, s.textures.exists('fx-rays') ? 'fx-rays' : 'fx-dot').setTint(light).setBlendMode(Phaser.BlendModes.ADD).setScale(0.9).setAlpha(0.55);
     const rendered = s.textures.exists('rendered-ui-dial');
     const ring = rendered ? s.add.image(0, 0, 'rendered-ui-dial').setDisplaySize(180, 180) : s.add.image(0, 0, 'orbit-dial').setScale(0.4);
     // A darker copy just below reads as the medallion's thickness (a coin edge), not a flat decal.
@@ -155,7 +155,7 @@ export class OrbitDial {
     }
     // A drumroll rides the slowdown.
     audio.play('drumroll', { volume: 0.7 });
-    s.tweens.add({ targets: rays, alpha: 0.95, scale: 1.02, duration: 700, ease: 'Sine.In' });
+    s.tweens.add({ targets: rays, alpha: 0.8, scale: 1.02, duration: 700, ease: 'Sine.In' });
     await new Promise<void>((r) => {
       const check = s.time.addEvent({
         delay: 16,

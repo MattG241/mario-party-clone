@@ -35,6 +35,8 @@ interface Dodger {
   ghostEvery: number;
   /** Depth scale of their spot on the disc (nearer players are drawn larger). */
   k: number;
+  /** The player badge's resting height, so it can rise with a jump instead of covering the body. */
+  markerY: number;
 }
 
 interface Arm {
@@ -219,7 +221,7 @@ export class OrbitDodgeScene extends BaseMinigame {
     c.face(x > CX);
     p.character = c;
     const warn = this.add.container(x, y - 250).setDepth(6000).setVisible(false);
-    this.dodgers.push({ p, c, angle, x, y, z: 0, vz: 0, ducking: false, duckAt: 0, lives: LIVES, invuln: 0, jumpBuffer: 0, windup: 0, warn, warnKind: null, ghostT: 0, ghostEvery: 0, k: depthK });
+    this.dodgers.push({ p, c, angle, x, y, z: 0, vz: 0, ducking: false, duckAt: 0, lives: LIVES, invuln: 0, jumpBuffer: 0, windup: 0, warn, warnKind: null, ghostT: 0, ghostEvery: 0, k: depthK, markerY: c.marker?.y ?? 0 });
     p.score = LIVES;
   }
 
@@ -634,6 +636,7 @@ export class OrbitDodgeScene extends BaseMinigame {
         } else d.c.play('idle');
       }
       d.c.sprite.y = -d.z;
+      if (d.c.marker) d.c.marker.y = d.markerY - d.z;
       d.c.shadow?.setScale(1 - Math.min(0.5, d.z / 300));
     }
     // Arm crossings
@@ -795,6 +798,7 @@ export class OrbitDodgeScene extends BaseMinigame {
         d.vz = 0;
         d.windup = 0;
         d.c.sprite.y = 0;
+        if (d.c.marker) d.c.marker.y = d.markerY;
         d.c.shadow?.setScale(1);
         if (d.ducking || d.c.current === 'jump') {
           d.ducking = false;

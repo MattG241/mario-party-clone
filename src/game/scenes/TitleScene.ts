@@ -215,19 +215,19 @@ export class TitleScene extends Phaser.Scene {
   }
 
   /**
-   * A glint across the rendered wordmark every few seconds: a soft band of light (three nested
-   * crops of a white copy of the logo, so it follows the letters exactly and fades at its edges)
-   * sweeps left to right, then a sparkle twinkles on the last letter.
+   * A glint across the rendered wordmark every few seconds: a soft band of light sweeps left to
+   * right, then a sparkle twinkles on the last letter. The band is nine nested crops of the logo
+   * itself, added over it: the gold faces flare while the dark outline and extrusion add almost
+   * nothing, so the light stays on the letters, and the nesting ramps its edges smoothly.
    */
   private addLogoGlint(img: Phaser.GameObjects.Image, into: Phaser.GameObjects.Container): void {
     if (settings.get().reducedMotion) return;
     const tw = img.frame.width;
     const th = img.frame.height;
-    const layers = [
-      { w: 0.16, a: 0.1 },
-      { w: 0.09, a: 0.14 },
-      { w: 0.035, a: 0.22 },
-    ].map((l) => ({ ...l, img: this.add.image(img.x, img.y, img.texture.key).setScale(img.scaleX).setTintFill(0xffffff).setBlendMode(Phaser.BlendModes.ADD).setAlpha(l.a).setVisible(false) }));
+    const layers = Array.from({ length: 9 }, (_, i) => ({ w: 0.018 * (i + 1), a: 0.075 })).map((l) => ({
+      ...l,
+      img: this.add.image(img.x, img.y, img.texture.key).setScale(img.scaleX).setBlendMode(Phaser.BlendModes.ADD).setAlpha(l.a).setVisible(false),
+    }));
     into.add(layers.map((l) => l.img));
     const star = this.add.graphics();
     star.fillStyle(0xffffff, 1);

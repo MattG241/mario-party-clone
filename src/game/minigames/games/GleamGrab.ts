@@ -570,6 +570,15 @@ export class GleamGrabScene extends BaseMinigame {
         g.c.play('stunned', { returnTo: 'idle' });
         // Blown off their feet: a hop, and stars circling their head.
         this.tweens.add({ targets: g.c.sprite, y: { from: 0, to: -46 }, duration: 170, yoyo: true, ease: 'Quad.Out', onComplete: () => g.c.sprite.setY(0) });
+        // The badge rides the hop, so it never lands on their face.
+        const badge = g.c.marker;
+        if (badge) {
+          // Its resting height, kept from the first hop (a second hit mid-hop must not strand it).
+          const by = (badge.getData('restY') as number | undefined) ?? badge.y;
+          badge.setData('restY', by);
+          this.tweens.killTweensOf(badge);
+          this.tweens.add({ targets: badge, y: { from: by, to: by - 46 }, duration: 170, yoyo: true, ease: 'Quad.Out', onComplete: () => badge.setY(by) });
+        }
         const q = this.P(g.x, g.y);
         this.fx.vfx('starSwirl', q.x, q.y + g.c.headY * g.c.scaleY - 10, { scale: 0.42 * q.s, duration: 700, blend: 'add' });
         audio.play('hit');

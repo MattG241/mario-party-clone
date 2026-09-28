@@ -147,6 +147,15 @@ function findMask(o: Phaser.GameObjects.GameObject): Phaser.GameObjects.Graphics
   return undefined;
 }
 
+/** The capsule flash: a bright rim in the given colour with only a faint fill inside. */
+function drawCapsuleGlow(g: Phaser.GameObjects.Graphics, color: number): void {
+  g.clear();
+  g.fillStyle(color, 0.3);
+  g.fillRoundedRect(0, 0, HUD_W, HUD_H, HUD_H / 2);
+  g.lineStyle(6, color, 1);
+  g.strokeRoundedRect(3, 3, HUD_W - 6, HUD_H - 6, (HUD_H - 6) / 2);
+}
+
 /**
  * Base class for every minigame scene. Subclasses build the arena, spawn player visuals, run
  * their gameplay in tick(), drive CPU players in cpuThink() and report scores. The base runs the
@@ -420,8 +429,7 @@ export abstract class BaseMinigame extends Phaser.Scene {
       const bg = this.add.graphics().setPosition(ox, oy);
       drawCapsule(bg, W, H, color);
       const glow = this.add.graphics().setPosition(ox, oy).setAlpha(0).setBlendMode(Phaser.BlendModes.ADD);
-      glow.fillStyle(color, 1);
-      glow.fillRoundedRect(0, 0, W, H, H / 2);
+      drawCapsuleGlow(glow, color);
       const lx = (v: number) => (flip ? W - v : v);
       const pr = 42;
       const portrait = addPortrait(this, p.characterId, p.slot, pr, { flip, worldX: x + lx(34), worldY: y + H / 2 });
@@ -617,13 +625,13 @@ export abstract class BaseMinigame extends Phaser.Scene {
     tag.lastFlash = this.realNow;
     if (color !== tag.glowColor) {
       tag.glowColor = color;
-      tag.glow.clear();
-      tag.glow.fillStyle(color, 1);
-      tag.glow.fillRoundedRect(0, 0, HUD_W, HUD_H, HUD_H / 2);
+      drawCapsuleGlow(tag.glow, color);
     }
+    // A quick, bright ping (the rim does the work) rather than a slow tinted wash, which any
+    // single frame would catch looking like a see-through fill.
     tag.glowTw?.stop();
-    tag.glow.setAlpha(alpha);
-    tag.glowTw = this.tweens.add({ targets: tag.glow, alpha: 0, duration: 360, ease: 'Quad.Out' });
+    tag.glow.setAlpha(Math.min(1, alpha * 2.2));
+    tag.glowTw = this.tweens.add({ targets: tag.glow, alpha: 0, duration: 230, ease: 'Cubic.Out' });
   }
 
   /** Row of hearts: filled ones in coral, lost ones as rimmed hollows. */
@@ -863,18 +871,20 @@ export abstract class BaseMinigame extends Phaser.Scene {
       return;
     }
     if (prev === slot) {
-      // Already theirs (the finish): a victory spin where it sits.
+      // Already theirs (the finish): a victory pop and wiggle where it sits (never a spin, which
+      // any single frame could catch lying on its side).
       c.setPosition(to.x, to.y).setAngle(to.angle);
-      this.crownTweens.push(this.tweens.add({ targets: c, angle: to.angle + (to.x > GAME_WIDTH / 2 ? 360 : -360), scale: { from: 1.5, to: 1 }, duration: 520, ease: 'Back.Out', onComplete: land }));
+      this.crownTweens.push(this.tweens.add({ targets: c, angle: { from: to.angle + (to.x > GAME_WIDTH / 2 ? 18 : -18), to: to.angle }, duration: 520, ease: 'Elastic.Out' }));
+      this.crownTweens.push(this.tweens.add({ targets: c, scale: { from: 1.6, to: 1 }, duration: 520, ease: 'Back.Out', onComplete: land }));
       return;
     }
-    // Hop across to the new leader: a dipping arc with a spin (growing back to full size if it
-    // was caught halfway through bowing out).
+    // Hop across to the new leader: a dipping arc that swells at its height and settles into the
+    // new tilt (growing back to full size if it was caught halfway through bowing out). No spin,
+    // so it always reads as a crown.
     const fx = c.x;
     const fy = c.y;
     const fa = c.angle;
     const fs = c.scale;
-    const spin = to.x > fx ? 360 : -360;
     const k = { u: 0 };
     this.crownTweens.push(
       this.tweens.add({
@@ -885,7 +895,7 @@ export abstract class BaseMinigame extends Phaser.Scene {
         onUpdate: () => {
           const u = k.u;
           c.setPosition(fx + (to.x - fx) * u, fy + (to.y - fy) * u + Math.sin(u * Math.PI) * 46);
-          c.setAngle(fa + (to.angle + spin - fa) * u).setScale(fs + (1 - fs) * u);
+          c.setAngle(fa + (to.angle - fa) * u).setScale((fs + (1 - fs) * u) * (1 + 0.28 * Math.sin(u * Math.PI)));
         },
         onComplete: land,
       }),
