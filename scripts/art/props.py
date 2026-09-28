@@ -301,16 +301,18 @@ def workshop(bx, by, s=1.0) -> list:
     # stone foundation band
     v, f = lib.box((x, y, 0.09 * s), (W + 0.08 * s, D + 0.08 * s, 0.18 * s))
     P.b['stone'].add(v, f, col('#b9ab98'))
-    # lean-to shed on the right with its own slanted roof (breaks up the box silhouette)
+    # lean-to shed on the right with its own slanted roof (breaks up the box silhouette); set back
+    # towards the rear so the relic shrine beside the workshop on the terrace stays clear
     sx0 = x + W / 2
-    v, f = lib.box((sx0 + 0.28 * s, y + 0.1 * s, 0.33 * s), (0.56 * s, 0.7 * s, 0.66 * s))
+    sy0, sd = y + 0.42 * s, 0.5 * s
+    v, f = lib.box((sx0 + 0.28 * s, sy0, 0.33 * s), (0.56 * s, sd, 0.66 * s))
     P.b['wood'].add(v, f, col('#a8744a'))
-    # lean-to roof: five sloped boards with real thickness (a double-sided quad rendered as a dark
+    # lean-to roof: sloped boards with real thickness (a double-sided quad rendered as a dark
     # slab from above)
     ang = math.atan2(0.2, 0.68)
-    for k in range(5):
+    for k in range(4):
         v, f = lib.box((0, 0, 0), (0.76 * s, 0.165 * s, 0.035 * s))
-        v = lib.transform(v, loc=(sx0 + 0.32 * s, y - 0.3 * s + (k + 0.5) * 0.16 * s, 0.78 * s), rot=(0.0, ang, 0.0))
+        v = lib.transform(v, loc=(sx0 + 0.32 * s, sy0 - sd / 2 - 0.04 * s + (k + 0.5) * (sd + 0.08 * s) / 4, 0.78 * s), rot=(0.0, ang, 0.0))
         P.b['wood'].add(v, f, col(['#9a6a40', '#8a5a34', '#a4744a'][k % 3]))
     # brass water tank on stilts behind the workshop
     tx, ty = x - W / 2 + 0.2 * s, y + D / 2 + 0.35 * s
@@ -371,7 +373,9 @@ def workshop(bx, by, s=1.0) -> list:
     return P.build()
 
 
-def stall(bx, by, s=1.0, stripe=('#8e5cd9', '#fff4dc')) -> list:
+def stall(bx, by, s=1.0, stripe=('#8e5cd9', '#fff4dc'), crate=True) -> list:
+    """Market stall with a striped canopy. `crate=False` leaves out the crate on its right (on the
+    board it would stand on the next space)."""
     p = _at(bx, by)
     P = Prop('stall')
     x, y = p.x, p.y
@@ -439,8 +443,9 @@ def stall(bx, by, s=1.0, stripe=('#8e5cd9', '#fff4dc')) -> list:
         a = j / 5 * math.tau
         v, f = lib.blob((x + W * 0.28 + math.cos(a) * 0.05 * s, y - D / 2 + 0.12 * s + math.sin(a) * 0.04 * s, 0.93 * s), 0.045 * s, rough=0.0, subdiv=1)
         P.b['paint'].add(v, f, col(['#ff5a4a', '#ffb33a', '#8bd346', '#ff5a4a', '#ffd23f'][j]))
-    v, f = lib.box((x + W / 2 + 0.28 * s, y - 0.1 * s, 0.16 * s), (0.3 * s, 0.3 * s, 0.32 * s), rot_z=0.3)
-    P.b['wood'].add(v, f, col('#b07a45'))
+    if crate:
+        v, f = lib.box((x + W / 2 + 0.28 * s, y - 0.1 * s, 0.16 * s), (0.3 * s, 0.3 * s, 0.32 * s), rot_z=0.3)
+        P.b['wood'].add(v, f, col('#b07a45'))
     v, f = lib.lathe([(0.12 * s, 0.0), (0.14 * s, 0.15 * s), (0.12 * s, 0.3 * s), (0.0, 0.3 * s)], 14, (x - W / 2 - 0.26 * s, y + 0.05 * s, 0.0), cap_bottom=False)
     P.b['wood'].add(v, f, col('#9a6436'))
     # sign

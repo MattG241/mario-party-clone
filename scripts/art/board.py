@@ -125,7 +125,7 @@ FRAME = (-120, -60, W + 240, H + 200)
 TILE = 1024
 
 
-def crisp(path, radius=1.1, amount=55):
+def crisp(path, radius=1.1, amount=40, threshold=3):
     """A light unsharp mask on the colour (not the alpha) of a finished render: the denoiser leaves
     fine texture a little soft, and the board is seen up close next to crisp character sprites.
     Transparent pixels first take the nearest opaque colour, so silhouettes get no bright rim."""
@@ -137,7 +137,7 @@ def crisp(path, radius=1.1, amount=55):
     _, (iy, ix) = ndimage.distance_transform_edt(~solid, return_indices=True)
     filled = Image.fromarray(np.ascontiguousarray(a[..., :3][iy, ix]), 'RGB')
     del iy, ix
-    rgb = np.asarray(filled.filter(ImageFilter.UnsharpMask(radius=radius, percent=amount, threshold=2))).copy()
+    rgb = np.asarray(filled.filter(ImageFilter.UnsharpMask(radius=radius, percent=amount, threshold=threshold))).copy()
     rgb[a[..., 3] == 0] = 0  # fully transparent pixels stay black
     Image.fromarray(np.dstack([rgb, a[..., 3]]), 'RGBA').save(path)
 
@@ -459,7 +459,7 @@ def render_props(built, terrain_objs, frame):
         sc.render.border_min_y, sc.render.border_max_y = 1 - py1 / ry, 1 - py0 / ry
         png = os.path.join(A.out, 'props', f'{pid}.png')
         lib.render_to(png)
-        crisp(png, amount=40)
+        crisp(png, amount=35)
         im = Image.open(png).convert('RGBA')
         name = f'prop_{pid}.webp'
         im.save(os.path.join(dest, name), 'WEBP', quality=92, method=6)
@@ -2180,7 +2180,7 @@ def main():
         elif k == 'workshop':
             obs = props.workshop(lm['x'], lm['y'], lm['s'])
         elif k == 'stall':
-            obs = props.stall(lm['x'], lm['y'], lm['s'])
+            obs = props.stall(lm['x'], lm['y'], lm['s'], crate=False)
         elif k == 'twist_tree':
             obs = props.twist_tree(lm['x'], lm['y'], lm['s'])
         elif k == 'crystal_gen':
