@@ -9,6 +9,7 @@ import { banner, kick, popToHud, punch, shockwave, titleTexture, type HudPop } f
 import { bakeWord, liteCount, RingBursts, WordPops } from '../../../minigames/games/stageKit';
 import { calm, Crowd, finishAtlas, hasFrame, queueAtlas, startHint, thickPolyline } from '../piratesKit';
 import { GullFlock, type GullHost } from './snatchGulls';
+import { D_DECAL, D_FOOD, FeastTable, FOOD_R_MAX, FOOD_R_MIN, FOOD_SCALE, K, TABLE_R, TX, TY, type Food } from './snatchTable';
 import {
   angleDelta,
   clampAim,
@@ -22,17 +23,11 @@ import {
   serveKind,
   spinSpeed,
   tableTarget,
-  toLocal,
   type FoodKind,
   type Pt,
 } from './stretchSnatchRules';
 
 // --- Layout: keep in step with scripts/art/worlds/pirates/mg_deck.py (ortho camera at 50 degrees) ------
-/** The table top's centre on screen, and the depth squash of the deck (sin 50 degrees). */
-const TX = 960;
-const TY = 589;
-const K = 0.766;
-const TABLE_R = 290;
 /** Ground centre of the table (seats are placed round it) and the seats' radius. */
 const GROUND_Y = 650;
 const SEAT_R = 435;
@@ -58,9 +53,6 @@ const TANGLE_MS = 900;
 const BONK_MS = 650;
 /** Arms float this high over the table top (screen px), so they cast a shadow onto it. */
 const ARM_Z = 16;
-const FOOD_R_MIN = 70;
-const FOOD_R_MAX = 236;
-const FOOD_SCALE = 1.35;
 const CHAR_SCALE = 0.62;
 /** The cook's rolling-pin slam: warning, and the radius it bonks. */
 const SLAM_WARN = 950;
@@ -71,8 +63,6 @@ const POP_SIZE = 58;
 // --- Depth bands -------------------------------------------------------------------------------------
 const D_COOK = 60;
 const D_TABLE = 100;
-const D_DECAL = 108;
-const D_FOOD = 120;
 const D_ARM_SHADOW = 390;
 const D_ARM = 400;
 const D_FIST = 410;
@@ -83,27 +73,6 @@ const D_GULL = 900;
 const D_POP = 5600;
 
 type ArmState = 'ready' | 'reach' | 'hold' | 'snap' | 'tangle' | 'bonk';
-
-interface Food {
-  kind: FoodKind;
-  state: 'free' | 'toss' | 'table' | 'held' | 'gull' | 'gone';
-  r: number;
-  a: number;
-  x: number;
-  y: number;
-  /** Height above the table top (screen px): tosses and hops. */
-  z: number;
-  vz: number;
-  spr: Phaser.GameObjects.Image;
-  shadow: Phaser.GameObjects.Image;
-  glint: Phaser.GameObjects.Image | null;
-  /** A toss from the cook: start (screen), elapsed, length, landing spot (local polar). */
-  fx: number;
-  fy: number;
-  tossT: number;
-  tossMs: number;
-  bob: number;
-}
 
 interface Arm {
   state: ArmState;
@@ -152,9 +121,8 @@ type SlamState = 'idle' | 'wind' | 'drop' | 'lift';
  */
 export class StretchSnatchScene extends BaseMinigame {
   private snatchers: Snatcher[] = [];
-  private foods: Food[] = [];
+  private table!: FeastTable;
   private gulls!: GullFlock<Snatcher | Food, Food>;
-  private tableAngle = 0;
   private omega = 0.42;
   private spinDir = 1;
   private flipAt = 0;
@@ -201,8 +169,6 @@ export class StretchSnatchScene extends BaseMinigame {
   protected createArena(): void {
     this.duration = 45000;
     this.snatchers = [];
-    this.foods = [];
-    this.tableAngle = 0;
     this.omega = spinSpeed(0, false);
     this.spinDir = 1;
     this.flipAt = 21000 + this.rng.next() * 6000;
@@ -245,13 +211,13 @@ export class StretchSnatchScene extends BaseMinigame {
     this.cook = this.hasAtlas ? this.add.image(COOK_X, COOK_Y, 'pirates-snatch', 'cook_idle') : this.add.image(COOK_X, COOK_Y - 90, 'fx-dot').setScale(9, 8).setTint(0xf07a5a);
     this.cook.setDepth(D_COOK);
     this.pin = (this.hasAtlas ? this.add.image(0, 0, 'pirates-snatch', 'pin') : this.add.image(0, 0, 'fx-dot').setScale(6, 1.6).setTint(0xe6b87a)).setDepth(D_TENTACLE + 1).setVisible(false);
-    for (let i = 0; i < 32; i++) this.foods.push(this.makeFood());
+    this.table = new FeastTable(this, () => this.rng.next(), this.hasAtlas, this.rings);
     this.gulls = new GullFlock(this.gullHost(), D_GULL, D_DECAL + 3);
     this.buildCrowd();
     this.buildSteam();
     // a first spread of food so nobody reaches for an empty table
     const n = tableTarget(this.players.length) - 2;
-    for (let i = 0; i < n; i++) this.placeFood(serveKind(this.rng.next(), this.rng.next(), 0), FOOD_R_MIN + this.rng.next() * (FOOD_R_MAX - FOOD_R_MIN), (i / n) * Math.PI * 2 + this.rng.next() * 0.5);
+    for (let i = 0; i < n; i++) this.table.place(serveKind(this.rng.next(), this.rng.next(), 0), FOOD_R_MIN + this.rng.next() * (FOOD_R_MAX - FOOD_R_MIN), (i / n) * Math.PI * 2 + this.rng.next() * 0.5);
   }
 
   /** A white cartoon glove (seen from above, pointing right): the fist on the end of every arm. */
@@ -408,78 +374,9 @@ export class StretchSnatchScene extends BaseMinigame {
   }
 
   // --- Food ----------------------------------------------------------------------------------------
-  private makeFood(): Food {
-    const spr = this.add.image(0, 0, this.hasAtlas ? 'pirates-snatch' : 'fx-dot', this.hasAtlas ? 'apple' : undefined).setVisible(false);
-    const shadow = this.add.image(0, 0, 'fx-contact').setVisible(false).setDepth(D_DECAL - 1);
-    return { kind: 'apple', state: 'free', r: 0, a: 0, x: 0, y: 0, z: 0, vz: 0, spr, shadow, glint: null, fx: 0, fy: 0, tossT: 0, tossMs: 1, bob: 0 };
-  }
-
-  private freeFood(): Food | null {
-    return this.foods.find((f) => f.state === 'free') ?? null;
-  }
-
-  private dressFood(f: Food, kind: FoodKind): void {
-    f.kind = kind;
-    f.z = 0;
-    f.vz = 0;
-    f.bob = this.rng.next() * 6;
-    if (this.hasAtlas) f.spr.setTexture('pirates-snatch', kind).setScale(FOOD_SCALE).clearTint();
-    else f.spr.setTexture('fx-dot').setScale(kind === 'roast' ? 3.4 : 2.4).setTint(kind === 'roast' ? 0xffc83a : kind === 'meat' ? 0xb5602a : 0xe84b3c);
-    f.spr.setVisible(true).setAlpha(1).setAngle(0);
-    f.shadow.setVisible(true).setAlpha(0.45).setScale(kind === 'roast' ? 0.75 : 0.5, kind === 'roast' ? 0.24 : 0.16);
-    if (kind === 'roast' && this.textures.exists('fx-rays')) {
-      f.glint = f.glint ?? this.add.image(0, 0, 'fx-rays').setTint(0xffd23a).setBlendMode(Phaser.BlendModes.ADD);
-      f.glint.setVisible(true).setAlpha(0.7).setScale(0.36);
-    } else f.glint?.setVisible(false);
-  }
-
-  /** Put an item straight onto the table at local polar (r, a). */
-  private placeFood(kind: FoodKind, r: number, a: number): Food | null {
-    const f = this.freeFood();
-    if (!f) return null;
-    this.dressFood(f, kind);
-    f.state = 'table';
-    f.r = r;
-    f.a = a;
-    return f;
-  }
-
-  /** A free spot on the table (local polar), away from the other items. */
-  private freeSpot(rMin = FOOD_R_MIN, rMax = FOOD_R_MAX): { r: number; a: number } {
-    let best = { r: (rMin + rMax) / 2, a: 0 };
-    let bestD = -1;
-    for (let tries = 0; tries < 10; tries++) {
-      const r = Math.sqrt(rMin * rMin + this.rng.next() * (rMax * rMax - rMin * rMin));
-      const a = this.rng.next() * Math.PI * 2;
-      const p = onTable(r, a, 0, this.tmp);
-      let d = 1e9;
-      for (const f of this.foods) {
-        if (f.state !== 'table' && f.state !== 'toss') continue;
-        const q = { x: f.r * Math.cos(f.a), y: f.r * Math.sin(f.a) };
-        d = Math.min(d, Math.hypot(q.x - p.x, q.y - p.y));
-      }
-      if (d > 90) return { r, a };
-      if (d > bestD) {
-        bestD = d;
-        best = { r, a };
-      }
-    }
-    return best;
-  }
-
   /** The cook tosses an item from the galley onto a free spot of the table. */
   private toss(kind: FoodKind, spot?: { r: number; a: number }): void {
-    const f = this.freeFood();
-    if (!f) return;
-    this.dressFood(f, kind);
-    const s = spot ?? this.freeSpot();
-    f.state = 'toss';
-    f.r = s.r;
-    f.a = s.a;
-    f.fx = COOK_HAND.x + (this.rng.next() - 0.5) * 60;
-    f.fy = COOK_HAND.y;
-    f.tossT = 0;
-    f.tossMs = 640 + this.rng.next() * 160;
+    if (!this.table.toss(kind, COOK_HAND.x + (this.rng.next() - 0.5) * 60, COOK_HAND.y, spot)) return;
     audio.play('whoosh', { volume: 0.25, rate: 1.4, throttleMs: 60 });
     if (this.cookMood === 'idle') this.setCookMood('happy', 380);
   }
@@ -489,91 +386,6 @@ export class StretchSnatchScene extends BaseMinigame {
     banner(this, 'GOLDEN ROAST!', { y: this.bannerY(), size: 74, color: CSS.goldLight, hold: 700 });
     audio.play('itemGet', { volume: 0.6 });
     this.setCookMood('happy', 900);
-  }
-
-  private updateFood(dt: number): void {
-    const s = dt / 1000;
-    for (const f of this.foods) {
-      if (f.state === 'free') continue;
-      if (f.state === 'toss') {
-        f.tossT += dt;
-        const u = Math.min(1, f.tossT / f.tossMs);
-        const land = onTable(f.r, f.a, this.tableAngle, this.tmp);
-        const lx = this.sx(land.x);
-        const ly = this.sy(land.y);
-        const x = f.fx + (lx - f.fx) * u;
-        const y = f.fy + (ly - f.fy) * u - Math.sin(u * Math.PI) * 170;
-        f.x = land.x;
-        f.y = land.y;
-        f.spr.setPosition(x, y).setDepth(D_FOOD + 50).setAngle(u * 360 * (f.kind === 'roast' ? 0 : 1));
-        f.shadow.setPosition(lx, ly).setAlpha(0.2 + 0.3 * u);
-        f.glint?.setPosition(x, y);
-        if (u >= 1) this.landFood(f);
-        continue;
-      }
-      if (f.state !== 'table') continue;
-      onTable(f.r, f.a, this.tableAngle, this.tmp);
-      f.x = this.tmp.x;
-      f.y = this.tmp.y;
-      if (f.z > 0 || f.vz !== 0) {
-        f.vz -= 2600 * s;
-        f.z += f.vz * s;
-        if (f.z <= 0) {
-          f.z = 0;
-          f.vz = Math.abs(f.vz) > 260 ? -f.vz * 0.3 : 0;
-        }
-      }
-      f.bob += s * 2.2;
-      const sx = this.sx(f.x);
-      const sy = this.sy(f.y);
-      f.spr.setPosition(sx, sy - f.z - (f.kind === 'roast' ? 2 + Math.sin(f.bob) * 2 : 0)).setDepth(D_FOOD + f.y * 0.01).setAngle(0);
-      f.shadow.setPosition(sx, sy + 2);
-      if (f.glint) f.glint.setPosition(sx, sy - 22 - f.z).setAngle(this.elapsed * 0.05);
-    }
-  }
-
-  private landFood(f: Food): void {
-    f.state = 'table';
-    f.z = 0;
-    f.vz = 180;
-    audio.play('pop', { volume: 0.3, rate: 0.9 + this.rng.next() * 0.3, throttleMs: 40 });
-    this.rings.burst(this.sx(f.x), this.sy(f.y), { tint: 0xfff2d0, from: 30, to: 110, squash: K, duration: 320, alpha: 0.5, depth: D_DECAL });
-    if (f.kind === 'roast') {
-      this.fx.sparks(this.sx(f.x), this.sy(f.y) - 30, liteCount(14));
-      shockwave(this, this.sx(f.x), this.sy(f.y), { radius: 90, ratio: K, color: 0xffd23a, alpha: 0.8, duration: 380, depth: D_DECAL });
-    }
-  }
-
-  private releaseFood(f: Food): void {
-    f.state = 'free';
-    f.spr.setVisible(false);
-    f.shadow.setVisible(false);
-    f.glint?.setVisible(false);
-  }
-
-  /** Drop an item back onto the table near a plane point (a fumbled haul), bouncing a little. */
-  private dropFood(f: Food, x: number, y: number): void {
-    let px = x + (this.rng.next() - 0.5) * 70;
-    let py = y + (this.rng.next() - 0.5) * 70;
-    const r = Math.hypot(px, py);
-    if (r > FOOD_R_MAX) {
-      px *= FOOD_R_MAX / r;
-      py *= FOOD_R_MAX / r;
-    }
-    const loc = toLocal(px, py, this.tableAngle);
-    f.state = 'table';
-    f.r = Math.max(FOOD_R_MIN * 0.5, loc.r);
-    f.a = loc.a;
-    f.z = 40;
-    f.vz = 300 + this.rng.next() * 200;
-    f.spr.setScale(this.hasAtlas ? FOOD_SCALE : f.spr.scaleX).setVisible(true);
-    f.shadow.setVisible(true);
-  }
-
-  private tableCount(): number {
-    let n = 0;
-    for (const f of this.foods) if (f.state === 'table' || f.state === 'toss') n++;
-    return n;
   }
 
   // --- The cook ------------------------------------------------------------------------------------
@@ -600,7 +412,7 @@ export class StretchSnatchScene extends BaseMinigame {
     const target = tableTarget(this.players.length) + (this.frenzy ? 3 : 0);
     if (this.serveT <= 0) {
       this.serveT = this.frenzy ? 480 : 1000 + this.rng.next() * 500;
-      const short = target - this.tableCount();
+      const short = target - this.table.count();
       if (short > 0) {
         const n = Math.min(short, this.frenzy ? 3 : short > 4 ? 3 : 2);
         for (let i = 0; i < n; i++) this.time.delayedCall(i * 150, () => this.toss(serveKind(this.rng.next(), this.rng.next(), this.elapsed / this.duration)));
@@ -608,7 +420,7 @@ export class StretchSnatchScene extends BaseMinigame {
     }
     if (this.roastAt.length && this.elapsed >= this.roastAt[0]) {
       this.roastAt.shift();
-      if (!this.foods.some((f) => f.kind === 'roast' && (f.state === 'table' || f.state === 'toss'))) this.tossRoast();
+      if (!this.table.has('roast')) this.tossRoast();
     }
     this.updateSlam(dt);
   }
@@ -632,8 +444,8 @@ export class StretchSnatchScene extends BaseMinigame {
       this.slamX = best.sx + a.dirX * k;
       this.slamY = best.sy + a.dirY * k;
     } else {
-      const spot = this.freeSpot(90, 220);
-      const p = onTable(spot.r, spot.a, this.tableAngle, this.tmp);
+      const spot = this.table.freeSpot(90, 220);
+      const p = onTable(spot.r, spot.a, this.table.angle, this.tmp);
       this.slamX = p.x;
       this.slamY = p.y;
     }
@@ -747,15 +559,7 @@ export class StretchSnatchScene extends BaseMinigame {
       this.bonk(s);
       bonked = s;
     }
-    // items near the spot hop up and skitter outwards
-    for (const f of this.foods) {
-      if (f.state !== 'table') continue;
-      const d = Math.hypot(f.x - this.slamX, f.y - this.slamY);
-      if (d > SLAM_R * 1.6) continue;
-      f.vz = 420 + (1 - d / (SLAM_R * 1.6)) * 380;
-      f.z = Math.max(f.z, 1);
-      f.r = Math.min(FOOD_R_MAX, Math.max(FOOD_R_MIN * 0.6, f.r + (f.r > Math.hypot(this.slamX, this.slamY) ? 26 : -18)));
-    }
+    this.table.hop(this.slamX, this.slamY, SLAM_R * 1.6);
     if (bonked) {
       this.hitStop(80);
       kick(this, 0, 12, 170);
@@ -865,7 +669,7 @@ export class StretchSnatchScene extends BaseMinigame {
     const a = s.arm;
     if (a.haul.length >= MAX_HAUL) return;
     const fp = this.fistPos(s, this.tmp);
-    for (const f of this.foods) {
+    for (const f of this.table.foods) {
       if (f.state !== 'table' || f.z > 26) continue;
       if (Math.hypot(f.x - fp.x, f.y - fp.y) > GRAB_R) continue;
       f.state = 'held';
@@ -900,7 +704,7 @@ export class StretchSnatchScene extends BaseMinigame {
     const gold = kinds.includes('roast');
     for (const f of a.haul) {
       const spr = f.spr;
-      this.tweens.add({ targets: spr, x: s.c.x, y: s.c.y - 80, scale: 0.2, duration: 160, ease: 'Quad.In', onComplete: () => this.releaseFood(f) });
+      this.tweens.add({ targets: spr, x: s.c.x, y: s.c.y - 80, scale: 0.2, duration: 160, ease: 'Quad.In', onComplete: () => this.table.release(f) });
       f.state = 'gone';
     }
     a.haul.length = 0;
@@ -952,7 +756,7 @@ export class StretchSnatchScene extends BaseMinigame {
     for (const s of [A, B]) {
       const a = s.arm;
       const fp = this.fistPos(s, { x: 0, y: 0 });
-      for (const f of a.haul) this.dropFood(f, fp.x, fp.y);
+      for (const f of a.haul) this.table.drop(f, fp.x, fp.y);
       a.haul.length = 0;
       a.state = 'tangle';
       a.t = TANGLE_MS;
@@ -975,7 +779,7 @@ export class StretchSnatchScene extends BaseMinigame {
   private bonk(s: Snatcher): void {
     const a = s.arm;
     const fp = this.fistPos(s, { x: 0, y: 0 });
-    for (const f of a.haul) this.dropFood(f, fp.x, fp.y);
+    for (const f of a.haul) this.table.drop(f, fp.x, fp.y);
     a.haul.length = 0;
     a.state = 'bonk';
     a.t = BONK_MS;
@@ -1019,8 +823,8 @@ export class StretchSnatchScene extends BaseMinigame {
         }
         return false;
       },
-      drop: (f, x, y) => this.dropFood(f, x, y),
-      lose: (f) => this.releaseFood(f),
+      drop: (f, x, y) => this.table.drop(f, x, y),
+      lose: (f) => this.table.release(f),
       carry: (f, x, y, tilt) => {
         f.spr.setPosition(x, y).setDepth(D_GULL - 1).setAngle(tilt);
         f.glint?.setPosition(x, y - 14);
@@ -1046,7 +850,7 @@ export class StretchSnatchScene extends BaseMinigame {
       }
     }
     if (best) return best;
-    for (const f of this.foods) {
+    for (const f of this.table.foods) {
       if (f.state !== 'table') continue;
       const v = FOOD_VALUE[f.kind] + this.rng.next() * 0.5;
       if (v > bestV) {
@@ -1088,9 +892,9 @@ export class StretchSnatchScene extends BaseMinigame {
     }
     const want = this.spinDir * spinSpeed(this.elapsed / this.duration, this.frenzy);
     this.omega += (want - this.omega) * (1 - Math.exp(-2.5 * s));
-    this.tableAngle += this.omega * s;
-    this.topImg.setRotation(this.tableAngle);
-    this.updateFood(dt);
+    this.table.angle += this.omega * s;
+    this.topImg.setRotation(this.table.angle);
+    this.table.update(dt);
     this.updateCook(dt);
     for (const sn of this.snatchers) this.updateArm(sn, dt);
     this.checkTangles();
@@ -1102,9 +906,9 @@ export class StretchSnatchScene extends BaseMinigame {
     if (this.phase === 'finished') this.gulls?.update(dt, false, false, false);
     if (this.phase !== 'playing') {
       if (this.phase === 'countdown') {
-        this.tableAngle += this.omega * 0.5 * (dt / 1000);
-        this.topImg?.setRotation(this.tableAngle);
-        this.updateFood(0);
+        this.table.angle += this.omega * 0.5 * (dt / 1000);
+        this.topImg?.setRotation(this.table.angle);
+        this.table.update(0);
       }
       this.drawArms();
     }
@@ -1283,15 +1087,15 @@ export class StretchSnatchScene extends BaseMinigame {
     let best: { x: number; y: number; len: number } | null = null;
     let bestScore = -1e9;
     const sh = { x: s.sx, y: s.sy };
-    for (const f of this.foods) {
+    for (const f of this.table.foods) {
       if (f.state !== 'table') continue;
-      const lead = leadTarget(sh, f.r, f.a, this.tableAngle, this.omega, REACH_SPEED, 0.25, L_MAX - 16);
+      const lead = leadTarget(sh, f.r, f.a, this.table.angle, this.omega, REACH_SPEED, 0.25, L_MAX - 16);
       if (!lead) continue;
       const ang = Math.atan2(lead.y - s.sy, lead.x - s.sx);
       if (Math.abs(angleDelta(ang, s.toCentre)) > AIM_DEV) continue;
       let score = (FOOD_VALUE[f.kind] * 10) / (lead.t + 0.6);
       // what else lies along the way (a fist can bring three home)
-      for (const o of this.foods) {
+      for (const o of this.table.foods) {
         if (o === f || o.state !== 'table') continue;
         if (distToSegment(o.x, o.y, s.sx, s.sy, lead.x, lead.y) < GRAB_R * 0.8) score += FOOD_VALUE[o.kind] * 3;
       }
@@ -1326,7 +1130,7 @@ export class StretchSnatchScene extends BaseMinigame {
     const fp = this.fistPos(s, this.tmp);
     const ex = fp.x + a.dirX * 110;
     const ey = fp.y + a.dirY * 110;
-    for (const f of this.foods) {
+    for (const f of this.table.foods) {
       if (f.state !== 'table') continue;
       if (distToSegment(f.x, f.y, fp.x, fp.y, ex, ey) < GRAB_R * 0.8) return true;
     }
