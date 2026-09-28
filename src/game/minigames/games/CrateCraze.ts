@@ -272,6 +272,7 @@ export class CrateCrazeScene extends BaseMinigame {
       const spr = this.add.sprite(x, y, NPC_ATLAS, npcFrame(id, pose));
       const o = standOrigin(NPC_ATLAS, npcFrame(id, pose));
       spr.setOrigin(o.x, o.y).setScale(0.4).setDepth(FLOOR.y - 20 + i * 0.01).setFlipX(x > GAME_WIDTH / 2);
+      this.add.image(x, y + 2, 'fx-contact').setScale(0.55, 0.16).setAlpha(0.45).setDepth(FLOOR.y - 20.5);
       this.tweens.add({ targets: spr, y: y - 7, duration: 400 + (i % 3) * 90, yoyo: true, repeat: -1, ease: 'Sine.InOut', delay: i * 60 });
       this.crowd.push(spr);
     });

@@ -131,6 +131,8 @@ export class OrbitDodgeScene extends BaseMinigame {
       const spr = this.add.sprite(x, deckY + dy, NPC_ATLAS, npcFrame(id, pose));
       const o = standOrigin(NPC_ATLAS, npcFrame(id, pose));
       spr.setOrigin(o.x, o.y).setScale(sc).setDepth(-5 + i * 0.01).setFlipX(x > 960);
+      // soft contact shadow on the balcony deck so the spectators stand on it
+      this.add.image(x, deckY + dy + 2, 'fx-contact').setScale(sc * 1.35, sc * 0.4).setAlpha(0.45).setDepth(-5.5);
       if (sc < 0.36) spr.setTint(0xe6ebf4);
       this.tweens.add({ targets: spr, y: deckY + dy - 7, duration: 380 + (i % 3) * 90, yoyo: true, repeat: -1, ease: 'Sine.InOut', delay: i * 80 });
     });
