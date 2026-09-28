@@ -142,9 +142,16 @@ def oven(bx: float, mats: dict, rnd):
     v, f = lib.box((x, y1 - 0.02, mz), (BELT_W + 0.35, 0.05, 0.85))
     trim.add(v, f, col('#dfe6ee'))
     trim.build(f'oven_trim_{int(bx)}', mats['steel'])
+    # the mouth: a dark recess, warm light glowing deep inside along its top
+    hole = lib.MeshBuilder()
+    v, f = lib.box((x, y1 - 0.045, mz), (BELT_W + 0.15, 0.05, 0.68))
+    hole.add(v, f, col('#2b1d1e'))
+    hole.build(f'oven_hole_{int(bx)}', mats['soot'])
     mouth = lib.MeshBuilder()
-    v, f = lib.box((x, y1 - 0.05, mz), (BELT_W + 0.15, 0.05, 0.68))
-    mouth.add(v, f, col('#ff9a3c'))
+    v, f = lib.box((x, y1 - 0.07, mz + 0.2), (BELT_W - 0.05, 0.02, 0.16))
+    mouth.add(v, f, col('#ff8a2a'))
+    v, f = lib.box((x, y1 - 0.07, mz + 0.05), (BELT_W - 0.25, 0.02, 0.1))
+    mouth.add(v, f, col('#c8501e'))
     mouth.build(f'oven_mouth_{int(bx)}', mats['heat'])
     dial = lib.MeshBuilder()
     v, f = lib.cylinder((0, 0, 0), 0.2, 0.2, 0.05, 24)
@@ -210,11 +217,12 @@ def factory():
     C.camera(0, 0, SW, SH, A.preview)
     rnd = random.Random(12)
     mats = {
-        'rubber': C.mat_gloss('rubber', 0.55, 0.1),
+        'rubber': C.mat_matte('rubber', 0.88, 0.35),
+        'soot': C.mat_matte('soot', 0.9, 0.2),
         'steel': C.mat_metal('steel', 0.3),
         'paint': C.mat_gloss('f_paint', 0.4, 0.35),
         'gloss': C.mat_gloss('f_gloss', 0.25, 0.8),
-        'heat': C.mat_glow('oven_heat', 2.6),
+        'heat': C.mat_glow('oven_heat', 1.6),
         'icing': C.mat_gloss('icing', 0.2, 0.9, subsurface=0.1),
         'dough': C.mat_matte('dough', 0.65, 0.35, sheen=0.3),
     }

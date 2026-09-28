@@ -8,7 +8,7 @@ the cooks and the long serving counter in front of them. No signs or lettering a
   kitchen  -> scene_toons_kitchen.webp (1920 x 1080, opaque) and scene_toons_kitchen_front.webp
               (rows 798..1080 of the same render: the counter, drawn over the cooks' legs)
   sprites  -> mg/toons_patty.webp + .json: bun bottom / top, patty, cheese, lettuce, tomato, plate,
-              and four customers (a round fish, a seahorse, a sea turtle, a jellyfish)
+              and four customers (a round fish, a narwhal, a sea turtle, a jellyfish)
 Layout (must match src/game/worlds/toons/games/pattyPanicLogic.ts): cooks stand with their feet at
 y 880 behind the counter, whose top runs from y 800 (back edge) to 840 (front edge); its front face
 spans 840..955 and the diner floor shows below it; the grill line's front face spans 580..681.
@@ -464,27 +464,32 @@ def sprites():
     fin.build('cust_fish_fin', creature)
     eyes.build('cust_fish_eye', eye)
     cell('fish', 160 - 95, crow - 170, 190, 190, 160, crow - 70)
-    # 2. a yellow seahorse
+    # 2. a friendly narwhal: a round pastel whale with a spiral tusk
     cx, cy = at(420, crow)
-    sh, crest, eyes = lib.MeshBuilder(), lib.MeshBuilder(), lib.MeshBuilder()
-    v, f = C.ellipsoid((cx, cy, 0.62), 0.3, 0.28, 0.42)
-    sh.add(v, f, col('#ffc93a'))
-    v, f = C.ellipsoid((cx - 0.05, cy - 0.05, 1.22), 0.3, 0.27, 0.3)
-    sh.add(v, f, col('#ffd65a'))
-    v, f = lib.tube([(cx - 0.18, cy - 0.15, 1.15), (cx - 0.45, cy - 0.28, 1.08), (cx - 0.58, cy - 0.32, 1.06)], lambda t: 0.1 * (1 - 0.4 * t), 10)
-    sh.add(v, f, col('#ffc93a'))
-    for k in range(5):
-        v, f = lib.blob((cx + 0.2, cy + 0.05, 0.65 + k * 0.18), 0.07, squash=(1.2, 0.5, 0.8), rough=0.0, subdiv=1)
-        crest.add(v, f, col('#ff8a3a'))
+    nw, tusk, eyes = lib.MeshBuilder(), lib.MeshBuilder(), lib.MeshBuilder()
+    v, f = C.ellipsoid((cx, cy, 0.88), 0.62, 0.5, 0.52)
+    nw.add(v, f, lambda q: col('#8fb8ff') if q[2] > 0.72 else col('#e6f0ff'))
+    spiral = []
+    for k in range(40):
+        t = k / 39
+        a = t * 5 * math.tau
+        rr = 0.05 * (1 - t)
+        spiral.append((cx + math.cos(a) * rr + 0.06 * t, cy - 0.28 + math.sin(a) * rr * 0.4, 1.3 + 0.55 * t))
+    v, f = lib.tube(spiral, lambda t: 0.055 * (1 - 0.8 * t), 8)
+    tusk.add(v, f, col('#fff4d6'))
     for sgn in (-1, 1):
-        v, f = lib.blob((cx - 0.12 + sgn * 0.12, cy - 0.24, 1.3), 0.09, rough=0.0, subdiv=2)
+        v, f = lib.blob((cx + sgn * 0.62, cy - 0.05, 0.8), 0.2, squash=(0.5, 0.35, 1.2), rough=0.0, subdiv=2)
+        nw.add(v, f, col('#6f9bf0'))
+        v, f = lib.blob((cx + sgn * 0.22, cy - 0.42, 1.05), 0.14, rough=0.0, subdiv=2)
         eyes.add(v, f, col('#ffffff'))
-        v, f = lib.blob((cx - 0.13 + sgn * 0.12, cy - 0.32, 1.3), 0.045, rough=0.0, subdiv=2)
+        v, f = lib.blob((cx + sgn * 0.21, cy - 0.54, 1.05), 0.065, rough=0.0, subdiv=2)
         eyes.add(v, f, col('#1d2433'))
-    sh.build('cust_seahorse', creature)
-    crest.build('cust_seahorse_crest', creature)
-    eyes.build('cust_seahorse_eye', eye)
-    cell('seahorse', 420 - 95, crow - 170, 190, 190, 420, crow - 70)
+        v, f = lib.blob((cx + sgn * 0.36, cy - 0.4, 0.86), 0.07, squash=(1.3, 0.4, 0.8), rough=0.0, subdiv=1)
+        nw.add(v, f, col('#ffb3c8'))
+    nw.build('cust_narwhal', creature)
+    tusk.build('cust_narwhal_tusk', C.mat_gloss('tusk', 0.3, 0.6))
+    eyes.build('cust_narwhal_eye', eye)
+    cell('narwhal', 420 - 95, crow - 185, 190, 205, 420, crow - 70)
     # 3. a green sea turtle
     cx, cy = at(680, crow)
     tb, shell, eyes = lib.MeshBuilder(), lib.MeshBuilder(), lib.MeshBuilder()

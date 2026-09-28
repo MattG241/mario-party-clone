@@ -38,7 +38,7 @@ type Layer = Ingredient | 'bun_bottom' | 'bun_top';
 const THICK: Record<Layer, number> = { bun_bottom: 19, patty: 18, cheese: 7, lettuce: 9, tomato: 10, bun_top: 0 };
 const PLATE_THICK = 6;
 const STACK_SCALE = 0.86;
-const CUSTOMERS = ['fish', 'seahorse', 'turtle', 'jelly'] as const;
+const CUSTOMERS = ['fish', 'narwhal', 'turtle', 'jelly'] as const;
 const COOK_SCALE = 0.8;
 const COOK_DX = -92;
 const PLATE_DX = 96;
@@ -192,7 +192,7 @@ export class PattyPanicScene extends BaseMinigame {
     oval('pp-plate', 190, 30, 0xfbfbf6, 0x3fb8e8);
     for (const [k, c] of [
       ['fish', 0x5aa9ff],
-      ['seahorse', 0xffc93a],
+      ['narwhal', 0x8fb8ff],
       ['turtle', 0x3fae6a],
       ['jelly', 0xff9ad5],
     ] as const)

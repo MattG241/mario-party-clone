@@ -1,0 +1,204 @@
+{
+ "frames": {
+  "donut_cyan": {
+   "frame": {
+    "x": 252,
+    "y": 8,
+    "w": 108,
+    "h": 82
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 108,
+    "h": 82
+   },
+   "sourceSize": {
+    "w": 108,
+    "h": 82
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6585
+   }
+  },
+  "donut_coral": {
+   "frame": {
+    "x": 136,
+    "y": 8,
+    "w": 108,
+    "h": 83
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 108,
+    "h": 83
+   },
+   "sourceSize": {
+    "w": 108,
+    "h": 83
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6627
+   }
+  },
+  "donut_green": {
+   "frame": {
+    "x": 600,
+    "y": 8,
+    "w": 108,
+    "h": 80
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 108,
+    "h": 80
+   },
+   "sourceSize": {
+    "w": 108,
+    "h": 80
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.65
+   }
+  },
+  "donut_amber": {
+   "frame": {
+    "x": 368,
+    "y": 8,
+    "w": 108,
+    "h": 82
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 108,
+    "h": 82
+   },
+   "sourceSize": {
+    "w": 108,
+    "h": 82
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6585
+   }
+  },
+  "donut_rainbow": {
+   "frame": {
+    "x": 484,
+    "y": 8,
+    "w": 108,
+    "h": 82
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 108,
+    "h": 82
+   },
+   "sourceSize": {
+    "w": 108,
+    "h": 82
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6585
+   }
+  },
+  "donut_burnt": {
+   "frame": {
+    "x": 8,
+    "y": 153,
+    "w": 106,
+    "h": 79
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 106,
+    "h": 79
+   },
+   "sourceSize": {
+    "w": 106,
+    "h": 79
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6456
+   }
+  },
+  "broccoli": {
+   "frame": {
+    "x": 122,
+    "y": 153,
+    "w": 64,
+    "h": 65
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 64,
+    "h": 65
+   },
+   "sourceSize": {
+    "w": 64,
+    "h": 65
+   },
+   "anchor": {
+    "x": 0.5156,
+    "y": 0.8615
+   }
+  },
+  "box": {
+   "frame": {
+    "x": 8,
+    "y": 8,
+    "w": 120,
+    "h": 137
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 120,
+    "h": 137
+   },
+   "sourceSize": {
+    "w": 120,
+    "h": 137
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.8029
+   }
+  }
+ },
+ "meta": {
+  "app": "gleamtrail toons",
+  "size": {
+   "w": 768,
+   "h": 240
+  },
+  "scale": 1
+ }
+}
