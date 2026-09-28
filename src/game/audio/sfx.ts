@@ -41,7 +41,22 @@ export type SfxKey =
   | 'crack'
   | 'rumble'
   | 'fanfare'
-  | 'cheer';
+  | 'cheer'
+  // Minigame "big moments" (BaseMinigame) and minigame juice.
+  | 'countHit'
+  | 'crowdRoar'
+  | 'crowdCheer'
+  | 'finalCall'
+  | 'tick'
+  | 'stamp'
+  | 'crown'
+  | 'streak'
+  | 'goldChip'
+  | 'fuse'
+  | 'warn'
+  | 'alarm'
+  | 'sweep'
+  | 'nearMiss';
 
 export interface Voice {
   ctx: AudioContext;
@@ -256,6 +271,94 @@ export const SFX: Record<SfxKey, (v: Voice, t: number, p: number) => void> = {
     for (let i = 0; i < 5; i++) noise(v, t + i * 0.09, { dur: 0.35, vol: 0.05, filter: 'bandpass', freq: 1400 + i * 300, q: 2 });
     arp(v, t, [79, 84, 88], 0.08, { type: 'triangle', vol: 0.08 });
   },
+  // --- Minigame big moments ---------------------------------------------------------------------
+  // A floor-tom hit for "3, 2, 1": a pitched body that drops fast, a beater click and a short skin
+  // rattle. The rate lifts the pitch a little on each number.
+  countHit: (v, t, p) => {
+    tone(v, t, { type: 'sine', freq: 150 * p, to: 58 * p, dur: 0.34, vol: 0.34, attack: 0.002, release: 0.24 });
+    tone(v, t, { type: 'triangle', freq: 310 * p, to: 120 * p, dur: 0.1, vol: 0.12, attack: 0.001 });
+    noise(v, t, { dur: 0.08, vol: 0.15, filter: 'bandpass', freq: 1900, q: 0.9 });
+    noise(v, t, { dur: 0.26, vol: 0.09, filter: 'lowpass', freq: 420, to: 110 });
+  },
+  // Many voices at once: overlapping formant-band noise swelling in, with a couple of whistles.
+  crowdRoar: (v, t) => {
+    [480, 820, 1250, 1900, 2800].forEach((f, i) => noise(v, t + i * 0.025, { dur: 1.05 - i * 0.06, vol: 0.07, filter: 'bandpass', freq: f, to: f * 1.12, q: 1.6, attack: 0.12 }));
+    noise(v, t, { dur: 0.9, vol: 0.05, filter: 'lowpass', freq: 700, attack: 0.1 });
+    tone(v, t + 0.12, { type: 'sine', freq: 1900, to: 2600, dur: 0.32, vol: 0.035, vibrato: 30 });
+    tone(v, t + 0.3, { type: 'sine', freq: 2300, to: 1700, dur: 0.28, vol: 0.03 });
+  },
+  // A longer cheer for the finish: the roar plus scattered claps and whistles.
+  crowdCheer: (v, t) => {
+    [520, 900, 1400, 2100, 3000].forEach((f, i) => noise(v, t + i * 0.03, { dur: 1.7 - i * 0.1, vol: 0.065, filter: 'bandpass', freq: f, to: f * 0.92, q: 1.4, attack: 0.15 }));
+    for (let i = 0; i < 16; i++) noise(v, t + 0.08 + i * 0.085 + Math.random() * 0.03, { dur: 0.03, vol: 0.055, filter: 'bandpass', freq: 2000 + Math.random() * 1400, q: 1.2 });
+    tone(v, t + 0.2, { type: 'sine', freq: 2000, to: 2800, dur: 0.35, vol: 0.035, vibrato: 25 });
+    tone(v, t + 0.6, { type: 'sine', freq: 2400, to: 1900, dur: 0.3, vol: 0.03 });
+  },
+  // "FINAL 10 SECONDS!": a rising brass triplet and a held, bright chord.
+  finalCall: (v, t) => {
+    const seq: [number, number][] = [
+      [74, 0],
+      [77, 0.08],
+      [81, 0.16],
+    ];
+    for (const [m, dt] of seq) {
+      tone(v, t + dt, { type: 'square', freq: N(m), dur: 0.09, vol: 0.06 });
+      tone(v, t + dt, { type: 'sawtooth', freq: N(m - 12), dur: 0.09, vol: 0.035 });
+    }
+    for (const m of [81, 85, 88]) tone(v, t + 0.26, { type: 'sawtooth', freq: N(m), dur: 0.5, vol: 0.034, attack: 0.02, vibrato: 5 });
+    noise(v, t + 0.26, { dur: 0.35, vol: 0.045, filter: 'highpass', freq: 5000 });
+  },
+  // A soft woodblock tick (the last seconds of a timed round).
+  tick: (v, t, p) => {
+    tone(v, t, { type: 'sine', freq: 1250 * p, to: 1080 * p, dur: 0.05, vol: 0.12, attack: 0.001 });
+    noise(v, t, { dur: 0.025, vol: 0.05, filter: 'bandpass', freq: 3200, q: 2 });
+  },
+  // A rubber stamp landing: a low thud and a paper slap ("OUT!", "FINISH!").
+  stamp: (v, t) => {
+    tone(v, t, { type: 'sine', freq: 115, to: 45, dur: 0.28, vol: 0.3, attack: 0.001 });
+    noise(v, t, { dur: 0.07, vol: 0.2, filter: 'bandpass', freq: 1100, q: 0.8 });
+    noise(v, t, { dur: 0.2, vol: 0.08, filter: 'lowpass', freq: 600, to: 150 });
+  },
+  // The leader's crown changing heads: a small glittering two-note shimmer.
+  crown: (v, t) => {
+    tone(v, t, { type: 'triangle', freq: N(91), dur: 0.12, vol: 0.06 });
+    tone(v, t + 0.07, { type: 'triangle', freq: N(96), dur: 0.22, vol: 0.06 });
+    noise(v, t, { dur: 0.22, vol: 0.025, filter: 'highpass', freq: 7000 });
+  },
+  // A catch streak: a sparkling run up (the rate lifts it with the streak).
+  streak: (v, t, p) => {
+    [84, 88, 91, 96].forEach((m, i) => tone(v, t + i * 0.045, { type: 'triangle', freq: N(m) * p, dur: 0.16, vol: 0.08 }));
+    tone(v, t + 0.18, { type: 'sine', freq: N(100) * p, dur: 0.3, vol: 0.05, vibrato: 12 });
+  },
+  // A golden chip: a richer, brighter jingle than a plain one.
+  goldChip: (v, t) => {
+    [88, 92, 95, 100].forEach((m, i) => tone(v, t + i * 0.04, { type: 'sine', freq: N(m), dur: 0.2, vol: 0.1 }));
+    tone(v, t + 0.16, { type: 'triangle', freq: N(104), dur: 0.35, vol: 0.05, vibrato: 10 });
+    noise(v, t, { dur: 0.3, vol: 0.035, filter: 'highpass', freq: 6000 });
+  },
+  // A fizzing fuse (a fake capsule has landed and is about to burst).
+  fuse: (v, t) => {
+    noise(v, t, { dur: 0.7, vol: 0.045, filter: 'highpass', freq: 4500, attack: 0.02 });
+    noise(v, t, { dur: 0.7, vol: 0.03, filter: 'bandpass', freq: 2500, to: 5200, q: 3 });
+  },
+  // A short warning pip (the rate climbs as the danger gets closer).
+  warn: (v, t, p) => tone(v, t, { type: 'square', freq: 1040 * p, dur: 0.06, vol: 0.045 }),
+  // A two-tone alarm ("SPEED UP!").
+  alarm: (v, t) => {
+    for (let i = 0; i < 3; i++) {
+      tone(v, t + i * 0.2, { type: 'square', freq: 880, dur: 0.09, vol: 0.05 });
+      tone(v, t + i * 0.2 + 0.1, { type: 'square', freq: 660, dur: 0.09, vol: 0.05 });
+    }
+    tone(v, t, { type: 'sawtooth', freq: 220, to: 330, dur: 0.6, vol: 0.028 });
+  },
+  // A bright rising swish (a light sweeping across a stage).
+  sweep: (v, t) => noise(v, t, { dur: 0.6, vol: 0.08, filter: 'bandpass', freq: 600, to: 5200, q: 2.2, attack: 0.12 }),
+  // A near miss: a close whoosh and a bright ding.
+  nearMiss: (v, t, p) => {
+    noise(v, t, { dur: 0.18, vol: 0.1, filter: 'bandpass', freq: 900, to: 3200, q: 1.6, attack: 0.03 });
+    tone(v, t + 0.06, { type: 'sine', freq: N(93) * p, dur: 0.22, vol: 0.09 });
+    tone(v, t + 0.06, { type: 'triangle', freq: N(100) * p, dur: 0.12, vol: 0.03 });
+  },
 };
 
 /** Subtitle captions for sounds that carry meaning. */
@@ -281,4 +384,9 @@ export const SFX_CAPTIONS: Partial<Record<SfxKey, string>> = {
   rumble: '[Ground rumbles]',
   fanfare: '[Trumpet fanfare]',
   cheer: '[Crowd cheers]',
+  crowdRoar: '[Crowd roars]',
+  crowdCheer: '[Crowd cheers]',
+  finalCall: '[Hurry-up fanfare]',
+  goldChip: '[Golden chip chimes]',
+  alarm: '[Alarm blares]',
 };
