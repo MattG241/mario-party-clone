@@ -686,7 +686,7 @@ export class TripleSlashScene extends BaseMinigame {
     shockwave(this, x, y, { radius: 200, ratio: 0.45, color: 0xffb070, alpha: 0.9, duration: 420, depth: D_SLASH + 4 });
     audio.play('explosion', { volume: 0.7 });
     s.words.pop('ts-w-boom', s.x, 690, { scale: 1, owner: 0, rise: 30 });
-    this.hitStop(90);
+    // no hit-stop here: a freeze would stall the drum for everyone mid-song
     kick(this, 0, 14, 180);
     this.rumble(s.p, 0.8, 0.6, 260);
   }
