@@ -191,12 +191,22 @@ function simulate(levels: readonly Level[], seed: number): { clues: number[]; sp
           if (score[i] > 0) score[i]--;
         }
       }
-      for (let c = clues.length - 1; c >= 0; c--) {
-        if (f.mode === 'stun') break;
-        if (Math.hypot(clues[c].x - f.x, clues[c].y - f.y) < GLIDE.REACH) {
-          score[i] += clues[c].value;
-          clues.splice(c, 1);
+    }
+    // As in the scene: each clue goes to the nearest glider in reach (never a dazed one).
+    for (let c = clues.length - 1; c >= 0; c--) {
+      let best = -1;
+      let bestD: number = GLIDE.REACH;
+      flyers.forEach((f, i) => {
+        if (f.mode === 'stun') return;
+        const d = Math.hypot(clues[c].x - f.x, clues[c].y - f.y);
+        if (d < bestD) {
+          bestD = d;
+          best = i;
         }
+      });
+      if (best >= 0) {
+        score[best] += clues[c].value;
+        clues.splice(c, 1);
       }
     }
     for (let c = clues.length - 1; c >= 0; c--) {
@@ -234,6 +244,18 @@ describe('rooftop glide: CPU pilots', () => {
     expect(hard.spotted).toBeLessThan(easy.spotted);
     expect(normal.spotted).toBeLessThan(easy.spotted + 0.5);
     expect(hard.spotted).toBeLessThan(4.5);
+  });
+
+  it('give equal pilots an even chance from every starting roof', () => {
+    const seats = [0, 0, 0, 0];
+    for (let seed = 1; seed <= 16; seed++) {
+      const r = simulate(['normal', 'normal', 'normal', 'normal'], seed);
+      r.clues.forEach((v, i) => (seats[i] += v / 16));
+    }
+    // eslint-disable-next-line no-console
+    console.log('glide seats:', seats.map((v) => v.toFixed(1)));
+    const mean = seats.reduce((a, b) => a + b, 0) / 4;
+    for (const v of seats) expect(Math.abs(v - mean) / mean).toBeLessThan(0.25);
   });
 
   it('play a two-player round sensibly too', () => {

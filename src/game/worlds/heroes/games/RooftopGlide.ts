@@ -459,8 +459,9 @@ export class RooftopGlideScene extends BaseMinigame {
 
   // --- Players ---------------------------------------------------------------------------------
   protected createPlayer(p: MgPlayer, index: number): void {
+    // Starting roofs rotate with the seed, so no seat always gets the same one.
     const spots = [300, 1620, 860, 1060];
-    const f = newFlyer(spots[index % 4]);
+    const f = newFlyer(spots[(index + (this.launch.seed >>> 0)) % 4]);
     const c = new Character(this, f.x, f.y, p.characterId, { scale: CHAR_SCALE, slot: p.slot });
     c.shadow?.setVisible(false);
     playerRing(c)?.setVisible(false);
