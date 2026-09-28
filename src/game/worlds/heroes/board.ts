@@ -188,8 +188,8 @@ export const HEROES_BOARD: BoardDef = {
     { texture: 'lantern', x: 3265, y: 1720, scale: 0.5, sorted: true },
     { texture: 'lantern', x: 2140, y: 1470, scale: 0.5, sorted: true },
   ],
-  // Ora hosts from the bandstand at the east end of Midtown Plaza.
-  hostSpot: { x: 2200, y: 1930 },
+  // Ora hosts from the bandstand on Midtown Plaza, beside the start.
+  hostSpot: { x: 2080, y: 1935 },
   theme: {
     world: 'heroes',
     time: 'night',
