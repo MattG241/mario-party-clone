@@ -114,6 +114,8 @@ export class WebSwingScene extends BaseMinigame {
   private racers: Racer[] = [];
   /** The racers in course order for the progress bar (re-sorted in place each frame). */
   private barOrder: Racer[] = [];
+  /** Racers who crossed the finish line this frame. */
+  private crossed: Racer[] = [];
   private camX = 0;
   private backs: Phaser.GameObjects.Image[] = [];
   private streets: Phaser.GameObjects.Image[] = [];
@@ -180,6 +182,7 @@ export class WebSwingScene extends BaseMinigame {
     this.course = buildCourse(this.rng);
     this.racers = [];
     this.barOrder = [];
+    this.crossed = [];
     this.camX = 0;
     this.backs = [];
     this.streets = [];
@@ -508,6 +511,8 @@ export class WebSwingScene extends BaseMinigame {
 
   // --- Frame -----------------------------------------------------------------------------------
   protected tick(dt: number): void {
+    const crossed = this.crossed;
+    crossed.length = 0;
     for (const r of this.racers) {
       if (r.s.mode === 'done') {
         this.landOnFinish(r, dt);
@@ -519,8 +524,14 @@ export class WebSwingScene extends BaseMinigame {
       r.input.pressA = ctl.pressed('A');
       stepSwinger(r.s, r.input, this.course, dt, r.ev);
       this.swingFx(r);
-      if ((r.s.mode as Swinger['mode']) === 'done') this.finish(r);
+      if ((r.s.mode as Swinger['mode']) === 'done') crossed.push(r);
     }
+    // Two over the line in the same frame: whoever has been past it longer crossed first (not the lower seat).
+    if (crossed.length > 1) {
+      const past = (r: Racer) => (r.s.x - this.course.finish) / Math.max(60, Math.abs(r.s.vx));
+      crossed.sort((a, b) => past(b) - past(a));
+    }
+    for (const r of crossed) this.finish(r);
     this.updateCamera(dt);
     // Stragglers who fall behind the picture are zipped back into it.
     for (const r of this.racers) {
