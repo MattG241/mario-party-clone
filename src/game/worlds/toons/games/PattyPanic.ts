@@ -466,7 +466,6 @@ export class PattyPanicScene extends BaseMinigame {
     this.addLayer(st, 'bun_bottom', animate);
   }
 
-  /** Drop a layer onto the stack: it falls in from above and lands with a squash. */
   /**
    * Put a layer on the stack. Toppings are tossed from the cook's hand in a little arc (buns just
    * drop in from above); either way it lands with a squash.
@@ -766,7 +765,8 @@ export class PattyPanicScene extends BaseMinigame {
 
   // --- CPU ---------------------------------------------------------------------------------------
   protected cpuThink(p: MgPlayer, vc: VirtualControls, dt: number): void {
-    const st = this.stations.find((s) => s.p === p);
+    let st: Station | undefined;
+    for (const s of this.stations) if (s.p === p) st = s;
     if (!st || st.state !== 'cooking' || st.busy > 0) return;
     st.cpuDelay -= dt;
     if (st.cpuDelay > 0) return;

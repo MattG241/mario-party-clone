@@ -1057,7 +1057,8 @@ export class RingRushScene extends BaseMinigame {
   }
 
   protected cpuThink(p: MgPlayer, vc: VirtualControls, dt: number): void {
-    const r = this.runners.find((q) => q.p === p);
+    let r: Runner | undefined;
+    for (const q of this.runners) if (q.p === p) r = q;
     if (!r) return;
     const sk = this.skill(p);
     const b = p.brain;
@@ -1106,6 +1107,18 @@ export class RingRushScene extends BaseMinigame {
         hz = it;
       }
     }
+    // now and then a normal or hard CPU spins into a rival running just ahead in its lane (a legal
+    // move anyone can make), but never with a robot close enough to need that dash
+    const clearAhead = !hz || hdx > speed * ((DASH_CD + 250) / 1000);
+    const bumpRate = level === 'hard' ? 0.9 : level === 'normal' ? 0.3 : 0;
+    if (clearAhead && r.dashCd <= 0 && r.stun <= 0 && Math.random() < (bumpRate * dt) / 1000) {
+      for (const o of this.runners) {
+        if (o !== r && o.invuln <= 0 && o.p.score > 0 && Math.round(o.laneF) === lane && o.x - r.x > 20 && o.x - r.x < 130) {
+          vc.tap('X');
+          break;
+        }
+      }
+    }
     if (!hz || hdx > 700) return;
     if (r.cpuPlan !== hz.id) {
       // one decision per robot, made with this CPU's timing and slips
@@ -1137,12 +1150,6 @@ export class RingRushScene extends BaseMinigame {
     } else if (hz.kind === 'buzzer' && hdx <= r.cpuPlanDx && r.dashCd <= 0 && r.cpuLane === r.lane) {
       vc.tap('X');
       r.cpuSkip = true;
-    }
-    // hard CPUs spin into a rival running just ahead in their lane now and then
-    if (level !== 'easy' && r.dashCd <= 0 && Math.random() < (level === 'hard' ? 0.02 : 0.006)) {
-      for (const o of this.runners) {
-        if (o !== r && o.invuln <= 0 && o.p.score > 0 && Math.round(o.laneF) === lane && o.x - r.x > 20 && o.x - r.x < 130) vc.tap('X');
-      }
     }
   }
 }

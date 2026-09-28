@@ -630,24 +630,23 @@ export class DonutDashScene extends BaseMinigame {
 
   /** Two players bumped together: whoever was dashing sends the other skidding. */
   private shove(a: Catcher, b: Catcher): void {
-    const pairs: [Catcher, Catcher][] = [
-      [a, b],
-      [b, a],
-    ];
-    for (const [hitter, other] of pairs) {
-      if (hitter.dashT <= 0 || other.stun > 0 || other.dashT > 0) continue;
-      const ang = Math.atan2(other.y - hitter.y, other.x - hitter.x);
-      other.vx = Math.cos(ang) * 720;
-      other.vy = Math.sin(ang) * 520;
-      other.stun = 240;
-      hitter.dashT = 0;
-      hitter.vx *= 0.3;
-      hitter.vy *= 0.3;
-      audio.play('hit', { volume: 0.45, rate: 1.3 });
-      this.rumble(other.p, 0.4, 0.3, 120);
-      this.words.pop(WORDS.bump.key, other.x, other.y - 190, { owner: 10 + other.p.slot, depth: 7000, rise: 36 });
-      this.fx.vfx('impact', (a.x + b.x) / 2, (a.y + b.y) / 2 - 70, { scale: 0.36, blend: 'add', depth: 6600 });
-    }
+    this.shoveOne(a, b);
+    this.shoveOne(b, a);
+  }
+
+  private shoveOne(hitter: Catcher, other: Catcher): void {
+    if (hitter.dashT <= 0 || other.stun > 0 || other.dashT > 0) return;
+    const ang = Math.atan2(other.y - hitter.y, other.x - hitter.x);
+    other.vx = Math.cos(ang) * 720;
+    other.vy = Math.sin(ang) * 520;
+    other.stun = 240;
+    hitter.dashT = 0;
+    hitter.vx *= 0.3;
+    hitter.vy *= 0.3;
+    audio.play('hit', { volume: 0.45, rate: 1.3 });
+    this.rumble(other.p, 0.4, 0.3, 120);
+    this.words.pop(WORDS.bump.key, other.x, other.y - 190, { owner: 10 + other.p.slot, depth: 7000, rise: 36 });
+    this.fx.vfx('impact', (hitter.x + other.x) / 2, (hitter.y + other.y) / 2 - 70, { scale: 0.36, blend: 'add', depth: 6600 });
   }
 
   private syncCatchers(dt: number): void {
@@ -723,7 +722,8 @@ export class DonutDashScene extends BaseMinigame {
 
   // --- CPU ---------------------------------------------------------------------------------------
   protected cpuThink(p: MgPlayer, vc: VirtualControls, dt: number): void {
-    const c = this.catchers.find((q) => q.p === p);
+    let c: Catcher | undefined;
+    for (const q of this.catchers) if (q.p === p) c = q;
     if (!c) return;
     if (c.stun > 0) {
       vc.setMove(0, 0);
