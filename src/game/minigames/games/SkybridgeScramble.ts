@@ -77,8 +77,8 @@ const DEPTH_CLOUD_FRONT = 4000;
 const DEPTH_FX = DEPTH_TILE + ROWS * DEPTH_ROW + 5;
 const RAD = 180 / Math.PI;
 const WOOD_TINTS = [0xb07a44, 0x8e5a2b, 0xd9a066, 0x6e4420];
-/** Cool grey-blue for puffs in the cloud sea (the smoke flipbook alone reads as dust). */
-const CLOUD_PUFF = 0xdfe7f4;
+/** Cool blue-grey for rings on the cloud sea (white alone vanishes against the clouds). */
+const CLOUD_PUFF = 0x9fb4d8;
 
 // --- Timing ------------------------------------------------------------------------------------
 const WARN_MS = 1200;
@@ -549,10 +549,11 @@ function paintBirds(ctx: CanvasRenderingContext2D): void {
 
 /** White at the edges, clear in the middle (tinted red for sudden death). */
 function paintVignette(ctx: CanvasRenderingContext2D): void {
-  const g = ctx.createRadialGradient(80, 45, 18, 80, 45, 92);
+  const g = ctx.createRadialGradient(80, 45, 26, 80, 45, 94);
   g.addColorStop(0, 'rgba(255,255,255,0)');
-  g.addColorStop(0.55, 'rgba(255,255,255,0.06)');
-  g.addColorStop(1, 'rgba(255,255,255,0.95)');
+  g.addColorStop(0.45, 'rgba(255,255,255,0.14)');
+  g.addColorStop(0.8, 'rgba(255,255,255,0.62)');
+  g.addColorStop(1, 'rgba(255,255,255,1)');
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, 160, 90);
 }
@@ -594,6 +595,16 @@ interface Streak {
   y1: number;
 }
 
+/** A cloud that swells up and fades where something plunges into the cloud sea. */
+interface Billow {
+  img: Phaser.GameObjects.Image;
+  t: number;
+  life: number;
+  s0: number;
+  s1: number;
+  y: number;
+}
+
 /**
  * Skybridge Scramble — a grid of floating wooden platforms high above the clouds. Tiles shake,
  * crack and drop away in escalating patterns (random tiles, rows and columns, checkerboards, a
@@ -622,6 +633,7 @@ export class SkybridgeScrambleScene extends BaseMinigame {
   /** Cloud puffs under falling tiles are rationed, so a whole wave dropping stays readable. */
   private puffs = 3;
   private puffT = 0;
+  private billows: Billow[] = [];
   private nextPatternIn = 0;
   private phaseIndex = 0;
   private lastKind: PatternKind = 'random';
@@ -652,6 +664,7 @@ export class SkybridgeScrambleScene extends BaseMinigame {
     this.dreadK = 0;
     this.puffs = 3;
     this.puffT = 0;
+    this.billows = [];
     ensureTextures(this);
     ensureArenaFxTextures(this);
     // Sky, then layered clouds drifting far below the platforms.
@@ -737,6 +750,11 @@ export class SkybridgeScrambleScene extends BaseMinigame {
     this.jumpLines = new Spray(this, AFX.streak, { depth: DEPTH_PLAYER - 1, ...lines });
     this.fallLines = new Spray(this, AFX.streak, { depth: DEPTH_TILE - 2, ...lines });
     for (let i = 0; i < (LITE ? 3 : 5); i++) this.birds.push(this.add.image(0, 0, TEX_BIRD, 'up').setVisible(false).setDepth(DEPTH_CLOUD_FAR + 2));
+    // Billows reuse the sky's own cloud art, so a plunge looks like the cloud sea churning.
+    for (let i = 0; i < (LITE ? 3 : 5); i++) {
+      const img = this.add.image(0, 0, `${TEX_CLOUD}-${i % CLOUD_VARIANTS}`).setVisible(false).setDepth(DEPTH_CLOUD_FRONT + 1);
+      this.billows.push({ img, t: 1, life: 1, s0: 0, s1: 0, y: 0 });
+    }
     if (!LITE) this.dread = this.add.image(GAME_WIDTH / 2, 540, TEX_VIGNETTE).setDisplaySize(GAME_WIDTH, 1080).setTint(0xff3a1e).setAlpha(0).setDepth(8900);
   }
 
@@ -1033,16 +1051,55 @@ export class SkybridgeScrambleScene extends BaseMinigame {
     // Splinters burst off the rim and dust spills out underneath...
     this.chips.fire(t.x, t.y + TILE_H * 0.2, burst(9), -90, 85, 160, 430);
     this.dust.fire(t.x, t.y + TILE_H * 0.5, burst(4), 90, 70, 30, 120);
-    // ...and a moment later it punches through the cloud sea far below.
-    this.time.delayedCall(DROP_MS * 1.1, () => this.cloudPuff(t.x, Math.min(1020, t.y + 410), 0.36));
+    // ...and as it fades away it punches into the cloud sea below the bridge (kept under the
+    // front row, so a billow never sits on a platform).
+    this.time.delayedCall(DROP_MS * 1.4, () => this.cloudPuff(t.x, Phaser.Math.Clamp(t.y + 410, 985, 1030), 0.36));
   }
 
-  /** A burst of cloud where something plunges into the cloud sea (rationed: see `puffs`). */
+  /** A burst of cloud where a platform plunges into the cloud sea (rationed: see `puffs`). */
   private cloudPuff(x: number, y: number, scale: number): void {
     if (this.puffs <= 0) return;
     this.puffs--;
-    this.fx.vfx('smoke', x, y, { scale, duration: 640, alpha: 0.9, tint: CLOUD_PUFF, depth: DEPTH_CLOUD_BELOW + 11, dy: -24 });
-    this.rings.spawn(x, y + 12, 24, 120, { squash: 0.3, alpha: 0.55, ms: 560, depth: DEPTH_CLOUD_BELOW + 11 });
+    this.billow(x, y, scale * 0.4, scale, 620);
+    this.rings.spawn(x, y + 16, 24, 130, { squash: 0.3, tint: CLOUD_PUFF, alpha: 0.8, ms: 560, depth: DEPTH_CLOUD_FRONT + 1 });
+  }
+
+  /** A cloud swelling from scale s0 to s1 as it fades (reuses the oldest when all are busy). */
+  private billow(x: number, y: number, s0: number, s1: number, ms: number): void {
+    let b = this.billows[0];
+    let oldest = -1;
+    for (const o of this.billows) {
+      const u = o.t / o.life;
+      if (u >= 1) {
+        b = o;
+        break;
+      }
+      if (u > oldest) {
+        oldest = u;
+        b = o;
+      }
+    }
+    if (!b) return;
+    b.t = 0;
+    b.life = ms;
+    b.s0 = s0;
+    b.s1 = s1;
+    b.y = y;
+    b.img.setPosition(x, y).setScale(s0).setAlpha(1).setFlipX(Math.random() < 0.5).setVisible(true);
+  }
+
+  private updateBillows(dt: number): void {
+    for (const b of this.billows) {
+      if (b.t >= b.life) continue;
+      b.t += dt;
+      const u = Math.min(1, b.t / b.life);
+      const e = 1 - (1 - u) * (1 - u) * (1 - u);
+      b.img
+        .setScale(b.s0 + (b.s1 - b.s0) * e)
+        .setY(b.y - 26 * e)
+        .setAlpha(u < 0.45 ? 1 : 1 - (u - 0.45) / 0.55);
+      if (u >= 1) b.img.setVisible(false);
+    }
   }
 
   private startRise(t: Tile): void {
@@ -1280,10 +1337,9 @@ export class SkybridgeScrambleScene extends BaseMinigame {
       const by = Math.min(1040, h.y + 360);
       audio.play('pop', { volume: 0.35, rate: 0.55 });
       const depth = DEPTH_CLOUD_FRONT + 1;
-      this.fx.vfx('smoke', h.x, by, { scale: 0.62, duration: 700, alpha: 0.9, tint: CLOUD_PUFF, depth, dy: -30 });
-      this.fx.vfx('smoke', h.x - 46, by + 14, { scale: 0.36, duration: 560, alpha: 0.8, tint: CLOUD_PUFF, depth, flipX: true, dx: -34 });
-      if (!LITE) this.fx.vfx('smoke', h.x + 46, by + 14, { scale: 0.36, duration: 560, alpha: 0.8, tint: CLOUD_PUFF, depth, dx: 34 });
-      this.rings.spawn(h.x, by + 24, 30, 180, { squash: 0.3, alpha: 0.7, ms: 620, depth });
+      this.billow(h.x, by, 0.22, 0.58, 760);
+      if (!LITE) this.billow(h.x + (Math.random() < 0.5 ? -70 : 70), by + 18, 0.14, 0.36, 620);
+      this.rings.spawn(h.x, by + 24, 30, 190, { squash: 0.3, tint: CLOUD_PUFF, alpha: 0.85, ms: 620, depth });
       kick(this, 0, 10);
     });
     // A lost life gets its "-1" here; the last one's OUT! is the base class's call.
@@ -1496,6 +1552,7 @@ export class SkybridgeScrambleScene extends BaseMinigame {
     this.jumpLines.sync(ts);
     this.fallLines.sync(ts);
     this.rings.update(dt);
+    this.updateBillows(dt);
     // The wind picks up in the late game.
     const late = this.lateness();
     for (const d of this.drifters) {
@@ -1513,7 +1570,8 @@ export class SkybridgeScrambleScene extends BaseMinigame {
     if (this.dread) {
       const want = this.phase === 'playing' && this.phaseIndex === PHASES.length - 1 ? 1 : 0;
       this.dreadK += (want - this.dreadK) * Math.min(1, dt / 900);
-      this.dread.setAlpha(this.dreadK * (0.22 + 0.08 * Math.sin(this.time.now / 300)));
+      // A slow heartbeat of red at the edges (gentle: well under a flash).
+      this.dread.setAlpha(this.dreadK * (0.36 + 0.1 * Math.sin(this.time.now / 320)));
     }
     if (this.phase !== 'playing') {
       for (const h of this.hoppers) if (h.state === 'play') h.c.setDepth(DEPTH_PLAYER + h.y);

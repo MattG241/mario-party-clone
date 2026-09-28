@@ -215,7 +215,9 @@ export class Spray {
     const spin = c.spin ?? 0;
     const cfg: Phaser.Types.GameObjects.Particles.ParticleEmitterConfig = {
       emitting: false,
-      maxParticles: c.reserve,
+      // Cap the live particles, not the total: `maxParticles` counts the reserved (dead) ones too,
+      // so reserving that many would leave the emitter "full" before it ever fired.
+      maxAliveParticles: c.reserve,
       reserve: c.reserve,
       lifespan: () => this.l0 + Math.random() * (this.l1 - this.l0),
       speed: () => this.s0 + Math.random() * (this.s1 - this.s0),
