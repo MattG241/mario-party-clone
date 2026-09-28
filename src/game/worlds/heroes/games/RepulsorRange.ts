@@ -799,7 +799,7 @@ export class RepulsorRangeScene extends BaseMinigame {
   }
 
   protected finalScores(): { slot: number; score: number; label: string }[] {
-    return this.players.map((p) => ({ slot: p.slot, score: p.score, label: `${p.score} pts` }));
+    return this.players.map((p) => ({ slot: p.slot, score: p.score, label: `${p.score} ${p.score === 1 ? 'pt' : 'pts'}` }));
   }
 }
 
