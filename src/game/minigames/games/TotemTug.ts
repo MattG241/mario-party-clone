@@ -5,6 +5,7 @@ import type { AnimName } from '../../characters/CharacterAnimations';
 import { COLORS, CSS, GAME_WIDTH, PLAYER_COLORS } from '../../constants';
 import type { CharacterId } from '../../data/characters';
 import { NPC_ATLAS, npcFrame, type NpcId } from '../../data/npcs';
+import { REALTIME_CLOCK } from '../../debug/debug';
 import type { VirtualControls } from '../../input/PlayerInput';
 import { keyLabel } from '../../input/buttons';
 import { settings } from '../../save/SettingsManager';
@@ -14,6 +15,8 @@ import { addText, addTitle } from '../../ui/theme';
 import { Random } from '../../util/Random';
 import { standOrigin } from '../../util/spriteUtil';
 import { BaseMinigame, type MgPlayer } from '../BaseMinigame';
+import { kick, punch } from '../juice';
+import { bakeWord, calmMotion, liteCount, RingBursts, WordPops } from './stageKit';
 import { buzzerWinner, teamFinalScores, teamOf, type Team } from './TotemTugRules';
 import { HERO_DATA } from '../../data/heroSprites.generated';
 
@@ -52,11 +55,19 @@ const PLAQUE_X = [146, 1774] as const;
 const PLAQUE_Y = 16;
 /** Human LT/RT prompt row under the feet. */
 const PROMPT_DY = 104;
+/** Feet line of the festival folk along the back of the clearing. */
+const CROWD_FEET_Y = GROUND_Y - 22;
 
 // --- Rhythm -----------------------------------------------------------------------------------
 const BEAT_MS = 600;
-/** ± ms around a beat that still counts as a power pull. */
+/** ± ms around a beat that still counts as a power pull (graded GOOD). */
 const BEAT_WINDOW = 95;
+/** ± ms around a beat for a PERFECT pull, which hauls a touch harder than a GOOD one. */
+const PERFECT_MS = 45;
+const PERFECT_MULT = 1.12;
+const GOOD_MULT = 0.92;
+/** A person's PERFECT pull freezes the picture this long (at most once per beat; the drum keeps time). */
+const PERFECT_STOP_MS = 40;
 const POWER_MULT = 2.4;
 /** The lone puller of a 3-player game pulls twice as hard. */
 const SOLO_STRENGTH = 2;
@@ -89,6 +100,16 @@ const FORCE_TAU = 0.5;
 /** Totem this close to dead centre at the buzzer counts as level (pull power decides). */
 const DRAW_EPS = 2;
 
+// --- Feel -------------------------------------------------------------------------------------
+/** Net rope impulse (px/s, decaying over IMPULSE_TAU s) that counts as a big swing: a camera nudge. */
+const SWING_KICK = 105;
+const IMPULSE_TAU = 0.3;
+const SWING_COOL_MS = 900;
+/** Rope velocity (px/s) at which the momentum glow and the totem's trail are at full strength. */
+const MOMENTUM_V = 120;
+/** Totem trail motes per second at full momentum. */
+const TRAIL_RATE = 30;
+
 /** Team colours match the win-line banners of the rendered clearing (cyan left, coral right). */
 const TEAM_COLORS = [0x22c3d6, 0xff6b5e] as const;
 const TEAM_DARK = [0x0b5561, 0x8a2a24] as const;
@@ -101,6 +122,17 @@ const TEAM_NAMES = ['TIDE', 'EMBER'] as const;
 const TOTEM_ORIGIN = { x: 0.5, y: 1 } as const;
 
 type Trigger = 'LT' | 'RT';
+type Grade = 'perfect' | 'good' | 'miss';
+
+/** Pop-up words, baked once (stageKit.bakeWord): every pull is graded above the puller. */
+const WORDS = {
+  perfect: { key: 'tt-w-perfect', text: 'PERFECT', size: 32, fill: ['#fffbd0', '#ffbf2a'] },
+  good: { key: 'tt-w-good', text: 'GOOD', size: 29, fill: ['#ffffff', '#aeefff'] },
+  miss: { key: 'tt-w-miss', text: 'MISS', size: 26, fill: ['#eef0f4', '#9ba3b2'] },
+  sync: { key: 'tt-w-sync', text: 'SYNC!', size: 46, fill: ['#fffbe0', '#ffd84a'] },
+  dig0: { key: 'tt-w-dig0', text: 'DIG IN!', size: 46, fill: ['#e6fdff', '#5fd8e8'] },
+  dig1: { key: 'tt-w-dig1', text: 'DIG IN!', size: 46, fill: ['#fff0ec', '#ff8f84'] },
+} as const;
 
 interface PullPose {
   anim: AnimName;
@@ -204,6 +236,31 @@ export class TotemTugScene extends BaseMinigame {
   private crowd: Phaser.GameObjects.Sprite[] = [];
   private plaques: { root: Phaser.GameObjects.Container; glow: Phaser.GameObjects.Graphics }[] = [];
   private ropePts: Pt[] = [];
+  /** This frame's rope hum amplitude and clock (seconds), read by vib(). */
+  private ropeHum = 0;
+  private ropeNow = 0;
+  /** Game-clock milliseconds for scenery motion: it holds in a hit-stop and slows in slow motion. */
+  private visT = 0;
+  /** The totem's point on the rope this frame (a member of ropePts). */
+  private ropeMid: Pt = { x: CENTER_X, y: ROPE_Y };
+  /** Reused rope points, so the rope is rebuilt every frame without allocating. */
+  private ptPool: Pt[] = [];
+  private ptN = 0;
+  /** Each team's pullers, innermost first (fixed once everyone has joined). */
+  private sides: [Puller[], Puller[]] = [[], []];
+  private pops!: WordPops;
+  private rings!: RingBursts;
+  /** Rope twang left on each team's side after a PERFECT pull (1 → 0). */
+  private twang: [number, number] = [0, 0];
+  /** Smoothed rope velocity, −1 (Tide surging) … +1 (Ember surging): drives the glow and the trail. */
+  private momentum = 0;
+  /** Recent net pull impulse (opposing pulls cancel out); a big one nudges the camera. */
+  private impulse = 0;
+  private swingCool = 0;
+  private lastStopBeat = -99;
+  private teamGlow: Phaser.GameObjects.Image[] = [];
+  private trail?: Phaser.GameObjects.Particles.ParticleEmitter;
+  private trailAcc = 0;
 
   constructor() {
     super('mg-totem-tug');
@@ -232,6 +289,18 @@ export class TotemTugScene extends BaseMinigame {
     this.crowd = [];
     this.plaques = [];
     this.ropePts = [];
+    this.ptN = 0;
+    this.visT = 0;
+    this.sides = [[], []];
+    this.twang = [0, 0];
+    this.momentum = 0;
+    this.impulse = 0;
+    this.swingCool = 0;
+    this.lastStopBeat = -99;
+    this.teamGlow = [];
+    this.trail = undefined;
+    this.trailAcc = 0;
+    for (const w of Object.values(WORDS)) bakeWord(this, w.key, w.text, { size: w.size, fill: w.fill });
 
     const rendered = this.textures.exists('rendered-scene-totem');
     this.fallbackArt = !rendered;
@@ -273,6 +342,26 @@ export class TotemTugScene extends BaseMinigame {
     this.beatG = this.add.graphics().setDepth(920);
     this.meterG = this.add.graphics().setDepth(8000);
     this.buildPlaques();
+    this.pops = new WordPops(this, 8650, 16);
+    this.rings = new RingBursts(this, 10);
+    // Momentum: a soft team-coloured glow on the grass under the side that is winning the rope.
+    for (const team of [0, 1] as const) {
+      this.teamGlow.push(this.add.image(CENTER_X, GROUND_Y + 6, 'fx-dot').setBlendMode(Phaser.BlendModes.ADD).setTint(TEAM_COLORS[team]).setAlpha(0).setDepth(GROUND_Y - 40));
+    }
+    // ...and a comet tail of motes streaming off the totem as it surges.
+    if (this.textures.exists('fx-dot')) {
+      this.trail = this.add.particles(0, 0, 'fx-dot', {
+        emitting: false,
+        lifespan: { min: 380, max: 640 },
+        speedX: { min: -24, max: 24 },
+        speedY: { min: -46, max: -8 },
+        scale: { start: 1.15, end: 0 },
+        alpha: { start: 0.9, end: 0 },
+        blendMode: 'ADD',
+        maxParticles: liteCount(48),
+      });
+      this.trail.setDepth(905);
+    }
   }
 
   /** Which team a player (by launch order) pulls for: 1&2 v 3&4, 1 v 2&3, or 1 v 1. */
@@ -352,6 +441,9 @@ export class TotemTugScene extends BaseMinigame {
       cpuBias: gauss() * this.skill(p).aimNoise * 50,
       cpuBurst: 0,
     });
+    const side = this.sides[team];
+    side.push(this.pullers[this.pullers.length - 1]);
+    side.sort((a, b) => a.spot - b.spot);
   }
 
   /** "Alternate!" bubble shown above a puller who mashes one trigger (with the right glyphs). */
@@ -423,9 +515,8 @@ export class TotemTugScene extends BaseMinigame {
     }
   }
 
-  /** Festival folk cheering along the back of the clearing. */
+  /** Festival folk cheering along the back of the clearing; they hop in time with the drum (see bobCrowd). */
   private buildCrowd(): void {
-    const feetY = GROUND_Y - 22;
     const folk: [NpcId, string, number][] = [
       ['mimi', 'happy', 188],
       ['packsprout', 'cheer', 262],
@@ -435,12 +526,23 @@ export class TotemTugScene extends BaseMinigame {
       ['mimi', 'laugh', 1730],
     ];
     folk.forEach(([id, pose, x], i) => {
-      const spr = this.add.sprite(x, feetY, NPC_ATLAS, npcFrame(id, pose));
+      const spr = this.add.sprite(x, CROWD_FEET_Y, NPC_ATLAS, npcFrame(id, pose));
       const o = standOrigin(NPC_ATLAS, npcFrame(id, pose));
       spr.setOrigin(o.x, o.y).setScale(0.34).setDepth(-20 + i * 0.01).setFlipX(x > CENTER_X);
-      this.tweens.add({ targets: spr, y: feetY - 6, duration: 360 + (i % 3) * 80, yoyo: true, repeat: -1, ease: 'Sine.InOut', delay: i * 90 });
       this.crowd.push(spr);
     });
+  }
+
+  /** The crowd hops on every beat (a bigger hop on the bar's first beat), each a hair apart. */
+  private bobCrowd(): void {
+    for (let i = 0; i < this.crowd.length; i++) {
+      const t = this.beatClock - i * 22;
+      const ph = (((t % BEAT_MS) + BEAT_MS) % BEAT_MS) / BEAT_MS;
+      const accent = Math.floor(t / BEAT_MS) % 4 === 0 ? 1.5 : 1;
+      // A parabola that lands on the beat: the crowd stomps along with the drum.
+      const hop = this.phase === 'finished' ? 0.5 + 0.5 * Math.sin(this.beatClock / 90 + i) : 4 * ph * (1 - ph) * accent;
+      this.crowd[i].y = CROWD_FEET_Y - 9 * hop;
+    }
   }
 
   private crowdCheer(): void {
@@ -451,8 +553,17 @@ export class TotemTugScene extends BaseMinigame {
 
   protected override onStart(): void {
     audio.play('rumble', { volume: 0.4 });
+    // Snap the drum so a beat lands exactly on GO, however long the countdown ran (the whistle
+    // covers the little hiccup when the two didn't already line up).
+    const before = this.beatClock;
+    this.beatClock = Math.round(before / BEAT_MS) * BEAT_MS;
+    const k = Math.floor(this.beatClock / BEAT_MS);
+    if (k !== this.beatIdx || before - this.beatClock > 60) {
+      this.beatIdx = k;
+      this.onBeat(k);
+    }
     if (this.humanSlots().length === 0) return;
-    const t = addText(this, CENTER_X, 300, `Alternate ${this.triggerNames()} — pull on the beat!`, 40, { color: CSS.cream, stroke: '#06141a', strokeThickness: 7, weight: 700, fixed: true }).setDepth(8800);
+    const t = addText(this, CENTER_X, 300, `Alternate ${this.triggerNames()} on the beat — PERFECT pulls haul hardest!`, 38, { color: CSS.cream, stroke: '#06141a', strokeThickness: 7, weight: 700, fixed: true }).setDepth(8800);
     const back = this.add.graphics().setDepth(8799);
     back.fillStyle(0x06141a, 0.55);
     back.fillRoundedRect(CENTER_X - t.width / 2 - 28, 300 - 32, t.width + 56, 64, 32);
@@ -476,13 +587,16 @@ export class TotemTugScene extends BaseMinigame {
 
   private pull(u: Puller, trig: Trigger): void {
     const k = Math.round(this.beatClock / BEAT_MS);
-    const onBeat = Math.abs(this.beatClock - k * BEAT_MS) <= BEAT_WINDOW && u.beatUsed !== k;
+    const off = Math.abs(this.beatClock - k * BEAT_MS);
+    const onBeat = off <= BEAT_WINDOW && u.beatUsed !== k;
+    const grade: Grade = onBeat ? (off <= PERFECT_MS ? 'perfect' : 'good') : 'miss';
     if (onBeat) u.beatUsed = k;
     const since = this.elapsed - u.lastPullAt;
     const recovery = Phaser.Math.Clamp((since - RECOVER_MIN) / RECOVER_MS, RECOVER_FLOOR, 1);
     const sync = onBeat && this.pullers.some((m) => m !== u && m.team === u.team && m.beatUsed === k);
     const bonus = sync ? SYNC_MULT : onBeat && u.strength > 1 ? SOLO_POWER_BONUS : 1;
-    const amount = u.strength * recovery * (onBeat ? POWER_MULT : 1) * bonus * (1 + DIG_IN * this.danger(u)) * (1 - GRIP_JITTER + 2 * GRIP_JITTER * this.rng.next());
+    const power = grade === 'perfect' ? POWER_MULT * PERFECT_MULT : grade === 'good' ? POWER_MULT * GOOD_MULT : 1;
+    const amount = u.strength * recovery * power * bonus * (1 + DIG_IN * this.danger(u)) * (1 - GRIP_JITTER + 2 * GRIP_JITTER * this.rng.next());
     u.last = trig;
     u.lastPullAt = this.elapsed;
     u.pulls++;
@@ -492,38 +606,66 @@ export class TotemTugScene extends BaseMinigame {
     u.p.score = Math.round(u.power);
     this.ropeV = Phaser.Math.Clamp(this.ropeV + u.dir * KICK * amount, -MAX_ROPE_V, MAX_ROPE_V);
     this.teamForce[u.team] += amount;
-    // Feedback: step back, squash, rope ripple.
+    this.impulse += u.dir * KICK * amount;
+    // Feedback: step back, squash, rope ripple, and the grade above the puller.
     u.kick = onBeat ? 18 : 5 + 7 * recovery;
     u.pulse = onBeat ? 1 : 0.35 + 0.35 * recovery;
-    u.c.squash(onBeat ? 0.17 : 0.09, onBeat ? 170 : 120);
+    u.c.squash(grade === 'perfect' ? 0.2 : onBeat ? 0.15 : 0.09, onBeat ? 170 : 120);
     this.wobble = Math.min(14, this.wobble + (onBeat ? 7 : 2.5));
+    this.popGrade(u, grade);
     const hand = this.handPos(u);
-    if (onBeat) {
-      audio.play('chipGain', { volume: 0.32, rate: u.team === 0 ? 0.8 : 0.92, throttleMs: 45 });
-      audio.play('land', { volume: 0.3, throttleMs: 45 });
-      this.fx.sparks(hand.x, hand.y, 10);
-      this.fx.vfx('impact', hand.x, hand.y, { scale: 0.32, duration: 260, blend: 'add', tint: TEAM_COLORS[u.team] });
-      if (sync) {
-        // Both team-mates hit the same beat (the callout is rationed so it stays special).
-        const mates = this.pullers.filter((m) => m.team === u.team);
-        const mx = mates.reduce((a, m) => a + m.c.x, 0) / mates.length;
-        this.fx.vfx('goldSwirl', mx, GROUND_Y - 150, { scale: 0.4, duration: 380, blend: 'add', alpha: 0.7 });
-        if (this.elapsed >= this.syncShownAt[u.team] + SYNC_CALLOUT_MS || mates.some((m) => !m.p.isCpu)) {
-          this.syncShownAt[u.team] = this.elapsed;
-          this.fx.floatText(mx, GROUND_Y - 300, 'SYNC!', '#fff4a8', { size: 48, rise: 70, duration: 700, stroke: '#06141a' });
-          audio.play('pop', { volume: 0.35, rate: 1.3, throttleMs: 80 });
-        }
-        for (const m of mates) this.rumble(m.p, 0.3, 0.3, 80);
-      } else if (!u.p.isCpu) {
-        const label = u.streak >= 3 ? `RHYTHM x${u.streak}!` : u.strength > 1 ? 'POWER x2!' : 'POWER!';
-        this.fx.floatText(u.c.x, GROUND_Y + u.c.headY * 0.7 - 70, label, TEAM_CSS[u.team], { size: u.streak >= 3 ? 38 : 34, rise: 60, duration: 650 });
+    if (grade === 'perfect') {
+      // The rope twangs on this team's side, dust kicks up behind the heels, and a person's
+      // PERFECT freezes the picture for a blink (once per beat, so the rhythm never stutters).
+      this.twang[u.team] = 1;
+      audio.play('bounce', { volume: 0.2, throttleMs: 45 });
+      audio.play('chipGain', { volume: 0.3, rate: u.team === 0 ? 0.95 : 1.08, throttleMs: 45 });
+      audio.play('land', { volume: 0.32, throttleMs: 45 });
+      this.fx.sparks(hand.x, hand.y, liteCount(14));
+      this.fx.vfx('impact', hand.x, hand.y, { scale: 0.4, duration: 260, blend: 'add', tint: TEAM_COLORS[u.team] });
+      this.fx.vfx('dust', u.c.x + u.dir * 26, GROUND_Y + u.dy, { scale: 0.34, duration: 380, alpha: 0.8, flipX: u.dir > 0, dx: u.dir * 34, dy: -6 });
+      if (!u.p.isCpu && this.lastStopBeat !== k) {
+        this.lastStopBeat = k;
+        this.hitStop(PERFECT_STOP_MS);
       }
-      this.fx.vfx('dust', u.c.x - u.dir * -30, GROUND_Y + u.dy, { scale: 0.24, duration: 320, alpha: 0.7, flipX: u.dir > 0 });
-      this.rumble(u.p, 0.25, 0.4, 70);
+      this.rumble(u.p, 0.35, 0.5, 80);
+    } else if (grade === 'good') {
+      audio.play('chipGain', { volume: 0.22, rate: u.team === 0 ? 0.8 : 0.9, throttleMs: 45 });
+      audio.play('land', { volume: 0.26, throttleMs: 45 });
+      this.fx.sparks(hand.x, hand.y, liteCount(7));
+      this.fx.vfx('impact', hand.x, hand.y, { scale: 0.28, duration: 240, blend: 'add', tint: TEAM_COLORS[u.team] });
+      this.fx.vfx('dust', u.c.x + u.dir * 26, GROUND_Y + u.dy, { scale: 0.22, duration: 300, alpha: 0.65, flipX: u.dir > 0, dx: u.dir * 18 });
+      this.rumble(u.p, 0.22, 0.36, 70);
     } else {
-      audio.play('land', { volume: 0.16, throttleMs: 60 });
+      audio.play('land', { volume: 0.15, throttleMs: 60 });
       this.rumble(u.p, 0.08, 0.18, 40);
     }
+    if (sync) {
+      // Both team-mates hit the same beat (the callout is rationed so it stays special).
+      const mates = this.sides[u.team];
+      let mx = 0;
+      for (const m of mates) mx += m.c.x / mates.length;
+      this.fx.vfx('goldSwirl', mx, GROUND_Y - 150, { scale: 0.4, duration: 380, blend: 'add', alpha: 0.7 });
+      if (this.elapsed >= this.syncShownAt[u.team] + SYNC_CALLOUT_MS || mates.some((m) => !m.p.isCpu)) {
+        this.syncShownAt[u.team] = this.elapsed;
+        this.pops.pop(WORDS.sync.key, mx, GROUND_Y - 390, { rise: 50, hold: 520 });
+        audio.play('pop', { volume: 0.35, rate: 1.3, throttleMs: 80 });
+      }
+      for (const m of mates) this.rumble(m.p, 0.3, 0.3, 80);
+    }
+    // A person on a long run of power pulls gets a rhythm call-out every fourth one.
+    if (!u.p.isCpu && onBeat && u.streak >= 4 && u.streak % 4 === 0) {
+      this.fx.floatText(u.c.x, GROUND_Y + u.badgeY * CHAR_SCALE - 120, `RHYTHM x${u.streak}!`, TEAM_CSS[u.team], { size: 36, rise: 50, duration: 800 });
+    }
+  }
+
+  /** "PERFECT" / "GOOD" / "MISS" pops above the puller's badge. */
+  private popGrade(u: Puller, grade: Grade): void {
+    const a = Phaser.Math.DegToRad(u.dir * u.lean);
+    const x = u.c.x - u.badgeY * Math.sin(a) * CHAR_SCALE;
+    const y = GROUND_Y + u.dy + u.badgeY * Math.cos(a) * CHAR_SCALE - 44;
+    const w = WORDS[grade];
+    this.pops.pop(w.key, x, y, { rise: grade === 'miss' ? 16 : 26, hold: grade === 'perfect' ? 300 : 220, tilt: grade === 'perfect' ? u.dir * -8 : 0, scale: grade === 'miss' ? 0.9 : 1, owner: u.p.slot });
   }
 
   /** 0..1: how close the totem is to this puller's own losing line (dig-in strength). */
@@ -547,16 +689,26 @@ export class TotemTugScene extends BaseMinigame {
     const k = Math.exp(-s / FORCE_TAU);
     this.teamForce[0] *= k;
     this.teamForce[1] *= k;
+    // A big one-sided swing (one team lands its pulls while the other misses) jolts the camera
+    // the way the rope went. Opposing pulls cancel out in the impulse, so a level tug stays calm.
+    this.impulse *= Math.exp(-s / IMPULSE_TAU);
+    this.swingCool = Math.max(0, this.swingCool - dt);
+    if (Math.abs(this.impulse) > SWING_KICK && this.swingCool <= 0) {
+      this.swingCool = SWING_COOL_MS;
+      kick(this, Math.sign(this.impulse) * 9, 0, 180);
+      this.impulse *= 0.4;
+    }
     // Anticipation: the crowd roars when a team gets close to its line.
     const near = this.offset <= -(WIN_DIST - 110) ? 0 : this.offset >= WIN_DIST - 110 ? 1 : null;
     if (near !== null && near !== this.dangerTeam) {
       audio.play('drumroll', { volume: 0.4 });
       this.crowdCheer();
       // The team about to be dragged over digs its heels in (they pull harder near their line).
-      const losers = this.pullers.filter((u) => u.team !== near);
+      const losers = this.sides[near === 0 ? 1 : 0];
       if (losers.length > 0) {
-        const lx = losers.reduce((a, u) => a + u.c.x, 0) / losers.length;
-        this.fx.floatText(lx, GROUND_Y - 300, 'DIG IN!', TEAM_CSS[losers[0].team], { size: 44, rise: 60, duration: 900 });
+        let lx = 0;
+        for (const u of losers) lx += u.c.x / losers.length;
+        this.pops.pop(losers[0].team === 0 ? WORDS.dig0.key : WORDS.dig1.key, lx, GROUND_Y - 390, { rise: 50, hold: 700, owner: 90 + losers[0].team });
       }
     }
     this.dangerTeam = near;
@@ -570,9 +722,18 @@ export class TotemTugScene extends BaseMinigame {
     this.winner = team;
     this.offset = team === 0 ? -WIN_DIST : WIN_DIST;
     const sx = CENTER_X + (team === 0 ? -WIN_DIST : WIN_DIST);
-    this.fx.sparks(sx, ROPE_Y - 40, 30);
+    this.fx.sparks(sx, ROPE_Y - 40, liteCount(30));
     this.fx.flash(0xffffff, 140);
+    this.rings.burst(sx, GROUND_Y + 10, { tint: TEAM_COLORS[team], from: 60, to: 520, duration: 700, alpha: 0.9, add: true, depth: GROUND_Y - 30 });
+    // The winning heave plays out in slow motion (see celebrate).
+    this.slowMo(0.3, 1100);
+    punch(this, 0.05, 520);
+    this.rumbleAll(0.6, 0.6, 260);
     this.end();
+  }
+
+  private rumbleAll(strong: number, weak: number, ms: number): void {
+    for (const u of this.pullers) this.rumble(u.p, strong, weak, ms);
   }
 
   private tallies() {
@@ -594,50 +755,89 @@ export class TotemTugScene extends BaseMinigame {
     for (const u of this.pullers) {
       u.prompt?.root.setVisible(false);
       u.hint.setVisible(false);
-      u.c.sprite.setAngle(0);
-      u.c.marker?.setPosition(0, animHeadTop(u.p.characterId) - 46);
     }
-    this.tweens.add({ targets: this, ropeDrop: 1, duration: 420, ease: 'Quad.In' });
+    // Clear the grades and call-outs so nothing collides with the result.
+    this.pops.clear();
+    this.teamGlow.forEach((g) => this.tweens.add({ targets: g, alpha: 0, duration: 500 }));
     if (w === null) {
-      for (const u of this.pullers) u.c.play('surprised', { force: true, returnTo: 'idle' });
+      for (const u of this.pullers) {
+        u.c.sprite.setAngle(0);
+        u.c.marker?.setPosition(0, animHeadTop(u.p.characterId) - 46);
+        u.c.play('surprised', { force: true, returnTo: 'idle' });
+      }
+      this.tweens.add({ targets: this, ropeDrop: 1, duration: 420, ease: 'Quad.In' });
       const t = addTitle(this, CENTER_X, 340, 'DEAD LEVEL!', 90, CSS.cream).setDepth(9400).setScale(0.4);
       this.tweens.add({ targets: t, scale: 1, duration: 300, ease: 'Back.Out' });
       return;
     }
     audio.play('cheer', { volume: 0.7 });
     this.crowdCheer();
+    // The rope stays taut through the heave, then goes slack.
+    this.tweens.add({ targets: this, ropeDrop: 1, delay: 480, duration: 420, ease: 'Quad.In' });
+    const wdir = w === 0 ? -1 : 1;
     for (const u of this.pullers) {
-      if (u.team === w) {
-        u.c.play('victory', { force: true, returnTo: 'celebrate' });
-        this.tweens.add({ targets: u.c, y: u.c.y - 36, duration: 200, yoyo: true, repeat: 2, ease: 'Quad.Out', delay: 120 });
-      } else {
-        // Yanked off their feet towards the winners.
-        u.c.play('fall', { force: true, returnTo: 'fall' });
-        const dx = (w === 0 ? -1 : 1) * 80;
-        this.tweens.add({ targets: u.c, x: u.c.x + dx, duration: 380, ease: 'Quad.Out' });
-        this.fx.vfx('dust', u.c.x + dx * 0.5, GROUND_Y + u.dy, { scale: 0.34, duration: 420, alpha: 0.8 });
-        this.time.delayedCall(900, () => u.c.hold('disappointed', 2));
-      }
+      if (u.team === w) this.heave(u, wdir);
+      else this.skid(u, wdir);
     }
     const sideX = CENTER_X + (w === 0 ? -520 : 520);
-    this.fx.confetti(sideX, 420, 90);
+    this.fx.confetti(sideX, 420, liteCount(90));
     const ts = this.totem.scale;
     this.tweens.add({ targets: this.totem, scale: ts * 1.18, duration: 180, yoyo: true, repeat: 1, ease: 'Quad.Out' });
-    this.fx.sparks(this.headGlow.x, this.headGlow.y, 24);
+    this.fx.sparks(this.headGlow.x, this.headGlow.y, liteCount(24));
     const t = addTitle(this, CENTER_X, 340, `${TEAM_NAMES[w]} TEAM WINS!`, 88, TEAM_CSS[w]).setDepth(9400).setScale(0.4);
     this.tweens.add({ targets: t, scale: 1, duration: 320, ease: 'Back.Out' });
     this.plaques[w].glow.setAlpha(1);
     this.tweens.add({ targets: this.plaques[w].root, scale: { from: 1.15, to: 1 }, duration: 260, ease: 'Back.Out' });
   }
 
+  /** The winning heave: a big braced step back, leaning hard, then the celebration. */
+  private heave(u: Puller, wdir: number): void {
+    const lean = u.dir * 30;
+    this.tweens.add({ targets: u.c, x: u.c.x + wdir * 70, duration: 380, ease: 'Back.Out' });
+    this.tweens.add({ targets: u.c.sprite, angle: lean, duration: 160, ease: 'Quad.Out' });
+    u.c.squash(0.22, 240);
+    this.fx.vfx('dust', u.c.x + wdir * 24, GROUND_Y + u.dy, { scale: 0.4, duration: 460, alpha: 0.85, flipX: wdir > 0, dx: wdir * 50, dy: -8 });
+    this.time.delayedCall(560, () => {
+      u.c.sprite.setAngle(0);
+      u.c.marker?.setPosition(0, animHeadTop(u.p.characterId) - 46);
+      u.c.play('victory', { force: true, returnTo: 'celebrate' });
+      this.tweens.add({ targets: u.c, y: u.c.y - 36, duration: 200, yoyo: true, repeat: 2, ease: 'Quad.Out' });
+    });
+  }
+
+  /** Dragged off their feet: the losers skid towards the winners, kicking up dust, and topple. */
+  private skid(u: Puller, wdir: number): void {
+    const dx = wdir * 150;
+    this.tweens.add({ targets: u.c, x: u.c.x + dx, duration: 620, ease: 'Quad.Out' });
+    // Pitched forward, heels ploughing the dirt.
+    this.tweens.add({ targets: u.c.sprite, angle: u.dir * -22, duration: 200, ease: 'Quad.Out' });
+    this.time.addEvent({
+      delay: 70,
+      repeat: 6,
+      callback: () => this.fx.vfx('dust', u.c.x - wdir * 8, GROUND_Y + u.dy, { scale: 0.24, duration: 320, alpha: 0.75, flipX: wdir < 0, dx: -wdir * 34, dy: -4 }),
+    });
+    this.time.delayedCall(460, () => {
+      u.c.sprite.setAngle(0);
+      u.c.marker?.setPosition(0, animHeadTop(u.p.characterId) - 46);
+      u.c.play('fall', { force: true, returnTo: 'fall' });
+      this.fx.vfx('dust', u.c.x, GROUND_Y + u.dy, { scale: 0.36, duration: 420, alpha: 0.8 });
+      audio.play('land', { volume: 0.4 });
+    });
+    this.time.delayedCall(1300, () => u.c.hold('disappointed', 2));
+  }
+
   protected override ambient(dt: number): void {
-    this.beatClock += dt;
+    // The drum keeps real time: a hit-stop freezes the picture, never the rhythm (players pull by
+    // ear). Once the round is over it follows the game clock, so the crowd slows with the finish.
+    const real = this.phase === 'finished' ? dt : Math.min(this.game.loop.delta, REALTIME_CLOCK ? 120 : 50);
+    this.beatClock += real;
     const k = Math.floor(this.beatClock / BEAT_MS);
     if (k !== this.beatIdx) {
       this.beatIdx = k;
       this.onBeat(k);
     }
-    this.beatFlash = Math.max(0, this.beatFlash - dt / 260);
+    this.beatFlash = Math.max(0, this.beatFlash - real / 260);
+    this.visT += dt;
     this.syncVisuals(dt);
   }
 
@@ -646,6 +846,8 @@ export class TotemTugScene extends BaseMinigame {
     const accent = k % 4 === 0;
     audio.play('step', { volume: (this.phase === 'playing' ? 0.55 : 0.3) * (accent ? 1.3 : 1), rate: accent ? 0.8 : 1 });
     this.beatFlash = 1;
+    // A thump rolls out over the grass under the totem.
+    this.rings.burst(CENTER_X + this.offset, GROUND_Y + 12, { tint: 0xfff0b0, from: 50, to: accent ? 300 : 210, duration: accent ? 520 : 420, alpha: accent ? 0.5 : 0.32, add: true, depth: GROUND_Y - 35 });
     for (const u of this.pullers) {
       if (!u.prompt) continue;
       const next = u.last === 'LT' ? u.prompt.rt : u.last === 'RT' ? u.prompt.lt : null;
@@ -654,14 +856,9 @@ export class TotemTugScene extends BaseMinigame {
   }
 
   // --- Visuals ---------------------------------------------------------------------------------
-  /** Where a puller's hands grip the rope (screen px), following their lean. */
+  /** Where a puller's hands grip the rope (screen px), following their lean (a fresh point, for effects). */
   private handPos(u: Puller): Pt {
-    const hx = u.pose.hand[0] * (u.dir < 0 ? 1 : -1);
-    const hy = u.pose.hand[1];
-    const a = Phaser.Math.DegToRad(u.c.sprite.angle);
-    const cs = Math.cos(a);
-    const sn = Math.sin(a);
-    return { x: u.c.x + (hx * cs - hy * sn) * CHAR_SCALE, y: u.c.y + (hx * sn + hy * cs) * CHAR_SCALE };
+    return this.handInto(u, { x: 0, y: 0 }, CENTER_X + this.offset, u.dir);
   }
 
   private syncVisuals(dt: number): void {
@@ -700,54 +897,181 @@ export class TotemTugScene extends BaseMinigame {
       u.hint.setVisible(u.hintT > 0 && playing);
       if (u.hintT > 0) u.hint.setPosition(u.c.x, GROUND_Y + u.c.headY * CHAR_SCALE - 64 - (u.p.isCpu ? 0 : 6));
     }
+    this.twang[0] *= Math.exp(-s / 0.16);
+    this.twang[1] *= Math.exp(-s / 0.16);
+    this.syncMomentum(s, playing);
     this.drawRope(s);
     this.syncTotem(s);
     this.drawBeat();
     this.drawStakes();
     this.drawMeter();
+    this.bobCrowd();
     if (this.fallbackArt) this.drawFlags();
     const lead = this.offset < -30 ? 0 : this.offset > 30 ? 1 : null;
-    if (playing) this.plaques.forEach((pl, t) => pl.glow.setAlpha(lead === t ? 0.5 + 0.5 * Math.sin(this.time.now / 160) : 0));
+    if (playing) for (let t = 0; t < this.plaques.length; t++) this.plaques[t].glow.setAlpha(lead === t ? 0.5 + 0.5 * Math.sin(this.time.now / 160) : 0);
   }
 
-  /** Rope polyline: tail on the ground, through every hand, dipping at the totem, and out again. */
-  private ropePath(): Pt[] {
-    const markerX = CENTER_X + this.offset;
-    const side = (team: 0 | 1): Pt[] => {
-      const us = this.pullers.filter((u) => u.team === team).sort((a, b) => a.spot - b.spot);
-      const dir = team === 0 ? -1 : 1;
-      const hands = us.map((u) => this.handPos(u));
-      const outer = hands[hands.length - 1] ?? { x: markerX + dir * SPOT_SOLO, y: ROPE_Y };
-      const endX = (team === 0 ? ROPE_X0 : ROPE_X1) + this.offset;
-      const groundY = GROUND_Y - 5;
-      // Tail: droops from the anchor's hands to the grass, then lies along it to the end.
-      const tail: Pt[] = [];
-      const touch = { x: outer.x + dir * 120, y: groundY };
-      const ctrl = { x: outer.x + dir * 50, y: groundY - 6 };
-      for (let i = 1; i <= 6; i++) {
-        const t = i / 6;
-        const a = (1 - t) * (1 - t);
-        const b = 2 * (1 - t) * t;
-        const c = t * t;
-        tail.push({ x: a * outer.x + b * ctrl.x + c * touch.x, y: a * outer.y + b * ctrl.y + c * touch.y });
-      }
-      if (dir * (endX - touch.x) > 10) tail.push({ x: (touch.x + endX) / 2, y: groundY + 3 }, { x: endX, y: groundY });
-      return [...hands, ...tail];
-    };
-    const left = side(0);
-    const right = side(1);
-    const lIn = left[0];
-    const rIn = right[0];
-    // Totem point on the middle span: a V under the totem's weight, flatter when both sides haul.
-    const t = (markerX - lIn.x) / Math.max(1, rIn.x - lIn.x);
-    const tension = Math.min(1, (this.teamForce[0] + this.teamForce[1]) / 6);
-    const sag = 12 - 7 * tension;
-    const mid = { x: markerX, y: lIn.y + (rIn.y - lIn.y) * t + sag };
-    const pts = [...left.reverse(), mid, ...right];
-    if (this.ropeDrop > 0) {
-      for (const p of pts) p.y += (GROUND_Y - 5 - p.y) * this.ropeDrop;
+  /**
+   * Team momentum: a soft glow on the grass under the side the rope is surging towards, and a
+   * comet tail of team-coloured motes streaming off the totem.
+   */
+  private syncMomentum(s: number, playing: boolean): void {
+    const target = playing && this.phase === 'playing' ? Phaser.Math.Clamp(this.ropeV / MOMENTUM_V, -1, 1) : 0;
+    this.momentum += (target - this.momentum) * (1 - Math.exp(-5 * s));
+    const m = this.momentum;
+    for (let t = 0; t < 2; t++) {
+      const team = t as 0 | 1;
+      const glow = this.teamGlow[team];
+      if (!glow || !playing) continue;
+      const side = this.sides[team];
+      if (side.length === 0) continue;
+      let x = 0;
+      for (const u of side) x += u.c.x / side.length;
+      const k = Math.max(0, team === 0 ? -m : m);
+      glow.setPosition(x, GROUND_Y + 4).setDisplaySize(side.length > 1 ? 520 : 360, 150).setAlpha(Math.min(1, k * 1.15));
     }
-    return pts;
+    const trail = this.trail;
+    if (!trail || !playing || calmMotion()) return;
+    const k = Math.abs(m);
+    if (k < 0.3) {
+      this.trailAcc = 0;
+      return;
+    }
+    this.trailAcc += s * liteCount(TRAIL_RATE) * k;
+    if (this.trailAcc < 1) return;
+    const dir = Math.sign(m);
+    trail.setParticleTint(TEAM_COLORS[dir < 0 ? 0 : 1]);
+    while (this.trailAcc >= 1) {
+      this.trailAcc -= 1;
+      // Behind the totem (opposite to its motion), spread up its height.
+      trail.emitParticleAt(this.totem.x - dir * (18 + Math.random() * 22), this.totem.y - Math.random() * this.headUp * 1.2, 1);
+    }
+  }
+
+  /** A rope point from the reused pool (the rope is rebuilt every frame). */
+  private pt(x: number, y: number): Pt {
+    let p = this.ptPool[this.ptN];
+    if (!p) {
+      p = { x: 0, y: 0 };
+      this.ptPool[this.ptN] = p;
+    }
+    this.ptN++;
+    p.x = x;
+    p.y = y;
+    return p;
+  }
+
+  /**
+   * Taut span from a to b (both already in `out`'s order before the call: a pushed, b not yet):
+   * `n` inner points along a standing wave, so the rope can hum with strain and twang.
+   */
+  private pushSpan(out: Pt[], a: Pt, b: Pt, n: number, amp: number): void {
+    for (let i = 1; i <= n; i++) {
+      const t = i / (n + 1);
+      out.push(this.pt(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t + Math.sin(Math.PI * t) * amp));
+    }
+  }
+
+  /**
+   * Rope polyline (a reused buffer): tail on the ground, through every hand, dipping at the totem,
+   * and out again. The taut spans between the hands carry the strain hum and the twang.
+   */
+  private ropePath(): Pt[] {
+    this.ptN = 0;
+    const out = this.ropePts;
+    out.length = 0;
+    const markerX = CENTER_X + this.offset;
+    const tension = Math.min(1, (this.teamForce[0] + this.teamForce[1]) / 6);
+    this.ropeNow = this.visT / 1000;
+    // Strain: the taut spans quiver once both sides are really hauling.
+    this.ropeHum = calmMotion() ? 0 : 2.6 * Math.max(0, (tension - 0.35) / 0.65);
+    // Left team, from the tail end inwards; then the totem point; then the right team outwards.
+    const innerL = this.pushSide(0, out, markerX);
+    const innerR = this.handInto(this.sides[1][0], this.pt(0, 0), markerX, 1);
+    const t = (markerX - innerL.x) / Math.max(1, innerR.x - innerL.x);
+    const sag = 12 - 7 * tension;
+    const mid = this.pt(markerX, innerL.y + (innerR.y - innerL.y) * t + sag);
+    this.pushSpan(out, innerL, mid, 5, this.vib(0, 0.4));
+    out.push(mid);
+    this.ropeMid = mid;
+    this.pushSpan(out, mid, innerR, 5, this.vib(1, 1.1));
+    this.pushSideOut(1, out, innerR, markerX);
+    if (this.ropeDrop > 0) {
+      for (const p of out) p.y += (GROUND_Y - 5 - p.y) * this.ropeDrop;
+    }
+    return out;
+  }
+
+  /** Span displacement: a fine fast hum when both sides haul (strain), a bigger ring after a PERFECT pull (twang). */
+  private vib(team: 0 | 1, phase: number): number {
+    const now = this.ropeNow;
+    return this.ropeHum * Math.sin(now * 83 + phase) + 7 * this.twang[team] * Math.sin(now * 58 + phase * 0.6);
+  }
+
+  /** Where a puller's hands grip the rope, written into `out` (a default spot when nobody's there). */
+  private handInto(u: Puller | undefined, out: Pt, markerX: number, dir: -1 | 1): Pt {
+    if (!u) {
+      out.x = markerX + dir * SPOT_SOLO;
+      out.y = ROPE_Y;
+      return out;
+    }
+    const hx = u.pose.hand[0] * (u.dir < 0 ? 1 : -1);
+    const hy = u.pose.hand[1];
+    const a = Phaser.Math.DegToRad(u.c.sprite.angle);
+    const cs = Math.cos(a);
+    const sn = Math.sin(a);
+    out.x = u.c.x + (hx * cs - hy * sn) * CHAR_SCALE;
+    out.y = u.c.y + (hx * sn + hy * cs) * CHAR_SCALE;
+    return out;
+  }
+
+  /** Tail of a side: droops from the anchor's hands to the grass, then lies along it to the end. */
+  private tailPoint(outer: Pt, dir: number, i: number): Pt {
+    const groundY = GROUND_Y - 5;
+    const tx = outer.x + dir * 120;
+    const cx = outer.x + dir * 50;
+    const t = i / 6;
+    const a = (1 - t) * (1 - t);
+    const b = 2 * (1 - t) * t;
+    const c = t * t;
+    return this.pt(a * outer.x + b * cx + c * tx, a * outer.y + b * (groundY - 6) + c * groundY);
+  }
+
+  /** Left side into `out`, tail end first; returns the inner hand (the last point pushed). */
+  private pushSide(team: 0 | 1, out: Pt[], markerX: number): Pt {
+    const side = this.sides[team];
+    const dir = team === 0 ? -1 : 1;
+    const inner = this.handInto(side[0], this.pt(0, 0), markerX, dir);
+    const outer = side.length > 1 ? this.handInto(side[side.length - 1], this.pt(0, 0), markerX, dir) : inner;
+    const endX = ROPE_X0 + this.offset;
+    const groundY = GROUND_Y - 5;
+    const touchX = outer.x + dir * 120;
+    if (dir * (endX - touchX) > 10) out.push(this.pt(endX, groundY), this.pt((touchX + endX) / 2, groundY + 3));
+    for (let i = 6; i >= 1; i--) out.push(this.tailPoint(outer, dir, i));
+    out.push(outer);
+    if (outer !== inner) {
+      this.pushSpan(out, outer, inner, 3, this.vib(team, 2.3));
+      out.push(inner);
+    }
+    return inner;
+  }
+
+  /** Right side into `out`, from the inner hand (already made) outwards to the tail end. */
+  private pushSideOut(team: 0 | 1, out: Pt[], inner: Pt, markerX: number): void {
+    const side = this.sides[team];
+    const dir = team === 0 ? -1 : 1;
+    out.push(inner);
+    let outer = inner;
+    if (side.length > 1) {
+      outer = this.handInto(side[side.length - 1], this.pt(0, 0), markerX, dir);
+      this.pushSpan(out, inner, outer, 3, this.vib(team, 2.9));
+      out.push(outer);
+    }
+    for (let i = 1; i <= 6; i++) out.push(this.tailPoint(outer, dir, i));
+    const endX = ROPE_X1 + this.offset;
+    const groundY = GROUND_Y - 5;
+    const touchX = outer.x + dir * 120;
+    if (dir * (endX - touchX) > 10) out.push(this.pt((touchX + endX) / 2, groundY + 3), this.pt(endX, groundY));
   }
 
   private drawRope(s: number): void {
@@ -756,34 +1080,28 @@ export class TotemTugScene extends BaseMinigame {
     this.wobble *= Math.exp(-5 * s);
     const pts = this.ropePath();
     // Ripple travelling along the rope after pulls.
-    const now = this.time.now / 1000;
-    for (let i = 1; i < pts.length - 1; i++) {
+    const now = this.visT / 1000;
+    const n = pts.length;
+    for (let i = 1; i < n - 1; i++) {
       if (pts[i].y > GROUND_Y - 12) continue;
-      pts[i].y += Math.sin(now * 26 + i * 1.7) * this.wobble * 0.25;
+      pts[i].y += Math.sin(now * 26 + i * 0.9) * this.wobble * 0.25;
     }
-    this.ropePts = pts;
     // Soft shadow on the grass under the rope.
     g.lineStyle(10, 0x173a12, 0.14);
     g.beginPath();
     g.moveTo(pts[0].x + 16, GROUND_Y + 14);
-    g.lineTo(pts[pts.length - 1].x - 16, GROUND_Y + 14);
+    g.lineTo(pts[n - 1].x - 16, GROUND_Y + 14);
     g.strokePath();
-    const stroke = (w: number, color: number, alpha: number, dy: number) => {
-      g.lineStyle(w, color, alpha);
-      g.beginPath();
-      g.moveTo(pts[0].x, pts[0].y + dy);
-      for (let i = 1; i < pts.length; i++) g.lineTo(pts[i].x, pts[i].y + dy);
-      g.strokePath();
-      g.fillStyle(color, alpha);
-      for (let i = 1; i < pts.length - 1; i++) g.fillCircle(pts[i].x, pts[i].y + dy, w / 2);
-    };
-    stroke(17, 0x4a2c10, 1, 1);
-    stroke(12, 0xc4914e, 1, 0);
-    stroke(4, 0xf6dea4, 0.85, -3);
+    // Strained rope: the lit strand brightens towards white as both sides haul.
+    const tension = Math.min(1, (this.teamForce[0] + this.teamForce[1]) / 6);
+    const hi = Phaser.Display.Color.GetColor(246 + 9 * tension, 222 + 30 * tension, 164 + 70 * tension);
+    this.strokeRope(g, pts, 17, 0x4a2c10, 1, 1);
+    this.strokeRope(g, pts, 12, 0xc4914e, 1, 0);
+    this.strokeRope(g, pts, 4, hi, 0.85 + 0.15 * tension, -3);
     // Woven twist: slanted strands every 11 px of rope length, sliding with the rope.
     g.lineStyle(2.5, 0x7a4f22, 0.9);
     let along = -this.offset;
-    for (let i = 0; i < pts.length - 1; i++) {
+    for (let i = 0; i < n - 1; i++) {
       const a = pts[i];
       const b = pts[i + 1];
       const dx = b.x - a.x;
@@ -801,22 +1119,42 @@ export class TotemTugScene extends BaseMinigame {
       along += len;
     }
     // Frayed knots at both ends.
-    for (const [e, dir] of [
-      [pts[0], -1],
-      [pts[pts.length - 1], 1],
-    ] as [Pt, number][]) {
-      g.fillStyle(0x4a2c10, 1);
-      g.fillCircle(e.x, e.y, 10);
-      g.fillStyle(0xb98543, 1);
-      g.fillCircle(e.x, e.y - 1, 7);
-      g.lineStyle(3, 0xd9ac6a, 1);
-      for (let j = -1; j <= 1; j++) g.lineBetween(e.x + dir * 6, e.y + j * 4, e.x + dir * 20, e.y + j * 7 + 2);
+    this.drawKnot(g, pts[0], -1);
+    this.drawKnot(g, pts[n - 1], 1);
+  }
+
+  private strokeRope(g: Phaser.GameObjects.Graphics, pts: Pt[], w: number, color: number, alpha: number, dy: number): void {
+    g.lineStyle(w, color, alpha);
+    g.beginPath();
+    g.moveTo(pts[0].x, pts[0].y + dy);
+    for (let i = 1; i < pts.length; i++) g.lineTo(pts[i].x, pts[i].y + dy);
+    g.strokePath();
+    // Round joints only where the rope bends (the straight spans need none).
+    g.fillStyle(color, alpha);
+    for (let i = 1; i < pts.length - 1; i++) {
+      const a = pts[i - 1];
+      const b = pts[i];
+      const c = pts[i + 1];
+      const ux = b.x - a.x;
+      const uy = b.y - a.y;
+      const vx = c.x - b.x;
+      const vy = c.y - b.y;
+      const bend = Math.abs(ux * vy - uy * vx) / (Math.hypot(ux, uy) * Math.hypot(vx, vy) + 0.001);
+      if (bend > 0.06) g.fillCircle(b.x, b.y + dy, w / 2);
     }
   }
 
+  private drawKnot(g: Phaser.GameObjects.Graphics, e: Pt, dir: number): void {
+    g.fillStyle(0x4a2c10, 1);
+    g.fillCircle(e.x, e.y, 10);
+    g.fillStyle(0xb98543, 1);
+    g.fillCircle(e.x, e.y - 1, 7);
+    g.lineStyle(3, 0xd9ac6a, 1);
+    for (let j = -1; j <= 1; j++) g.lineBetween(e.x + dir * 6, e.y + j * 4, e.x + dir * 20, e.y + j * 7 + 2);
+  }
+
   private syncTotem(s: number): void {
-    const pts = this.ropePts;
-    const mid = pts.find((p) => Math.abs(p.x - (CENTER_X + this.offset)) < 0.01) ?? { x: CENTER_X + this.offset, y: ROPE_Y };
+    const mid = this.ropeMid;
     // Springy sway from the rope's acceleration.
     const acc = s > 0 ? (this.ropeV - this.prevRopeV) / s : 0;
     this.swayV += (-acc * 0.012 - this.sway * 60) * s;
@@ -835,31 +1173,46 @@ export class TotemTugScene extends BaseMinigame {
     g.fillStyle(0xd8453a, 1);
     g.fillRoundedRect(mid.x - 10, mid.y - 9, 20, 18, 5);
     g.lineStyle(2, 0xffd08a, 0.9);
-    for (const dx of [-5, 0, 5]) g.lineBetween(mid.x + dx - 2, mid.y - 8, mid.x + dx + 2, mid.y + 8);
+    for (let dx = -5; dx <= 5; dx += 5) g.lineBetween(mid.x + dx - 2, mid.y - 8, mid.x + dx + 2, mid.y + 8);
   }
 
-  /** Metronome ring on the totem's spiral: it closes on the ring exactly on the beat. */
+  /**
+   * Metronome ring on the totem's spiral: an approach ring closes on the target exactly on the
+   * beat. The target turns gold inside the timing window and brightest in the PERFECT core; each
+   * beat sends a shockwave out (bigger on the first beat of the bar).
+   */
   private drawBeat(): void {
     const g = this.beatG;
     g.clear();
     if (this.phase === 'finished') return;
     const hx = this.headGlow.x;
     const hy = this.headGlow.y;
-    const phase = (this.beatClock % BEAT_MS) / BEAT_MS;
-    const toNext = BEAT_MS - (this.beatClock % BEAT_MS);
     const sinceLast = this.beatClock % BEAT_MS;
-    const inWindow = toNext <= BEAT_WINDOW || sinceLast <= BEAT_WINDOW;
-    const R = 34;
-    // Target ring: bright gold inside the timing window.
-    g.lineStyle(inWindow ? 7 : 4, inWindow ? 0xfff0a0 : 0xffffff, inWindow ? 1 : 0.55);
+    const toNext = BEAT_MS - sinceLast;
+    const near = Math.min(toNext, sinceLast);
+    const phase = sinceLast / BEAT_MS;
+    const inWindow = near <= BEAT_WINDOW;
+    const perfect = near <= PERFECT_MS;
+    const R = 40;
+    // Dark under-ring so the metronome reads over the totem's carving.
+    g.lineStyle(inWindow ? 13 : 10, 0x1a0e04, 0.5);
     g.strokeCircle(hx, hy, R);
-    // Approach ring shrinking onto it.
-    const r = R + (1 - phase) * 70;
-    g.lineStyle(5, COLORS.gold, 0.25 + 0.75 * phase);
+    if (inWindow) {
+      g.lineStyle(20, 0xffd36b, perfect ? 0.45 : 0.22);
+      g.strokeCircle(hx, hy, R);
+    }
+    g.lineStyle(inWindow ? 8 : 5, perfect ? 0xffffff : inWindow ? 0xfff0a0 : 0xffffff, inWindow ? 1 : 0.7);
+    g.strokeCircle(hx, hy, R);
+    // Approach ring shrinking onto it, thickening as the beat nears.
+    const r = R + (1 - phase) * 88;
+    g.lineStyle(3 + 5 * phase, 0x1a0e04, 0.3 * phase);
+    g.strokeCircle(hx, hy, r + 1);
+    g.lineStyle(2 + 4 * phase, COLORS.gold, 0.2 + 0.8 * phase);
     g.strokeCircle(hx, hy, r);
     if (this.beatFlash > 0) {
-      g.lineStyle(10 * this.beatFlash, 0xfff4c0, this.beatFlash);
-      g.strokeCircle(hx, hy, R + (1 - this.beatFlash) * 30);
+      const accent = this.beatIdx % 4 === 0;
+      g.lineStyle(12 * this.beatFlash, 0xfff4c0, this.beatFlash);
+      g.strokeCircle(hx, hy, R + (1 - this.beatFlash) * (accent ? 56 : 34));
     }
   }
 
@@ -948,13 +1301,19 @@ export class TotemTugScene extends BaseMinigame {
       g.fillRect(Math.min(fx, fx + d * len), y - 29 - 4, len, 8);
       g.fillTriangle(fx + d * (len + 16), y - 29, fx + d * len, y - 29 - 11, fx + d * len, y - 29 + 11);
     }
-    // Knob: a tiny totem head.
+    // Knob: a tiny totem head that throbs with the drum.
+    const beat = this.phase === 'finished' ? 0 : this.beatFlash;
+    if (beat > 0) {
+      g.lineStyle(4, 0xfff0b0, beat * 0.8);
+      g.strokeCircle(fx, y, 19 + (1 - beat) * 12);
+    }
+    const kr = 17 + beat * 3;
     g.fillStyle(0x06141a, 0.35);
-    g.fillCircle(fx + 2, y + 4, 17);
+    g.fillCircle(fx + 2, y + 4, kr);
     g.fillStyle(0x4a2c10, 1);
-    g.fillCircle(fx, y, 17);
-    g.fillStyle(COLORS.gold, 1);
-    g.fillCircle(fx, y, 13);
+    g.fillCircle(fx, y, kr);
+    g.fillStyle(beat > 0.5 ? COLORS.goldLight : COLORS.gold, 1);
+    g.fillCircle(fx, y, kr - 4);
     g.lineStyle(3, 0x4a2c10, 1);
     g.beginPath();
     for (let i = 0; i <= 18; i++) {

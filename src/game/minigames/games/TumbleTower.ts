@@ -1,14 +1,16 @@
 import Phaser from 'phaser';
 import { audio } from '../../audio/AudioManager';
 import { Character } from '../../characters/Character';
-import { COLORS, CSS, GAME_WIDTH, PLAYER_COLORS, PLAYER_SHAPES } from '../../constants';
+import { COLORS, CSS, GAME_WIDTH, PLAYER_COLORS } from '../../constants';
 import { CHARACTERS } from '../../data/characters';
 import type { VirtualControls } from '../../input/PlayerInput';
 import { glyphKindFor, makeGlyph } from '../../ui/ControllerPrompt';
-import { drawPlayerShape } from '../../ui/PlayerBadge';
 import { addText } from '../../ui/theme';
 import { Random } from '../../util/Random';
 import { BaseMinigame, type MgPlayer } from '../BaseMinigame';
+import { punch } from '../juice';
+import { LITE } from '../../perf';
+import { bakePortrait, bakeWord, calmMotion, liteCount, RingBursts, WordPops } from './stageKit';
 import { generateTower, PLAY_X0, PLAY_X1, PX_PER_M, START_Y, SUMMIT_Y, TOWER_H, towerScore, type PlankKind } from './TumbleTowerLayout';
 
 // --- World: the tower layout constants live in TumbleTowerLayout.ts (pure, unit-tested) ---------
@@ -79,6 +81,38 @@ const BUBBLE_RISE = 1000;
 const GAUGE_X = 1872;
 const GAUGE_Y0 = 1000;
 const GAUGE_Y1 = 250;
+/**
+ * Portrait markers ride the gauge in two staggered columns (P1 and P3 left of the rail, P2 and P4
+ * right), so climbers at the same height sit side by side: radius, column offset, and the closest
+ * two in one column may sit before they're nudged apart.
+ */
+const MARK_R = 21;
+const MARK_DX = 17;
+const MARK_GAP = 44;
+/** Two portraits only swap places once one is clearly past the other (px), so they don't jitter. */
+const MARK_HYST = 18;
+// --- Feel -------------------------------------------------------------------------------------
+/** Falling faster than this (px/s) whooshes and trails speed streaks. */
+const FALL_FX_V = 900;
+const FALL_TRAIL_V = 650;
+/** A ledge caught while falling is a SAVE: a person's freezes the frame for a blink. */
+const SAVE_STOP_MS = 55;
+/** Landing this far below your best counts as a fall: beating that best again is a NEW BEST. */
+const FALL_LOSS = 300;
+/** The final stretch: the leader climbs in a shaft of light. */
+const FINAL_MS = 10000;
+/** World-space pop-ups stay under the HUD band (depth 8000+ is pinned to the screen). */
+const POP_DEPTH = 7000;
+/** Pop-up words, baked once (stageKit.bakeWord). */
+const WORDS = {
+  save: { key: 'tw-w-save', text: 'SAVE!', size: 46, fill: ['#e9fff2', '#6fe3a0'] },
+  best: { key: 'tw-w-best', text: 'NEW BEST!', size: 42, fill: ['#fff6c4', '#ffbf2a'] },
+  m10: { key: 'tw-w-10', text: '10 m!', size: 42, fill: ['#ffffff', '#ffe08a'] },
+  m20: { key: 'tw-w-20', text: '20 m!', size: 42, fill: ['#ffffff', '#ffe08a'] },
+  m30: { key: 'tw-w-30', text: '30 m!', size: 44, fill: ['#ffffff', '#ffd05a'] },
+  m40: { key: 'tw-w-40', text: '40 m!', size: 46, fill: ['#ffffff', '#ffc13a'] },
+} as const;
+const MILESTONE_WORDS = [WORDS.m10, WORDS.m20, WORDS.m30, WORDS.m40] as const;
 
 type PlatKind = PlankKind;
 type PlatState = 'idle' | 'wobble' | 'swing' | 'hold' | 'return' | 'crack' | 'gone';
@@ -100,6 +134,8 @@ interface Plat {
   t: number;
   angle: number;
   tipDir: -1 | 1;
+  /** Creaks already played in this wobble (the telegraph rises to the tip). */
+  creaks: number;
   grabRow: boolean;
   /** On the guaranteed route (rescue bubbles only drop players there). */
   main: boolean;
@@ -155,6 +191,17 @@ interface Climber {
   speed: number;
   jumpV: number;
   ai: Brain;
+  /** Height-meter portrait: its true screen y, the nudged-apart y and the y it's easing to. */
+  mark: Phaser.GameObjects.Image;
+  markT: number;
+  markR: number;
+  markY: number;
+  /** The best to beat after a fall (0 = none pending): beating it again flashes NEW BEST. */
+  fellBest: number;
+  /** New-best flash on the meter (1 → 0). */
+  bestFlash: number;
+  /** Already whooshed on this fall. */
+  fallFx: boolean;
 }
 
 interface LedgeHit {
@@ -197,6 +244,17 @@ export class TumbleTowerScene extends BaseMinigame {
   private altTint!: Phaser.GameObjects.Graphics;
   private gaugeG!: Phaser.GameObjects.Graphics;
   private summitFlag!: Phaser.GameObjects.Graphics;
+  private pops!: WordPops;
+  private rings!: RingBursts;
+  /** Per-frame world-space drawing: fall streaks, tipping-plank warnings. */
+  private fallG!: Phaser.GameObjects.Graphics;
+  private hazardG!: Phaser.GameObjects.Graphics;
+  /** Meter portraits per column, sorted top to bottom (reused every frame). */
+  private markCols: [Climber[], Climber[]] = [[], []];
+  /** The final stretch's spotlight on the leader. */
+  private shaft!: Phaser.GameObjects.Image;
+  private shaftGlow!: Phaser.GameObjects.Image;
+  private leader: Climber | null = null;
 
   constructor() {
     super('mg-tumble-tower');
@@ -210,10 +268,22 @@ export class TumbleTowerScene extends BaseMinigame {
     this.clock = 0;
     this.camY = 0;
     this.summits = 0;
+    this.markCols = [[], []];
+    this.leader = null;
     this.cameras.main.setScroll(0, 0);
+    for (const w of Object.values(WORDS)) bakeWord(this, w.key, w.text, { size: w.size, fill: w.fill });
     this.buildBackdrop();
     this.buildTower();
+    this.buildTracks();
     this.buildSigns();
+    this.pops = new WordPops(this, POP_DEPTH, 12);
+    this.rings = new RingBursts(this, 8);
+    this.fallG = this.add.graphics().setDepth(250);
+    this.hazardG = this.add.graphics().setDepth(6800);
+    this.shaft = this.add.image(960, START_Y, 'fx-shaft').setOrigin(0.5, 1).setBlendMode(Phaser.BlendModes.ADD).setTint(0xffe6a0).setAlpha(0).setDepth(290);
+    this.shaft.setDisplaySize(230, 940);
+    this.shaftGlow = this.add.image(960, START_Y, 'fx-dot').setBlendMode(Phaser.BlendModes.ADD).setTint(0xffd36b).setAlpha(0).setDepth(295);
+    this.shaftGlow.setDisplaySize(230, 60);
     this.gaugeG = this.add.graphics().setDepth(8100).setScrollFactor(0);
     const labels: Phaser.GameObjects.Text[] = [];
     for (let m = 0; m <= 50; m += 10) {
@@ -266,7 +336,15 @@ export class TumbleTowerScene extends BaseMinigame {
       speed: RUN_SPEED * h.speed,
       jumpV: JUMP_V * (1 + (h.jump - 1) * 0.3),
       ai: { target: null, retarget: 0, jumpAt: -1, holdA: false, aimErr: 0, willGrab: false, grabAt: -1, takeoffY: START_Y, fromPlat: null, lastOn: null, fails: 0, avoid: null, avoidUntil: 0, pauseUntil: 0 },
+      mark: this.add.image(GAUGE_X, GAUGE_Y0, bakePortrait(this, p.characterId, p.slot, MARK_R)).setDepth(8102 + index * 0.01).setScrollFactor(0),
+      markT: GAUGE_Y0,
+      markR: GAUGE_Y0,
+      markY: GAUGE_Y0,
+      fellBest: 0,
+      bestFlash: 0,
+      fallFx: false,
     });
+    this.markCols[p.slot % 2].push(this.climbers[this.climbers.length - 1]);
   }
 
   protected override onStart(): void {
@@ -349,6 +427,7 @@ export class TumbleTowerScene extends BaseMinigame {
       t: 0,
       angle: 0,
       tipDir: 1,
+      creaks: 0,
       grabRow,
       main,
       view: this.add.container(x, y).setDepth(kind === 'ground' ? 90 : 100),
@@ -367,6 +446,32 @@ export class TumbleTowerScene extends BaseMinigame {
       q.phase = spec.phase;
     }
     for (const q of this.plats) this.buildPlatView(q);
+  }
+
+  /**
+   * Moving planks show their whole run: a faint crystal rail behind the plank from end stop to end
+   * stop, so you can see where it's going before you jump.
+   */
+  private buildTracks(): void {
+    const g = this.add.graphics().setDepth(95);
+    for (const q of this.plats) {
+      if (q.kind !== 'moving' || q.amp <= 0) continue;
+      const x0 = q.baseX - q.amp - q.w / 2 + 16;
+      const x1 = q.baseX + q.amp + q.w / 2 - 16;
+      const y = q.y + 10;
+      g.lineStyle(6, 0x0b3a4a, 0.28);
+      g.lineBetween(x0, y + 2, x1, y + 2);
+      for (let x = x0; x < x1; x += 26) {
+        g.lineStyle(4, COLORS.crystal, 0.5);
+        g.lineBetween(x, y, Math.min(x1, x + 14), y);
+      }
+      for (const ex of [x0, x1]) {
+        g.fillStyle(0x0b3a4a, 0.5);
+        g.fillRoundedRect(ex - 5, y - 13, 10, 26, 4);
+        g.fillStyle(COLORS.crystal, 0.85);
+        g.fillRoundedRect(ex - 3, y - 11, 6, 22, 3);
+      }
+    }
   }
 
   private plankKey(): string {
@@ -582,13 +687,19 @@ export class TumbleTowerScene extends BaseMinigame {
         if (this.ridersOf(q).length > 0) {
           q.state = 'wobble';
           q.t = 0;
+          q.creaks = 0;
           audio.play('crack', { volume: 0.25, throttleMs: 200 });
         }
         break;
       case 'wobble': {
-        // Telegraph: an ever-faster rattle before it goes.
+        // Telegraph: an ever-faster rattle, louder creaks and grit spilling from the pivot.
         const k = q.t / TIP_WOBBLE_MS;
         q.angle = Math.sin(q.t * (0.03 + 0.05 * k)) * (1.5 + 3 * k);
+        if (q.creaks < 2 && q.t >= 330 + q.creaks * 290) {
+          q.creaks++;
+          audio.play('crack', { volume: 0.28 + 0.1 * q.creaks, throttleMs: 120 });
+        }
+        if (Math.random() < dt / ((LITE ? 220 : 110) * (1.2 - k))) this.fx.vfx('dust', q.x + (Math.random() - 0.5) * 20, q.y + 30, { scale: 0.12, duration: 320, alpha: 0.55, dy: 26, depth: 260 });
         if (q.t >= TIP_WOBBLE_MS) {
           const riders = this.ridersOf(q);
           const bias = riders.reduce((a, cl) => a + (cl.x - q.x), 0);
@@ -596,6 +707,7 @@ export class TumbleTowerScene extends BaseMinigame {
           q.state = 'swing';
           q.t = 0;
           audio.play('whoosh', { volume: 0.45 });
+          this.fx.vfx('dust', q.x + q.tipDir * 30, q.y + 16, { scale: 0.3, duration: 380, alpha: 0.7, dx: q.tipDir * 30, depth: 260 });
           for (const cl of riders) {
             cl.on = null;
             cl.vx = q.tipDir * 300;
@@ -673,7 +785,7 @@ export class TumbleTowerScene extends BaseMinigame {
     }
     this.updateCamera(dt / 1000);
     this.updateRescue(dt);
-    this.syncVisuals();
+    this.syncVisuals(dt);
   }
 
   private updateNormal(cl: Climber, dt: number): void {
@@ -727,6 +839,11 @@ export class TumbleTowerScene extends BaseMinigame {
       cl.x = WALL_R;
       cl.vx = Math.min(0, cl.vx);
     }
+    // A long drop whistles past (once per fall).
+    if (!cl.on && cl.vy > FALL_FX_V && !cl.fallFx) {
+      cl.fallFx = true;
+      audio.play('whoosh', { volume: 0.32, throttleMs: 150 });
+    }
   }
 
   private jump(cl: Climber): void {
@@ -754,19 +871,32 @@ export class TumbleTowerScene extends BaseMinigame {
       audio.play('land', { volume: Math.min(0.5, impact / 2400), throttleMs: 50 });
       this.fx.vfx('dust', cl.x, q.y, { scale: 0.2, duration: 300, alpha: 0.6, depth: 260 });
     }
+    cl.fallFx = false;
     const h = START_Y - q.y;
     const carried = cl.carried;
     cl.carried = false;
+    // Dropped well below your best (a tumble, or a bubble ride back up): there's a best to beat.
+    if (h < cl.best - FALL_LOSS && cl.fellBest === 0) cl.fellBest = cl.best;
     if (h > cl.best + 1 && !carried) {
       const before = Math.floor(cl.best / PX_PER_M);
       cl.best = h;
       cl.bestAt = this.elapsed;
       cl.p.score = Math.floor(h / PX_PER_M);
+      cl.bestFlash = 1;
       const now = Math.floor(h / PX_PER_M);
-      if (Math.floor(now / 10) > Math.floor(before / 10) && q.kind !== 'summit') {
+      const tens = Math.floor(now / 10);
+      if (cl.fellBest > 0 && q.kind !== 'summit') {
+        // Back past the height you fell from.
+        cl.fellBest = 0;
+        audio.play('chipGain', { volume: 0.4, rate: 1.15 });
+        this.pops.pop(WORDS.best.key, cl.x, q.y - 165, { rise: 50, hold: 700, tilt: -6, near: 160 });
+        this.fx.sparks(cl.x, q.y - 70, liteCount(16));
+        this.bumpHud(cl.p.slot);
+      } else if (tens > Math.floor(before / 10) && tens >= 1 && tens <= 4 && q.kind !== 'summit') {
         audio.play('chipGain', { volume: 0.35, rate: 0.9 });
-        this.fx.floatText(cl.x, q.y - 150, `${Math.floor(now / 10) * 10} m!`, '#ffe08a', { size: 40, rise: 70, duration: 800 });
-        this.fx.sparks(cl.x, q.y - 60, 12);
+        this.pops.pop(MILESTONE_WORDS[tens - 1].key, cl.x, q.y - 160, { rise: 56, hold: 560, near: 220 });
+        this.fx.sparks(cl.x, q.y - 60, liteCount(12));
+        this.bumpHud(cl.p.slot);
       }
     }
     if (q.kind === 'summit' && !carried) this.reachSummit(cl);
@@ -783,7 +913,12 @@ export class TumbleTowerScene extends BaseMinigame {
     this.summits++;
     cl.c.play('victory', { force: true, returnTo: 'celebrate' });
     audio.play(this.summits === 1 ? 'fanfare' : 'victory', { volume: 0.6 });
-    this.fx.confetti(cl.x, SUMMIT_Y - 200, 70);
+    this.fx.confetti(cl.x, SUMMIT_Y - 200, liteCount(70));
+    this.rings.burst(cl.x, SUMMIT_Y + 4, { tint: COLORS.goldLight, from: 50, to: 360, squash: 0.35, duration: 620, alpha: 0.9, add: true, depth: POP_DEPTH - 1 });
+    if (this.summits === 1) {
+      this.hitStop(80);
+      punch(this, 0.04, 420);
+    }
     this.fx.floatText(cl.x, SUMMIT_Y - 190, this.summits === 1 ? 'SUMMIT! 1st!' : 'SUMMIT!', '#ffe08a', { size: 52, rise: 90, duration: 1200 });
     this.rumble(cl.p, 0.5, 0.5, 200);
     if (this.summits >= this.climbers.length) this.time.delayedCall(1200, () => this.end());
@@ -812,6 +947,7 @@ export class TumbleTowerScene extends BaseMinigame {
   }
 
   private startClimb(cl: Climber, lg: LedgeHit): void {
+    this.grabFx(cl, lg);
     cl.state = 'climb';
     cl.t = 0;
     cl.grab = { plat: lg.plat, side: lg.side, fromX: cl.x, fromY: cl.y };
@@ -824,6 +960,21 @@ export class TumbleTowerScene extends BaseMinigame {
     cl.c.face(lg.side > 0);
     audio.play('step', { volume: 0.5 });
     this.rumble(cl.p, 0.15, 0.25, 60);
+  }
+
+  /** A spark where the hands catch the ledge; caught while falling, it's a SAVE. */
+  private grabFx(cl: Climber, lg: LedgeHit): void {
+    const ex = lg.plat.x + lg.side * (lg.plat.w / 2);
+    const ey = lg.plat.y;
+    this.fx.sparks(ex, ey - 4, liteCount(12));
+    this.fx.vfx('impact', ex, ey, { scale: 0.3, duration: 220, blend: 'add', depth: 330 });
+    audio.play('pop', { volume: 0.3, rate: 1.5, throttleMs: 60 });
+    if (cl.vy > 120) {
+      this.pops.pop(WORDS.save.key, ex - lg.side * 14, ey - 100, { rise: 36, hold: 520, tilt: -lg.side * 8, near: 140 });
+      audio.play('chipGain', { volume: 0.32, rate: 1.1 });
+      if (!cl.p.isCpu) this.hitStop(SAVE_STOP_MS);
+    }
+    cl.fallFx = false;
   }
 
   private updateClimb(cl: Climber, dt: number): void {
@@ -901,6 +1052,8 @@ export class TumbleTowerScene extends BaseMinigame {
         cl.grab = null;
         cl.c.setVisible(false);
         this.rumble(cl.p, 0.4, 0.3, 160);
+        // Everyone sees who fell: a flash in their colour where they left the screen.
+        this.rings.burst(cl.x, bottom - 16, { tint: PLAYER_COLORS[cl.p.slot], from: 40, to: 240, squash: 0.45, duration: 480, alpha: 0.9, add: true, depth: POP_DEPTH - 1 });
       }
       if (cl.state === 'wait') {
         cl.t += dt;
@@ -958,22 +1111,25 @@ export class TumbleTowerScene extends BaseMinigame {
       const go = o as unknown as { depth?: number; scrollFactorY?: number };
       if ((go.depth ?? 0) >= 8000 && go.scrollFactorY !== 0) pinToScreen(o);
     }
-    if (this.phase !== 'playing') this.syncVisuals();
+    if (this.phase !== 'playing') this.syncVisuals(dt);
   }
 
-  private syncVisuals(): void {
+  private syncVisuals(dt: number): void {
     const cam = this.camY;
     // The wall ends at the tower's top (sky above the parapet).
     const topY = Phaser.Math.Clamp(SUMMIT_Y - CROWN_RISE * 0.45 - cam, 0, 1080);
     if (this.wall.y !== topY) this.wall.setPosition(0, topY).setSize(GAME_WIDTH, Math.max(1, 1080 - topY));
     this.wall.tilePositionY = (cam + topY) / this.wall.tileScaleY;
     this.altTint.setAlpha(Phaser.Math.Clamp(-cam / -CAM_TOP, 0, 1) * 0.55);
+    const calm = calmMotion();
     for (const q of this.plats) {
       if (q.kind === 'ground' || q.kind === 'summit') continue;
       if (q.kind === 'crumble' && q.state === 'gone') continue;
       let sx = 0;
       if (q.kind === 'crumble' && q.state === 'crack') sx = Math.sin(this.clock / 22) * 3;
-      q.view.setPosition(q.x + sx, q.y).setAngle(q.angle);
+      // Tipping planks never sit quite still: a lazy idle rock marks them as unsafe (looks only).
+      const rock = q.kind === 'tipping' && q.state === 'idle' && !calm ? Math.sin(this.clock / 430 + q.id * 1.7) * 0.9 : 0;
+      q.view.setPosition(q.x + sx, q.y).setAngle(q.angle + rock);
       // Telegraph tint while a tipping plank rattles.
       if (q.kind === 'tipping' && q.plank) {
         if (q.state === 'wobble' && Math.floor(q.t / 110) % 2 === 0) q.plank.setTint(0xffb0a0);
@@ -982,7 +1138,108 @@ export class TumbleTowerScene extends BaseMinigame {
     }
     this.drawSummitFlag();
     for (const cl of this.climbers) this.syncClimber(cl);
-    this.drawGauge();
+    this.drawHazards();
+    this.drawFallTrails();
+    this.syncLeader();
+    this.drawGauge(dt);
+  }
+
+  /**
+   * Tipping-plank warning while it rattles: a pulsing "!" on its pivot (under the plank, clear of
+   * the riders) and a curved arrow past the end it will tip towards (where its riders stand).
+   */
+  private drawHazards(): void {
+    const g = this.hazardG;
+    g.clear();
+    for (const q of this.plats) {
+      if (q.kind !== 'tipping' || q.state !== 'wobble') continue;
+      const k = q.t / TIP_WOBBLE_MS;
+      const pulse = 0.5 + 0.5 * Math.sin(q.t / (70 - 35 * k));
+      const bx = q.x;
+      const by = q.y + 50;
+      const r = 20 + 4 * pulse;
+      g.fillStyle(0x06141a, 0.3);
+      g.fillCircle(bx + 2, by + 3, r);
+      g.fillStyle(0xff4a3a, 1);
+      g.fillCircle(bx, by, r);
+      g.lineStyle(3, 0xffffff, 1);
+      g.strokeCircle(bx, by, r);
+      g.fillStyle(0xffffff, 1);
+      g.fillRoundedRect(bx - 3.5, by - 13, 7, 16, 3.5);
+      g.fillCircle(bx, by + 9, 4);
+      let bias = 0;
+      for (const cl of this.climbers) if (cl.on === q && cl.state === 'normal') bias += cl.x - q.x;
+      if (bias === 0) continue;
+      const dir = bias > 0 ? 1 : -1;
+      const ax = q.x + dir * (q.w / 2 + 12);
+      const ay = q.y - 12;
+      const a0 = dir > 0 ? -Math.PI * 0.75 : -Math.PI * 0.25;
+      const a1 = dir > 0 ? Math.PI * 0.05 : Math.PI * 0.95;
+      g.lineStyle(10, 0x06141a, 0.35);
+      g.beginPath();
+      g.arc(ax, ay + 2, 32, a0, a1, dir < 0);
+      g.strokePath();
+      g.lineStyle(8, 0xffb03a, 0.65 + 0.35 * pulse);
+      g.beginPath();
+      g.arc(ax, ay, 32, a0, a1, dir < 0);
+      g.strokePath();
+      // Arrow head at the arc's end, pointing down and outwards.
+      const ex = ax + Math.cos(a1) * 32;
+      const ey = ay + Math.sin(a1) * 32;
+      g.fillStyle(0xffb03a, 0.65 + 0.35 * pulse);
+      g.fillTriangle(ex - 13, ey - 3, ex + 13, ey - 3, ex + dir * 3, ey + 17);
+    }
+  }
+
+  /** Speed streaks trailing above a climber in a long drop, in their colour. */
+  private drawFallTrails(): void {
+    const g = this.fallG;
+    g.clear();
+    if (calmMotion()) return;
+    for (const cl of this.climbers) {
+      if (cl.state !== 'normal' || cl.on || cl.vy < FALL_TRAIL_V) continue;
+      const k = Math.min(1, (cl.vy - FALL_TRAIL_V) / (MAX_FALL - FALL_TRAIL_V));
+      const top = cl.y - 128;
+      const len = 50 + 140 * k;
+      const col = PLAYER_COLORS[cl.p.slot];
+      const a = 0.55 + 0.45 * k;
+      for (let i = -1; i <= 1; i++) {
+        const flick = 0.85 + 0.15 * Math.sin(this.clock / 40 + i * 2);
+        const x = cl.x + i * 20;
+        const l = len * flick * (i === 0 ? 1 : 0.7);
+        // A streak in the player's colour with a bright core, so everyone sees who is falling.
+        g.lineStyle(i === 0 ? 10 : 6, col, (i === 0 ? 0.75 : 0.55) * a);
+        g.lineBetween(x, top - 6, x, top - 6 - l);
+        g.lineStyle(i === 0 ? 4 : 2, 0xffffff, 0.8 * a);
+        g.lineBetween(x, top - 8, x, top - 8 - l * 0.85);
+      }
+    }
+  }
+
+  /** The final stretch: the leader (best height, first there on a tie) climbs in a shaft of light. */
+  private syncLeader(): void {
+    const final = this.phase === 'playing' && this.duration - this.elapsed <= FINAL_MS;
+    let lead: Climber | null = null;
+    if (final) {
+      for (const cl of this.climbers) {
+        if (cl.best <= 0) continue;
+        if (!lead || cl.best > lead.best || (cl.best === lead.best && cl.bestAt < lead.bestAt)) lead = cl;
+      }
+    }
+    if (lead !== this.leader) {
+      if (lead && this.leader) audio.play('chipGain', { volume: 0.3, rate: 1.25 });
+      this.leader = lead;
+    }
+    const show = !!lead && lead.state !== 'wait';
+    const target = show ? 1 : 0;
+    const a = this.shaft.alpha / 0.4;
+    const next = a + (target - a) * 0.12;
+    this.shaft.setAlpha(next * 0.4);
+    this.shaftGlow.setAlpha(next * (0.55 + 0.2 * Math.sin(this.clock / 160)));
+    if (lead && show) {
+      this.shaft.setPosition(lead.x, lead.y + 18);
+      this.shaftGlow.setPosition(lead.x, lead.y + 4);
+    }
   }
 
   private syncClimber(cl: Climber): void {
@@ -1054,8 +1311,12 @@ export class TumbleTowerScene extends BaseMinigame {
     g.strokePath();
   }
 
-  /** Height gauge: everyone's current height, their best, and the visible band. */
-  private drawGauge(): void {
+  /**
+   * Height meter: a rail from the floor to the summit with every climber's portrait riding it at
+   * their current height (nudged apart when they bunch up, with a notch at the true height), their
+   * best as a tick in their colour (flashing when it moves), and the band the camera shows.
+   */
+  private drawGauge(dt: number): void {
     const g = this.gaugeG;
     g.clear();
     const x = GAUGE_X;
@@ -1069,7 +1330,7 @@ export class TumbleTowerScene extends BaseMinigame {
     // Visible band
     const vTop = map(START_Y - this.camY);
     const vBot = map(START_Y - (this.camY + 1080));
-    g.lineStyle(3, 0xffffff, 0.6);
+    g.lineStyle(3, 0xffffff, 0.45);
     g.strokeRoundedRect(x - 16, vTop, 32, vBot - vTop, 8);
     for (let m = 0; m <= 50; m += 10) {
       g.fillStyle(0xffffff, 0.8);
@@ -1080,14 +1341,75 @@ export class TumbleTowerScene extends BaseMinigame {
     g.fillRect(x - 2, GAUGE_Y1 - 36, 3, 30);
     g.fillStyle(0xff6b5e, 1);
     g.fillTriangle(x + 1, GAUGE_Y1 - 36, x + 20, GAUGE_Y1 - 28, x + 1, GAUGE_Y1 - 20);
-    this.climbers.forEach((cl, i) => {
+    // Best heights: a tick in each player's colour, flaring when it climbs.
+    for (const cl of this.climbers) {
+      cl.bestFlash = Math.max(0, cl.bestFlash - dt / 600);
+      const f = cl.bestFlash;
+      const by = map(cl.best);
+      g.fillStyle(PLAYER_COLORS[cl.p.slot], 1);
+      g.fillRect(x - 16 - 8 * f, by - 2 - f, 32 + 16 * f, 4 + 2 * f);
+      if (f > 0) {
+        g.fillStyle(0xffffff, 0.7 * f);
+        g.fillRect(x - 16 - 8 * f, by - 1, 32 + 16 * f, 2);
+      }
+    }
+    for (let c = 0; c < 2; c++) this.drawMarkColumn(g, this.markCols[c], c === 0 ? -1 : 1, map, dt);
+  }
+
+  /**
+   * One column of meter portraits: true heights, kept in order top to bottom (a climber only moves
+   * up the order once clearly past the one above), nudged apart, then eased into place.
+   */
+  private drawMarkColumn(g: Phaser.GameObjects.Graphics, order: Climber[], side: -1 | 1, map: (h: number) => number, dt: number): void {
+    const x = GAUGE_X;
+    const mx = x + side * MARK_DX;
+    for (const cl of order) cl.markT = map(START_Y - cl.y);
+    for (let i = 1; i < order.length; i++) {
+      const c = order[i];
+      let j = i - 1;
+      while (j >= 0 && order[j].markT > c.markT + MARK_HYST) {
+        order[j + 1] = order[j];
+        j--;
+      }
+      order[j + 1] = c;
+    }
+    for (const cl of order) cl.markR = cl.markT;
+    for (let it = 0; it < 3; it++) {
+      for (let i = 1; i < order.length; i++) {
+        const a = order[i - 1];
+        const b = order[i];
+        const gap = b.markR - a.markR;
+        if (gap < MARK_GAP) {
+          a.markR -= (MARK_GAP - gap) / 2;
+          b.markR += (MARK_GAP - gap) / 2;
+        }
+      }
+    }
+    // Keep the stack on the rail: nothing above the summit flag or below the floor.
+    const n = order.length;
+    for (let i = 0; i < n; i++) order[i].markR = Math.max(order[i].markR, GAUGE_Y1 + 2 + i * MARK_GAP);
+    for (let i = n - 1; i >= 0; i--) order[i].markR = Math.min(order[i].markR, GAUGE_Y0 - (n - 1 - i) * MARK_GAP);
+    const final = this.leader;
+    const ease = 1 - Math.exp(-dt / 90);
+    for (const cl of order) {
+      cl.markY += (cl.markR - cl.markY) * ease;
       const col = PLAYER_COLORS[cl.p.slot];
+      // Notch at the true height on the rail, joined to the portrait when it has been nudged away.
+      const nx = x + side * 7;
       g.fillStyle(col, 1);
-      g.fillRect(x - 16, map(cl.best) - 2, 32, 4);
-      const hy = map(START_Y - cl.y);
-      const off = i % 2 === 0 ? -1 : 1;
-      drawPlayerShape(g, PLAYER_SHAPES[cl.p.slot], x + off * 20, hy, 9, col, 0xffffff, 2);
-    });
+      g.fillTriangle(nx + side * 10, cl.markT - 6, nx + side * 10, cl.markT + 6, nx, cl.markT);
+      if (Math.abs(cl.markY - cl.markT) > 4) {
+        g.lineStyle(2, col, 0.8);
+        g.lineBetween(nx + side * 6, cl.markT, nx + side * 6, cl.markY);
+      }
+      if (cl === final) {
+        const pulse = 0.5 + 0.5 * Math.sin(this.clock / 140);
+        g.fillStyle(0xffd36b, 0.25 + 0.3 * pulse);
+        g.fillCircle(mx, cl.markY, MARK_R + 10 + 3 * pulse);
+      }
+      cl.mark.setPosition(mx, cl.markY).setScale(cl === final ? 1.14 : 1).setAlpha(cl.state === 'wait' || cl.state === 'bubble' ? 0.6 : 1);
+      cl.mark.setDepth(cl === final ? 8110 : 8102 + cl.p.slot * 0.01);
+    }
   }
 
   // --- CPU -------------------------------------------------------------------------------------
