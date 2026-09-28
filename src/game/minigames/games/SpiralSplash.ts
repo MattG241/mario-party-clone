@@ -4,10 +4,13 @@ import { Character } from '../../characters/Character';
 import { CSS, GAME_WIDTH, PLAYER_COLORS } from '../../constants';
 import { CHARACTERS } from '../../data/characters';
 import type { VirtualControls } from '../../input/PlayerInput';
-import { addText } from '../../ui/theme';
+import { LITE } from '../../perf';
+import { settings } from '../../save/SettingsManager';
 import { Random } from '../../util/Random';
 import { BaseMinigame, type MgPlayer } from '../BaseMinigame';
 import { drift, steer } from '../common';
+import { banner, kick } from '../juice';
+import { AFX, burst, ensureArenaFxTextures, every, Spray } from './arenaFx';
 import { closestApproach, currentAt, hopTarget, insideEllipse, nearestGap, padGap, padUnder, survivorScore, type Disc } from './spiralSplashLogic';
 
 // --- Layout (screen px unless noted). Keep in sync with POND_C / POND_R in scripts/art/mg_arenas.py. --
@@ -70,6 +73,14 @@ const SHRINK_AT = [15000, 30000, 45000];
 const SHRINK_STEP = 0.93;
 const SHRINK_WARN = 1100;
 const SUBSTEP = 16;
+/** Freeze-frames: a blast landing, and a splash into the pond (ms). */
+const HIT_STOP = 70;
+const SPLASH_STOP = 60;
+const RAD = 180 / Math.PI;
+/** Water droplets: blues that read against the pale water, and white that reads over the pads. */
+const DROP_TINTS = [0x5ec8ff, 0x9fe2ff, 0xffffff];
+/** A fish leaps every so often (ms between leaps). */
+const FISH_WAIT: [number, number] = [5000, 9000];
 
 interface Pad extends Disc {
   id: number;
@@ -139,6 +150,11 @@ interface Wader {
   teeter: boolean;
   weight: number;
   brain: SBrain;
+  /** Countdowns to the next bit of spray: the wake of a knockback, drips while dropping back in. */
+  wakeT: number;
+  dripT: number;
+  /** Resting height of the player badge (it rises with the sprite during hops and drop-ins). */
+  markerY: number;
 }
 
 interface Blast {
@@ -154,6 +170,38 @@ interface Blast {
   glow: Phaser.GameObjects.Image;
   streak: Phaser.GameObjects.Image;
   shadow: Phaser.GameObjects.Image;
+  /** Countdown to the next droplet shed along the way. */
+  dripT: number;
+}
+
+/** A dragonfly: hovers, then darts somewhere new over the water. */
+interface Fly {
+  img: Phaser.GameObjects.Image;
+  /** Water-plane position (world units) and height above the water (screen px). */
+  x: number;
+  y: number;
+  h: number;
+  sx: number;
+  sy: number;
+  tx: number;
+  ty: number;
+  t: number;
+  T: number;
+  hover: boolean;
+}
+
+/** The pond's fish: a leap from (x0, y0) to (x1, y1) with a peak height h (screen px). */
+interface Fish {
+  img: Phaser.GameObjects.Image;
+  on: boolean;
+  wait: number;
+  t: number;
+  T: number;
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+  h: number;
 }
 
 interface Ripple {
@@ -188,6 +236,11 @@ export class SpiralSplashScene extends BaseMinigame {
   private rippleT = 0;
   private shotId = 0;
   private finished = false;
+  /** Water droplets (blasts, hits, splashes, shake-offs) and white foam (knockback wakes). */
+  private drops!: Spray;
+  private foam!: Spray;
+  private fish: Fish | null = null;
+  private flies: Fly[] = [];
 
   constructor() {
     super('mg-spiral-splash');
@@ -209,6 +262,8 @@ export class SpiralSplashScene extends BaseMinigame {
     this.rippleT = 0;
     this.shotId = 0;
     this.finished = false;
+    this.fish = null;
+    this.flies = [];
     this.rendered = this.textures.exists('rendered-scene-pond');
     this.renderedPad = this.textures.exists('rendered-mg-pad');
     const sky = this.textures.exists('rendered-sky-day') ? 'rendered-sky-day' : 'bg-sky';
@@ -220,9 +275,40 @@ export class SpiralSplashScene extends BaseMinigame {
     }
     if (!this.renderedPad) makePadTextures(this);
     makeSwirlTextures(this);
+    ensureArenaFxTextures(this);
+    makePondLifeTextures(this);
     this.buildWater();
     this.buildPads();
     this.aimG = this.add.graphics().setDepth(3000);
+    // Droplets are in the air (over everyone); foam lies on the water and pads (under everyone).
+    this.drops = new Spray(this, AFX.drop, {
+      depth: 2900,
+      reserve: burst(140),
+      lifespan: [380, 620],
+      gravity: 1500,
+      scale: { start: 1.6, end: 0.9 },
+      alpha: { start: 1, end: 0.3 },
+      tint: DROP_TINTS,
+    });
+    this.foam = new Spray(this, 'fx-dot', {
+      depth: 999,
+      reserve: burst(70),
+      lifespan: [320, 520],
+      scale: { start: 0.8, end: 1.9 },
+      alpha: { start: 0.95, end: 0 },
+      tint: [0xffffff, 0xe8fbff],
+    });
+    this.buildPondLife();
+  }
+
+  /** A fish that leaps now and then, and a dragonfly or two patrolling the water. */
+  private buildPondLife(): void {
+    this.fish = { img: this.add.image(0, 0, 'ss-fish').setVisible(false), on: false, wait: 3500 + Math.random() * 3000, t: 0, T: 700, x0: 0, y0: 0, x1: 0, y1: 0, h: 70 };
+    for (let i = 0; i < (LITE ? 1 : 2); i++) {
+      const p = this.waterPoint(140);
+      const img = this.add.image(0, 0, 'ss-fly', 'a').setScale(1.45);
+      this.flies.push({ img, x: p.x, y: p.y, h: 70 + i * 30, sx: p.x, sy: p.y, tx: p.x, ty: p.y, t: 0, T: 400 + i * 700, hover: true });
+    }
   }
 
   /** Animated water: counter-rotating current streaks, sparkles and ripple rings. */
@@ -393,6 +479,9 @@ export class SpiralSplashScene extends BaseMinigame {
       vz: 0,
       sinkT: 0,
       teeter: false,
+      wakeT: 0,
+      dripT: 0,
+      markerY: c.marker?.y ?? 0,
       weight: CHARACTERS[p.characterId].handling.weight,
       brain: {
         think: 300 + index * 110,
@@ -454,10 +543,7 @@ export class SpiralSplashScene extends BaseMinigame {
     if (next !== undefined && this.warnT <= 0 && this.elapsed >= next - SHRINK_WARN) {
       this.warnT = SHRINK_WARN;
       audio.play('eventAlert', { volume: 0.5 });
-      const t = addText(this, GAME_WIDTH / 2, 250, 'PADS SHRINKING!', 64, { color: CSS.goldLight, stroke: '#0d3b47', strokeThickness: 10, weight: 700, fixed: true }).setDepth(9000);
-      t.setScale(0.4);
-      this.tweens.add({ targets: t, scale: 1, duration: 240, ease: 'Back.Out' });
-      this.tweens.add({ targets: t, y: 215, alpha: 0, delay: 1000, duration: 420, onComplete: () => t.destroy() });
+      banner(this, 'PADS SHRINKING!', { y: 250, size: 84, color: CSS.goldLight, hold: 900 });
     }
     if (this.warnT > 0) {
       this.warnT -= dt;
@@ -670,12 +756,23 @@ export class SpiralSplashScene extends BaseMinigame {
     if (padUnder(this.pads, w.x, w.y, FOOT_TOL) < 0) this.splash(w);
   }
 
+  /** Back on a pad after a dunking: a soaked shake-off (droplets flung off, a quick wiggle). */
   private touchDown(w: Wader): void {
     w.vz = 0;
     w.c.squash(0.18, 160);
     w.c.play('idle');
     if (w.pad) w.pad.dip = 8;
     audio.play('land', { volume: 0.4 });
+    this.ripple(w.x, w.y, ((w.pad?.r ?? PAD_R) + 16) / 64, 700);
+    this.time.delayedCall(130, () => {
+      if (w.state !== 'pad') return;
+      const q = this.screen(w.x, w.y);
+      this.drops.fire(q.x, q.y - 60, burst(14), -90, 115, 160, 420, [420, 640]);
+      audio.play('splash', { volume: 0.2, throttleMs: 80 });
+      if (!settings.get().reducedMotion) {
+        this.tweens.add({ targets: w.c.sprite, angle: { from: -10, to: 10 }, duration: 65, yoyo: true, repeat: 2, ease: 'Sine.InOut', onComplete: () => w.c.sprite.setAngle(0) });
+      }
+    });
   }
 
   private splash(w: Wader): void {
@@ -698,10 +795,16 @@ export class SpiralSplashScene extends BaseMinigame {
     this.tweens.add({ targets: w.c, y: q.y + 40, alpha: 0, delay: 380, duration: 460, ease: 'Quad.In' });
     this.fx.vfx('splash', q.x, q.y - 40, { scale: 0.85, duration: 620, depth: 1000 + q.y + 2 });
     this.fx.vfx('splash', q.x - 40, q.y - 10, { scale: 0.45, duration: 480, depth: 1000 + q.y + 1, flipX: true });
+    this.fx.vfx('splash', q.x + 42, q.y - 12, { scale: 0.4, duration: 460, depth: 1000 + q.y + 1 });
+    // A tall column of spray, rings rolling out across the pond, a freeze-frame and a thump down.
+    this.drops.fire(q.x, q.y - 24, burst(18), -90, 60, 280, 720, [520, 820]);
     this.ripple(w.x, w.y, 1.6, 1500);
     this.time.delayedCall(180, () => this.ripple(w.x, w.y, 1.1, 1200));
+    this.time.delayedCall(380, () => this.ripple(w.x, w.y, 2.2, 1700));
     this.fx.floatText(q.x, q.y - 150, 'SPLASH!', '#bff4ff', { size: 54, rise: 70, duration: 900, stroke: '#0d3b47' });
     audio.play('splash', { volume: 0.9 });
+    this.hitStop(SPLASH_STOP);
+    kick(this, 0, 9);
     this.fx.shake(0.004, 160);
     this.rumble(w.p, 0.7, 0.5, 260);
     if (w.lives <= 0) {
@@ -760,6 +863,7 @@ export class SpiralSplashScene extends BaseMinigame {
       streak: this.add.image(0, 0, 'vfx', 7).setOrigin(0.82, 0.5).setScale(0.36).setAlpha(0.95),
       core: this.add.image(0, 0, 'fx-dot').setTint(0xffffff).setBlendMode(Phaser.BlendModes.ADD).setScale(1.5),
       shadow: this.add.image(0, 0, 'fx-contact').setTint(0x06303a).setAlpha(0.35).setDepth(150),
+      dripT: 0,
     };
     this.blasts.push(b);
     return b;
@@ -781,14 +885,18 @@ export class SpiralSplashScene extends BaseMinigame {
     b.vx = w.ax * BLAST_SPEED;
     b.vy = w.ay * BLAST_SPEED;
     b.life = BLAST_LIFE;
+    b.dripT = 0;
     for (const o of [b.glow, b.streak, b.core, b.shadow]) o.setVisible(true);
     this.placeBlast(b);
     if (w.state === 'pad' && w.stunT <= 0) w.c.play('throw', { force: true, returnTo: 'idle' });
     if (Math.abs(w.ax) > 0.15) w.c.face(w.ax < 0);
     audio.play('whoosh', { volume: 0.32, rate: 1.6, throttleMs: 40 });
-    audio.play('pop', { volume: 0.3, rate: 0.7, throttleMs: 40 });
+    audio.play('pop', { volume: 0.3, rate: 0.7 + Math.random() * 0.12, throttleMs: 40 });
     const q = this.screen(b.x, b.y);
     this.fx.vfx('splash', q.x, q.y - BLAST_Z, { scale: 0.16, duration: 220, alpha: 0.8, depth: 1000 + q.y + 1 });
+    // A fan of droplets off the muzzle along the shot, and a little recoil.
+    this.drops.fire(q.x, q.y - BLAST_Z, burst(6), Math.atan2(w.ay * DEPTH_K, w.ax) * RAD, 22, 220, 480, [240, 400]);
+    w.c.squash(0.07, 100);
   }
 
   private stepBlasts(sdt: number): void {
@@ -830,6 +938,18 @@ export class SpiralSplashScene extends BaseMinigame {
     const q = this.screen(w.x, w.y);
     this.fx.vfx('splash', q.x, q.y - 70, { scale: 0.42, duration: 380, depth: 1000 + q.y + 2 });
     this.fx.vfx('impact', q.x - kx * 20, q.y - 80, { scale: 0.3, duration: 220, blend: 'add', tint: 0xbff4ff });
+    // The blast bursts over them: spray carried on along the shot and up, a freeze-frame, the
+    // camera knocked the way the blast was going, their pad rocked and a white flash on them.
+    this.drops.fire(q.x, q.y - 70, burst(12), Math.atan2(ky * DEPTH_K, kx) * RAD, 50, 180, 520);
+    this.drops.fire(q.x, q.y - 76, burst(6), -90, 45, 200, 420);
+    this.hitStop(HIT_STOP);
+    kick(this, kx * 9, ky * 9 * DEPTH_K);
+    if (w.pad) w.pad.dip = Math.max(w.pad.dip, 6);
+    w.wakeT = 0;
+    if (!settings.get().reducedMotion) {
+      w.c.sprite.setTintFill(0xffffff);
+      this.time.delayedCall(70, () => w.c.sprite.clearTint());
+    }
     audio.play('splash', { volume: 0.55, throttleMs: 30 });
     audio.play('hit', { volume: 0.25, throttleMs: 30 });
     this.rumble(w.p, 0.45, 0.35, 140);
@@ -874,8 +994,10 @@ export class SpiralSplashScene extends BaseMinigame {
       const bob = w.pad && w.state === 'pad' ? w.pad.bobY : 0;
       w.c.setPosition(q.x, q.y + bob).setDepth(1000 + q.y);
       w.c.sprite.y = -w.z;
+      if (w.c.marker) w.c.marker.y = w.markerY - w.z;
       w.c.shadow?.setScale(1 - Math.min(0.5, w.z / 300)).setAlpha(w.state === 'hop' ? 0.6 : 1);
       w.c.setAlpha(w.invuln > 0 ? (Math.floor(now / 90) % 2 ? 0.45 : 1) : 1);
+      this.waderSpray(w, q.x, q.y, dt);
       if (w.state !== 'pad' || w.stunT > 0 || w.z > 0) continue;
       if (Math.abs(w.vx) > 30) w.c.face(w.vx < 0);
       const cur = w.c.current;
@@ -886,7 +1008,17 @@ export class SpiralSplashScene extends BaseMinigame {
       } else if (moving && cur !== 'run') w.c.play('run');
       else if (!moving && cur !== 'idle') w.c.play('idle');
     }
-    for (const b of this.blasts) if (b.active) this.placeBlast(b);
+    for (const b of this.blasts) {
+      if (!b.active) continue;
+      this.placeBlast(b);
+      // The blast sheds droplets that patter down to the water behind it.
+      b.dripT -= dt;
+      if (b.dripT <= 0) {
+        b.dripT = every(40);
+        const q = this.screen(b.x, b.y);
+        this.drops.fire(q.x, q.y - BLAST_Z, 1, 90, 60, 20, 90, [260, 380]);
+      }
+    }
     this.drawAims();
     // Water life.
     const s = dt / 1000;
@@ -928,6 +1060,33 @@ export class SpiralSplashScene extends BaseMinigame {
     }
   }
 
+  /**
+   * Spray off a player at screen point (x, y): a foamy wake while a blast slides them across their
+   * pad (rippling the water near the rim), and drips while they drop back in soaked.
+   */
+  private waderSpray(w: Wader, x: number, y: number, dt: number): void {
+    if (w.state !== 'pad') return;
+    if (w.z > 0) {
+      w.dripT -= dt;
+      if (w.dripT <= 0) {
+        w.dripT = every(70);
+        this.drops.fire(x + (Math.random() - 0.5) * 30, y - w.z - 50, 1, 90, 12, 40, 90, [320, 460]);
+      }
+      return;
+    }
+    if (w.stunT <= 0) return;
+    // Their velocity is relative to the pad (the pad's drift is added separately).
+    const sp = Math.hypot(w.vx, w.vy);
+    w.wakeT -= dt;
+    if (sp < 110 || w.wakeT > 0) return;
+    w.wakeT = every(45);
+    const back = Math.atan2(-w.vy * DEPTH_K, -w.vx) * RAD;
+    this.foam.fire(x, y + 2, burst(2), back, 35, 40, 120);
+    this.drops.fire(x, y - 8, 1, -90, 40, 120, 260, [280, 420]);
+    const pad = w.pad;
+    if (pad && Math.hypot(w.x - pad.x, w.y - pad.y) > pad.r - 34 && Math.random() < 0.45) this.ripple(w.x, w.y, 0.4, 700);
+  }
+
   /** Aim line and reticle for everyone on a pad; the ring fills as the blast reloads. */
   private drawAims(): void {
     const g = this.aimG;
@@ -961,7 +1120,108 @@ export class SpiralSplashScene extends BaseMinigame {
   }
 
   protected override ambient(dt: number): void {
+    // Particles follow the minigame clock: frozen in a hit-stop, slowed in slow motion.
+    const ts = this.time.timeScale;
+    this.drops.sync(ts);
+    this.foam.sync(ts);
+    this.updatePondLife(dt);
     if (this.phase !== 'playing') this.syncVisuals(dt);
+  }
+
+  /** The fish leaps every few seconds; the dragonflies hover, then dart somewhere new. */
+  private updatePondLife(dt: number): void {
+    const f = this.fish;
+    if (f && !f.on) {
+      f.wait -= dt;
+      if (f.wait <= 0) this.leap(f);
+    } else if (f) {
+      f.t += dt;
+      const u = Math.min(1, f.t / f.T);
+      const wx = f.x0 + (f.x1 - f.x0) * u;
+      const wy = f.y0 + (f.y1 - f.y0) * u;
+      const qy = POND.cy + wy * DEPTH_K;
+      // Nose along the arc: the leap's run on screen, plus the rise and fall.
+      const dir = f.x1 >= f.x0 ? 1 : -1;
+      const run = Math.abs(f.x1 - f.x0) + 1;
+      const rise = (f.y1 - f.y0) * DEPTH_K - Math.PI * f.h * Math.cos(u * Math.PI);
+      f.img
+        .setPosition(POND.cx + wx, qy - Math.sin(u * Math.PI) * f.h)
+        .setDepth(1000 + qy)
+        .setFlipX(dir < 0)
+        .setRotation(dir * Math.atan2(rise, run));
+      if (u >= 1) {
+        f.on = false;
+        f.img.setVisible(false);
+        f.wait = FISH_WAIT[0] + Math.random() * (FISH_WAIT[1] - FISH_WAIT[0]);
+        this.plopFish(wx, wy);
+      }
+    }
+    const now = this.time.now;
+    for (const fl of this.flies) {
+      fl.t += dt;
+      if (fl.hover && fl.t >= fl.T) {
+        const p = this.waterPoint(120);
+        // Keep each dart short, so it zips about rather than crossing the whole pond.
+        const dx = p.x - fl.x;
+        const dy = p.y - fl.y;
+        const d = Math.hypot(dx, dy) || 1;
+        const k = Math.min(1, 300 / d);
+        fl.sx = fl.x;
+        fl.sy = fl.y;
+        fl.tx = fl.x + dx * k;
+        fl.ty = fl.y + dy * k;
+        fl.t = 0;
+        fl.T = 260 + Math.random() * 180;
+        fl.hover = false;
+        fl.img.setFlipX(fl.tx < fl.sx);
+      } else if (!fl.hover) {
+        const u = Math.min(1, fl.t / fl.T);
+        const e = 1 - (1 - u) * (1 - u) * (1 - u);
+        fl.x = fl.sx + (fl.tx - fl.sx) * e;
+        fl.y = fl.sy + (fl.ty - fl.sy) * e;
+        if (u >= 1) {
+          fl.hover = true;
+          fl.t = 0;
+          fl.T = 600 + Math.random() * 1400;
+        }
+      }
+      const qy = POND.cy + fl.y * DEPTH_K;
+      fl.img
+        .setPosition(POND.cx + fl.x, qy - fl.h + Math.sin(now / 180 + fl.h) * 3)
+        .setDepth(1000 + qy + 90)
+        .setFrame(Math.floor(now / 40) % 2 ? 'b' : 'a');
+    }
+  }
+
+  /** Start a fish leap between two open-water points (skipped if none fit this time). */
+  private leap(f: Fish): void {
+    for (let tries = 0; tries < 6; tries++) {
+      const a = this.waterPoint(110);
+      const ang = Math.random() * Math.PI * 2;
+      const len = 90 + Math.random() * 50;
+      const bx = a.x + Math.cos(ang) * len;
+      const by = a.y + Math.sin(ang) * len * 0.6;
+      if (!insideEllipse(bx, by, WATER.rx, WATER.ry, 110) || padUnder(this.pads, bx, by, 30) >= 0 || padUnder(this.pads, a.x, a.y, 30) >= 0) continue;
+      f.on = true;
+      f.t = 0;
+      f.T = 620 + Math.random() * 160;
+      f.x0 = a.x;
+      f.y0 = a.y;
+      f.x1 = bx;
+      f.y1 = by;
+      f.h = 55 + Math.random() * 30;
+      f.img.setVisible(true);
+      this.plopFish(a.x, a.y);
+      return;
+    }
+    f.wait = 1500;
+  }
+
+  private plopFish(x: number, y: number): void {
+    const q = this.screen(x, y);
+    this.fx.vfx('splash', q.x, q.y - 10, { scale: 0.2, duration: 360, alpha: 0.9, depth: 1000 + q.y - 1 });
+    this.ripple(x, y, 0.6, 1000);
+    audio.play('pop', { volume: 0.06, rate: 0.5, throttleMs: 200 });
   }
 
   protected override end(): void {
@@ -1204,6 +1464,92 @@ function canvasTexture(scene: Phaser.Scene, key: string, w: number, h: number, d
   if (!tex) return;
   draw(tex.getContext());
   tex.refresh();
+}
+
+/** Pond life: a koi (facing right) and a dragonfly in two wing frames ('a' up, 'b' down). */
+function makePondLifeTextures(scene: Phaser.Scene): void {
+  canvasTexture(scene, 'ss-fish', 60, 28, (ctx) => {
+    // Forked tail, body with a pale belly and white patches, a fin and an eye.
+    ctx.fillStyle = '#ff7a2e';
+    ctx.beginPath();
+    ctx.moveTo(13, 14);
+    ctx.lineTo(1, 4);
+    ctx.quadraticCurveTo(6, 14, 1, 24);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(24, 7);
+    ctx.quadraticCurveTo(31, 0, 37, 6.5);
+    ctx.closePath();
+    ctx.fill();
+    const g = ctx.createLinearGradient(0, 5, 0, 23);
+    g.addColorStop(0, '#ff8f40');
+    g.addColorStop(1, '#ffe0bd');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.ellipse(31, 14, 20, 8.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    ctx.beginPath();
+    ctx.ellipse(27, 11, 6, 3.4, -0.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(40, 15.5, 4, 2.8, 0.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(130,52,10,0.6)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.ellipse(31, 14, 20, 8.5, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = '#1b1530';
+    ctx.beginPath();
+    ctx.arc(45, 12, 1.7, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  if (scene.textures.exists('ss-fly')) return;
+  const tex = scene.textures.createCanvas('ss-fly', 72, 26);
+  if (!tex) return;
+  const ctx = tex.getContext();
+  for (const [ox, up] of [
+    [0, true],
+    [36, false],
+  ] as const) {
+    // Gauzy wings behind the body, then the slim teal body and its head.
+    const wy = up ? -1 : 1;
+    ctx.fillStyle = 'rgba(225,248,255,0.8)';
+    ctx.strokeStyle = 'rgba(130,195,230,0.95)';
+    ctx.lineWidth = 1;
+    for (const [wx, len, rot] of [
+      [15, 11, 0.5],
+      [21, 10, 0.3],
+    ] as const) {
+      ctx.beginPath();
+      ctx.ellipse(ox + wx, 13 + wy * 6, len, 3.2, wy * rot, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+    const g = ctx.createLinearGradient(ox + 3, 0, ox + 28, 0);
+    g.addColorStop(0, '#1c6f9a');
+    g.addColorStop(1, '#3fd0e8');
+    ctx.strokeStyle = g;
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(ox + 3, 13);
+    ctx.lineTo(ox + 27, 13);
+    ctx.stroke();
+    ctx.fillStyle = '#1c7fa0';
+    ctx.beginPath();
+    ctx.arc(ox + 29, 13, 3.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#0d3b47';
+    ctx.beginPath();
+    ctx.arc(ox + 30.5, 12, 1.4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  tex.refresh();
+  tex.add('a', 0, 0, 0, 36, 26);
+  tex.add('b', 0, 36, 0, 36, 26);
 }
 
 /** Current streaks (drawn at half size, shown at 2×): inner disc and outer ring (kept on the water: 2 × 262 × DEPTH_K < POND.ry). */

@@ -6,10 +6,13 @@ import { CHARACTER_ANIMATIONS } from '../../characters/CharacterAnimations';
 import { CHARACTERS } from '../../data/characters';
 import { NPC_ATLAS, npcFrame, type NpcId } from '../../data/npcs';
 import type { VirtualControls } from '../../input/PlayerInput';
+import { LITE } from '../../perf';
 import { addText } from '../../ui/theme';
 import { centerOrigin, standOrigin } from '../../util/spriteUtil';
 import { BaseMinigame, type MgPlayer } from '../BaseMinigame';
 import { drift, separate, steer, type Mover } from '../common';
+import { banner, kick } from '../juice';
+import { AFX, burst, ensureArenaFxTextures, every, RingPool, Spray } from './arenaFx';
 import {
   buildPattern,
   COLS,
@@ -50,6 +53,9 @@ const TEX_TILE = 'skybridge-tile';
 const TEX_CRACK = 'skybridge-crack';
 const TEX_CLOUD = 'skybridge-cloud';
 const CLOUD_VARIANTS = 3;
+/** A distant bird (two wing frames), and a soft red vignette for sudden death. */
+const TEX_BIRD = 'skybridge-bird';
+const TEX_VIGNETTE = 'skybridge-vignette';
 /** Fallback tile texture: padding around the top face, visible thickness, underside. */
 const TILE_PAD = 12;
 const TILE_THICK = 30;
@@ -67,6 +73,12 @@ const DEPTH_TILE = 100;
 const DEPTH_ROW = 10;
 const DEPTH_PLAYER = 1000;
 const DEPTH_CLOUD_FRONT = 4000;
+/** Splinters, dust and landing puffs: over every tile row, under the players. */
+const DEPTH_FX = DEPTH_TILE + ROWS * DEPTH_ROW + 5;
+const RAD = 180 / Math.PI;
+const WOOD_TINTS = [0xb07a44, 0x8e5a2b, 0xd9a066, 0x6e4420];
+/** Cool grey-blue for puffs in the cloud sea (the smoke flipbook alone reads as dust). */
+const CLOUD_PUFF = 0xdfe7f4;
 
 // --- Timing ------------------------------------------------------------------------------------
 const WARN_MS = 1200;
@@ -79,13 +91,16 @@ const RISE_MS = 700;
 const GHOST_MS = 750;
 const CAP_MS = 90000;
 /** Escalation: when each pattern family starts, and the banner announcing it. */
-const PHASES: { at: number; kind: Phase; banner?: string }[] = [
+const PHASES: { at: number; kind: Phase; banner?: string; color?: string }[] = [
   { at: 0, kind: 'random' },
   { at: 10000, kind: 'lines', banner: 'ROWS & COLUMNS!' },
   { at: 22000, kind: 'checker', banner: 'CHECKERBOARD!' },
   { at: 36000, kind: 'wave', banner: 'HERE COMES THE WAVE!' },
-  { at: 52000, kind: 'frenzy', banner: 'SUDDEN DEATH!' },
+  { at: 52000, kind: 'frenzy', banner: 'SUDDEN DEATH!', color: CSS.coral },
 ];
+/** The late game (from the wave to sudden death) ramps up shaking and wind, 0 → 1. */
+const LATE_FROM = 36000;
+const LATE_TO = 58000;
 
 // --- Players -----------------------------------------------------------------------------------
 const CHAR_SCALE = 0.56;
@@ -135,6 +150,13 @@ interface Tile {
   tint: number;
   /** Display scale of the tile sprite (rendered art may be scaled). */
   base: number;
+  /** Springy dip after someone lands on it: ms since the landing (-1 = still), its depth in px. */
+  dipT: number;
+  dipA: number;
+  /** Current dip offset (px), shared with whoever stands on it. */
+  dy: number;
+  /** Countdown to the next dribble of dust while it shakes. */
+  dustT: number;
 }
 
 interface Hopper extends Mover {
@@ -161,6 +183,10 @@ interface Hopper extends Mover {
   /** CPU has noticed its tile is no longer safe. */
   alarmed: boolean;
   idle: { x: number; y: number };
+  /** Tile underfoot (-1 over a gap): the character rides its dip. */
+  tile: number;
+  /** Countdown to the next speed line (long jumps, falls). */
+  trailT: number;
 }
 
 // --- Procedural fallback art -------------------------------------------------------------------
@@ -494,6 +520,43 @@ function paintCloud(ctx: CanvasRenderingContext2D, w: number, h: number, variant
   ctx.globalCompositeOperation = 'source-over';
 }
 
+/** A far-off bird in two frames side by side: wings up (0–32) and wings down (32–64). */
+function paintBirds(ctx: CanvasRenderingContext2D): void {
+  ctx.strokeStyle = 'rgba(38,50,80,0.92)';
+  ctx.fillStyle = 'rgba(38,50,80,0.92)';
+  ctx.lineWidth = 2.6;
+  ctx.lineCap = 'round';
+  for (const [ox, up] of [
+    [0, true],
+    [32, false],
+  ] as const) {
+    ctx.beginPath();
+    if (up) {
+      ctx.moveTo(ox + 3, 4);
+      ctx.quadraticCurveTo(ox + 9, 2, ox + 16, 9);
+      ctx.quadraticCurveTo(ox + 23, 2, ox + 29, 4);
+    } else {
+      ctx.moveTo(ox + 4, 13);
+      ctx.quadraticCurveTo(ox + 10, 6, ox + 16, 8);
+      ctx.quadraticCurveTo(ox + 22, 6, ox + 28, 13);
+    }
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(ox + 16, 9, 2.6, 1.8, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+/** White at the edges, clear in the middle (tinted red for sudden death). */
+function paintVignette(ctx: CanvasRenderingContext2D): void {
+  const g = ctx.createRadialGradient(80, 45, 18, 80, 45, 92);
+  g.addColorStop(0, 'rgba(255,255,255,0)');
+  g.addColorStop(0.55, 'rgba(255,255,255,0.06)');
+  g.addColorStop(1, 'rgba(255,255,255,0.95)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 160, 90);
+}
+
 function ensureTextures(scene: Phaser.Scene): void {
   const make = (key: string, w: number, h: number, paint: (ctx: CanvasRenderingContext2D) => void) => {
     if (scene.textures.exists(key)) return;
@@ -505,12 +568,30 @@ function ensureTextures(scene: Phaser.Scene): void {
   make(TEX_TILE, TILE_TEX_W, TILE_TEX_H, paintTile);
   make(TEX_CRACK, TILE_TEX_W, TILE_TEX_H, paintCracks);
   for (let v = 0; v < CLOUD_VARIANTS; v++) make(`${TEX_CLOUD}-${v}`, 460, 190, (ctx) => paintCloud(ctx, 460, 190, v));
+  make(TEX_VIGNETTE, 160, 90, paintVignette);
+  if (!scene.textures.exists(TEX_BIRD)) {
+    const tex = scene.textures.createCanvas(TEX_BIRD, 64, 16);
+    if (tex) {
+      paintBirds(tex.getContext());
+      tex.refresh();
+      tex.add('up', 0, 0, 0, 32, 16);
+      tex.add('down', 0, 32, 0, 32, 16);
+    }
+  }
 }
 
 interface Drifter {
   img: Phaser.GameObjects.Image;
   speed: number;
   w: number;
+}
+
+/** A wind streak rushing past within a band of the sky. */
+interface Streak {
+  img: Phaser.GameObjects.Image;
+  speed: number;
+  y0: number;
+  y1: number;
 }
 
 /**
@@ -523,9 +604,24 @@ export class SkybridgeScrambleScene extends BaseMinigame {
   private hoppers: Hopper[] = [];
   private rowG: Phaser.GameObjects.Graphics[] = [];
   private drifters: Drifter[] = [];
-  private streaks: Drifter[] = [];
-  private banner!: Phaser.GameObjects.Text;
+  private streaks: Streak[] = [];
   private countdown!: Phaser.GameObjects.Text;
+  private phaseBanner: Phaser.GameObjects.Text | null = null;
+  private rings!: RingPool;
+  private chips!: Spray;
+  private dust!: Spray;
+  /** Speed lines behind long jumps (over the tiles) and around falling players (at their depth). */
+  private jumpLines!: Spray;
+  private fallLines!: Spray;
+  /** A little flock that crosses the far sky now and then. */
+  private birds: Phaser.GameObjects.Image[] = [];
+  private flock = { on: false, t: 6000, x: 0, y: 0, dir: -1 };
+  /** Red-edged vignette that creeps in for sudden death (Full graphics only). */
+  private dread: Phaser.GameObjects.Image | null = null;
+  private dreadK = 0;
+  /** Cloud puffs under falling tiles are rationed, so a whole wave dropping stays readable. */
+  private puffs = 3;
+  private puffT = 0;
   private nextPatternIn = 0;
   private phaseIndex = 0;
   private lastKind: PatternKind = 'random';
@@ -549,7 +645,15 @@ export class SkybridgeScrambleScene extends BaseMinigame {
     this.lastKind = 'random';
     this.openedPhase = -1;
     this.celebrated = false;
+    this.phaseBanner = null;
+    this.birds = [];
+    this.flock = { on: false, t: 6000, x: 0, y: 0, dir: -1 };
+    this.dread = null;
+    this.dreadK = 0;
+    this.puffs = 3;
+    this.puffT = 0;
     ensureTextures(this);
+    ensureArenaFxTextures(this);
     // Sky, then layered clouds drifting far below the platforms.
     if (this.textures.exists(SKY_KEY)) this.add.image(GAME_WIDTH / 2, 540, SKY_KEY).setDisplaySize(GAME_WIDTH * 1.04, 1124).setDepth(-100);
     else this.add.image(0, 0, 'bg-sky').setOrigin(0).setDisplaySize(GAME_WIDTH, 1080).setDepth(-100);
@@ -572,15 +676,68 @@ export class SkybridgeScrambleScene extends BaseMinigame {
         .setDepth(DEPTH_TILE_SHADOW);
       const tint = TILE_TINTS[(i * 7 + r * 3) % TILE_TINTS.length];
       img.setTint(tint);
-      this.tiles.push({ i, c, r, x, y, state: 'solid', t: 0, warnMs: WARN_MS, due: -1, downMs: 3000, spare: false, spareT: 0, img, crack, shadow, ox: 0, oy: 0, crackStage: 0, seed: i * 1.7, tint, base: img.scaleX });
+      this.tiles.push({
+        i,
+        c,
+        r,
+        x,
+        y,
+        state: 'solid',
+        t: 0,
+        warnMs: WARN_MS,
+        due: -1,
+        downMs: 3000,
+        spare: false,
+        spareT: 0,
+        img,
+        crack,
+        shadow,
+        ox: 0,
+        oy: 0,
+        crackStage: 0,
+        seed: i * 1.7,
+        tint,
+        base: img.scaleX,
+        dipT: -1,
+        dipA: 0,
+        dy: 0,
+        dustT: 0,
+      });
     }
     for (let r = 0; r < ROWS; r++) this.rowG.push(this.add.graphics().setDepth(DEPTH_TILE + r * DEPTH_ROW + 3));
-    this.banner = addText(this, GAME_WIDTH / 2, 196, '', 70, { color: CSS.goldLight, stroke: '#1b1530', strokeThickness: 10, weight: 700, fixed: true })
-      .setDepth(9000)
-      .setAlpha(0);
     this.countdown = addText(this, GAME_WIDTH / 2, 170, '', 64, { color: CSS.cream, stroke: '#1b1530', strokeThickness: 9, weight: 700, fixed: true })
       .setDepth(9000)
       .setVisible(false);
+    this.buildFx();
+  }
+
+  /** Pooled splinters, dust, rings and speed lines, the far-off flock and the sudden-death vignette. */
+  private buildFx(): void {
+    this.rings = new RingPool(this, 10);
+    this.chips = new Spray(this, AFX.chip, {
+      depth: DEPTH_FX,
+      reserve: burst(120),
+      lifespan: [650, 950],
+      gravity: 1500,
+      scale: { start: 1.6, end: 1.1 },
+      alpha: { start: 1, end: 0 },
+      tint: WOOD_TINTS,
+      spin: 0.035,
+    });
+    this.dust = new Spray(this, 'fx-dot', {
+      depth: DEPTH_FX,
+      reserve: burst(100),
+      lifespan: [420, 650],
+      gravity: 240,
+      scale: { start: 0.8, end: 2 },
+      alpha: { start: 0.85, end: 0 },
+      tint: [0xfff1dc, 0xf1dfc2, 0xffffff],
+    });
+    const lines = { reserve: burst(32), lifespan: [170, 260] as [number, number], scale: { start: 0.9, end: 0.35 }, alpha: { start: 0.8, end: 0 }, align: true };
+    this.jumpLines = new Spray(this, AFX.streak, { depth: DEPTH_PLAYER - 1, ...lines });
+    this.fallLines = new Spray(this, AFX.streak, { depth: DEPTH_TILE - 2, ...lines });
+    for (let i = 0; i < (LITE ? 3 : 5); i++) this.birds.push(this.add.image(0, 0, TEX_BIRD, 'up').setVisible(false).setDepth(DEPTH_CLOUD_FAR + 2));
+    if (!LITE) this.dread = this.add.image(GAME_WIDTH / 2, 540, TEX_VIGNETTE).setDisplaySize(GAME_WIDTH, 1080).setTint(0xff3a1e).setAlpha(0).setDepth(8900);
   }
 
   /** Anchor a tile sprite at the centre of its top face. */
@@ -648,15 +805,22 @@ export class SkybridgeScrambleScene extends BaseMinigame {
     layer(5, DEPTH_CLOUD_BELOW, 500, 980, [0.7, 1.1], 14, 0.88, 0xf4f8ff);
     layer(3, DEPTH_CLOUD_BELOW + 10, 880, 1040, [1.1, 1.5], 20, 0.95, 0xffffff);
     layer(3, DEPTH_CLOUD_FRONT, 1085, 1140, [1.3, 1.7], 26, 0.97, 0xffffff);
-    // Thin wind streaks rushing past sell the altitude.
-    for (let k = 0; k < 5; k++) {
-      const img = this.add
-        .image(this.rng.range(0, GAME_WIDTH), this.rng.range(140, 1000), 'fx-dot')
-        .setDisplaySize(this.rng.range(140, 240), 7)
-        .setAlpha(0.45)
-        .setDepth(DEPTH_CLOUD_BELOW - 1);
-      this.streaks.push({ img, speed: this.rng.range(280, 420), w: 180 });
-    }
+    // Wind streaks rushing past sell the altitude: across the blue sky, low over the cloud sea
+    // (tinted so they show against white), and a couple of faint fast ones in front for parallax.
+    const band = (n: number, y0: number, y1: number, depth: number, alpha: number, tint: number, speed: number, len: number) => {
+      for (let k = 0; k < n; k++) {
+        const img = this.add
+          .image(Math.random() * GAME_WIDTH, y0 + Math.random() * (y1 - y0), AFX.streak)
+          .setDisplaySize(len * (0.7 + Math.random() * 0.6), 6)
+          .setAlpha(alpha)
+          .setTint(tint)
+          .setDepth(depth);
+        this.streaks.push({ img, speed: speed * (0.8 + Math.random() * 0.4), y0, y1 });
+      }
+    };
+    band(LITE ? 3 : 5, 110, 470, DEPTH_CLOUD_FAR + 1, 0.55, 0xffffff, 380, 200);
+    band(LITE ? 2 : 3, 870, 1040, DEPTH_CLOUD_BELOW + 11, 0.5, 0xc2d8f2, 440, 230);
+    band(LITE ? 1 : 2, 180, 1000, DEPTH_CLOUD_FRONT - 1, 0.18, 0xffffff, 820, 340);
   }
 
   protected createPlayer(p: MgPlayer, index: number): void {
@@ -694,6 +858,8 @@ export class SkybridgeScrambleScene extends BaseMinigame {
       edge: -1,
       alarmed: false,
       idle: { x, y },
+      tile,
+      trailT: 0,
     });
     p.score = LIVES;
   }
@@ -737,7 +903,7 @@ export class SkybridgeScrambleScene extends BaseMinigame {
       this.phaseIndex = k;
       const b = PHASES[k].banner;
       if (b) {
-        this.showBanner(b);
+        this.showBanner(b, PHASES[k].color);
         // The new pattern family follows its banner almost at once.
         this.nextPatternIn = Math.min(this.nextPatternIn, 900);
       }
@@ -745,12 +911,24 @@ export class SkybridgeScrambleScene extends BaseMinigame {
     return PHASES[k].kind;
   }
 
-  private showBanner(text: string): void {
+  private showBanner(text: string, color: string = CSS.goldLight): void {
     audio.play('eventAlert', { volume: 0.6 });
-    this.tweens.killTweensOf(this.banner);
-    this.banner.setText(text).setAlpha(1).setScale(0.4).setY(196);
-    this.tweens.add({ targets: this.banner, scale: 1, duration: 260, ease: 'Back.Out' });
-    this.tweens.add({ targets: this.banner, alpha: 0, y: 160, delay: 1300, duration: 420 });
+    // A new phase's call-out replaces any still on screen.
+    if (this.phaseBanner?.active) {
+      this.tweens.killTweensOf(this.phaseBanner);
+      this.phaseBanner.destroy();
+    }
+    this.phaseBanner = banner(this, text, { y: 205, size: 96, color, hold: 1200 });
+    if (this.phaseIndex === PHASES.length - 1) {
+      // Sudden death: the whole bridge groans.
+      audio.play('rumble', { volume: 0.6 });
+      this.fx.shake(0.005, 500);
+    }
+  }
+
+  /** How far into the late game we are: 0 before the wave, 1 by sudden death. */
+  private lateness(): number {
+    return Phaser.Math.Clamp((this.elapsed - LATE_FROM) / (LATE_TO - LATE_FROM), 0, 1);
   }
 
   /** Pick and schedule the next pattern; escalates with the phase. */
@@ -816,10 +994,15 @@ export class SkybridgeScrambleScene extends BaseMinigame {
         t.spare = true;
         t.spareT = until;
       }
+      // The late game shakes harder.
       audio.play('rumble', { volume: 0.55 });
-      this.fx.shake(0.003, 400);
+      this.fx.shake(0.003 + 0.003 * this.lateness(), 400);
       interval += (Math.max(0, ...plan.delays) + WARN_MS + downMs) * 0.55;
-    } else if (tiles.length >= 9) audio.play('rumble', { volume: 0.4 });
+    } else if (tiles.length >= 9 || phase === 'frenzy') {
+      const late = this.lateness();
+      audio.play('rumble', { volume: 0.4 + 0.2 * late });
+      if (late > 0) this.fx.shake(0.0015 + 0.003 * late, 320);
+    }
     this.lastKind = kind;
     this.nextPatternIn = interval;
   }
@@ -829,6 +1012,7 @@ export class SkybridgeScrambleScene extends BaseMinigame {
     t.warnMs = WARN_MS - WARN_SQUEEZE_MS * Math.min(1, this.elapsed / 60000);
     t.t = t.warnMs;
     t.crackStage = 0;
+    t.dustT = 120;
     audio.play('crack', { volume: 0.3, rate: 1.1 + Math.random() * 0.2, throttleMs: 90 });
   }
 
@@ -844,6 +1028,21 @@ export class SkybridgeScrambleScene extends BaseMinigame {
     this.tweens.add({ targets: t.img, x: t.x, y: t.y + 470, angle: spin, scale: t.base * 0.9, alpha: 0, duration: DROP_MS * 1.5, ease: 'Quad.In' });
     this.tweens.add({ targets: t.crack, x: t.x, y: t.y + 470, angle: spin, scale: 0.9, alpha: 0, duration: DROP_MS * 1.5, ease: 'Quad.In' });
     this.tweens.add({ targets: t.shadow, alpha: 0, duration: DROP_MS });
+    t.dipT = -1;
+    t.dy = 0;
+    // Splinters burst off the rim and dust spills out underneath...
+    this.chips.fire(t.x, t.y + TILE_H * 0.2, burst(9), -90, 85, 160, 430);
+    this.dust.fire(t.x, t.y + TILE_H * 0.5, burst(4), 90, 70, 30, 120);
+    // ...and a moment later it punches through the cloud sea far below.
+    this.time.delayedCall(DROP_MS * 1.1, () => this.cloudPuff(t.x, Math.min(1020, t.y + 410), 0.36));
+  }
+
+  /** A burst of cloud where something plunges into the cloud sea (rationed: see `puffs`). */
+  private cloudPuff(x: number, y: number, scale: number): void {
+    if (this.puffs <= 0) return;
+    this.puffs--;
+    this.fx.vfx('smoke', x, y, { scale, duration: 640, alpha: 0.9, tint: CLOUD_PUFF, depth: DEPTH_CLOUD_BELOW + 11, dy: -24 });
+    this.rings.spawn(x, y + 12, 24, 120, { squash: 0.3, alpha: 0.55, ms: 560, depth: DEPTH_CLOUD_BELOW + 11 });
   }
 
   private startRise(t: Tile): void {
@@ -860,10 +1059,23 @@ export class SkybridgeScrambleScene extends BaseMinigame {
 
   private updateTiles(dt: number): void {
     const now = this.time.now;
+    const late = this.lateness();
     for (const t of this.tiles) {
       if (t.spare) {
         t.spareT -= dt;
         if (t.spareT <= 0) t.spare = false;
+      }
+      if (t.dipT >= 0) {
+        // A landing sinks the platform a few px and it springs back (a damped bounce).
+        t.dipT += dt;
+        if (t.dipT > 640) {
+          t.dipT = -1;
+          t.dy = 0;
+        } else t.dy = t.dipA * Math.exp(-t.dipT / 120) * Math.cos(t.dipT / 42);
+        if (t.state === 'solid') {
+          t.img.setY(t.y + t.dy);
+          t.crack.setY(t.img.y);
+        }
       }
       if (t.due >= 0) {
         t.due -= dt;
@@ -877,12 +1089,20 @@ export class SkybridgeScrambleScene extends BaseMinigame {
         case 'warn': {
           t.t -= dt;
           const k = 1 - Math.max(0, t.t) / t.warnMs;
-          // Shake harder and flash faster as the drop approaches.
-          const amp = 1 + 4.5 * k;
+          // Shake harder and flash faster as the drop approaches (and harder still late on).
+          const amp = (1 + 4.5 * k) * (1 + 0.6 * late);
           t.ox = Math.sin(now * 0.07 + t.seed) * amp;
           t.oy = Math.cos(now * 0.09 + t.seed * 2) * amp * 0.35;
-          t.img.setPosition(t.x + t.ox, t.y + t.oy).setAngle(Math.sin(now * 0.05 + t.seed) * k * 1.4);
+          t.img.setPosition(t.x + t.ox, t.y + t.oy + t.dy).setAngle(Math.sin(now * 0.05 + t.seed) * k * 1.4);
           t.crack.setPosition(t.img.x, t.img.y).setAngle(t.img.angle);
+          // Dust and splinters dribble off its front lip, faster as the drop nears.
+          t.dustT -= dt;
+          if (t.dustT <= 0) {
+            t.dustT = every(250 - 160 * k);
+            const dx = t.x + (Math.random() - 0.5) * TILE_W * 0.85;
+            this.dust.fire(dx, t.y + TILE_H / 2 + 4, 1, 90, 20, 20, 60, [380, 520]);
+            if (Math.random() < 0.4 + 0.4 * k) this.chips.fire(dx, t.y + TILE_H / 2 + 2, 1, 90, 35, 30, 110, [420, 600]);
+          }
           const flash = Math.sin((t.warnMs - t.t) * (0.012 + 0.028 * k)) > 0.1;
           t.img.setTint(flash ? 0xff9f86 : 0xffe6d8);
           const stage = k < 0.3 ? 1 : k < 0.65 ? 2 : 3;
@@ -998,13 +1218,25 @@ export class SkybridgeScrambleScene extends BaseMinigame {
   }
 
   private land(h: Hopper): void {
+    const impact = Math.max(0, -h.vz);
     h.vz = 0;
     h.z = 0;
     const tile = this.support(h);
     if (tile >= 0 || h.invuln > 0) {
       h.c.squash(0.16, 140);
       audio.play('land', { volume: 0.35, throttleMs: 60 });
-      if (tile >= 0) this.fx.vfx('dust', h.x, h.y, { scale: 0.22, duration: 300, alpha: 0.6, depth: DEPTH_PLAYER + h.y - 2 });
+      if (tile >= 0) {
+        this.fx.vfx('dust', h.x, h.y, { scale: 0.22, duration: 300, alpha: 0.6, depth: DEPTH_PLAYER + h.y - 2 });
+        // The platform dips under the landing and a puff rolls out from the feet (a big one when
+        // dropping back in from the sky).
+        const t = this.tiles[tile];
+        t.dipT = 0;
+        t.dipA = Phaser.Math.Clamp(impact / 160, 2.5, 10);
+        const big = impact > 1200;
+        this.rings.spawn(h.x, h.y + 4, 16, big ? 120 : 76, { squash: 0.36, alpha: big ? 0.85 : 0.65, ms: big ? 480 : 360, depth: DEPTH_FX });
+        this.dust.fire(h.x, h.y + 2, burst(big ? 9 : 4), -90, 85, 40, big ? 200 : 120);
+        if (big) kick(this, 0, 4);
+      }
       h.c.play('idle');
     } else {
       // Landed on thin air: no grace period.
@@ -1015,6 +1247,7 @@ export class SkybridgeScrambleScene extends BaseMinigame {
   private fall(h: Hopper): void {
     h.state = 'falling';
     h.fallT = 0;
+    h.tile = -1;
     h.lives -= 1;
     h.p.score = h.lives;
     h.vx = h.vy = 0;
@@ -1031,6 +1264,8 @@ export class SkybridgeScrambleScene extends BaseMinigame {
     // Tuck behind the tile rows in front of the hole so it drops *into* the gap.
     const r = Math.floor((h.y - GRID_Y0) / PITCH_Y);
     h.c.setDepth(DEPTH_TILE + Math.max(-1, Math.min(ROWS - 1, r)) * DEPTH_ROW + 5);
+    // Their speed lines share that slot, so the rows in front hide both alike.
+    this.fallLines.setDepth(h.c.depth - 1);
     h.c.sprite.y = -h.z / h.c.scaleY;
     // Off the side of the grid, tumble outwards; through a hole, drop straight down.
     const dir = h.x < GRID_X0 ? -1 : h.x > GRID_X0 + GRID_W ? 1 : h.c.isFacingLeft ? -1 : 1;
@@ -1038,11 +1273,21 @@ export class SkybridgeScrambleScene extends BaseMinigame {
     this.tweens.add({ targets: h.c, y: h.y + 420, x: h.x + dir * out, scale: CHAR_SCALE * 0.3, angle: dir * 28, duration: 950, ease: 'Quad.In' });
     this.tweens.add({ targets: h.c, alpha: 0, delay: 620, duration: 330 });
     audio.play('whoosh', { volume: 0.55, rate: 0.75 });
+    h.trailT = 0;
+    kick(this, 0, 4);
     this.time.delayedCall(700, () => {
+      // Through the cloud sea: a burst of cloud and a thump of the camera.
+      const by = Math.min(1040, h.y + 360);
       audio.play('pop', { volume: 0.35, rate: 0.55 });
-      this.fx.vfx('smoke', h.x, Math.min(1040, h.y + 360), { scale: 0.5, duration: 600, alpha: 0.8, tint: 0xffffff, depth: DEPTH_CLOUD_FRONT + 1 });
+      const depth = DEPTH_CLOUD_FRONT + 1;
+      this.fx.vfx('smoke', h.x, by, { scale: 0.62, duration: 700, alpha: 0.9, tint: CLOUD_PUFF, depth, dy: -30 });
+      this.fx.vfx('smoke', h.x - 46, by + 14, { scale: 0.36, duration: 560, alpha: 0.8, tint: CLOUD_PUFF, depth, flipX: true, dx: -34 });
+      if (!LITE) this.fx.vfx('smoke', h.x + 46, by + 14, { scale: 0.36, duration: 560, alpha: 0.8, tint: CLOUD_PUFF, depth, dx: 34 });
+      this.rings.spawn(h.x, by + 24, 30, 180, { squash: 0.3, alpha: 0.7, ms: 620, depth });
+      kick(this, 0, 10);
     });
-    this.fx.floatText(h.x, h.y - 150, h.lives > 0 ? '-1' : 'OUT!', h.lives > 0 ? '#ff8a7a' : '#ffe08a', { size: h.lives > 0 ? 60 : 72, stroke: '#4a1010', depth: 9000 });
+    // A lost life gets its "-1" here; the last one's OUT! is the base class's call.
+    if (h.lives > 0) this.fx.floatText(h.x, h.y - 150, '-1', '#ff8a7a', { size: 60, stroke: '#4a1010', depth: 9000 });
     this.rumble(h.p, 0.6, 0.5, 260);
     if (h.lives <= 0) {
       h.state = 'out';
@@ -1091,6 +1336,13 @@ export class SkybridgeScrambleScene extends BaseMinigame {
       if (h.state === 'out') continue;
       if (h.state === 'falling') {
         h.fallT += dt;
+        // Speed lines stream up past them as they drop (smaller as they shrink into the distance).
+        h.trailT -= dt;
+        if (h.fallT < 820 && h.trailT <= 0) {
+          h.trailT = every(50);
+          const k = h.c.scaleX / CHAR_SCALE;
+          this.fallLines.fire(h.c.x + (Math.random() - 0.5) * 70 * k, h.c.y - (30 + Math.random() * 110) * k, 1, -90, 0, 280, 420);
+        }
         if (h.fallT >= RESPAWN_MS) this.respawn(h);
         continue;
       }
@@ -1118,6 +1370,19 @@ export class SkybridgeScrambleScene extends BaseMinigame {
       }
       const tile = this.support(h);
       h.supported = tile >= 0;
+      h.tile = tile;
+      // Speed lines: behind a running jump across a gap, and above a drop back in from the sky.
+      h.trailT -= dt;
+      if (h.trailT <= 0 && h.z > 0) {
+        const sp = Math.hypot(h.vx, h.vy);
+        if (!h.supported && sp > 300) {
+          h.trailT = every(45);
+          this.jumpLines.fire(h.x - (h.vx / sp) * 26, h.y - h.z - 30 - Math.random() * 60, 1, Math.atan2(h.vy, h.vx) * RAD, 0, 0, 20);
+        } else if (h.invuln > 0 && h.vz < -700) {
+          h.trailT = every(45);
+          this.jumpLines.fire(h.x + (Math.random() - 0.5) * 50, h.y - h.z - 40 - Math.random() * 70, 1, -90, 0, 0, 30);
+        }
+      }
       if (h.z <= 0 && h.vz <= 0) {
         if (h.supported || h.invuln > 0) h.coyote = 0;
         else h.coyote += dt;
@@ -1156,6 +1421,11 @@ export class SkybridgeScrambleScene extends BaseMinigame {
           b.c.squash(0.2, 160);
           audio.play('bounce', { volume: 0.4, throttleMs: 120 });
           this.fx.vfx('impact', (a.x + b.x) / 2, (a.y + b.y) / 2 - 70 - a.z, { scale: 0.32, duration: 240, blend: 'add', depth: DEPTH_PLAYER + Math.max(a.y, b.y) + 2 });
+          if (impulse > 260) {
+            // A proper shove near a drop: freeze a beat and knock the camera the way it went.
+            this.hitStop(45);
+            kick(this, nx * 5, ny * 5);
+          }
           this.rumble(a.p, 0.3, 0.3, 120);
           this.rumble(b.p, 0.3, 0.3, 120);
         }
@@ -1168,7 +1438,9 @@ export class SkybridgeScrambleScene extends BaseMinigame {
     for (const h of this.hoppers) {
       if (h.state !== 'play') continue;
       const c = h.c;
-      c.setPosition(h.x, h.y).setDepth(DEPTH_PLAYER + h.y);
+      // Standing on a platform that's dipping from a landing: ride the dip.
+      const dip = h.tile >= 0 && h.z <= 0 ? this.tiles[h.tile].dy : 0;
+      c.setPosition(h.x, h.y + dip).setDepth(DEPTH_PLAYER + h.y);
       c.sprite.y = -h.z / c.scaleY;
       if (c.marker) c.marker.y = h.markerY - h.z / c.scaleY;
       const overFloor = h.supported;
@@ -1190,6 +1462,11 @@ export class SkybridgeScrambleScene extends BaseMinigame {
 
   // --- Frame ------------------------------------------------------------------------------------
   protected tick(dt: number): void {
+    this.puffT -= dt;
+    if (this.puffT <= 0) {
+      this.puffT = 110;
+      this.puffs = Math.min(3, this.puffs + 1);
+    }
     this.nextPatternIn -= dt;
     if (this.nextPatternIn <= 0) this.launchPattern();
     else this.currentPhase();
@@ -1212,19 +1489,63 @@ export class SkybridgeScrambleScene extends BaseMinigame {
 
   protected override ambient(dt: number): void {
     const s = dt / 1000;
+    // Particles follow the minigame clock: frozen in a hit-stop, slowed in slow motion.
+    const ts = this.time.timeScale;
+    this.chips.sync(ts);
+    this.dust.sync(ts);
+    this.jumpLines.sync(ts);
+    this.fallLines.sync(ts);
+    this.rings.update(dt);
+    // The wind picks up in the late game.
+    const late = this.lateness();
     for (const d of this.drifters) {
-      d.img.x -= d.speed * s;
+      d.img.x -= d.speed * s * (1 + 0.5 * late);
       if (d.img.x < -d.w / 2 - 40) d.img.x = GAME_WIDTH + d.w / 2 + 40;
     }
     for (const d of this.streaks) {
-      d.img.x -= d.speed * s;
-      if (d.img.x < -200) {
-        d.img.x = GAME_WIDTH + 200;
-        d.img.y = 140 + Math.random() * 860;
+      d.img.x -= d.speed * s * (1 + 0.9 * late);
+      if (d.img.x < -240) {
+        d.img.x = GAME_WIDTH + 240;
+        d.img.y = d.y0 + Math.random() * (d.y1 - d.y0);
       }
+    }
+    this.updateFlock(dt);
+    if (this.dread) {
+      const want = this.phase === 'playing' && this.phaseIndex === PHASES.length - 1 ? 1 : 0;
+      this.dreadK += (want - this.dreadK) * Math.min(1, dt / 900);
+      this.dread.setAlpha(this.dreadK * (0.22 + 0.08 * Math.sin(this.time.now / 300)));
     }
     if (this.phase !== 'playing') {
       for (const h of this.hoppers) if (h.state === 'play') h.c.setDepth(DEPTH_PLAYER + h.y);
+    }
+  }
+
+  /** Now and then a little flock of birds crosses the far sky, in a loose V. */
+  private updateFlock(dt: number): void {
+    const f = this.flock;
+    if (!f.on) {
+      f.t -= dt;
+      if (f.t > 0 || !this.birds.length) return;
+      f.on = true;
+      f.dir = Math.random() < 0.5 ? -1 : 1;
+      f.x = f.dir < 0 ? GAME_WIDTH + 60 : -60;
+      f.y = 150 + Math.random() * 170;
+      for (const b of this.birds) b.setVisible(true);
+    }
+    f.x += f.dir * 95 * (dt / 1000);
+    const now = this.time.now;
+    for (let i = 0; i < this.birds.length; i++) {
+      const rank = Math.ceil(i / 2);
+      const side = i % 2 ? -1 : 1;
+      this.birds[i]
+        .setPosition(f.x - f.dir * rank * 34, f.y + side * rank * 16 + Math.sin(now / 420 + i) * 3)
+        .setFrame(Math.sin(now / 95 + i * 1.7) > 0 ? 'up' : 'down')
+        .setScale(0.9 - rank * 0.06);
+    }
+    if ((f.dir < 0 && f.x < -200) || (f.dir > 0 && f.x > GAME_WIDTH + 200)) {
+      f.on = false;
+      f.t = 14000 + Math.random() * 9000;
+      for (const b of this.birds) b.setVisible(false);
     }
   }
 
