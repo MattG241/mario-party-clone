@@ -41,6 +41,7 @@ def setup(samples: int, preview: bool, transparent: bool = False, exposure: floa
     sc = lib.reset(8 if preview else samples)
     dress.threads(2)
     dress.reset_mats()
+    _M.clear()  # the factory reset removed our cached materials too
     sc.render.film_transparent = transparent
     sc.view_settings.exposure = exposure
     sc.cycles.adaptive_threshold = 0.05 if preview else 0.035
