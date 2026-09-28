@@ -17,9 +17,9 @@ const PONY_Y = 812;
 /** Spacing between the ponies for 2, 3 and 4 riders. */
 const GAPS: readonly [number, number, number] = [640, 500, 440];
 /** The pony sprites (mg_rodeo.py `pony`): the body turns about its pivot, the column top. */
-const PONY_KEY = 'st-pony';
-const FRONT_KEY = 'st-pony-front';
-const BASE_KEY = 'st-pony-base';
+const PONY_KEY = 'showtime-pony';
+const FRONT_KEY = 'showtime-pony-front';
+const BASE_KEY = 'showtime-pony-base';
 const PONY_ANCHOR = { x: 0.5, y: 0.5916 };
 const BASE_ANCHOR = { x: 0.5, y: 0.88 };
 const PIVOT_DY = -115;
@@ -54,11 +54,11 @@ const SPRITES: readonly SpriteFile[] = [
 ];
 
 const WORDS = {
-  steady: { key: 'rr-w-steady', text: 'STEADY!', size: 38, fill: ['#ffffff', '#ffb3d9'] as const },
-  combo: { key: 'rr-w-combo', text: 'WHAT A RIDE!', size: 44, fill: ['#fffbd0', '#ff7ab8'] as const },
-  whoa: { key: 'rr-w-whoa', text: 'WHOA!', size: 44, fill: ['#ffe2d6', '#ff6b5e'] as const },
-  penalty: { key: 'rr-w-pen', text: `-${FALL_PENALTY_MS / 1000}s`, size: 36, fill: ['#ffe2d6', '#ff6b5e'] as const },
-  back: { key: 'rr-w-back', text: 'BACK ON!', size: 34, fill: ['#ffffff', '#aeefff'] as const },
+  steady: { key: 'rodeo-w-steady', text: 'STEADY!', size: 38, fill: ['#ffffff', '#ffb3d9'] as const },
+  combo: { key: 'rodeo-w-combo', text: 'WHAT A RIDE!', size: 44, fill: ['#fffbd0', '#ff7ab8'] as const },
+  whoa: { key: 'rodeo-w-whoa', text: 'WHOA!', size: 44, fill: ['#ffe2d6', '#ff6b5e'] as const },
+  penalty: { key: 'rodeo-w-pen', text: `-${FALL_PENALTY_MS / 1000}s`, size: 36, fill: ['#ffe2d6', '#ff6b5e'] as const },
+  back: { key: 'rodeo-w-back', text: 'BACK ON!', size: 34, fill: ['#ffffff', '#aeefff'] as const },
 };
 
 type RiderState = 'riding' | 'thrown' | 'down' | 'climb';
@@ -190,14 +190,14 @@ export class RhinestoneRodeoScene extends BaseMinigame {
     body.setDepth(d + 0.1);
     const front = hasArt ? (this.textures.exists(FRONT_KEY) ? this.add.image(x, PONY_Y + PIVOT_DY, FRONT_KEY).setOrigin(PONY_ANCHOR.x, PONY_ANCHOR.y) : null) : this.fallbackPony(x, true);
     front?.setDepth(d + 0.3);
-    const rosette = this.add.image(x, PONY_Y, 'rr-rosette').setTint(color).setDepth(d + 0.35);
+    const rosette = this.add.image(x, PONY_Y, 'rodeo-rosette').setTint(color).setDepth(d + 0.35);
     const c = new Character(this, x, PONY_Y - 40, p.characterId, { scale: RIDER_SCALE, slot: p.slot });
     c.setDepth(d + 0.2);
     c.hold('balance', 0);
     p.character = c;
     const gems: Phaser.GameObjects.Image[] = [];
-    for (let i = 0; i < liteCount(4); i++) gems.push(this.add.image(x, PONY_Y, 'st-sparkle').setBlendMode(Phaser.BlendModes.ADD).setDepth(d + 0.36).setAlpha(0));
-    const arrow = this.add.image(x, ARROW_Y, 'rr-arrow').setVisible(false).setDepth(8300);
+    for (let i = 0; i < liteCount(4); i++) gems.push(this.add.image(x, PONY_Y, 'showtime-sparkle').setBlendMode(Phaser.BlendModes.ADD).setDepth(d + 0.36).setAlpha(0));
+    const arrow = this.add.image(x, ARROW_Y, 'rodeo-arrow').setVisible(false).setDepth(8300);
     const ring = this.add.graphics().setDepth(8301);
     const top = animHeadTop(p.characterId, 'balance');
     this.riders.push({
@@ -535,11 +535,11 @@ export class RhinestoneRodeoScene extends BaseMinigame {
     const n = liteCount(10);
     const tints = [0xff9ed0, 0xffffff, 0x9ff0ff, 0xffe39a];
     for (let i = 0; i < n; i++) {
-      const img = this.add.image(0, 0, 'st-glow').setBlendMode(Phaser.BlendModes.ADD).setTint(tints[i % tints.length]).setAlpha(0.22).setDepth(i % 2 ? -12 : 699);
+      const img = this.add.image(0, 0, 'showtime-glow').setBlendMode(Phaser.BlendModes.ADD).setTint(tints[i % tints.length]).setAlpha(0.22).setDepth(i % 2 ? -12 : 699);
       img.setDisplaySize(90, 34);
       this.spots.push({ img, a: (i / n) * Math.PI * 2, r: 380 + (i % 3) * 230, speed: 0.00022 + (i % 4) * 0.00004, cy: i % 2 ? 520 : 880 });
     }
-    for (let i = 0; i < liteCount(4); i++) this.glints.push(this.add.image(DISCO.x, DISCO.y, 'st-sparkle').setBlendMode(Phaser.BlendModes.ADD).setDepth(-11).setAlpha(0));
+    for (let i = 0; i < liteCount(4); i++) this.glints.push(this.add.image(DISCO.x, DISCO.y, 'showtime-sparkle').setBlendMode(Phaser.BlendModes.ADD).setDepth(-11).setAlpha(0));
   }
 
   private syncDisco(dt: number): void {
@@ -620,7 +620,7 @@ export class RhinestoneRodeoScene extends BaseMinigame {
   // --- Baked art and fallbacks -----------------------------------------------------------------
   /** A chunky rhinestone chevron pointing right (flipped for left), white so it can be tinted. */
   private bakeArrow(): void {
-    const key = 'rr-arrow';
+    const key = 'rodeo-arrow';
     if (this.textures.exists(key)) return;
     const W = 120;
     const H = 110;
@@ -669,7 +669,7 @@ export class RhinestoneRodeoScene extends BaseMinigame {
 
   /** A ribbon rosette (white, tinted with the rider's colour). */
   private bakeRosette(): void {
-    const key = 'rr-rosette';
+    const key = 'rodeo-rosette';
     if (this.textures.exists(key)) return;
     const S = 64;
     const tex = this.textures.createCanvas(key, S, S);

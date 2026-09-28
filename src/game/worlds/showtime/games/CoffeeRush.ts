@@ -50,7 +50,7 @@ const CUSTOMER_DX = 70;
 const BUBBLE_DX = 70;
 const BUBBLE_DY = -178;
 /** The espresso machine sprite (mg_cafe.py `machine`): anchored at its base; spout and drip tray from there. */
-const MACHINE_KEY = 'st-espresso';
+const MACHINE_KEY = 'showtime-espresso';
 const MACHINE_ANCHOR = { x: 0.5, y: 0.9 };
 const SPOUT = { dx: -5, dy: -21 };
 const TRAY = { dx: -5, dy: 3 };
@@ -64,18 +64,18 @@ const GLASS_CORNERS = { tl: 4, tr: 4, bl: 16, br: 16 };
 const SPRITES: readonly SpriteFile[] = [[MACHINE_KEY, 'showtime_espresso']];
 
 const WORDS = {
-  perfect: { key: 'cr-w-perfect', text: 'PERFECT SHOT!', size: 36, fill: ['#fffbd0', '#ffbf2a'] as const },
-  good: { key: 'cr-w-good', text: 'GOOD', size: 34, fill: ['#ffffff', '#aeefff'] as const },
-  weak: { key: 'cr-w-weak', text: 'TOO WEAK', size: 32, fill: ['#eef0f4', '#9ba3b2'] as const },
-  over: { key: 'cr-w-over', text: 'TOO STRONG', size: 32, fill: ['#eef0f4', '#9ba3b2'] as const },
-  spill: { key: 'cr-w-spill', text: 'SPILL!', size: 40, fill: ['#ffe2d6', '#ff6b5e'] as const },
-  art: { key: 'cr-w-art', text: 'LATTE ART!', size: 36, fill: ['#ffe3f1', '#ff5fa8'] as const },
-  nice: { key: 'cr-w-nice', text: 'NICE!', size: 34, fill: ['#ffffff', '#aeefff'] as const },
-  messy: { key: 'cr-w-messy', text: 'MESSY', size: 32, fill: ['#eef0f4', '#9ba3b2'] as const },
-  brew: { key: 'cr-w-brew', text: 'PERFECT BREW!', size: 44, fill: ['#fffbd0', '#ff9f1a'] as const },
-  slow: { key: 'cr-w-slow', text: 'TOO SLOW...', size: 32, fill: ['#eef0f4', '#9ba3b2'] as const },
-  hold: { key: 'cr-w-hold', text: 'HOLD', size: 28, fill: ['#ffffff', '#ffe3a0'] as const },
-  tap: { key: 'cr-w-tap', text: 'TAP', size: 28, fill: ['#ffffff', '#ffe3a0'] as const },
+  perfect: { key: 'coffee-w-perfect', text: 'PERFECT SHOT!', size: 36, fill: ['#fffbd0', '#ffbf2a'] as const },
+  good: { key: 'coffee-w-good', text: 'GOOD', size: 34, fill: ['#ffffff', '#aeefff'] as const },
+  weak: { key: 'coffee-w-weak', text: 'TOO WEAK', size: 32, fill: ['#eef0f4', '#9ba3b2'] as const },
+  over: { key: 'coffee-w-over', text: 'TOO STRONG', size: 32, fill: ['#eef0f4', '#9ba3b2'] as const },
+  spill: { key: 'coffee-w-spill', text: 'SPILL!', size: 40, fill: ['#ffe2d6', '#ff6b5e'] as const },
+  art: { key: 'coffee-w-art', text: 'LATTE ART!', size: 36, fill: ['#ffe3f1', '#ff5fa8'] as const },
+  nice: { key: 'coffee-w-nice', text: 'NICE!', size: 34, fill: ['#ffffff', '#aeefff'] as const },
+  messy: { key: 'coffee-w-messy', text: 'MESSY', size: 32, fill: ['#eef0f4', '#9ba3b2'] as const },
+  brew: { key: 'coffee-w-brew', text: 'PERFECT BREW!', size: 44, fill: ['#fffbd0', '#ff9f1a'] as const },
+  slow: { key: 'coffee-w-slow', text: 'TOO SLOW...', size: 32, fill: ['#eef0f4', '#9ba3b2'] as const },
+  hold: { key: 'coffee-w-hold', text: 'HOLD', size: 28, fill: ['#ffffff', '#ffe3a0'] as const },
+  tap: { key: 'coffee-w-tap', text: 'TAP', size: 28, fill: ['#ffffff', '#ffe3a0'] as const },
 };
 
 type CupState = 'refill' | 'ready' | 'pouring' | 'graded' | 'dump' | 'swirl' | 'art' | 'slide' | 'waitCustomer' | 'handoff';
@@ -193,7 +193,7 @@ export class CoffeeRushScene extends BaseMinigame {
     if (this.textures.exists('rendered-scene-showtime_cafe_counter')) this.add.image(0, 0, 'rendered-scene-showtime_cafe_counter').setOrigin(0).setDepth(500);
     else this.drawFallbackCounter();
     this.pops = new WordPops(this, 8700, 20);
-    for (let i = 0; i < liteCount(24); i++) this.hearts.push(this.add.image(0, 0, 'st-heart').setVisible(false).setDepth(8450));
+    for (let i = 0; i < liteCount(24); i++) this.hearts.push(this.add.image(0, 0, 'showtime-heart').setVisible(false).setDepth(8450));
   }
 
   protected createPlayer(p: MgPlayer, index: number): void {
@@ -209,10 +209,10 @@ export class CoffeeRushScene extends BaseMinigame {
     p.character = c;
     const px = x + (MACHINE_DX + BARISTA_DX) / 2;
     const panel = this.add.graphics().setDepth(8300);
-    const heart = this.add.image(px, PANEL_Y, 'st-heart').setVisible(false).setDepth(8302).setScale(0.36).setTint(0xffffff);
+    const heart = this.add.image(px, PANEL_Y, 'showtime-heart').setVisible(false).setDepth(8302).setScale(0.36).setTint(0xffffff);
     const cupG = this.add.graphics().setDepth(570);
     const stream = this.add.graphics().setDepth(575);
-    const bubble = this.add.image(0, 0, 'cr-bubble').setVisible(false).setDepth(8350);
+    const bubble = this.add.image(0, 0, 'coffee-bubble').setVisible(false).setDepth(8350);
     const ring = this.add.graphics().setDepth(8351);
     const st: Station = {
       p,
@@ -910,7 +910,7 @@ export class CoffeeRushScene extends BaseMinigame {
   // --- Baked art and fallbacks -----------------------------------------------------------------
   /** The order bubble: a speech bubble with a steaming pink cup. */
   private bakeBubble(): void {
-    const key = 'cr-bubble';
+    const key = 'coffee-bubble';
     if (this.textures.exists(key)) return;
     const W = 96;
     const H = 96;

@@ -106,7 +106,7 @@ export function spread(n: number, gaps: readonly [number, number, number]): numb
  * A soft vertical light cone (white, for tinting): bright at the top, widening and fading towards
  * the bottom, with feathered sides. Baked once.
  */
-export function beamTexture(scene: Phaser.Scene, key = 'st-beam'): string {
+export function beamTexture(scene: Phaser.Scene, key = 'showtime-beam'): string {
   if (scene.textures.exists(key)) return key;
   const W = 128;
   const H = 256;
@@ -131,7 +131,7 @@ export function beamTexture(scene: Phaser.Scene, key = 'st-beam'): string {
 }
 
 /** A soft round glow (white, for tinting), for light pools and bulb flares. Baked once. */
-export function glowTexture(scene: Phaser.Scene, key = 'st-glow'): string {
+export function glowTexture(scene: Phaser.Scene, key = 'showtime-glow'): string {
   if (scene.textures.exists(key)) return key;
   const S = 128;
   const tex = scene.textures.createCanvas(key, S, S);
@@ -149,7 +149,7 @@ export function glowTexture(scene: Phaser.Scene, key = 'st-glow'): string {
 }
 
 /** A small heart (white, for tinting): swoons, happy customers. Baked once. */
-export function heartTexture(scene: Phaser.Scene, key = 'st-heart'): string {
+export function heartTexture(scene: Phaser.Scene, key = 'showtime-heart'): string {
   if (scene.textures.exists(key)) return key;
   const S = 64;
   const tex = scene.textures.createCanvas(key, S, S);
@@ -181,7 +181,7 @@ export function heartTexture(scene: Phaser.Scene, key = 'st-heart'): string {
 }
 
 /** A four-pointed sparkle (white, for tinting). Baked once. */
-export function sparkleTexture(scene: Phaser.Scene, key = 'st-sparkle'): string {
+export function sparkleTexture(scene: Phaser.Scene, key = 'showtime-sparkle'): string {
   if (scene.textures.exists(key)) return key;
   const S = 64;
   const tex = scene.textures.createCanvas(key, S, S);

@@ -70,14 +70,14 @@ const MOVE_COLORS: Record<Move, [string, string]> = {
 const MOVE_PITCH: Record<Move, number> = { L: 1, R: 1.122, U: 1.335, D: 0.891, A: 1.5 };
 
 const WORDS = {
-  perfect: { key: 'hs-w-perfect', text: 'PERFECT', size: 42, fill: ['#fffbd0', '#ffbf2a'] as const },
-  good: { key: 'hs-w-good', text: 'GOOD', size: 40, fill: ['#ffffff', '#aeefff'] as const },
-  miss: { key: 'hs-w-miss', text: 'MISS', size: 36, fill: ['#eef0f4', '#9ba3b2'] as const },
-  swoon: { key: 'hs-w-swoon', text: 'SWOON!', size: 58, fill: ['#ffe3f1', '#ff5fa8'] as const },
-  x2: { key: 'hs-w-x2', text: 'x2', size: 40, fill: ['#fff4c8', '#ffb627'] as const },
-  x3: { key: 'hs-w-x3', text: 'x3', size: 40, fill: ['#ffe3f1', '#ff6fb0'] as const },
-  x4: { key: 'hs-w-x4', text: 'x4', size: 40, fill: ['#e7fbff', '#35d6ff'] as const },
-  pose: { key: 'hs-w-pose', text: 'POSE!', size: 40, fill: ['#fffbd0', '#ffbf2a'] as const },
+  perfect: { key: 'hipshake-w-perfect', text: 'PERFECT', size: 42, fill: ['#fffbd0', '#ffbf2a'] as const },
+  good: { key: 'hipshake-w-good', text: 'GOOD', size: 40, fill: ['#ffffff', '#aeefff'] as const },
+  miss: { key: 'hipshake-w-miss', text: 'MISS', size: 36, fill: ['#eef0f4', '#9ba3b2'] as const },
+  swoon: { key: 'hipshake-w-swoon', text: 'SWOON!', size: 58, fill: ['#ffe3f1', '#ff5fa8'] as const },
+  x2: { key: 'hipshake-w-x2', text: 'x2', size: 40, fill: ['#fff4c8', '#ffb627'] as const },
+  x3: { key: 'hipshake-w-x3', text: 'x3', size: 40, fill: ['#ffe3f1', '#ff6fb0'] as const },
+  x4: { key: 'hipshake-w-x4', text: 'x4', size: 40, fill: ['#e7fbff', '#35d6ff'] as const },
+  pose: { key: 'hipshake-w-pose', text: 'POSE!', size: 40, fill: ['#fffbd0', '#ffbf2a'] as const },
 };
 
 interface Pose {
@@ -221,24 +221,24 @@ export class HipShakeScene extends BaseMinigame {
     if (this.textures.exists('rendered-scene-showtime_stage')) this.add.image(0, 0, 'rendered-scene-showtime_stage').setOrigin(0).setDepth(-50);
     else this.drawFallbackStage();
     // A warm wash over the back of the stage that throbs with the kick drum.
-    this.wash = this.add.image(960, 560, 'st-glow').setDisplaySize(1500, 700).setTint(0xff7ab8).setAlpha(0.12).setBlendMode(Phaser.BlendModes.ADD).setDepth(-40);
+    this.wash = this.add.image(960, 560, 'showtime-glow').setDisplaySize(1500, 700).setTint(0xff7ab8).setAlpha(0.12).setBlendMode(Phaser.BlendModes.ADD).setDepth(-40);
     this.buildBulbs();
     this.buildCrowd();
     this.pops = new WordPops(this, 8700, 18);
     // Pooled bursts (hit notes flying apart) and hearts (swoons).
-    for (let i = 0; i < 12; i++) this.bursts.push(this.add.image(0, 0, 'hs-arrow-L').setVisible(false).setDepth(8420));
-    for (let i = 0; i < liteCount(28); i++) this.hearts.push(this.add.image(0, 0, 'st-heart').setVisible(false).setDepth(8410));
+    for (let i = 0; i < 12; i++) this.bursts.push(this.add.image(0, 0, 'hipshake-arrow-L').setVisible(false).setDepth(8420));
+    for (let i = 0; i < liteCount(28); i++) this.hearts.push(this.add.image(0, 0, 'showtime-heart').setVisible(false).setDepth(8410));
   }
 
   protected createPlayer(p: MgPlayer, index: number): void {
     const xs = spread(this.players.length, GAPS);
     const x = xs[index];
     const color = PLAYER_COLORS[p.slot];
-    const beam = this.add.image(x, NOTE_Y0 - 20, 'st-beam').setOrigin(0.5, 0).setDisplaySize(LANE_W * 1.5, STAGE_Y + 30 - NOTE_Y0).setTint(mixColor(0xfff2dc, color, 0.25)).setAlpha(0.2).setBlendMode(Phaser.BlendModes.ADD).setDepth(10);
-    const pool = this.add.image(x, STAGE_Y + 6, 'st-glow').setDisplaySize(300, 70).setTint(color).setAlpha(0.35).setBlendMode(Phaser.BlendModes.ADD).setDepth(STAGE_Y - 30);
-    const targetGlow = this.add.image(x, HIT_Y, 'st-glow').setDisplaySize(190, 190).setTint(color).setAlpha(0).setBlendMode(Phaser.BlendModes.ADD).setDepth(8390);
+    const beam = this.add.image(x, NOTE_Y0 - 20, 'showtime-beam').setOrigin(0.5, 0).setDisplaySize(LANE_W * 1.5, STAGE_Y + 30 - NOTE_Y0).setTint(mixColor(0xfff2dc, color, 0.25)).setAlpha(0.2).setBlendMode(Phaser.BlendModes.ADD).setDepth(10);
+    const pool = this.add.image(x, STAGE_Y + 6, 'showtime-glow').setDisplaySize(300, 70).setTint(color).setAlpha(0.35).setBlendMode(Phaser.BlendModes.ADD).setDepth(STAGE_Y - 30);
+    const targetGlow = this.add.image(x, HIT_Y, 'showtime-glow').setDisplaySize(190, 190).setTint(color).setAlpha(0).setBlendMode(Phaser.BlendModes.ADD).setDepth(8390);
     const target = this.add.image(x, HIT_Y, this.bakeTarget(p.slot)).setDepth(8395);
-    const badge = this.add.image(x + 74, HIT_Y + 34, WORDS.x2.key).setDepth(8396).setVisible(false);
+    const badge = this.add.image(x + 90, HIT_Y - 18, WORDS.x2.key).setDepth(8396).setVisible(false);
     const c = new Character(this, x, STAGE_Y, p.characterId, { scale: 1, slot: p.slot });
     c.setDepth(STAGE_Y);
     p.character = c;
@@ -565,7 +565,7 @@ export class HipShakeScene extends BaseMinigame {
         if (st === 1) continue;
         let img = d.sprites[i];
         if (!img) {
-          img = this.takeNote(n.move === 'A' ? `hs-star-${d.kind}` : `hs-arrow-${n.move}`);
+          img = this.takeNote(n.move === 'A' ? `hipshake-star-${d.kind}` : `hipshake-arrow-${n.move}`);
           if (!img) continue;
           d.sprites[i] = img;
         }
@@ -645,10 +645,10 @@ export class HipShakeScene extends BaseMinigame {
     const pts = archPoints(ARCH.cx, ARCH.row, ARCH.a, ARCH.b, ARCH.n, ARCH.spacing);
     for (const [x, y] of pts) {
       if (y > 1000) continue;
-      this.bulbs.push(this.add.image(x, y, 'st-glow').setDisplaySize(34, 34).setTint(0xffe7a0).setBlendMode(Phaser.BlendModes.ADD).setVisible(false).setDepth(-30));
+      this.bulbs.push(this.add.image(x, y, 'showtime-glow').setDisplaySize(34, 34).setTint(0xffe7a0).setBlendMode(Phaser.BlendModes.ADD).setVisible(false).setDepth(-30));
     }
     for (let i = 0; i < FOOT_N; i++) {
-      this.foot.push(this.add.image(FOOT_X0 + i * FOOT_STEP, FOOT_Y, 'st-glow').setDisplaySize(90, 46).setTint(0xffc46b).setAlpha(0).setBlendMode(Phaser.BlendModes.ADD).setDepth(STAGE_Y + 40));
+      this.foot.push(this.add.image(FOOT_X0 + i * FOOT_STEP, FOOT_Y, 'showtime-glow').setDisplaySize(90, 46).setTint(0xffc46b).setAlpha(0).setBlendMode(Phaser.BlendModes.ADD).setDepth(STAGE_Y + 40));
     }
   }
 
@@ -683,7 +683,7 @@ export class HipShakeScene extends BaseMinigame {
       const hop = calm ? 0 : 4 * ph * (1 - ph);
       f.cheerT = Math.max(0, f.cheerT - dt);
       const up = f.cheerT > 0;
-      const key = up ? 'hs-fan-3' : `hs-fan-${f.kind}`;
+      const key = up ? 'hipshake-fan-3' : `hipshake-fan-${f.kind}`;
       if (f.img.texture.key !== key) f.img.setTexture(key);
       f.img.y = f.y - hop * (up ? 16 : 7);
     }
@@ -768,7 +768,7 @@ export class HipShakeScene extends BaseMinigame {
   private bakeArrows(): void {
     const S = 96;
     for (const m of ['L', 'R', 'U', 'D'] as const) {
-      const key = `hs-arrow-${m}`;
+      const key = `hipshake-arrow-${m}`;
       if (this.textures.exists(key)) continue;
       const tex = this.textures.createCanvas(key, S, S);
       if (!tex) continue;
@@ -807,7 +807,7 @@ export class HipShakeScene extends BaseMinigame {
       ctx.stroke();
       tex.refresh();
     }
-    const key = 'hs-star-base';
+    const key = 'hipshake-star-base';
     if (!this.textures.exists(key)) {
       const tex = this.textures.createCanvas(key, 112, 112);
       if (tex) {
@@ -843,11 +843,11 @@ export class HipShakeScene extends BaseMinigame {
 
   /** The pose star with the A button (in the player's controller glyphs) in its middle. */
   private bakeStar(kind: GlyphKind): void {
-    const key = `hs-star-${kind}`;
+    const key = `hipshake-star-${kind}`;
     if (this.textures.exists(key)) return;
     const dt = this.textures.addDynamicTexture(key, 112, 112);
     if (!dt) return;
-    const star = this.make.image({ key: 'hs-star-base' }, false);
+    const star = this.make.image({ key: 'hipshake-star-base' }, false);
     const glyph = makeGlyph(this, 'A', 40, kind);
     // Key caps can be wide ("Enter"): shrink the glyph to sit inside the star.
     const fit = Math.min(1, 50 / Math.max(1, glyph.width));
@@ -860,7 +860,7 @@ export class HipShakeScene extends BaseMinigame {
 
   /** A lane target: the player's shape as a thick ring in their colour (colour is never the only cue). */
   private bakeTarget(slot: number): string {
-    const key = `hs-target-${slot}`;
+    const key = `hipshake-target-${slot}`;
     if (this.textures.exists(key)) return key;
     const S = 128;
     const dt = this.textures.addDynamicTexture(key, S, S);
@@ -888,7 +888,7 @@ export class HipShakeScene extends BaseMinigame {
 
   /** Audience silhouettes: three head-and-shoulder shapes and one with both arms up. */
   private bakeFan(k: number): string {
-    const key = `hs-fan-${k}`;
+    const key = `hipshake-fan-${k}`;
     if (this.textures.exists(key)) return key;
     const W = 150;
     const H = 190;
