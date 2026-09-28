@@ -8,7 +8,7 @@ import { NPC_ATLAS, npcFrame } from '../data/npcs';
 import { input } from '../input/InputManager';
 import { glyphKindFor, makeGlyph, PromptBar, type PromptButton } from '../ui/ControllerPrompt';
 import { buildBackdrop, drawNavyPanel } from '../ui/Screen';
-import { addText, addTitle } from '../ui/theme';
+import { addGradientTitle, addText } from '../ui/theme';
 import { enterScene, goTo } from '../ui/Transition';
 import { centerOrigin, solidHeight, standOrigin } from '../util/spriteUtil';
 
@@ -63,11 +63,11 @@ export class HowToPlayScene extends Phaser.Scene {
     enterScene(this);
     audio.playMusic('menu');
     buildBackdrop(this, 'golden', 0.3);
-    addTitle(this, GAME_WIDTH / 2 + 180, 76, 'HOW TO PLAY', 68);
+    addGradientTitle(this, GAME_WIDTH / 2 + 180, 76, 'HOW TO PLAY', 68);
     this.pages = this.definePages();
 
     const g = this.add.graphics();
-    drawNavyPanel(g, PX, PY, PW, PH, { radius: 30 });
+    drawNavyPanel(g, PX, PY, PW, PH, { radius: 30, gloss: true });
     this.header = this.add.graphics();
     this.headerText = addText(this, PX + 44, PY + HEADER / 2, '', 34, { color: '#ffffff', weight: 700, align: 'left', stroke: '#06141a', strokeThickness: 5 }).setOrigin(0, 0.5);
     this.body = this.add.container(0, 0);
@@ -110,6 +110,7 @@ export class HowToPlayScene extends Phaser.Scene {
   }
 
   private show(i: number): void {
+    const forward = i >= this.page;
     this.page = i;
     const p = this.pages[i];
     this.body.removeAll(true);
@@ -122,9 +123,11 @@ export class HowToPlayScene extends Phaser.Scene {
     this.header.strokeRoundedRect(PX, PY, PW, PH, 30);
     this.headerText.setText(`${i + 1}. ${p.title}`);
     p.build(this, this.body);
+    // Pages slide in from the side you're turning towards.
     this.body.setAlpha(0);
-    this.body.x = 24;
-    this.tweens.add({ targets: this.body, alpha: 1, x: 0, duration: 220, ease: 'Quad.Out' });
+    this.body.x = forward ? 48 : -48;
+    this.tweens.killTweensOf(this.body);
+    this.tweens.add({ targets: this.body, alpha: 1, x: 0, duration: 240, ease: 'Cubic.Out' });
     const frame = npcFrame('ora', p.ora);
     this.ora.setFrame(frame);
     const o = standOrigin(NPC_ATLAS, frame);

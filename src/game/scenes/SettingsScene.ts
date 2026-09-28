@@ -8,7 +8,7 @@ import { settings } from '../save/SettingsManager';
 import { PromptBar } from '../ui/ControllerPrompt';
 import { Menu, type MenuItem } from '../ui/Menu';
 import { buildBackdrop, drawNavyPanel } from '../ui/Screen';
-import { addText, addTitle } from '../ui/theme';
+import { addGradientTitle, addText } from '../ui/theme';
 import { enterScene, goTo } from '../ui/Transition';
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
@@ -44,11 +44,11 @@ export class SettingsScene extends Phaser.Scene {
     enterScene(this);
     audio.playMusic('menu');
     buildBackdrop(this, 'golden');
-    addTitle(this, GAME_WIDTH / 2, 74, 'SETTINGS', 72);
+    addGradientTitle(this, GAME_WIDTH / 2, 74, 'SETTINGS', 72);
 
     const g = this.add.graphics();
-    drawNavyPanel(g, 120, 150, 980, 820);
-    drawNavyPanel(g, 1160, 150, 640, 820, { header: { color: COLORS.tealDark } });
+    drawNavyPanel(g, 120, 150, 980, 820, { gloss: true });
+    drawNavyPanel(g, 1160, 150, 640, 820, { header: { color: COLORS.tealDark }, gloss: true });
     this.hintTitle = addText(this, 1200, 186, '', 28, { color: '#ffffff', weight: 700, align: 'left', stroke: '#06141a', strokeThickness: 4 });
     this.hint = addText(this, 1200, 300, '', 26, { color: CSS.cream, weight: 600, align: 'left', wrap: 560 });
     this.hint.setOrigin(0, 0);
@@ -168,7 +168,7 @@ export class SettingsScene extends Phaser.Scene {
     const g = this.add.graphics();
     g.fillStyle(0x06141a, 0.6);
     g.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-    drawNavyPanel(g, 360, 110, 1200, 860, { header: { color: COLORS.coral } });
+    drawNavyPanel(g, 360, 110, 1200, 860, { header: { color: COLORS.coral }, gloss: true });
     layer.add(g);
     layer.add(addText(this, 400, 146, 'KEYBOARD CONTROLS', 30, { color: '#ffffff', weight: 700, align: 'left', stroke: '#06141a', strokeThickness: 4 }));
     const status = addText(this, 960, 930, 'Select an action, then press the new key · Esc cancels', 22, { color: CSS.creamDark, weight: 600 });

@@ -15,7 +15,10 @@ import { placePortraitSprite } from '../ui/Portrait';
 import { addText, addTitle } from '../ui/theme';
 import { enterScene, goTo } from '../ui/Transition';
 import { applyGrade } from '../effects/GradePipeline';
-import { drawCard, UI } from '../ui/Style';
+import { drawCard, strokeTopEdge, tintToward, UI } from '../ui/Style';
+import { Spotlight } from '../ui/Celebration';
+import { punch } from '../minigames/juice';
+import { LITE } from '../perf';
 import { addStrip } from '../ui/Screen';
 import { rosterLayout, type RosterLayout } from '../ui/rosterLayout';
 
@@ -62,6 +65,8 @@ export class CharacterSelectScene extends Phaser.Scene {
   /** A soft "?" floating over each pedestal until its player joins. */
   private vacant: Phaser.GameObjects.Container[] = [];
   private tileRings: Phaser.GameObjects.Graphics[] = [];
+  /** A spotlight on each pedestal, lit while its player is in. */
+  private spots: Spotlight[] = [];
   private tileBadges: Phaser.GameObjects.Container[] = [];
   private layout!: RosterLayout;
   private renderedStage = false;
@@ -86,6 +91,7 @@ export class CharacterSelectScene extends Phaser.Scene {
     this.vacant = [];
     this.tileRings = [];
     this.tileBadges = [];
+    this.spots = [];
     this.layout = rosterLayout(CHARACTER_IDS.length);
     this.locked = new Map();
     this.fx = new EffectsManager(this, 800);
@@ -135,19 +141,29 @@ export class CharacterSelectScene extends Phaser.Scene {
       this.tweens.add({ targets: holo, y: -10, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
       this.tweens.add({ targets: holo.sprite, alpha: { from: 0.3, to: 0.18 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
       this.vacant.push(vacant);
+      // A spotlight from the rig above, in a warm tint of the player's colour, swaying gently.
+      const spot = new Spotlight(this, x + (i < 2 ? 70 : -70), -160, tintToward(PLAYER_COLORS[i], 0xffffff, 0.55), 9, 300);
+      spot.swayAround(x, PODIUM_Y - 18 * STAGE_K, 18, 2300 + i * 260);
+      this.spots.push(spot);
     });
   }
 
   /** Portrait tiles for every character, in one or two rows along the bottom of the screen. */
   private buildRoster(): void {
     const { k, w, h, pos } = this.layout;
+    // A clean slate tray behind the tiles (solid enough that the island edge doesn't muddy it).
     const back = this.add.graphics().setDepth(19);
-    back.fillStyle(0x0a1a26, 0.34);
     const left = Math.min(...pos.map((p) => p.x)) - w / 2 - 22;
     const right = Math.max(...pos.map((p) => p.x)) + w / 2 + 22;
     const top = Math.min(...pos.map((p) => p.y)) - h / 2 - 14;
     const bottom = Math.max(...pos.map((p) => p.y)) + h / 2 + 14;
+    back.fillStyle(UI.shadow, 0.25);
+    back.fillRoundedRect(left, top + 6, right - left, bottom - top, 30);
+    back.fillStyle(UI.slate, 0.78);
     back.fillRoundedRect(left, top, right - left, bottom - top, 30);
+    back.lineStyle(2, 0xffffff, 0.14);
+    back.strokeRoundedRect(left + 1, top + 1, right - left - 2, bottom - top - 2, 29);
+    strokeTopEdge(back, left, top, right - left, 30, 4, 1.5, 0xffffff, 0.22);
     // All portraits share one container and one mask (one stencil pass instead of one per tile).
     const faces = this.add.container(0, 0).setDepth(21);
     const maskG = this.make.graphics({ x: 0, y: 0 }, false);
@@ -179,11 +195,11 @@ export class CharacterSelectScene extends Phaser.Scene {
     const x = PODIUM_X[slot];
     const panel = this.add.container(x, CARD_Y).setDepth(30);
     const g = this.add.graphics();
-    drawCard(g, -CARD_W / 2, -CARD_H / 2, CARD_W, CARD_H, { radius: 28 });
+    drawCard(g, -CARD_W / 2, -CARD_H / 2, CARD_W, CARD_H, { radius: 28, bevel: true });
     g.fillStyle(PLAYER_COLORS[slot], 1);
-    g.fillRoundedRect(-CARD_W / 2 + 24, -CARD_H / 2, CARD_W - 48, 6, { tl: 0, tr: 0, bl: 3, br: 3 });
+    g.fillRoundedRect(-CARD_W / 2 + 24, -CARD_H / 2, CARD_W - 48, 7, { tl: 0, tr: 0, bl: 3.5, br: 3.5 });
     const badge = new PlayerBadge(this, -CARD_W / 2 + 36, -CARD_H / 2 + 30, slot, 17);
-    const label = addText(this, -CARD_W / 2 + 64, -CARD_H / 2 + 30, `PLAYER ${slot + 1}`, 19, { color: UI.inkSoftCss, weight: 700, align: 'left' });
+    const label = addText(this, -CARD_W / 2 + 64, -CARD_H / 2 + 30, `PLAYER ${slot + 1}`, 21, { color: UI.inkSecondCss, weight: 700, align: 'left' });
     const content = this.add.container(0, 14);
     panel.add([g, badge, label, content]);
     const view: SlotView = { phase: 'empty', device: null, cursor: 0, panel, content, hero: null };
@@ -215,7 +231,7 @@ export class CharacterSelectScene extends Phaser.Scene {
       const bar = new PromptBar(this, 0, 26, [
         { button: 'A', label: 'Pick' },
         { button: 'B', label: 'Leave' },
-      ], { size: 24, fontSize: 16, color: UI.inkSoftCss, slot });
+      ], { size: 24, fontSize: 18, color: UI.inkSecondCss, slot });
       // The card is already the backing; drop the bar's own pill.
       bar.list.filter((o) => o instanceof Phaser.GameObjects.Graphics).forEach((o) => o.destroy());
       add(bar);
@@ -227,7 +243,7 @@ export class CharacterSelectScene extends Phaser.Scene {
       const stamp = this.add.container(-110, -4, [chipG, addText(this, 0, -1, 'READY', 26, { color: UI.inkCss, weight: 700 })]);
       add(stamp);
       add(addText(this, -28, -14, def.name, 22, { color: UI.inkCss, weight: 700, align: 'left' }));
-      add(addText(this, -28, 12, def.role, 15, { color: UI.inkSoftCss, weight: 600, align: 'left' }));
+      add(addText(this, -28, 12, def.role, 17, { color: UI.inkSecondCss, weight: 600, align: 'left' }));
       stamp.setScale(0.8);
       this.tweens.add({ targets: stamp, scale: 1, duration: 200, ease: 'Back.Out' });
     }
@@ -236,7 +252,7 @@ export class CharacterSelectScene extends Phaser.Scene {
   private buildStartBanner(): Phaser.GameObjects.Container {
     const c = this.add.container(GAME_WIDTH / 2, 150).setDepth(100).setVisible(false);
     const g = this.add.graphics();
-    drawCard(g, -440, -44, 880, 88, { radius: 44, fill: UI.focus, shadow: 1.3 });
+    drawCard(g, -440, -44, 880, 88, { radius: 44, fill: UI.focus, shadow: 1.3, bevel: true });
     const t = addText(this, 0, -2, 'All set! Press A to continue', 36, { color: UI.inkCss, weight: 700 });
     c.add([g, t]);
     this.tweens.add({ targets: c, alpha: { from: 1, to: 0.8 }, duration: 800, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
@@ -249,6 +265,7 @@ export class CharacterSelectScene extends Phaser.Scene {
     const v = this.slots[slot];
     const id: CharacterId | null = v.phase === 'empty' ? null : CHARACTER_IDS[v.cursor];
     if (v.hero && (!id || v.hero.charId !== id)) {
+      this.tweens.killTweensOf([v.hero, v.hero.sprite]);
       v.hero.destroy();
       v.hero = null;
     }
@@ -258,9 +275,42 @@ export class CharacterSelectScene extends Phaser.Scene {
       // A little hop in so the swap reads as a change of character.
       v.hero.setScale(CHAR_K * 0.9);
       this.tweens.add({ targets: v.hero, scale: CHAR_K, duration: 180, ease: 'Back.Out' });
+      // An eager idle bob while they wait on the pedestal.
+      if (!settings.get().reducedMotion) this.tweens.add({ targets: v.hero.sprite, y: -7, duration: 620 + slot * 40, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
     }
     if (v.hero && anim !== 'idle') v.hero.play(anim, { force: true });
     this.vacant[slot]?.setVisible(!id);
+    this.spots[slot]?.light(!!id, 260, v.phase === 'ready' ? 1.25 : 0.85);
+  }
+
+  /**
+   * The lock-in: the hero flashes white and strikes a pose, a ring of light bursts across the
+   * pedestal and their name is called out above them.
+   */
+  private lockInFlourish(slot: number): void {
+    const v = this.slots[slot];
+    const hero = v.hero;
+    if (!hero) return;
+    const reduced = settings.get().reducedMotion;
+    const x = PODIUM_X[slot];
+    const color = PLAYER_COLORS[slot];
+    if (!reduced) {
+      hero.sprite.setTintFill(0xffffff);
+      this.time.delayedCall(90, () => hero.active && hero.sprite.clearTint());
+      hero.setScale(CHAR_K * 1.12);
+      this.tweens.add({ targets: hero, scale: CHAR_K, duration: 320, ease: 'Back.Out' });
+      if (this.textures.exists('fx-ring')) {
+        const ring = this.add.image(x, PODIUM_Y - 18 * STAGE_K, 'fx-ring').setTint(color).setScale(0.8, 0.24).setAlpha(0.95).setDepth(9);
+        this.tweens.add({ targets: ring, scaleX: 3.4, scaleY: 1, alpha: 0, duration: 520, ease: 'Cubic.Out', onComplete: () => ring.destroy() });
+      }
+      punch(this, 0.012, 240);
+    }
+    const name = CHARACTERS[CHARACTER_IDS[v.cursor]].short.toUpperCase();
+    const call = addTitle(this, x, PODIUM_Y - 360 * STAGE_K, `${name}!`, 58, `#${tintToward(color, 0xffffff, 0.25).toString(16).padStart(6, '0')}`).setDepth(40);
+    call.setScale(reduced ? 1 : 2).setAlpha(0);
+    this.tweens.add({ targets: call, scale: 1, alpha: 1, duration: 220, ease: 'Back.Out' });
+    this.tweens.add({ targets: call, y: call.y - 40, alpha: 0, duration: 320, delay: 950, ease: 'Quad.In', onComplete: () => call.destroy() });
+    this.fx.sparks(x, PODIUM_Y - 150 * STAGE_K, LITE ? 12 : 22);
   }
 
   // --- Slot actions -----------------------------------------------------------------------------
@@ -347,6 +397,12 @@ export class CharacterSelectScene extends Phaser.Scene {
     this.standHero(slot);
     this.refreshHighlights();
     this.renderSlot(slot);
+    // The ring pops onto the newly pointed-at tile.
+    const ring = this.tileRings[c];
+    if (ring && !silent && !settings.get().reducedMotion) {
+      this.tweens.killTweensOf(ring);
+      this.tweens.add({ targets: ring, scale: { from: 1.14, to: 1 }, duration: 180, ease: 'Back.Out' });
+    }
   }
 
   private confirm(slot: number, silent = false): void {
@@ -368,6 +424,7 @@ export class CharacterSelectScene extends Phaser.Scene {
       input.rumbleSlot(slot, 0.5, 0.6, 160);
       this.fx.confetti(v.hero.x, v.hero.y - 200, 40);
       this.fx.vfx('goldSwirl', v.hero.x, v.hero.y - 60, { scale: 0.9, blend: 'add', alpha: 0.8 });
+      this.lockInFlourish(slot);
     }
     // Other players pointing at this character move on to a free one.
     this.slots.forEach((o, i) => {

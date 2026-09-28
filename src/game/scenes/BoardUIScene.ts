@@ -14,12 +14,11 @@ import { computeStandings } from '../state/scoring';
 import { showBanner, type BannerOpts } from '../ui/Banner';
 import { PromptBar, type PromptSpec } from '../ui/ControllerPrompt';
 import { DialogBox, type DialogLine } from '../ui/DialogBox';
-import { drawPanel } from '../ui/Panel';
 import { PlayerBadge } from '../ui/PlayerBadge';
 import { PlayerHUD } from '../ui/PlayerHUD';
 import { addText, addTitle } from '../ui/theme';
 import { centerOrigin, standOrigin } from '../util/spriteUtil';
-import { drawCard, UI } from '../ui/Style';
+import { drawCard, drawRibbon, shade, tintToward, UI } from '../ui/Style';
 
 export interface ListOption {
   label: string;
@@ -48,6 +47,9 @@ export interface ListMenuSpec {
 
 type Poller = (dt: number) => boolean;
 
+/** Rest height of the round count on its plaque. */
+const ROUND_Y = -11;
+
 /**
  * Board overlay: HUD, round plaque, banners, prompts, menus and dialogs. Every interactive
  * widget returns a Promise so the turn flow can simply await it.
@@ -59,8 +61,12 @@ export class BoardUIScene extends Phaser.Scene {
   dialog!: DialogBox;
   prompts!: PromptBar;
   private roundPlaque!: Phaser.GameObjects.Container;
+  private plaqueG!: Phaser.GameObjects.Graphics;
   private roundText!: Phaser.GameObjects.Text;
   private relicText!: Phaser.GameObjects.Text;
+  /** Round shown on the plaque (0 before the first refresh), so a new round can swoosh in. */
+  private shownRound = 0;
+  private plaqueFinal: boolean | null = null;
   private pollers = new Set<Poller>();
   private scoreboard: Phaser.GameObjects.Container | null = null;
   /** Returns true when the flow wants pending menus cancelled (debug interrupts). */
@@ -82,14 +88,16 @@ export class BoardUIScene extends Phaser.Scene {
     this.hud = new PlayerHUD(this, this.stateRef);
     this.dialog = new DialogBox(this, 3000);
     this.prompts = new PromptBar(this, GAME_WIDTH / 2, GAME_HEIGHT - 40, [], { size: 40, fontSize: 28 }).setDepth(900);
-    // Round card: a small white chip at the top centre (ink round count, the relic price below).
+    // Round card: a bevelled white chip at the top centre (ink round count, the relic price below
+    // in navy, big enough to read from the sofa).
+    this.shownRound = 0;
+    this.plaqueFinal = null;
     this.roundPlaque = this.add.container(GAME_WIDTH / 2, 46).setDepth(600);
-    const g = this.add.graphics();
-    drawCard(g, -160, -33, 320, 66, { radius: 33, shadow: 0.9 });
-    const relicIcon = this.add.image(-118, 0, 'prism-relic').setScale(0.12);
-    this.roundText = addText(this, 16, -10, 'ROUND 1 / 10', 26, { color: UI.inkCss, weight: 700 });
-    this.relicText = addText(this, 16, 16, '', 16, { color: UI.inkSoftCss, weight: 600 });
-    this.roundPlaque.add([g, relicIcon, this.roundText, this.relicText]);
+    this.plaqueG = this.add.graphics();
+    const relicIcon = this.add.image(-124, 0, 'prism-relic').setScale(0.13);
+    this.roundText = addText(this, 16, ROUND_Y, 'ROUND 1 / 10', 27, { color: UI.inkCss, weight: 700 });
+    this.relicText = addText(this, 16, 17, '', 18, { color: UI.inkSecondCss, weight: 700 });
+    this.roundPlaque.add([this.plaqueG, relicIcon, this.roundText, this.relicText]);
     this.refresh(this.stateRef);
   }
 
@@ -120,10 +128,71 @@ export class BoardUIScene extends Phaser.Scene {
 
   refresh(state: MatchState): void {
     this.stateRef = state;
-    this.roundText.setText(isFinalRound(state) ? `FINAL ROUND ${state.round}/${state.config.rounds}` : `ROUND ${state.round} / ${state.config.rounds}`);
+    const final = isFinalRound(state);
+    if (final !== this.plaqueFinal) {
+      this.plaqueFinal = final;
+      this.drawPlaque(final);
+    }
+    const label = final ? `FINAL ROUND ${state.round}/${state.config.rounds}` : `ROUND ${state.round} / ${state.config.rounds}`;
+    if (this.shownRound !== state.round) {
+      const old = this.roundText.text;
+      const first = this.shownRound === 0;
+      this.shownRound = state.round;
+      this.roundText.setText(label);
+      if (!first) this.roundSwoosh(old, final);
+    } else this.roundText.setText(label);
     const price = currentRelicPrice(state);
     this.relicText.setText(price < 20 ? `Relic Rush! Relic costs ${price}` : `Prism Relic · ${price} chips`);
     this.hud?.update(state);
+  }
+
+  private drawPlaque(final: boolean): void {
+    const g = this.plaqueG;
+    g.clear();
+    drawCard(g, -170, -36, 340, 72, { radius: 36, shadow: 0.9, bevel: true });
+    // A slim accent under the numbers: gold, or coral once the final round begins.
+    g.fillStyle(final ? COLORS.coral : COLORS.gold, 1);
+    g.fillRoundedRect(-120, 28, 240, 4, 2);
+  }
+
+  /**
+   * A new round: the plaque pops, the old count rolls away as the new one drops in, and a swoosh of
+   * colour streaks out from behind it.
+   */
+  private roundSwoosh(oldLabel: string, final: boolean): void {
+    if (settings.get().reducedMotion) return;
+    const p = this.roundPlaque;
+    const color = final ? COLORS.coral : COLORS.teal;
+    // A swoosh still running from a quick previous change is cut short first.
+    this.tweens.killTweensOf([p, this.roundText]);
+    this.tweens.add({ targets: p, scale: { from: 1.16, to: 1 }, duration: 360, ease: 'Back.Out' });
+    // The count rolls: the old label slides down and away, the new one drops into place.
+    const y0 = ROUND_Y;
+    const ghost = addText(this, this.roundText.x, y0, oldLabel, 27, { color: UI.inkCss, weight: 700 });
+    p.add(ghost);
+    this.tweens.add({ targets: ghost, y: y0 + 22, alpha: 0, duration: 220, ease: 'Quad.In', onComplete: () => ghost.destroy() });
+    this.roundText.setY(y0 - 24).setAlpha(0);
+    this.tweens.add({ targets: this.roundText, y: y0, alpha: 1, duration: 280, delay: 90, ease: 'Back.Out' });
+    // The swoosh: two slanted streaks shooting out from behind the plaque to the right, then fading.
+    const sw = this.add.graphics().setDepth(599);
+    const lean = 18;
+    const streak = (w: number, h: number, dy: number, c: number, a: number) => {
+      sw.fillStyle(c, a);
+      sw.fillPoints([new Phaser.Math.Vector2(0 + lean, dy - h / 2), new Phaser.Math.Vector2(w + lean, dy - h / 2), new Phaser.Math.Vector2(w - lean, dy + h / 2), new Phaser.Math.Vector2(-lean, dy + h / 2)], true);
+    };
+    streak(360, 26, 6, color, 0.9);
+    streak(260, 8, -16, tintToward(color, 0xffffff, 0.45), 0.9);
+    streak(300, 5, 24, shade(color, 0.8), 0.8);
+    sw.setPosition(GAME_WIDTH / 2 - 180, 46).setScale(0.05, 1);
+    this.tweens.add({ targets: sw, scaleX: 1, x: GAME_WIDTH / 2 - 60, duration: 240, ease: 'Cubic.Out' });
+    this.tweens.add({ targets: sw, alpha: 0, x: GAME_WIDTH / 2 + 60, duration: 320, delay: 240, ease: 'Quad.In', onComplete: () => sw.destroy() });
+    const mirror = this.add.graphics().setDepth(599);
+    mirror.fillStyle(color, 0.9);
+    mirror.fillPoints([new Phaser.Math.Vector2(-360 - lean, -7), new Phaser.Math.Vector2(0 - lean, -7), new Phaser.Math.Vector2(lean, 19), new Phaser.Math.Vector2(-360 + lean, 19)], true);
+    mirror.setPosition(GAME_WIDTH / 2 + 180, 46).setScale(0.05, 1);
+    this.tweens.add({ targets: mirror, scaleX: 1, x: GAME_WIDTH / 2 + 60, duration: 240, ease: 'Cubic.Out' });
+    this.tweens.add({ targets: mirror, alpha: 0, x: GAME_WIDTH / 2 - 60, duration: 320, delay: 240, ease: 'Quad.In', onComplete: () => mirror.destroy() });
+    audio.play('whoosh', { volume: 0.3, rate: 1.3 });
   }
 
   setPrompts(specs: PromptSpec[], slot?: number): void {
@@ -139,7 +208,7 @@ export class BoardUIScene extends Phaser.Scene {
     const color = PLAYER_COLORS[p.slot];
     const name = CHARACTERS[p.characterId].name;
     return showBanner(this, {
-      title: p.isCpu ? `${name.split(' ')[0].toUpperCase()}'S TURN` : 'YOUR TURN',
+      title: p.isCpu ? `${CHARACTERS[p.characterId].short.toUpperCase()}'S TURN` : 'YOUR TURN',
       subtitle: p.isCpu ? `${name.toUpperCase()} · CPU` : `${name.toUpperCase()} · PLAYER ${p.slot + 1}`,
       color,
       hold: settings.get().gameSpeed === 'fast' ? 500 : 800,
@@ -330,16 +399,20 @@ export class BoardUIScene extends Phaser.Scene {
     const root = this.add.container(cx, cy).setDepth(2000);
     const dim = this.add.rectangle(-cx + GAME_WIDTH / 2, 0, GAME_WIDTH, GAME_HEIGHT, 0x06141a, 0.4);
     const panel = this.add.graphics();
-    drawPanel(panel, -w / 2, -h / 2, w, h, { radius: 32 });
-    const title = addText(this, 0, -h / 2 + 52, spec.title, 42, { color: CSS.tealDark, weight: 700 });
+    drawCard(panel, -w / 2, -h / 2, w, h, { radius: 32, bevel: true, shadow: 1.3 });
+    // The title on a teal ribbon across the top of the card.
+    const title = addText(this, 0, -h / 2 + 40, spec.title, 38, { color: '#ffffff', weight: 700 }).setShadow(0, 3, '#0b4a47', 0, false, true);
+    drawRibbon(panel, 0, -h / 2 + 40, Math.min(w - 90, title.width + 140), 60, COLORS.teal, { tail: 40 });
     root.add([dim, panel, title]);
-    if (spec.subtitle) root.add(addText(this, 0, -h / 2 + 96, spec.subtitle, 24, { color: CSS.inkSoft, weight: 500, wrap: w - 80 }));
+    if (spec.subtitle) root.add(addText(this, 0, -h / 2 + 96, spec.subtitle, 24, { color: UI.inkSecondCss, weight: 600, wrap: w - 80 }));
     if (spec.npc) {
       const frame = npcFrame(spec.npc.id, spec.npc.pose);
       const npc = this.add.sprite(-w / 2 - 110, h / 2 - 10, NPC_ATLAS, frame);
       const o = standOrigin(NPC_ATLAS, frame);
       npc.setOrigin(o.x, o.y).setScale(0.95);
       root.add(npc);
+      // The shopkeeper leans in and out a little while you choose.
+      if (!settings.get().reducedMotion) this.tweens.add({ targets: npc, scaleY: 0.97, scaleX: 0.965, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
     }
     const top = -h / 2 + (spec.subtitle ? 150 : 120);
     const rows: Phaser.GameObjects.Graphics[] = [];
@@ -376,19 +449,36 @@ export class BoardUIScene extends Phaser.Scene {
     root.add(prompts);
     let index = all.findIndex((o) => !o.disabled);
     if (index < 0) index = all.length - 1;
+    let lastSel = -1;
     const draw = () => {
       all.forEach((o, i) => {
         const y = top + i * (rowH + 12);
         const g = rows[i];
         g.clear();
         const sel = i === index;
-        g.fillStyle(COLORS.tealDark, 1);
-        g.fillRoundedRect(-w / 2 + 30, y + 6, w - 60, rowH, 20);
-        g.fillStyle(sel ? COLORS.goldLight : o.disabled ? 0xe4dccb : COLORS.cream, 1);
-        g.fillRoundedRect(-w / 2 + 30, y, w - 60, rowH, 20);
-        g.lineStyle(sel ? 6 : 3, sel ? COLORS.crystal : COLORS.teal, 1);
-        g.strokeRoundedRect(-w / 2 + 30, y, w - 60, rowH, 20);
+        // Bevelled rows like the menu buttons: the chosen one turns gold with a bright inner rim.
+        drawCard(g, -w / 2 + 30, y, w - 60, rowH, { radius: 20, fill: sel ? UI.focus : o.disabled ? 0xece6d8 : UI.card, bevel: true, shadow: sel ? 1.2 : 0.6 });
+        if (sel) {
+          g.lineStyle(2, 0xffffff, 0.75);
+          g.strokeRoundedRect(-w / 2 + 34, y + 4, w - 68, rowH - 8, 16);
+          g.lineStyle(5, tintToward(UI.focus, 0xffffff, 0.35), 0.45);
+          g.strokeRoundedRect(-w / 2 + 25, y - 5, w - 50, rowH + 10, 24);
+        } else if (!o.disabled) {
+          g.lineStyle(2, COLORS.teal, 0.5);
+          g.strokeRoundedRect(-w / 2 + 31, y + 1, w - 62, rowH - 2, 19);
+        }
       });
+      if (index !== lastSel && lastSel >= 0 && !settings.get().reducedMotion) {
+        // The focus pops onto the new row with a quick flash.
+        const y = top + index * (rowH + 12);
+        const flash = this.add.graphics();
+        flash.fillStyle(0xffffff, 1);
+        flash.fillRoundedRect(-w / 2 + 30, y, w - 60, rowH, 20);
+        flash.setAlpha(0.5);
+        root.add(flash);
+        this.tweens.add({ targets: flash, alpha: 0, duration: 200, ease: 'Quad.Out', onComplete: () => flash.destroy() });
+      }
+      lastSel = index;
       spec.onFocus?.(index);
     };
     draw();
@@ -463,11 +553,22 @@ export class BoardUIScene extends Phaser.Scene {
     const root = this.add.container(GAME_WIDTH / 2, GAME_HEIGHT / 2).setDepth(2500);
     const dim = this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x06141a, 0.55);
     const g = this.add.graphics();
-    drawPanel(g, -w / 2, -h / 2, w, h, { radius: 34 });
-    root.add([dim, g, addText(this, 0, -h / 2 + 60, `STANDINGS · ROUND ${state.round}/${state.config.rounds}`, 44, { color: CSS.tealDark, weight: 700 })]);
+    drawCard(g, -w / 2, -h / 2, w, h, { radius: 34, bevel: true, shadow: 1.3 });
+    const head = addText(this, 0, -h / 2 + 48, `STANDINGS · ROUND ${state.round}/${state.config.rounds}`, 38, { color: '#ffffff', weight: 700 }).setShadow(0, 3, '#0b4a47', 0, false, true);
+    drawRibbon(g, 0, -h / 2 + 48, head.width + 150, 62, COLORS.teal, { tail: 42 });
+    root.add([dim, g, head]);
     standings.forEach((st, i) => {
       const p = state.players.find((pl) => pl.slot === st.slot)!;
       const y = -h / 2 + 150 + i * 120;
+      // Row bands: the leader's in soft gold, the rest alternating.
+      const band = this.add.graphics();
+      band.fillStyle(st.place === 1 ? UI.focus : UI.cardSoft, st.place === 1 ? 0.35 : i % 2 ? 0.5 : 1);
+      band.fillRoundedRect(-w / 2 + 28, y - 52, w - 56, 104, 22);
+      if (st.place === 1) {
+        band.lineStyle(3, COLORS.gold, 0.9);
+        band.strokeRoundedRect(-w / 2 + 29.5, y - 50.5, w - 59, 101, 21);
+      }
+      root.add(band);
       const suffix = st.place === 1 ? 'st' : st.place === 2 ? 'nd' : st.place === 3 ? 'rd' : 'th';
       root.add(addText(this, -w / 2 + 70, y, `${st.place}${suffix}`, 40, { color: CSS.ink, weight: 700 }));
       root.add(new PlayerBadge(this, -w / 2 + 160, y, p.slot, 28));

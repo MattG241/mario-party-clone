@@ -9,7 +9,8 @@ import { PromptBar } from '../ui/ControllerPrompt';
 import { Menu, type MenuItem } from '../ui/Menu';
 import { drawPanel } from '../ui/Panel';
 import { PlayerBadge } from '../ui/PlayerBadge';
-import { addText, addTitle } from '../ui/theme';
+import { addGradientTitle, addText } from '../ui/theme';
+import { coverThen } from '../ui/Transition';
 
 interface PauseData {
   owner: number;
@@ -32,6 +33,8 @@ export class PauseScene extends Phaser.Scene {
   private root!: Phaser.GameObjects.Container;
   private ownerBadge!: Phaser.GameObjects.Container;
   private ownerText!: Phaser.GameObjects.Text;
+  /** Set once Quit or Restart has been chosen (the wipe is on its way). */
+  private leavingTo: 'quit' | 'restart' | null = null;
 
   constructor() {
     super('Pause');
@@ -40,12 +43,20 @@ export class PauseScene extends Phaser.Scene {
   init(data: PauseData): void {
     this.data0 = data;
     this.owner = data.owner;
+    this.leavingTo = null;
   }
 
   create(): void {
     input.lockHeld();
-    this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x06141a, 0.62).setOrigin(0);
-    addTitle(this, GAME_WIDTH / 2, 130, 'PAUSED', 96);
+    const dim = this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x06141a, 0.62).setOrigin(0);
+    const title = addGradientTitle(this, GAME_WIDTH / 2, 130, 'PAUSED', 96);
+    if (!settings.get().reducedMotion) {
+      // The overlay settles in: the dim fades up and the title drops onto it.
+      dim.setAlpha(0);
+      this.tweens.add({ targets: dim, alpha: 1, duration: 160 });
+      title.setScale(1.4).setAlpha(0);
+      this.tweens.add({ targets: title, scale: 1, alpha: 1, duration: 240, ease: 'Back.Out' });
+    }
     this.ownerBadge = this.add.container(GAME_WIDTH / 2 - 190, 222);
     this.ownerText = addText(this, GAME_WIDTH / 2 - 150, 222, '', 28, { color: CSS.cream, weight: 600, align: 'left', stroke: '#1b1530', strokeThickness: 5 });
     this.root = this.add.container(0, 0);
@@ -66,6 +77,11 @@ export class PauseScene extends Phaser.Scene {
 
   private showPage(page: Page): void {
     this.root.removeAll(true);
+    if (!settings.get().reducedMotion) {
+      this.tweens.killTweensOf(this.root);
+      this.root.setAlpha(0).setY(24);
+      this.tweens.add({ targets: this.root, alpha: 1, y: 0, duration: 200, ease: 'Cubic.Out' });
+    }
     const panel = this.add.graphics();
     this.root.add(panel);
     let items: MenuItem[] = [];
@@ -99,7 +115,7 @@ export class PauseScene extends Phaser.Scene {
       ];
     } else {
       const g = this.add.graphics();
-      drawPanel(g, GAME_WIDTH / 2 - 620, 280, 1240, 600, { radius: 32 });
+      drawPanel(g, GAME_WIDTH / 2 - 620, 280, 1240, 600, { radius: 32, bevel: true });
       this.root.add(g);
       const rows: [string, string][] = [
         ['Left stick / D-pad', 'Move · menu navigation'],
@@ -123,7 +139,7 @@ export class PauseScene extends Phaser.Scene {
       return;
     }
     const h = items.length * 86 + 90;
-    drawPanel(panel, GAME_WIDTH / 2 - 400, 290, 800, h, { radius: 32, border: COLORS.teal });
+    drawPanel(panel, GAME_WIDTH / 2 - 400, 290, 800, h, { radius: 32, border: COLORS.teal, bevel: true });
     this.menu = new Menu(this, GAME_WIDTH / 2, 290 + h / 2, items, {
       width: 680,
       itemHeight: 68,
@@ -146,20 +162,31 @@ export class PauseScene extends Phaser.Scene {
   }
 
   private restartMinigame(): void {
+    if (this.leavingTo) return;
+    this.leavingTo = 'restart';
     const from = this.data0.from;
     const launch = this.data0.minigame;
-    this.scene.stop(from);
-    if (launch) this.scene.start(from, launch);
-    this.scene.stop();
+    // The wipe sweeps over the paused game, then the minigame starts afresh underneath.
+    coverThen(this, () => {
+      this.scene.stop(from);
+      if (launch) this.scene.start(from, launch);
+      this.scene.stop();
+    });
   }
 
   private quit(): void {
-    for (const key of ['Board', 'BoardUI', 'BoardBg', this.data0.from]) if (this.scene.isActive(key) || this.scene.isPaused(key) || this.scene.isSleeping(key)) this.scene.stop(key);
+    if (this.leavingTo) return;
+    this.leavingTo = 'quit';
     audio.stopMusic(0.3);
-    this.scene.start('Title');
+    coverThen(this, () => {
+      for (const key of ['Board', 'BoardUI', 'BoardBg', this.data0.from]) if (this.scene.isActive(key) || this.scene.isPaused(key) || this.scene.isSleeping(key)) this.scene.stop(key);
+      this.scene.start('Title');
+    });
   }
 
   override update(): void {
+    // Leaving behind the wipe: the menu is done.
+    if (this.leavingTo) return;
     // Player 1 may take over the pause menu.
     if (this.owner !== 0 && input.controls(0).pressed('Y')) {
       this.owner = 0;

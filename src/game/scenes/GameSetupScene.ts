@@ -13,11 +13,12 @@ import { PromptBar } from '../ui/ControllerPrompt';
 import { Menu } from '../ui/Menu';
 import { drawPanel, Panel } from '../ui/Panel';
 import { PlayerBadge } from '../ui/PlayerBadge';
-import { addText, addTitle } from '../ui/theme';
+import { addGradientTitle, addText } from '../ui/theme';
 import { enterScene, goTo } from '../ui/Transition';
 import { randomSeed } from '../util/Random';
 import { URL_PARAMS } from '../debug/debug';
-import { addStrip } from '../ui/Screen';
+import { buildBackdrop } from '../ui/Screen';
+import { UI } from '../ui/Style';
 
 const cycle = <T,>(list: readonly T[], cur: T, dir: number): T => list[(list.indexOf(cur) + dir + list.length) % list.length];
 
@@ -50,14 +51,14 @@ export class GameSetupScene extends Phaser.Scene {
     this.eventMode = s.boardEvents;
     this.speed = s.gameSpeed;
     if (session.humans().length < 2) this.cpuOn = true;
-    this.add.image(0, 0, 'bg-sky').setOrigin(0).setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
-    addStrip(this, 0, 560, GAME_WIDTH, 560, 'bg-clouds-below').setOrigin(0).setAlpha(0.9);
-    addTitle(this, GAME_WIDTH / 2, 66, 'GAME SETTINGS', 70);
+    buildBackdrop(this, 'golden', 0.22);
+    addGradientTitle(this, GAME_WIDTH / 2, 66, 'GAME SETTINGS', 70);
 
-    new Panel(this, 520, 520, 860, 700, { title: 'Match Rules' });
+    new Panel(this, 520, 520, 860, 700, { title: 'MATCH RULES', ribbon: COLORS.teal, bevel: true });
     const humans = session.humans().length;
     // Before the menu: it reports its first focus straight away.
-    this.hint = addText(this, 520, 912, '', 26, { color: CSS.inkSoft, weight: 500, wrap: 780 });
+    // The focused rule's explanation, at the foot of the rules card.
+    this.hint = addText(this, 520, 814, '', 24, { color: UI.inkSecondCss, weight: 600, wrap: 780 });
     this.menu = new Menu(
       this,
       520,
@@ -89,7 +90,7 @@ export class GameSetupScene extends Phaser.Scene {
 
     // Board card
     const board = findBoard('suncoil');
-    const card = new Panel(this, 1420, 360, 800, 470, { title: 'Board', border: COLORS.gold });
+    const card = new Panel(this, 1420, 360, 800, 470, { title: 'BOARD', border: COLORS.gold, ribbon: COLORS.gold, bevel: true });
     const preview = this.add.container(1420, 380);
     const isl = this.add.image(0, 20, 'island-medium').setScale(0.55);
     const obs = this.add.image(0, -40, 'observatory').setScale(0.3);
@@ -98,12 +99,12 @@ export class GameSetupScene extends Phaser.Scene {
     preview.add([isl, tree, cg, obs]);
     this.tweens.add({ targets: preview, y: 370, duration: 2200, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
     addText(this, 1420, 205, board?.name ?? 'Suncoil Sanctuary', 44, { color: CSS.tealDark, weight: 700 });
-    addText(this, 1420, 250, board?.subtitle ?? '', 26, { color: CSS.inkSoft, weight: 500 });
+    addText(this, 1420, 250, board?.subtitle ?? '', 26, { color: UI.inkSecondCss, weight: 600 });
     addText(this, 1420, 545, board?.description ?? '', 22, { color: CSS.ink, weight: 500, wrap: 700 });
     void card;
 
     // Roster
-    new Panel(this, 1420, 800, 800, 330, { title: 'Players' });
+    new Panel(this, 1420, 800, 800, 330, { title: 'PLAYERS', ribbon: COLORS.purple, bevel: true });
     this.rosterLayer = this.add.container(0, 0);
     this.renderRoster();
     new PromptBar(this, GAME_WIDTH / 2, GAME_HEIGHT - 34, [
@@ -145,11 +146,11 @@ export class GameSetupScene extends Phaser.Scene {
       const x = 1420 - 300 + i * 200;
       const y = 830;
       const g = this.add.graphics();
-      drawPanel(g, x - 88, y - 120, 176, 220, { radius: 22, borderWidth: 5, border: PLAYER_COLORS[p.slot], engraving: false, shadowOffset: 6 });
+      drawPanel(g, x - 88, y - 120, 176, 220, { radius: 22, borderWidth: 5, border: PLAYER_COLORS[p.slot], engraving: false, shadowOffset: 6, bevel: true });
       const c = new Character(this, x, y + 40, p.characterId, { scale: 0.48, shadow: false });
       const badge = new PlayerBadge(this, x - 60, y - 92, p.slot, 18);
       const name = addText(this, x + 14, y - 92, p.isCpu ? `CPU · ${cap(p.cpuLevel)}` : `P${p.slot + 1}`, 20, { color: CSS.ink, weight: 700 });
-      const cname = addText(this, x, y + 78, CHARACTERS[p.characterId].name.split(' ')[0], 22, { color: CSS.inkSoft, weight: 600 });
+      const cname = addText(this, x, y + 78, CHARACTERS[p.characterId].short, 23, { color: UI.inkSecondCss, weight: 700 });
       this.rosterLayer.add([g, c, badge, name, cname]);
     });
   }

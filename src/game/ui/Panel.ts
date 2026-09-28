@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { drawCard, UI } from './Style';
+import { drawCard, drawRibbon, shade, UI } from './Style';
 import { addText } from './theme';
 
 export interface PanelStyle {
@@ -12,6 +12,8 @@ export interface PanelStyle {
   shadow?: boolean;
   shadowOffset?: number;
   engraving?: boolean;
+  /** Game-UI bevel on the card (off by default). */
+  bevel?: boolean;
 }
 
 /** Draw a Gleamtrail card: soft white face and shadow; a thin rim only when a colour is given. */
@@ -23,6 +25,7 @@ export function drawPanel(g: Phaser.GameObjects.Graphics, x: number, y: number, 
     shadow: s.shadow === false ? 0 : 1,
     border: s.border,
     borderWidth: s.border !== undefined ? Math.min(4, s.borderWidth ?? 4) : undefined,
+    bevel: s.bevel,
   });
 }
 
@@ -48,14 +51,20 @@ export class Panel extends Phaser.GameObjects.Container {
   readonly panelHeight: number;
   titleText?: Phaser.GameObjects.Text;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, w: number, h: number, opts: PanelStyle & { title?: string; titleColor?: number } = {}) {
+  constructor(scene: Phaser.Scene, x: number, y: number, w: number, h: number, opts: PanelStyle & { title?: string; titleColor?: number; ribbon?: number } = {}) {
     super(scene, x, y);
     this.panelWidth = w;
     this.panelHeight = h;
     this.bg = scene.add.graphics();
     drawPanel(this.bg, -w / 2, -h / 2, w, h, opts);
     this.add(this.bg);
-    if (opts.title) {
+    if (opts.title && opts.ribbon !== undefined) {
+      // Title on a festival ribbon across the card's top edge, its tails folded behind.
+      const rib = scene.add.graphics();
+      this.titleText = addText(scene, 0, -h / 2 + 2, opts.title, 30, { color: UI.whiteCss, weight: 700 }).setShadow(0, 3, `#${shade(opts.ribbon, 0.4).toString(16).padStart(6, '0')}`, 0, false, true);
+      drawRibbon(rib, 0, -h / 2 + 2, Math.min(w - 60, this.titleText.width + 120), 56, opts.ribbon, { tail: 38 });
+      this.add([rib, this.titleText]);
+    } else if (opts.title) {
       // Title on a slim ink tab straddling the card's top edge.
       const plaque = scene.add.graphics();
       const tw = Math.min(w - 80, Math.max(240, opts.title.length * 22 + 70));

@@ -9,12 +9,14 @@ import { saves } from '../save/SaveManager';
 import { session } from '../state/Session';
 import { glyphKindFor, makeGlyph, PromptBar, type GlyphKind } from '../ui/ControllerPrompt';
 import { Menu } from '../ui/Menu';
-import { drawCard, UI } from '../ui/Style';
+import { drawCard, drawSlate, UI } from '../ui/Style';
 import { addText, addTitle } from '../ui/theme';
 import { enterScene, goTo } from '../ui/Transition';
 import { findBoard } from '../data/boards';
 import { applyGrade } from '../effects/GradePipeline';
 import { addStrip } from '../ui/Screen';
+import { settings } from '../save/SettingsManager';
+import { LITE } from '../perf';
 
 /**
  * Title screen. Attract state ("PRESS A"), then the main menu. The four heroes hang out on a
@@ -27,6 +29,8 @@ export class TitleScene extends Phaser.Scene {
   private pressKind: GlyphKind | null = null;
   private prompts!: PromptBar;
   private hint!: Phaser.GameObjects.Text;
+  /** Slate plate behind the menu hint (so it reads as a caption, not stray text). */
+  private hintPlate!: Phaser.GameObjects.Graphics;
   private audioHint!: Phaser.GameObjects.Text;
   private chars: Character[] = [];
   private fx!: EffectsManager;
@@ -51,8 +55,9 @@ export class TitleScene extends Phaser.Scene {
     this.buildBackground();
     this.buildIsland();
     this.buildLogo();
-    // Before the menu: it reports its first focus straight away.
-    this.hint = addText(this, 470, 1030, '', 26, { color: '#ffffff', weight: 600 }).setDepth(600).setShadow(0, 2, 'rgba(10,17,32,0.5)', 5, false, true);
+    // Before the menu: it reports its first focus straight away. The hint only shows with the menu.
+    this.hintPlate = this.add.graphics().setDepth(599).setVisible(false);
+    this.hint = addText(this, 470, 1030, '', 26, { color: '#ffffff', weight: 600 }).setDepth(600).setVisible(false);
     this.buildMenu();
     // "Press A to start" on a clean white card under the logo; it breathes gently.
     this.pressText = this.add.container(440, 648).setDepth(600);
@@ -71,8 +76,24 @@ export class TitleScene extends Phaser.Scene {
   private buildBackground(): void {
     this.farIslands = this.cloudsFar = this.cloudsBelow = undefined;
     const skyKey = ['rendered-sky-golden', 'rendered-sky-day'].find((k) => this.textures.exists(k));
+    const calm = settings.get().reducedMotion;
     if (skyKey) {
-      this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, skyKey).setDisplaySize(GAME_WIDTH * 1.04, GAME_HEIGHT * 1.04);
+      // Gentle parallax: the sky drifts slowly behind the island, far islets float at their own pace.
+      const sky = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, skyKey).setDisplaySize(GAME_WIDTH * 1.08, GAME_HEIGHT * 1.08);
+      if (!calm) this.tweens.add({ targets: sky, x: GAME_WIDTH / 2 - 26, duration: 16000, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+      const islets: [number, number, number, number][] = [
+        [1540, 250, 0.22, 0],
+        [120, 620, 0.3, 1],
+      ];
+      for (const [x, y, k, v] of islets) {
+        const key = `rendered-islet-${v}`;
+        if (!this.textures.exists(key)) continue;
+        const isl = this.add.image(x, y, key).setScale(k).setAlpha(0.9).setTint(0xf4e8e0);
+        if (!calm) {
+          this.tweens.add({ targets: isl, y: y - 14, duration: 3400 + v * 700, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+          this.tweens.add({ targets: isl, x: x + (v ? 30 : -30), duration: 12000 + v * 3000, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+        }
+      }
       return;
     }
     this.add.image(0, 0, 'bg-sky').setOrigin(0).setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
@@ -92,6 +113,7 @@ export class TitleScene extends Phaser.Scene {
     if (this.textures.exists('rendered-scene-title')) {
       // Pre-rendered festival island (observatory, bunting, lanterns and trees baked in).
       island.add(this.add.image(-cx, 0, 'rendered-scene-title').setOrigin(0));
+      this.animateWaterfall(island, cx);
     } else {
       this.buildVectorIsland(island);
     }
@@ -115,6 +137,62 @@ export class TitleScene extends Phaser.Scene {
     this.tweens.add({ targets: island, y: -14, duration: 3000, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
   }
 
+  /**
+   * Life for the rendered waterfall (a still streak in the render): highlights streaming down the
+   * fall and mist billowing up from its foot. Placed in the island's coordinates so it bobs with it.
+   */
+  private animateWaterfall(island: Phaser.GameObjects.Container, cx: number): void {
+    const calm = settings.get().reducedMotion;
+    // The fall in screen pixels of the render: its lip, and its width near the top and the foot.
+    const lipY = 800;
+    const footY = 1068;
+    const span = (y: number): [number, number] => {
+      const k = (y - lipY) / (footY - lipY);
+      return [1548 - 38 * k - cx, 1612 + 14 * k - cx];
+    };
+    if (!calm && this.textures.exists('px')) {
+      // Bright streaks sliding down the water, each at a new spot across the fall every pass.
+      const n = LITE ? 3 : 6;
+      for (let i = 0; i < n; i++) {
+        const streak = this.add.image(0, lipY, 'px').setScale(1.1, 15).setTint(0xeafcff).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0);
+        island.add(streak);
+        const place = () => {
+          const [a, b] = span(lipY);
+          streak.setPosition(Phaser.Math.FloatBetween(a + 4, b - 4), lipY);
+        };
+        place();
+        // Only y and alpha are tweened, so each repeat keeps the fresh x that `place` picks.
+        this.tweens.add({
+          targets: streak,
+          y: footY - 20,
+          alpha: { from: 0.65, to: 0 },
+          duration: Phaser.Math.Between(700, 1000),
+          delay: i * 260,
+          repeat: -1,
+          repeatDelay: Phaser.Math.Between(100, 500),
+          ease: 'Quad.In',
+          onRepeat: place,
+        });
+      }
+    }
+    if (!this.textures.exists('fx-dot')) return;
+    // Mist: soft white puffs rising and spreading from the foam at the foot of the fall.
+    const [a, b] = span(footY);
+    const mist = this.add.particles(0, 0, 'fx-dot', {
+      x: { min: a - 10, max: b + 10 },
+      y: { min: footY - 40, max: footY - 4 },
+      lifespan: { min: 1300, max: 2100 },
+      speedY: { min: -60, max: -24 },
+      speedX: { min: -22, max: 22 },
+      scale: { start: 2, end: 5 },
+      alpha: { start: 0.5, end: 0 },
+      tint: [0xffffff, 0xeaf8ff],
+      frequency: (LITE ? 240 : 110) * (calm ? 2 : 1),
+      maxParticles: LITE ? 14 : 30,
+    });
+    island.add(mist);
+  }
+
   private buildVectorIsland(island: Phaser.GameObjects.Container): void {
     const base = this.add.image(0, 820, 'island-wide').setScale(1.08);
     island.add(base);
@@ -136,6 +214,54 @@ export class TitleScene extends Phaser.Scene {
     island.addAt(tree, 1);
   }
 
+  /**
+   * A glint across the rendered wordmark every few seconds: a soft band of light (three nested
+   * crops of a white copy of the logo, so it follows the letters exactly and fades at its edges)
+   * sweeps left to right, then a sparkle twinkles on the last letter.
+   */
+  private addLogoGlint(img: Phaser.GameObjects.Image, into: Phaser.GameObjects.Container): void {
+    if (settings.get().reducedMotion) return;
+    const tw = img.frame.width;
+    const th = img.frame.height;
+    const layers = [
+      { w: 0.16, a: 0.1 },
+      { w: 0.09, a: 0.14 },
+      { w: 0.035, a: 0.22 },
+    ].map((l) => ({ ...l, img: this.add.image(img.x, img.y, img.texture.key).setScale(img.scaleX).setTintFill(0xffffff).setBlendMode(Phaser.BlendModes.ADD).setAlpha(l.a).setVisible(false) }));
+    into.add(layers.map((l) => l.img));
+    const star = this.add.graphics();
+    star.fillStyle(0xffffff, 1);
+    const r = 24;
+    star.fillPoints([0, 1, 2, 3, 4, 5, 6, 7].map((i) => new Phaser.Math.Vector2(Math.cos((i * Math.PI) / 4 - Math.PI / 2) * (i % 2 ? r * 0.24 : r), Math.sin((i * Math.PI) / 4 - Math.PI / 2) * (i % 2 ? r * 0.24 : r))), true);
+    star.setPosition(img.x + (tw * img.scaleX) / 2 - 40, img.y - (th * img.scaleY) / 2 + 34).setScale(0);
+    into.add(star);
+    const sweep = { x: 0 };
+    const apply = () => {
+      for (const l of layers) {
+        const bw = tw * l.w;
+        l.img.setCrop(Phaser.Math.Clamp(sweep.x - bw / 2, 0, tw), 0, bw, th);
+      }
+    };
+    const run = () => {
+      sweep.x = -tw * 0.1;
+      for (const l of layers) l.img.setVisible(true);
+      apply();
+      this.tweens.add({
+        targets: sweep,
+        x: tw * 1.1,
+        duration: 900,
+        ease: 'Sine.InOut',
+        onUpdate: apply,
+        onComplete: () => {
+          for (const l of layers) l.img.setVisible(false);
+          this.tweens.add({ targets: star, scale: 1, angle: 90, duration: 220, yoyo: true, hold: 80, ease: 'Sine.InOut' });
+        },
+      });
+    };
+    this.time.delayedCall(1400, run);
+    this.time.addEvent({ delay: 5200, loop: true, callback: run });
+  }
+
   private buildLogo(): void {
     // The rendered 3D wordmark (text fallback) with the subtitle in clean white beneath it.
     this.logo = this.add.container(440, 0).setDepth(400);
@@ -146,8 +272,11 @@ export class TitleScene extends Phaser.Scene {
       title = img;
     } else title = addTitle(this, 0, 420, TITLE, 124);
     const sub = addTitle(this, 0, 528, SUBTITLE, 40);
-    this.logo.add([title, sub]);
-    this.tweens.add({ targets: [title, sub], y: '+=8', duration: 2600, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+    // The wordmark floats gently inside the logo group (which the menu moves and scales).
+    const mark = this.add.container(0, 0, [title, sub]);
+    this.logo.add(mark);
+    if (title instanceof Phaser.GameObjects.Image) this.addLogoGlint(title, mark);
+    if (!settings.get().reducedMotion) this.tweens.add({ targets: mark, y: 8, duration: 2600, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
   }
 
   private buildMenu(): void {
@@ -170,7 +299,7 @@ export class TitleScene extends Phaser.Scene {
         gap: 16,
         fontSize: 32,
         onCancel: () => this.closeMenu(),
-        onFocus: (item) => this.hint?.setText(item.hint ?? ''),
+        onFocus: (item) => this.setHint(item.hint ?? ''),
       },
     );
     this.menu.setDepth(500).setVisible(false);
@@ -188,9 +317,19 @@ export class TitleScene extends Phaser.Scene {
     this.phase = 'menu';
     audio.play('confirm');
     this.pressText.setVisible(false);
-    this.menu.setVisible(true).setAlpha(0);
-    this.menu.x = 300;
-    this.tweens.add({ targets: this.menu, alpha: 1, x: 470, duration: 260, ease: 'Back.Out' });
+    this.menu.setVisible(true).setAlpha(1);
+    this.menu.x = 470;
+    // The buttons slide in one after another.
+    this.menu.buttons.forEach((b, i) => {
+      this.tweens.killTweensOf(b);
+      if (settings.get().reducedMotion) {
+        b.setAlpha(1);
+        return;
+      }
+      b.setAlpha(0).setX(-120);
+      this.tweens.add({ targets: b, alpha: 1, x: 0, duration: 280, delay: i * 45, ease: 'Back.Out' });
+    });
+    this.tweens.killTweensOf(this.logo);
     this.tweens.add({ targets: this.logo, scale: 0.82, y: -40, duration: 260, ease: 'Quad.Out' });
     this.time.delayedCall(80, () => (this.menu.enabled = true));
     this.prompts.setVisible(true).setPrompts([
@@ -198,7 +337,9 @@ export class TitleScene extends Phaser.Scene {
       { button: 'B', label: 'Back' },
     ]);
     this.prompts.x = 1300;
-    this.hint.setText(this.menu.items[this.menu.index].hint ?? '');
+    this.hint.setVisible(true);
+    this.hintPlate.setVisible(true);
+    this.setHint(this.menu.items[this.menu.index].hint ?? '');
     this.chars.forEach((c, i) => this.time.delayedCall(i * 120, () => c.play('wave')));
   }
 
@@ -206,10 +347,22 @@ export class TitleScene extends Phaser.Scene {
     this.phase = 'attract';
     this.menu.enabled = false;
     this.tweens.add({ targets: this.menu, alpha: 0, x: 300, duration: 180, onComplete: () => this.menu.setVisible(false) });
+    this.tweens.killTweensOf(this.logo);
     this.tweens.add({ targets: this.logo, scale: 1, y: 0, duration: 220 });
     this.pressText.setVisible(true);
     this.prompts.setVisible(false);
-    this.hint.setText('');
+    this.hint.setVisible(false);
+    this.hintPlate.setVisible(false);
+  }
+
+  /** The focused item's hint, on a slate plate sized to it. */
+  private setHint(text: string): void {
+    if (!this.hint) return;
+    this.hint.setText(text);
+    this.hintPlate.clear();
+    if (!text) return;
+    const w = this.hint.width + 64;
+    drawSlate(this.hintPlate, this.hint.x - w / 2, this.hint.y - 26, w, 52, { alpha: 0.72 });
   }
 
   private refreshPressPlate(): void {
@@ -229,7 +382,7 @@ export class TitleScene extends Phaser.Scene {
     const w = total + 70;
     const h = 78;
     const g = this.add.graphics();
-    drawCard(g, -w / 2, -h / 2, w, h, { radius: h / 2, shadow: 1.2 });
+    drawCard(g, -w / 2, -h / 2, w, h, { radius: h / 2, shadow: 1.2, bevel: true });
     c.add([g, pre, glyph, post]);
   }
 
