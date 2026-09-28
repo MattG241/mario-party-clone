@@ -81,9 +81,10 @@ export class MinigameIntroScene extends Phaser.Scene {
     header.setScale(0.6);
     this.tweens.add({ targets: header, scale: 1, duration: 260, ease: 'Back.Out' });
     audio.play('fanfare');
-    const title = addTitle(this, GAME_WIDTH / 2, 140, this.info.name.toUpperCase(), 92);
-    title.setAlpha(0);
-    this.tweens.add({ targets: title, alpha: 1, y: 146, delay: 250, duration: 300, ease: 'Back.Out' });
+    // The minigame's name, readable from the very first frame (it pops in rather than fading up
+    // from nothing, so a slow first frame never hides it).
+    const title = addTitle(this, GAME_WIDTH / 2, 146, this.info.name.toUpperCase(), 92).setScale(0.86);
+    this.tweens.add({ targets: title, scale: 1, duration: 320, ease: 'Back.Out' });
     addText(this, GAME_WIDTH / 2, 214, this.info.tagline, 30, { color: '#ffffff', weight: 700 }).setShadow(0, 2, 'rgba(10,17,32,0.5)', 6, false, true);
 
     // Left: large live preview. Right: rules panel.

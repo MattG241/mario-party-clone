@@ -43,7 +43,7 @@ const stageY = (y: number) => STAGE_AY + (y - STAGE_AY) * STAGE_K;
 const PODIUM_X = [360, 760, 1160, 1560].map(stageX);
 const PODIUM_Y = stageY(560);
 /** Character scale on the pedestals. */
-const CHAR_K = 1.12;
+const CHAR_K = 1.3;
 const CARD_Y = 772;
 const CARD_W = 410;
 const CARD_H = 104;
@@ -119,20 +119,20 @@ export class CharacterSelectScene extends Phaser.Scene {
 
   // --- Layout ---------------------------------------------------------------------------------
   private buildPedestals(): void {
-    PODIUM_X.forEach((x) => {
+    // Empty pedestals show a pale hologram of a random character until their player joins.
+    const ghosts = Phaser.Utils.Array.Shuffle(CHARACTER_IDS.slice());
+    PODIUM_X.forEach((x, i) => {
       if (!this.renderedStage) this.add.image(x, PODIUM_Y + 40, 'podium').setScale(0.95);
       // A soft pool of light on the pedestal top once a player stands there.
       const pool = this.add.image(x, PODIUM_Y - 2 * STAGE_K, 'fx-dot').setScale(9.5 * STAGE_K, 2.6 * STAGE_K).setTint(0xfff1cf).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0);
       this.pools.push(pool);
       this.glows.push(this.add.graphics({ x, y: PODIUM_Y - 30 * STAGE_K }).setScale(STAGE_K));
-      const orb = this.add.graphics();
-      orb.fillStyle(0xffffff, 0.14);
-      orb.fillCircle(0, 0, 74);
-      orb.lineStyle(4, 0xffffff, 0.45);
-      orb.strokeCircle(0, 0, 74);
-      const mark = addText(this, 0, 2, '?', 92, { color: '#ffffff', weight: 700 }).setAlpha(0.8);
-      const vacant = this.add.container(x, PODIUM_Y - 190, [orb, mark]).setDepth(9);
-      this.tweens.add({ targets: vacant, y: PODIUM_Y - 206, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+      const holo = new Character(this, 0, 0, ghosts[i % ghosts.length], { scale: CHAR_K, shadow: false });
+      holo.sprite.setTintFill(0xc9f3ff).setAlpha(0.3);
+      const beam = this.add.image(0, -120, 'fx-dot').setScale(3.4, 9).setTint(0x9fe8ff).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.18);
+      const vacant = this.add.container(x, PODIUM_Y - 20 * STAGE_K, [beam, holo]).setDepth(9);
+      this.tweens.add({ targets: holo, y: -10, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+      this.tweens.add({ targets: holo.sprite, alpha: { from: 0.3, to: 0.18 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
       this.vacant.push(vacant);
     });
   }

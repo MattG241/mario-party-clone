@@ -36,7 +36,7 @@ interface Drop {
   shadow: Phaser.GameObjects.Image;
   ring: Phaser.GameObjects.Image;
   /** Blast radius shown on the floor while a fake capsule wobbles. */
-  zone?: Phaser.GameObjects.Graphics;
+  zone?: Phaser.GameObjects.Container;
   /** Soft additive glow that makes chips pop off the flagstones. */
   glow?: Phaser.GameObjects.Image;
   /** Screen position and depth scale of the landing spot. */
@@ -291,17 +291,23 @@ export class GleamGrabScene extends BaseMinigame {
             d.life = 900;
             this.tweens.add({ targets: d.sprite, angle: { from: -14, to: 14 }, duration: 70, yoyo: true, repeat: -1 });
             d.sprite.setTint(0xff9a9a);
-            // Show the blast radius on the floor while it wobbles.
-            const zone = this.add.graphics({ x: d.sx, y: d.sy }).setDepth(d.sy - 2);
-            zone.fillStyle(0xff3b3b, 0.18);
-            zone.fillEllipse(0, 0, 340, 150);
-            zone.lineStyle(5, 0xff5a4a, 0.9);
-            zone.strokeEllipse(0, 0, 340, 150);
-            zone.lineStyle(3, 0xffffff, 0.5);
-            zone.strokeEllipse(0, 0, 300, 130);
+            // Show the blast radius on the floor while it wobbles: a solid red disc with a white rim
+            // (it has to read on the warm flagstones), and a white ring closing in until it bursts.
+            const area = this.add.graphics();
+            area.fillStyle(0xff2d2d, 0.38);
+            area.fillEllipse(0, 0, 340, 150);
+            area.lineStyle(9, 0xffffff, 0.95);
+            area.strokeEllipse(0, 0, 350, 158);
+            area.lineStyle(5, 0xff2a2a, 1);
+            area.strokeEllipse(0, 0, 340, 150);
+            const closing = this.add.graphics();
+            closing.lineStyle(6, 0xffffff, 0.9);
+            closing.strokeEllipse(0, 0, 340, 150);
+            const zone = this.add.container(d.sx, d.sy, [area, closing]).setDepth(d.sy - 2);
             zone.setScale(0.3 * d.ss);
             this.tweens.add({ targets: zone, scale: d.ss, duration: 180, ease: 'Back.Out' });
-            this.tweens.add({ targets: zone, alpha: { from: 1, to: 0.45 }, duration: 110, yoyo: true, repeat: -1 });
+            this.tweens.add({ targets: area, alpha: { from: 1, to: 0.6 }, duration: 110, yoyo: true, repeat: -1 });
+            this.tweens.add({ targets: closing, scale: { from: 1, to: 0.08 }, duration: d.life, ease: 'Quad.In' });
             d.zone = zone;
           } else {
             d.state = 'landed';
@@ -330,6 +336,7 @@ export class GleamGrabScene extends BaseMinigame {
     if (d.ring.active) d.ring.destroy();
     if (d.zone) {
       this.tweens.killTweensOf(d.zone);
+      for (const part of d.zone.list) this.tweens.killTweensOf(part);
       d.zone.destroy();
     }
     d.glow?.destroy();

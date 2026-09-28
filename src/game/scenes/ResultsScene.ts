@@ -102,7 +102,8 @@ export class ResultsScene extends Phaser.Scene {
       this.add.image(0, 0, 'bg-sky').setOrigin(0).setDisplaySize(GAME_WIDTH, GAME_HEIGHT).setDepth(-10);
       addStrip(this, 0, 640, GAME_WIDTH, 560, 'bg-clouds-below').setOrigin(0).setDepth(-10);
     }
-    addTitle(this, GAME_WIDTH / 2, 74, 'RESULTS', 80);
+    // Gives way to the winner's banner once they're revealed.
+    const header = addTitle(this, GAME_WIDTH / 2, 74, 'RESULTS', 80);
     const board = this.launchData.mode === 'board';
     const ranked = [...this.result.placements].sort((a, b) => a.place - b.place || a.slot - b.slot);
     // The rendered stage has all four podiums; fewer players fall back to drawn podiums.
@@ -124,7 +125,7 @@ export class ResultsScene extends Phaser.Scene {
       ring.strokeEllipse(x, baseY - h + 4, 196, 50);
       ring.fillStyle(PLAYER_COLORS[pl.slot], 0.22);
       ring.fillEllipse(x, baseY - h + 4, 196, 50);
-      const c = new Character(this, x, baseY - h + 8, lp.characterId, { scale: rankIdx === 0 ? 0.98 : 0.88 });
+      const c = new Character(this, x, baseY - h + 8, lp.characterId, { scale: rankIdx === 0 ? 1.12 : 1 });
       c.setAlpha(0);
       // Marker hangs just above this character's head.
       const badge = new PlayerBadge(this, x, baseY - h + 8 + animHeadTop(lp.characterId) * c.scale - 40, pl.slot, 24);
@@ -158,7 +159,10 @@ export class ResultsScene extends Phaser.Scene {
           // Everyone keeps a pose that fits their placing instead of snapping back to idle.
           if (last) c.play('disappointed', { onComplete: () => c.hold('disappointed', 2) });
           else if (pl.place === 1) {
-            const cheer = () => c.play('victory', { onComplete: () => c.hold('victory', 2) });
+            const cheer = () => {
+              c.play('victory', { onComplete: () => c.hold('victory', 2) });
+              fx.confetti(x, baseY - h - 280, 50);
+            };
             cheer();
             this.time.addEvent({ delay: 2600, loop: true, callback: cheer });
           } else c.play('celebrate', { onComplete: () => c.hold('celebrate', 2) });
@@ -170,7 +174,8 @@ export class ResultsScene extends Phaser.Scene {
           const winners = ranked.filter((r) => r.place === 1).length;
           const team = minigameInfo(this.result.id)?.teamGame ?? false;
           const nm = winners > 1 ? (team ? 'TEAM VICTORY!' : 'TIE!') : `${CHARACTERS[lp.characterId].name.split(' ')[0].toUpperCase()} WINS!`;
-          const ribbon = this.add.container(x, baseY - h - 372).setScale(0.3).setDepth(5);
+          const ribbon = this.add.container(GAME_WIDTH / 2, 84).setScale(0.3).setDepth(5);
+          this.tweens.add({ targets: header, alpha: 0, scale: 0.9, duration: 200 });
           const title = addText(this, 0, 0, nm, 52, { color: UI.inkCss, weight: 700, fixed: true });
           const rw = Math.max(320, title.width + 110);
           const rg = this.add.graphics();
