@@ -100,4 +100,24 @@ export interface BoardDef {
   edgeStyles?: Record<string, 'path' | 'steps' | 'bridge'>;
   /** Where the host NPC stands. */
   hostSpot: { x: number; y: number };
+  /** A world board's look and flavour beyond its graph (Suncoil uses the defaults). */
+  theme?: BoardTheme;
+}
+
+/** How a world board looks and plays beyond its graph (see src/game/worlds). */
+export interface BoardTheme {
+  /** The world it belongs to (src/game/worlds/index.ts). */
+  world: string;
+  /** How the light runs through a match: the festival day (default), daylight only, or night. */
+  time?: 'cycle' | 'day' | 'night';
+  /** Its world's minigame ids: picked about half the time when one hasn't just been played. */
+  minigames?: string[];
+  /** Where falls meet water on its rendered art (board px; lip = top of the falls), for mist. */
+  waterfalls?: { x: number; y: number; lipX: number; lipY: number }[];
+  /** Setup-screen preview image path (e.g. 'assets/lite/<board>/preview.webp'). */
+  preview?: string;
+  /** Festival events that don't suit this board (by id), left out of its random pools. */
+  skipEvents?: string[];
+  /** Its Blender art exists (public/assets/rendered/<id>/ and the Lite copy); until then the board draws its vector placeholder islands. */
+  rendered?: boolean;
 }

@@ -3,6 +3,7 @@ import { ItemManager } from '../items/ItemManager';
 import { isFinalRound, logMatch, type PlayerState } from '../state/MatchState';
 import { checkpoint, type DialogLineSpec, type EventPresentation, type FlowContext } from './flowTypes';
 import { gainChips, giveItem, loseChips, pushBackward, pushForward, relocateRelic, shieldBlocks, teleport, visitShop } from './TurnFlow';
+import { WORLD_EVENTS } from '../worlds/events';
 
 export type EventKind = 'festival' | 'mischief' | 'board' | 'global';
 
@@ -13,6 +14,8 @@ export interface BoardEventDef {
   /** One-line summary (How to Play / debug). */
   summary: string;
   weight?: number;
+  /** Boards it can happen on (default: any). World boards' own events name theirs. */
+  boards?: string[];
   available?: (ctx: FlowContext, p: PlayerState | null) => boolean;
   run: (ctx: FlowContext, p: PlayerState | null) => Promise<void>;
 }
@@ -446,7 +449,13 @@ export const BOARD_EVENTS: BoardEventDef[] = [
   bridgeRepair,
 ];
 
-const byId = new Map(BOARD_EVENTS.map((e) => [e.id, e]));
+/** Every event: the festival's own, then the world boards' (src/game/worlds/<id>/events.ts). */
+const ALL_EVENTS: BoardEventDef[] = [...BOARD_EVENTS, ...WORLD_EVENTS];
+const byId = new Map(ALL_EVENTS.map((e) => [e.id, e]));
+
+/** Can this event happen on the board being played? */
+const onThisBoard = (ctx: FlowContext, e: BoardEventDef): boolean =>
+  (!e.boards || e.boards.includes(ctx.state.config.boardId)) && !ctx.graph.def.theme?.skipEvents?.includes(e.id);
 
 export function eventDef(id: string): BoardEventDef | undefined {
   return byId.get(id);
@@ -462,7 +471,7 @@ export async function runEvent(ctx: FlowContext, id: string, p: PlayerState | nu
 }
 
 export async function runRandomEvent(ctx: FlowContext, p: PlayerState, kind: 'festival' | 'mischief'): Promise<void> {
-  const pool = BOARD_EVENTS.filter((e) => e.kind === kind && (e.available?.(ctx, p) ?? true));
+  const pool = ALL_EVENTS.filter((e) => e.kind === kind && onThisBoard(ctx, e) && (e.available?.(ctx, p) ?? true));
   if (!pool.length) return;
   const def = ctx.rng.weighted(pool.map((e) => ({ item: e, weight: e.weight ?? 1 })));
   await runEvent(ctx, def.id, p);
@@ -470,7 +479,8 @@ export async function runRandomEvent(ctx: FlowContext, p: PlayerState, kind: 'fe
 
 /** Chaotic mode (every round) and the final round: a surprise event for the whole board. */
 export async function runGlobalEvent(ctx: FlowContext): Promise<void> {
-  const pool = [parade, portalStorm, crystalSurge, relicRush, keeperStroll].filter((e) => e.available?.(ctx, null) ?? true);
+  const own = WORLD_EVENTS.filter((e) => e.kind === 'global' && onThisBoard(ctx, e));
+  const pool = [parade, portalStorm, crystalSurge, relicRush, keeperStroll, ...own].filter((e) => onThisBoard(ctx, e) && (e.available?.(ctx, null) ?? true));
   const def = ctx.rng.pick(pool);
   await runEvent(ctx, def.id, null);
 }

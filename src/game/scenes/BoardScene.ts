@@ -12,7 +12,9 @@ import { PathChooser } from '../board/PathChooser';
 import { runMatch } from '../board/TurnManager';
 import type { Character } from '../characters/Character';
 import { CAMERA_ZOOM, COLORS, CSS, DEPTH, GAME_HEIGHT, GAME_WIDTH } from '../constants';
-import { findBoard } from '../data/boards';
+import type { BoardDef } from '../board/types';
+import { findBoard, SUNCOIL } from '../data/boards';
+import { queueBoardArt } from '../data/rendered';
 import { ITEM_IDS } from '../data/items';
 import { clearDebugInfo, DEBUG_ENABLED, logError, setDebugInfo, URL_PARAMS } from '../debug/debug';
 import { EffectsManager } from '../effects/EffectsManager';
@@ -60,6 +62,8 @@ export class BoardScene extends Phaser.Scene {
   juice!: BoardJuice;
   ctx!: FlowContext;
   private data0: BoardSceneData = {};
+  /** The board being played. */
+  private def: BoardDef = SUNCOIL;
   private offDebug: (() => void) | null = null;
   private running = false;
   private pauseOpen = false;
@@ -85,6 +89,9 @@ export class BoardScene extends Phaser.Scene {
 
   init(data: BoardSceneData): void {
     this.data0 = data ?? {};
+    // The match's board (a saved match's, when continuing), Suncoil if it's unknown.
+    const boardId = (this.data0.continue ? saves.load() : session.match)?.config.boardId ?? 'suncoil';
+    this.def = findBoard(boardId) ?? SUNCOIL;
     this.running = false;
     this.pauseOpen = false;
     this.following = null;
@@ -93,13 +100,14 @@ export class BoardScene extends Phaser.Scene {
     this.vignette = null;
   }
 
+  preload(): void {
+    // World boards' art loads on demand (Suncoil's comes with start-up); other boards' terrain is released.
+    if (this.def.id === 'suncoil' || this.def.theme?.rendered) queueBoardArt(this, this.def.id);
+  }
+
   create(): void {
     enterScene(this, 400);
-    const def = findBoard('suncoil');
-    if (!def) {
-      goTo(this, 'Title');
-      return;
-    }
+    const def = this.def;
     const nodes = new Set(def.nodes.map((n) => n.id));
     let state: MatchState | null = session.match;
     if (this.data0.continue) {

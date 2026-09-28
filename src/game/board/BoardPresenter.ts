@@ -17,7 +17,7 @@ import type { BoardScene } from '../scenes/BoardScene';
 import { addText } from '../ui/theme';
 import { centerOrigin } from '../util/spriteUtil';
 import { SPACE_COLORS } from './boardStyle';
-import { dayName, dayTime } from './DayCycle';
+import { dayName, dayTime, themedTime } from './DayCycle';
 import type { DialogLineSpec, EventPresentation, FlowIO, JumpKind, MinigameRewardView, PathOption, PreRollDecision, ShopOffer, TargetOption } from './flowTypes';
 import type { BoardNodeDef } from './types';
 import { registeredMinigames } from '../minigames/registry';
@@ -84,8 +84,9 @@ export class BoardPresenter implements FlowIO {
     if (final) return;
     // When the light turns a corner (golden hour, sunset) the banner says so.
     const n = this.state.players.length;
-    const now = dayName(dayTime(round, total, { kind: 'roundStart' }, n));
-    const turned = round > 1 && dayName(dayTime(round - 1, total, { kind: 'roundStart' }, n)) !== now;
+    const hours = this.scene.board.graph.def.theme?.time;
+    const now = dayName(themedTime(dayTime(round, total, { kind: 'roundStart' }, n), hours));
+    const turned = round > 1 && dayName(themedTime(dayTime(round - 1, total, { kind: 'roundStart' }, n), hours)) !== now;
     const left = `${total - round + 1} ROUNDS TO PLAY`;
     await this.ui.banner({ title: `ROUND ${round} OF ${total}`, subtitle: round === 1 ? 'LET THE FESTIVAL BEGIN!' : turned ? `${now} · ${left}` : left, color: COLORS.teal, sound: 'fanfare', hold: this.dur(900) });
   }
@@ -563,7 +564,7 @@ export class BoardPresenter implements FlowIO {
   // --- Minigames and the end ----------------------------------------------------------------------
   async playMinigame(): Promise<Placement[]> {
     const pool = availableMinigames(registeredMinigames());
-    const info = pickMinigame(pool, this.state.minigameHistory, this.state.players.length, this.scene.ctx.rng);
+    const info = pickMinigame(pool, this.state.minigameHistory, this.state.players.length, this.scene.ctx.rng, this.scene.board.graph.def.theme?.minigames);
     this.state.minigameHistory.push(info.id);
     this.moves.activeSlot = null;
     this.ui.hud.setActive(null);

@@ -1,5 +1,6 @@
 // Pre-rendered environment art (produced by scripts/art/*.py with Blender). Everything here is
 // optional: when a manifest or tile is missing the game falls back to the vector placeholder art.
+import type Phaser from 'phaser';
 import { LITE } from '../perf';
 
 export interface RenderedTile {
@@ -45,6 +46,7 @@ export interface RenderedBoard {
   shadow?: { file: string; x: number; y: number; w: number; h: number };
 }
 
+/** Boards whose rendered art loads at start-up (Suncoil: the default board, whose props other screens borrow). */
 export const RENDERED_BOARDS = ['suncoil'] as const;
 
 export const renderedManifestKey = (board: string): string => `rendered-${board}`;
@@ -54,3 +56,41 @@ export const renderedPath = (board: string, file: string): string => `assets/${L
 
 /** True for loader keys whose failure must not block the game. */
 export const isOptionalAsset = (key: string): boolean => key.startsWith('rendered-');
+
+/** Boards whose rendered art has been loaded this session (so the others can be released). */
+const heldBoards = new Set<string>(RENDERED_BOARDS);
+
+/**
+ * Queue a board's rendered art on the scene's loader (call from preload): its manifest if it isn't
+ * cached yet, then whichever tiles, props and shadow aren't in memory. Every other board's terrain
+ * is released first, so only one board's tiles are held at a time (Suncoil's props stay: the
+ * results screens borrow them).
+ */
+export function queueBoardArt(scene: Phaser.Scene, board: string): void {
+  for (const other of heldBoards) {
+    if (other === board) continue;
+    const man = scene.cache.json.get(renderedManifestKey(other)) as RenderedBoard | undefined;
+    if (!man?.tiles) continue;
+    const files = [...man.tiles.map((t) => t.file), ...(man.shadow ? [man.shadow.file] : []), ...(other === 'suncoil' ? [] : (man.props ?? []).map((pr) => pr.file))];
+    for (const f of files) {
+      const k = renderedTileKey(other, f);
+      if (scene.textures.exists(k)) scene.textures.remove(k);
+    }
+  }
+  heldBoards.add(board);
+  const image = (file: string) => {
+    const k = renderedTileKey(board, file);
+    if (!scene.textures.exists(k)) scene.load.image(k, renderedPath(board, file));
+  };
+  const queueFiles = (data: RenderedBoard | undefined) => {
+    for (const t of data?.tiles ?? []) image(t.file);
+    for (const pr of data?.props ?? []) image(pr.file);
+    if (data?.shadow) image(data.shadow.file);
+  };
+  const key = renderedManifestKey(board);
+  if (scene.cache.json.exists(key)) queueFiles(scene.cache.json.get(key) as RenderedBoard);
+  else {
+    scene.load.json(key, renderedPath(board, 'manifest.json'));
+    scene.load.once(`filecomplete-json-${key}`, (_k: string, _t: string, data: RenderedBoard) => queueFiles(data));
+  }
+}
