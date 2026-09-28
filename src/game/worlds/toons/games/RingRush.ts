@@ -9,6 +9,8 @@ import { kick, popToHud, punch, shockwave, titleTexture, type HudPop } from '../
 import { AFX, burst, ensureArenaFxTextures, RingPool, Spray } from '../../../minigames/games/arenaFx';
 import { bakeWord, calmMotion, WordPops } from '../../../minigames/games/stageKit';
 import { LITE } from '../../../perf';
+import { glyphKindFor, makeGlyph } from '../../../ui/ControllerPrompt';
+import { addText } from '../../../ui/theme';
 import { standOrigin } from '../../../util/spriteUtil';
 import { finishAtlas, hasFrame, queueAtlas } from '../toonsKit';
 import {
@@ -142,6 +144,8 @@ interface Runner {
   spinDy: number;
   pop?: { h: HudPop; value: number };
   trailT: number;
+  /** Humans: the button to press as a robot closes in ("A JUMP!" / "X SPIN!"). */
+  hint?: { jump: Phaser.GameObjects.Container; spin: Phaser.GameObjects.Container };
   // CPU plan
   cpuLane: number;
   cpuTap: number;
@@ -375,6 +379,16 @@ export class RingRushScene extends BaseMinigame {
     c.face(false);
     p.character = c;
     const aura = this.add.image(x, LANE_Y[lane] - 55, AFX.ring).setTint(PLAYER_COLORS[p.slot]).setBlendMode(Phaser.BlendModes.ADD).setVisible(false).setDepth(LANE_Y[lane] + 6);
+    let hint: Runner['hint'];
+    if (!p.isCpu) {
+      const kind = glyphKindFor(p.slot);
+      const mk = (b: 'A' | 'X', word: string) => {
+        const box = this.add.container(0, 0).setDepth(6900).setVisible(false);
+        box.add([makeGlyph(this, b, 50, kind).setPosition(0, 0), addText(this, 0, 44, word, 30, { color: '#ffffff', stroke: '#1b1530', strokeThickness: 6, weight: 700, fixed: true })]);
+        return box;
+      };
+      hint = { jump: mk('A', 'JUMP!'), spin: mk('X', 'SPIN!') };
+    }
     this.runners.push({
       p,
       c,
@@ -397,6 +411,7 @@ export class RingRushScene extends BaseMinigame {
       streak: 0,
       markerY: c.marker?.y ?? 0,
       aura,
+      hint,
       spinDy: 0,
       trailT: 0,
       cpuLane: lane,
@@ -732,7 +747,36 @@ export class RingRushScene extends BaseMinigame {
       }
       // blink while invulnerable
       r.c.sprite.setAlpha(r.invuln > 0 && Math.floor(r.invuln / 80) % 2 ? 0.35 : 1);
+      if (r.hint) this.syncHint(r, gy);
     }
+  }
+
+  /** A human's button prompt over their head while a robot closes in on them down their lane. */
+  private syncHint(r: Runner, gy: number): void {
+    const h = r.hint;
+    if (!h) return;
+    let show: Phaser.GameObjects.Container | null = null;
+    if (this.phase === 'playing' && r.dashT <= 0 && r.stun <= 0) {
+      const lane = Math.round(r.laneF);
+      let best = Infinity;
+      let kind: Kind | null = null;
+      for (const it of this.items) {
+        if (!it.active || it.dying || it.lane !== lane || (it.kind !== 'crawler' && it.kind !== 'buzzer')) continue;
+        const dx = it.wx - this.scroll - r.x;
+        if (dx > -BOT_DX && dx < best) {
+          best = dx;
+          kind = it.kind;
+        }
+      }
+      const t = best / Math.max(1, this.speed);
+      if (kind && t < 0.75) {
+        if (kind === 'crawler' && r.z < CRAWLER_CLEAR) show = h.jump;
+        if (kind === 'buzzer' && r.dashCd <= 0) show = h.spin;
+      }
+    }
+    h.jump.setVisible(show === h.jump);
+    h.spin.setVisible(show === h.spin);
+    show?.setPosition(r.x, gy - 200 - r.z);
   }
 
   private syncFx(dt: number): void {
