@@ -19,11 +19,11 @@ const { COSB, SINB, HOOP, BOARD, BALL_R } = R;
 const SPRITES = ['capitol_hoop', 'capitol_rim', 'capitol_ball', 'capitol_ball_gold'] as const;
 const ARENA = 'rendered-scene-capitol_court';
 /**
- * The hoop sprite (backboard, pole, wheeled base, back of the rim) is a 320x440 render of the screen
- * region x 800..1120, y 150..590: the ground point under the rim's centre is its pixel (160, 410).
- * The rim's front half is a 100x60 render centred on the rim (its pixel (50, 27)).
+ * The hoop sprite (backboard, pole, wheeled base, back of the rim, and its shadow) is a 460x440 render
+ * of the screen region x 780..1240, y 150..590: the ground point under the rim's centre is its pixel
+ * (180, 410). The rim's front half is a 100x60 render centred on the rim (its pixel (50, 27)).
  */
-const HOOP_ART = { ax: 160, ay: 410 };
+const HOOP_ART = { w: 460, h: 440, ax: 180, ay: 410 };
 const RIM_ART = { ax: 50, ay: 27 };
 /** Rendered ball images are 64 px across; they are drawn 2 * BALL_R across. */
 const BALL_ART = 64;
@@ -199,7 +199,7 @@ export class FreeThrowScene extends BaseMinigame {
     if (this.textures.exists(ARENA)) this.add.image(0, 0, ARENA).setOrigin(0).setDepth(-50);
     else drawFallbackCourt(this);
     this.trackGlow = this.add.graphics().setDepth(DEPTH.shadow - 1).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0);
-    this.hoopImg = this.add.image(HOOP.x, HOOP.gy, spriteKey('capitol_hoop')).setOrigin(HOOP_ART.ax / 320, HOOP_ART.ay / 440).setDepth(DEPTH.hoop);
+    this.hoopImg = this.add.image(HOOP.x, HOOP.gy, spriteKey('capitol_hoop')).setOrigin(HOOP_ART.ax / HOOP_ART.w, HOOP_ART.ay / HOOP_ART.h).setDepth(DEPTH.hoop);
     this.rimImg = this.add.image(HOOP.x, RIM_SY, spriteKey('capitol_rim')).setOrigin(RIM_ART.ax / 100, RIM_ART.ay / 60).setDepth(DEPTH.rim);
     this.netBack = this.add.graphics().setDepth(DEPTH.netBack);
     this.netFront = this.add.graphics().setDepth(DEPTH.netFront);
@@ -1080,10 +1080,10 @@ function makeFallbackSprites(scene: Phaser.Scene): void {
     ctx.ellipse(50, 27, 40, RIM_RY, 0, 0, Math.PI);
     ctx.stroke();
   });
-  canvasTexture(scene, spriteKey('capitol_hoop'), 320, 440, (ctx) => {
-    // Coordinates relative to the ground point under the rim (160, 410).
-    const ox = 160;
-    const oy = 410;
+  canvasTexture(scene, spriteKey('capitol_hoop'), HOOP_ART.w, HOOP_ART.h, (ctx) => {
+    // Coordinates relative to the ground point under the rim.
+    const ox = HOOP_ART.ax;
+    const oy = HOOP_ART.ay;
     const Y = (gyOff: number, z: number) => oy + gyOff - z * SINB;
     ctx.fillStyle = 'rgba(10,17,32,0.25)';
     ctx.beginPath();

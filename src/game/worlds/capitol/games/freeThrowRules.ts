@@ -95,7 +95,8 @@ export function powerTarget(dist: number, jitter: number): number {
  * hoop at rest) and the line to where the hoop will be when the ball gets there.
  */
 export function aimTarget(sx: number, sgy: number, hx: number): number {
-  const d = (HOOP.gy - sgy) / COSB;
+  // Distance up the court to the hoop (positive), and the angle to it: positive = to the right.
+  const d = (sgy - HOOP.gy) / COSB;
   const rest = Math.atan2(HOOP.x - sx, d);
   const now = Math.atan2(hx - sx, d);
   return clamp(((now - rest) * 180) / Math.PI / AIM_RANGE, -0.84, 0.84);

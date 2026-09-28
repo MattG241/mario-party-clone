@@ -68,9 +68,9 @@ export const TILT = 0.018;
 /**
  * Slope pull: acceleration = -G_SLOPE * gradient. A ball slower than STOP_V comes to rest wherever
  * the slope pulls less than the surface's rolling friction (everywhere on this green: the steepest
- * pull is about 110 px/s², the green's friction 190).
+ * pull is about 127 px/s², the green's friction 190).
  */
-export const G_SLOPE = 1500;
+export const G_SLOPE = 1000;
 export const STOP_V = 7;
 
 /** Height of the ground at world (x, y). */
