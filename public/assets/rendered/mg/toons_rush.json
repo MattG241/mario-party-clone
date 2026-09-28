@@ -1,0 +1,204 @@
+{
+ "frames": {
+  "ring": {
+   "frame": {
+    "x": 493,
+    "y": 8,
+    "w": 82,
+    "h": 82
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 82,
+    "h": 82
+   },
+   "sourceSize": {
+    "w": 82,
+    "h": 82
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "ring_big": {
+   "frame": {
+    "x": 8,
+    "y": 8,
+    "w": 136,
+    "h": 136
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 136,
+    "h": 136
+   },
+   "sourceSize": {
+    "w": 136,
+    "h": 136
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "turtle": {
+   "frame": {
+    "x": 260,
+    "y": 8,
+    "w": 135,
+    "h": 99
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 135,
+    "h": 99
+   },
+   "sourceSize": {
+    "w": 135,
+    "h": 99
+   },
+   "anchor": {
+    "x": 0.5852,
+    "y": 0.7071
+   }
+  },
+  "heli": {
+   "frame": {
+    "x": 403,
+    "y": 8,
+    "w": 82,
+    "h": 98
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 82,
+    "h": 98
+   },
+   "sourceSize": {
+    "w": 82,
+    "h": 98
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.4496
+   }
+  },
+  "prop": {
+   "frame": {
+    "x": 665,
+    "y": 8,
+    "w": 88,
+    "h": 23
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 88,
+    "h": 23
+   },
+   "sourceSize": {
+    "w": 88,
+    "h": 23
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5188
+   }
+  },
+  "spring": {
+   "frame": {
+    "x": 152,
+    "y": 8,
+    "w": 100,
+    "h": 100
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 100,
+    "h": 100
+   },
+   "sourceSize": {
+    "w": 100,
+    "h": 100
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.7
+   }
+  },
+  "gear": {
+   "frame": {
+    "x": 617,
+    "y": 8,
+    "w": 40,
+    "h": 34
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 40,
+    "h": 34
+   },
+   "sourceSize": {
+    "w": 40,
+    "h": 34
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.2941
+   }
+  },
+  "bolt": {
+   "frame": {
+    "x": 583,
+    "y": 8,
+    "w": 26,
+    "h": 35
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 26,
+    "h": 35
+   },
+   "sourceSize": {
+    "w": 26,
+    "h": 35
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.3714
+   }
+  }
+ },
+ "meta": {
+  "app": "gleamtrail toons",
+  "size": {
+   "w": 768,
+   "h": 152
+  },
+  "scale": 1
+ }
+}

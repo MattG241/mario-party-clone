@@ -190,6 +190,8 @@ export class DonutDashScene extends BaseMinigame {
       g.fillRect(4, 30, 112, 48);
     });
     tex('dd-mark', 128, 128, () => {
+      g.lineStyle(16, 0x1a1a2a, 0.45);
+      g.strokeCircle(64, 64, 54);
       g.lineStyle(10, 0xffffff, 1);
       g.strokeCircle(64, 64, 54);
       g.fillStyle(0xffffff, 0.22);
@@ -198,6 +200,8 @@ export class DonutDashScene extends BaseMinigame {
     // a donut's marker carries its owner's shape too (colour is never the only cue)
     PLAYER_SHAPES.forEach((shape, i) =>
       tex(`dd-mark-s${i}`, 128, 128, () => {
+        g.lineStyle(16, 0x1a1a2a, 0.45);
+        g.strokeCircle(64, 64, 54);
         g.lineStyle(10, 0xffffff, 1);
         g.strokeCircle(64, 64, 54);
         g.fillStyle(0xffffff, 0.22);
@@ -206,6 +210,8 @@ export class DonutDashScene extends BaseMinigame {
       }),
     );
     tex('dd-mark-bad', 128, 128, () => {
+      g.lineStyle(16, 0x1a1a2a, 0.45);
+      g.strokeCircle(64, 64, 54);
       g.lineStyle(10, 0xffffff, 1);
       g.strokeCircle(64, 64, 54);
       g.lineStyle(14, 0xffffff, 1);
