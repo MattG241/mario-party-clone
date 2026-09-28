@@ -181,6 +181,60 @@ THEMES = {
 }
 
 
+def cam_ao(m, distance, samples=4):
+    """Ambient occlusion for camera rays only: bounce light barely shows it, and on bounces the zero
+    trace distance makes the lookup almost free (it is paid at every hit otherwise, which adds up
+    on the huge board render)."""
+    lp = m.node('ShaderNodeLightPath')
+    n = m.node('ShaderNodeAmbientOcclusion')
+    n.samples = samples
+    m.link(m.math('MULTIPLY', lp.outputs['Is Camera Ray'], distance), n.inputs['Distance'])
+    return n.outputs['AO']
+
+
+def ramp_const(m, fac, stops):
+    """Colour ramp with hard steps (discrete picks such as flower colours)."""
+    out = m.ramp(fac, stops)
+    out.node.color_ramp.interpolation = 'CONSTANT'
+    return out
+
+
+def grass_detail(m, pos, grass, flowers=1.0, keep_off=None):
+    """Fine texture on painted grass: clumps with darker gaps, blade-scale speckle, sunny and clover
+    patches and a scatter of tiny flowers, so zoomed-in views keep crisp detail instead of smooth
+    gradients. `keep_off` (0..1) masks the flowers away from trails."""
+    cl = m.voronoi(17.0, pos)
+    gap = m.maprange(cl.outputs['Distance'], 0.3, 0.8)
+    sp = m.noise(46.0, 2, 0.6, pos)
+    spk = m.maprange(sp.outputs['Fac'], 0.4, 0.64)
+    shade = m.math('ADD', m.math('MULTIPLY', gap, 0.55), m.math('MULTIPLY', spk, 0.45))
+    grass = m.mult(grass, m.mix(shade, lib.col('#ffffff'), lib.col('#b3c296')))
+    tips = m.math('MULTIPLY', m.maprange(sp.outputs['Fac'], 0.58, 0.7), m.math('SUBTRACT', 1.0, gap))
+    grass = m.mix(m.math('MULTIPLY', tips, 0.3), grass, lib.col('#d6ec8a'))
+    # patches a few tens of px across: warm dry grass and cool clover
+    pn = m.noise(2.4, 3, 0.55, pos)
+    grass = m.mix(m.math('MULTIPLY', m.maprange(pn.outputs['Fac'], 0.6, 0.72), 0.2), grass, lib.col('#c9d166'))
+    grass = m.mix(m.math('MULTIPLY', m.maprange(pn.outputs['Fac'], 0.4, 0.3), 0.16), grass, lib.col('#2c7648'))
+    if flowers > 0:
+        fv = m.voronoi(9.0, pos)
+        fr, fg, _ = m.sep(fv.outputs['Color'])
+        dot = m.maprange(fv.outputs['Distance'], 0.26, 0.16)
+        cut = 1.0 - 0.16 * flowers
+        pick = m.maprange(fr, cut, cut + 0.01)
+        patch = m.maprange(m.noise(1.2, 2, 0.5, pos).outputs['Fac'], 0.48, 0.58)
+        fm = m.math('MULTIPLY', m.math('MULTIPLY', dot, pick), patch)
+        if keep_off is not None:
+            fm = m.math('MULTIPLY', fm, keep_off)
+        fcol = ramp_const(m, fg, [(0.0, '#fffcf2'), (0.34, '#ffdf5e'), (0.56, '#ffa0c2'), (0.76, '#c7a6ff'), (0.9, '#fffcf2')])
+        grass = m.mix(fm, grass, fcol)
+    return grass
+
+
+def contact_ao(m, colr, tint='#5b7247', distance=0.3, samples=4):
+    """Soft contact shadow where scatter meets the ground (tufts, rocks, trunks, posts)."""
+    return m.mult(colr, m.mix(m.maprange(cam_ao(m, distance, samples), 0.3, 1.0), lib.col(tint), lib.col('#ffffff')))
+
+
 def island_material(mask_path, theme='plaza'):
     T = THEMES.get(theme, THEMES['plaza'])
     m = lib.NT(f'island_{theme}')
@@ -248,6 +302,146 @@ def island_material(mask_path, theme='plaza'):
     bump = m.bump(m.math('ADD', rn.outputs['Fac'], m.math('MULTIPLY', gfac, 0.2)), 0.35, 0.08)
     rough = m.math('ADD', m.math('MULTIPLY', grassfac, 0.1), 0.78)
     m.bsdf(colr, rough, normal=bump, sheen=0.25)
+    return m.mat
+
+
+def island_material_fine(mask_path, theme='plaza'):
+    """The board's island surface: island_material plus fine grass clumps, tiny flowers, gravel and
+    ruts on the trails, a crisp trail edge, contact occlusion and cracked cliff faces."""
+    T = THEMES.get(theme, THEMES['plaza'])
+    m = lib.NT(f'island_{theme}')
+    pos = m.position()
+    nrm = m.normal()
+    nz = m.sep(nrm)[2]
+    X, Y, Z = m.sep(pos)
+    # --- path mask lookup (world -> board uv)
+    mp = m.node('ShaderNodeMapping')
+    mp.inputs['Scale'].default_value = (PX / W, lib.COSB * PX / H, 1.0)
+    mp.inputs['Location'].default_value = (0.0, 1.0, 0.0)
+    m.link(pos, mp.inputs['Vector'])
+    img = m.node('ShaderNodeTexImage')
+    img.image = bpy.data.images.load(mask_path)
+    img.image.colorspace_settings.name = 'Non-Color'
+    img.extension = 'EXTEND'
+    img.interpolation = 'Cubic'
+    m.link(mp.outputs['Vector'], img.inputs['Vector'])
+    pmask = img.outputs['Color']
+    pv = m.sep(pmask)[0]
+    pm = m.maprange(pv, 0.25, 0.65)
+    # --- grass: broad ramp, then fine clumps / speckle / tiny flowers (never on the trail edge)
+    n1 = m.noise(0.9, 5, 0.6, pos)
+    n2 = m.noise(6.0, 3, 0.5, pos)
+    gfac = m.math('ADD', m.math('MULTIPLY', n1.outputs['Fac'], 0.8), m.math('MULTIPLY', n2.outputs['Fac'], 0.35))
+    grass = m.ramp(gfac, T['grass'])
+    grass = grass_detail(m, pos, grass, flowers=T.get('flowers', 1.0), keep_off=m.maprange(pv, 0.12, 0.0))
+    # --- dirt trail: base ramp, pale pebbles, fine gravel and compacted ruts inside the edge
+    d1 = m.noise(2.2, 4, 0.6, pos)
+    dirt = m.ramp(d1.outputs['Fac'], T['trail'])
+    peb = m.voronoi(18.0, pos)
+    pebf = m.maprange(peb.outputs['Distance'], 0.05, 0.18, 1.0, 0.0)
+    dirt = m.mix(m.math('MULTIPLY', pebf, 0.45), dirt, lib.col('#f4e2bd'))
+    gv = m.voronoi(30.0, pos)
+    gr = m.sep(gv.outputs['Color'])[0]
+    gdot = m.maprange(gv.outputs['Distance'], 0.34, 0.2)
+    dirt = m.mix(m.math('MULTIPLY', m.math('MULTIPLY', gdot, m.maprange(gr, 0.62, 0.66)), 0.55), dirt, lib.col('#fff3d6'))
+    dirt = m.mix(m.math('MULTIPLY', m.math('MULTIPLY', gdot, m.maprange(gr, 0.2, 0.16)), 0.4), dirt, lib.col('#98693f'))
+    dn = m.noise(24.0, 2, 0.5, pos)
+    dirt = m.mult(dirt, m.mix(m.maprange(dn.outputs['Fac'], 0.42, 0.62), lib.col('#ffffff'), lib.col('#e2cfb2')))
+    rut = m.math('MULTIPLY', m.maprange(pv, 0.5, 0.66), m.maprange(pv, 0.96, 0.8))
+    dirt = m.mult(dirt, m.mix(m.math('MULTIPLY', rut, 0.55), lib.col('#ffffff'), lib.col('#dcbd92')))
+    # a pale sandy border where the trail meets the grass, a crisp darker lip on the grass side of
+    # it, and lighter grass just beyond: the route reads with a defined edge at any zoom
+    fringe = m.maprange(pv, 0.0, 0.1)
+    grass_d = m.mix(m.math('MULTIPLY', m.math('MULTIPLY', fringe, m.maprange(pv, 0.12, 0.06)), 0.3), grass, lib.col('#b6d36a'))
+    lip = m.math('MULTIPLY', m.maprange(pv, 0.06, 0.11), m.maprange(pv, 0.2, 0.13))
+    grass_d = m.mix(m.math('MULTIPLY', lip, 0.5), grass_d, lib.col('#2d6526'))
+    edge = m.math('MULTIPLY', m.maprange(pv, 0.14, 0.3), m.maprange(pv, 0.55, 0.32))
+    grass_d = m.mix(m.math('MULTIPLY', edge, 0.8), grass_d, lib.col('#f1dfb0'))
+    top = m.mix(pm, grass_d, dirt)
+    top = contact_ao(m, top)
+    # --- rock underside: strata bands + noise
+    wave = m.node('ShaderNodeTexWave')
+    wave.wave_type = 'BANDS'
+    wave.bands_direction = 'Z'
+    wave.inputs['Scale'].default_value = 1.4
+    wave.inputs['Distortion'].default_value = 6.0
+    wave.inputs['Detail'].default_value = 3.0
+    m.link(pos, wave.inputs['Vector'])
+    rn = m.noise(1.8, 6, 0.6, pos)
+    rf = m.math('ADD', m.math('MULTIPLY', wave.outputs['Fac'], 0.55), m.math('MULTIPLY', rn.outputs['Fac'], 0.5))
+    rock = m.ramp(rf, [(0.25, '#5a3d3a'), (0.4, '#7b5140'), (0.55, '#99694b'), (0.7, '#6e5566'), (0.85, '#8a7a8e')])
+    # fine cracks and grain so the cliff faces stay crisp up close
+    rv = m.voronoi(7.0, pos, feature='DISTANCE_TO_EDGE')
+    rock = m.mult(rock, m.mix(m.maprange(rv.outputs['Distance'], 0.05, 0.0), lib.col('#ffffff'), lib.col('#6a5454')))
+    rg = m.noise(30.0, 2, 0.6, pos)
+    rock = m.mult(rock, m.mix(m.maprange(rg.outputs['Fac'], 0.4, 0.65), lib.col('#ffffff'), lib.col('#d8ccc6')))
+    # soil band just under the grass
+    soil = m.ramp(rn.outputs['Fac'], [(0.3, '#6b4228'), (0.7, '#8c5a33')])
+    soilfac = m.maprange(Z, -0.55, -0.1)
+    rock = m.mix(soilfac, rock, soil)
+    # deeper = darker, cooler
+    depth = m.maprange(Z, -4.5, -0.5, 0.0, 1.0, smooth=False)
+    rock = m.mult(rock, m.mix(depth, lib.col('#6b5f8a'), lib.col('#ffffff')))
+    ao = cam_ao(m, 0.9, 5)
+    rock = m.mult(rock, m.mix(ao, lib.col('#3a3048'), lib.col('#ffffff')))
+    # --- grass wraps over the rim a little
+    gn = m.noise(8.0, 2, 0.5, pos)
+    wrap = m.math('ADD', nz, m.math('MULTIPLY', m.math('SUBTRACT', gn.outputs['Fac'], 0.5), 0.9))
+    lipz = m.maprange(Z, -0.28, -0.02)
+    grassfac = m.math('MAXIMUM', m.maprange(wrap, 0.55, 0.8), m.math('MULTIPLY', lipz, m.maprange(gn.outputs['Fac'], 0.45, 0.6)))
+    colr = m.mix(grassfac, rock, top)
+    bump = m.bump(m.math('ADD', m.math('ADD', rn.outputs['Fac'], m.math('MULTIPLY', gfac, 0.2)),
+                         m.math('MULTIPLY', m.maprange(rv.outputs['Distance'], 0.06, 0.0), -0.6)), 0.35, 0.08)
+    rough = m.math('ADD', m.math('MULTIPLY', grassfac, 0.1), 0.78)
+    m.bsdf(colr, rough, normal=bump, sheen=0.25)
+    return m.mat
+
+
+def scatter_mat(name, rough=0.7, sheen=0.0, ao=0.0, samples=4, emission=0.0):
+    """Vertex-coloured scatter material (like lib.attr_mat) with a cheaper occlusion lookup: the board
+    is one very large render on two threads."""
+    m = lib.NT(name)
+    c = m.attr('col')
+    if ao:
+        c = m.mult(c, m.mix(cam_ao(m, ao, samples), (0.35, 0.35, 0.4, 1.0), (1, 1, 1, 1)), 1.0)
+    m.bsdf(c, rough, sheen=sheen, emission=c if emission else None, emission_strength=emission)
+    return m.mat
+
+
+def paving_material(name='paving'):
+    """Pale stone slabs (vertex colour) with a fine grain, a faint bump and contact occlusion."""
+    m = lib.NT(name)
+    pos = m.position()
+    c = m.attr('col')
+    n = m.noise(26.0, 3, 0.6, pos)
+    c = m.mult(c, m.mix(m.maprange(n.outputs['Fac'], 0.35, 0.72), lib.col('#ffffff'), lib.col('#d9cebd')))
+    c = m.mult(c, m.mix(cam_ao(m, 0.25, 4), lib.col('#6d6272'), lib.col('#ffffff')))
+    m.bsdf(c, 0.7, normal=m.bump(n.outputs['Fac'], 0.2, 0.02))
+    return m.mat
+
+
+def leaf_material(name, ao=0.5, rough=0.78, scale=9.0, sun='#e4f59a', shade='#1f5a3a', haze=0.0, haze_col='#b8d6ee', lift=0.0,
+                  gaps='#8b9f7a', ao_tint='#3b5646'):
+    """Foliage coloured by vertex colour, broken into leafy clusters: voronoi cells with darker gaps,
+    a domed bump per cluster and a little per-cluster tint, so round canopies read as clumps of
+    leaves instead of smooth blobs."""
+    m = lib.NT(name)
+    pos = m.position()
+    c = m.attr('col')
+    v = m.voronoi(scale, pos)
+    edge = m.maprange(v.outputs['Distance'], 0.22, 0.78)
+    c = m.mult(c, m.mix(edge, lib.col('#ffffff'), lib.col(gaps)))
+    r_, g_, _ = m.sep(v.outputs['Color'])
+    c = m.mix(m.math('MULTIPLY', m.maprange(r_, 0.55, 1.0), 0.18), c, lib.col(sun))
+    c = m.mix(m.math('MULTIPLY', m.maprange(g_, 0.35, 0.0), 0.14), c, lib.col(shade))
+    fine = m.noise(40.0, 2, 0.5, pos)
+    c = m.mult(c, m.mix(m.maprange(fine.outputs['Fac'], 0.4, 0.66), lib.col('#ffffff'), lib.col('#c5d2ad')))
+    if ao:
+        c = m.mult(c, m.mix(cam_ao(m, ao, 4), lib.col(ao_tint), lib.col('#ffffff')))
+    if haze:
+        c = m.mix(haze, c, lib.col(haze_col))
+    height = m.math('ADD', m.math('SUBTRACT', 1.0, edge), m.math('MULTIPLY', fine.outputs['Fac'], 0.3))
+    m.bsdf(c, rough, normal=m.bump(height, 0.55, 0.03), sheen=0.12, emission=lib.col(haze_col) if lift else None, emission_strength=lift)
     return m.mat
 
 
@@ -341,7 +535,7 @@ def rock(mb, bx, by, rnd, s=1.0, moss=True):
     mb.add(v, f, lambda vv: lib.lerp_col(base, mossc, 0.85) if (moss and vv[2] > r * 0.55) else base)
 
 
-def tree_round(mb_leaf, mb_wood, bx, by, rnd, s=1.0, palette=None):
+def tree_round(mb_leaf, mb_wood, bx, by, rnd, s=1.0, palette=None, crown=False):
     p = board_to_world(bx, by, 0.0)
     h = rnd.uniform(1.5, 2.1) * s
     # trunk with a slight lean
@@ -364,6 +558,74 @@ def tree_round(mb_leaf, mb_wood, bx, by, rnd, s=1.0, palette=None):
             return lib.lerp_col(low, high, t * t)
 
         mb_leaf.add(v, f, shade)
+    if not crown:
+        return h + R
+    # smaller puffs over the crown's top and flanks break up the round silhouette (their own RNG, so
+    # the scatter sequence and every placement after this tree stay as they were)
+    r2 = random.Random(int(bx * 7.0 + by * 13.0))
+    for _ in range(r2.randint(4, 6)):
+        a, el = r2.uniform(0, math.tau), r2.uniform(0.3, 1.0)
+        r = R * r2.uniform(0.3, 0.42)
+        q = (cx + math.cos(a) * math.cos(el) * R * 0.78, cy + math.sin(a) * math.cos(el) * R * 0.66, cz + 0.1 * R + math.sin(el) * R * 0.66)
+        v, f = lib.blob(q, r, squash=(1, 1, 0.88), rough=0.2, freq=2.2, subdiv=2, seed=r2.random() * 70)
+        mb_leaf.add(v, f, lambda vv, zc=q[2], r=r: lib.lerp_col(low, high, max(0.0, min(1.0, (vv[2] - zc) / (r * 1.1) + 0.55)) ** 1.6))
+    return h + R
+
+
+def tree_blossom(mb_flora, mb_wood, bx, by, rnd, s=1.0, pal=('#e06a98', '#ffc9df')):
+    """Festival blossom tree: a slim dark trunk under a clumpy pink (or white) crown."""
+    p = board_to_world(bx, by, 0.0)
+    h = rnd.uniform(1.25, 1.6) * s
+    lean = (rnd.uniform(-0.1, 0.1), rnd.uniform(-0.06, 0.06))
+    pts = [(p.x + lean[0] * t * h, p.y + lean[1] * t * h, t * h * 0.8) for t in np.linspace(0, 1, 8)]
+    v, f = lib.tube(pts, lambda t: (0.09 - 0.04 * t) * s, 8)
+    mb_wood.add(v, f, col('#5a3a30'))
+    low, high = col(pal[0]), col(pal[1])
+    cx, cy, cz = p.x + lean[0] * h, p.y + lean[1] * h, h * 0.86
+    R = rnd.uniform(0.46, 0.58) * s
+    puffs = [(0.0, 0.0, 0.0, 0.9)]
+    for a in np.linspace(0, math.tau, 6, endpoint=False) + rnd.random():
+        puffs.append((math.cos(a) * R * 0.62, math.sin(a) * R * 0.5, rnd.uniform(-0.15, 0.2) * R, rnd.uniform(0.48, 0.62)))
+    for _ in range(4):
+        a = rnd.uniform(0, math.tau)
+        puffs.append((math.cos(a) * R * 0.35, math.sin(a) * R * 0.3, R * rnd.uniform(0.35, 0.55), rnd.uniform(0.36, 0.46)))
+    for (ox, oy, oz, rr) in puffs:
+        r = R * rr
+        v, f = lib.blob((cx + ox, cy + oy, cz + oz), r, squash=(1, 1, 0.86), rough=0.22, freq=2.3, subdiv=2, seed=rnd.random() * 70)
+        mb_flora.add(v, f, lambda vv, zc=cz + oz, r=r: lib.lerp_col(low, high, max(0.0, min(1.0, (vv[2] - zc) / (r * 1.1) + 0.55)) ** 1.3))
+    return h + R
+
+
+def tree_maple(mb_flora, mb_wood, bx, by, rnd, s=1.0):
+    """Autumn-toned accent tree (amber to russet) so the woods are not all one green."""
+    pal = rnd.choice([('#b8432a', '#ffb347'), ('#c65a1e', '#ffd166'), ('#a33a3a', '#ff8a4c')])
+    return tree_round(mb_flora, mb_wood, bx, by, rnd, s * rnd.uniform(0.8, 0.95), palette=pal, crown=True)
+
+
+def willow(mb_leaf, mb_wood, bx, by, rnd, s=1.0):
+    """Weeping willow for pond sides: a stout trunk, a domed crown and curtains of hanging fronds."""
+    p = board_to_world(bx, by, 0.0)
+    h = rnd.uniform(1.3, 1.5) * s
+    v, f = lib.cylinder((p.x, p.y, 0.0), 0.12 * s, 0.08 * s, h * 0.8, 10)
+    mb_wood.add(v, f, col('#5e4630'))
+    low, high = col('#4f8a38'), col('#c4e27a')
+    cz = h * 0.95
+    R = 0.62 * s
+    for (ox, oy, oz, rr) in [(0, 0, 0, 0.8), (0.3, 0.1, -0.05, 0.55), (-0.3, 0.05, -0.05, 0.55), (0.05, -0.28, -0.1, 0.5), (0.0, 0.25, 0.05, 0.5)]:
+        r = R * rr
+        v, f = lib.blob((p.x + ox * s, p.y + oy * s, cz + oz * s), r, squash=(1.1, 1.1, 0.62), rough=0.2, freq=2.0, subdiv=2, seed=rnd.random() * 30)
+        mb_leaf.add(v, f, lambda vv, zc=cz + oz * s, r=r: lib.lerp_col(low, high, max(0.0, min(1.0, (vv[2] - zc) / (r * 0.8) + 0.5))))
+    for k in range(46):
+        a = k / 46 * math.tau + rnd.uniform(-0.06, 0.06)
+        rr = R * rnd.uniform(0.7, 1.0)
+        top = (p.x + math.cos(a) * rr * 0.9, p.y + math.sin(a) * rr * 0.9, cz - 0.04 * s)
+        L = rnd.uniform(0.4, 0.75) * s
+        pts = [(top[0] + math.cos(a) * 0.07 * t * s, top[1] + math.sin(a) * 0.07 * t * s, top[2] - L * t) for t in np.linspace(0, 1, 6)]
+        v, f = lib.tube(pts, lambda t: (0.05 - 0.03 * t) * s, 5)
+        mb_leaf.add(v, f, lambda vv, z0=top[2], L=L: lib.lerp_col(high, low, max(0.0, min(1.0, (z0 - vv[2]) / L)) ** 0.8))
+        for q in pts[1:5]:  # leaf tufts along each frond
+            v, f = lib.blob((q[0], q[1], q[2]), 0.045 * s, squash=(1, 1, 1.5), rough=0.25, subdiv=1, seed=rnd.random() * 20)
+            mb_leaf.add(v, f, lambda vv, z0=top[2], L=L: lib.lerp_col(high, low, max(0.0, min(1.0, (z0 - vv[2]) / L)) ** 0.8))
     return h + R
 
 
@@ -523,3 +785,54 @@ def lamp_post(mb_wood, mb_glow, bx, by, rnd):
     mb_glow.add(v, f, col('#ffd27a'))
     v, f = lib.lathe([(0.065, 0.0), (0.0, 0.05)], 8, (p.x + 0.14, p.y, 0.59), cap_bottom=True, cap_top=False)
     mb_wood.add(v, f, col('#3a2e2a'))
+
+
+# ------------------------------------------------------------------------------------------
+# Relic shrine paving (baked into the terrain so it lies under the space disc and the players)
+SHRINE_R = 0.84  # platform radius (world units)
+
+
+def shrine_platform(paving, metal, glow, crystals, bx, by, rnd):
+    """A round mosaic platform behind a relic gate: radial rings of pale slabs over dark mortar, a
+    gold inlay ring, a thin glowing crystal ring and a few crystal shards standing round its back
+    half. Lies flush with the trail so the space disc and the players sit on top of it."""
+    c = board_to_world(bx, by, 0.0)
+    x, y = c.x, c.y
+    R = SHRINE_R
+    # mortar bed with a bevelled rim (a little proud of the ground)
+    v, f = lib.lathe([(R + 0.03, 0.0), (R + 0.03, 0.012), (R + 0.01, 0.026), (0.0, 0.026)], 48, (x, y, 0.0), cap_bottom=False)
+    paving.add(v, f, col('#a2927c'))
+    # slabs: concentric rings split into sectors, each stone slightly different
+    stones = ['#f3ebdd', '#e9dfcd', '#f7f0e4', '#e2d6c2', '#efe5d3']
+    rings = [(0.0, 0.2, 1), (0.21, 0.42, 8), (0.43, 0.62, 13), (0.63, R, 18)]
+    gap = 0.012
+    for (r0, r1, n) in rings:
+        off = rnd.uniform(0, math.tau)
+        for k in range(n):
+            a0 = off + k / n * math.tau + (gap / max(r1, 0.05) if n > 1 else 0.0)
+            a1 = off + (k + 1) / n * math.tau - (gap / max(r1, 0.05) if n > 1 else 0.0)
+            seg = max(2, int((a1 - a0) * r1 / 0.06))
+            ra, rb = r0 + (gap if r0 > 0 else 0.0), r1 - gap
+            z = 0.034 + rnd.uniform(-0.003, 0.003)
+            verts, faces = [], []
+            for j in range(seg + 1):
+                a = a0 + (a1 - a0) * j / seg
+                verts.append((x + math.cos(a) * ra, y + math.sin(a) * ra, z))
+                verts.append((x + math.cos(a) * rb, y + math.sin(a) * rb, z))
+            for j in range(seg):
+                faces.append((2 * j, 2 * j + 2, 2 * j + 3, 2 * j + 1))
+            paving.add(verts, faces, col(rnd.choice(stones)))
+    # gold inlay ring between the outer rings, and a glowing crystal ring inside it
+    for (ra, rb, mb, cc, z) in [(0.62, 0.65, metal, '#f2c14e', 0.04), (0.405, 0.425, glow, '#6fe6ff', 0.039)]:
+        v, f = lib.lathe([(rb, z), (ra, z)], 64, (x, y, 0.0), cap_bottom=False, cap_top=False)
+        mb.add(v, f, col(cc))
+    # crystal shards round the back half (the front half is under the space disc)
+    for (ang, hgt, cc) in [(math.radians(58), 0.34, '#5ce1ff'), (math.radians(122), 0.34, '#c49bff'),
+                           (math.radians(18), 0.22, '#8ff0ff'), (math.radians(162), 0.22, '#8ff0ff')]:
+        px_, py_ = x + math.cos(ang) * R * 0.86, y + math.sin(ang) * R * 0.86
+        for j in range(3):
+            tilt = (-math.sin(ang) * 0.25 + rnd.uniform(-0.12, 0.12), math.cos(ang) * 0.25 + rnd.uniform(-0.12, 0.12))
+            hh = hgt * (1.0 if j == 0 else rnd.uniform(0.45, 0.65))
+            v, f = lib.prism((px_ + rnd.uniform(-0.04, 0.04), py_ + rnd.uniform(-0.03, 0.03), 0.02), (0.05 if j == 0 else 0.032), hh,
+                             tilt=tilt, twist=rnd.random())
+            crystals.add(v, f, col(cc))

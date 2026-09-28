@@ -14,7 +14,9 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 TILE = 1024
 
 
-def export_tiles(path: str, board: str, origin, scale: float, prefix: str = 'terrain', quality: int = 90) -> dict:
+# The board carries a lot of fine texture (grass clumps, gravel, the festival district): at quality 82
+# its tiles stay close to the size they had before that detail, with no visible loss at game zoom.
+def export_tiles(path: str, board: str, origin, scale: float, prefix: str = 'terrain', quality: int = 82) -> dict:
     dest = os.path.join(ROOT, 'public', 'assets', 'rendered', board)
     os.makedirs(dest, exist_ok=True)
     for f in os.listdir(dest):
