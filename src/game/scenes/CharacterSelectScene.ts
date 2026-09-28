@@ -8,7 +8,7 @@ import { slotForDevice } from '../input/assignment';
 import { input, type DeviceRef } from '../input/InputManager';
 import { settings } from '../save/SettingsManager';
 import { session } from '../state/Session';
-import { makeGlyph, PromptBar } from '../ui/ControllerPrompt';
+import { glyphKindFor, makeGlyph, PromptBar } from '../ui/ControllerPrompt';
 import { PlayerBadge } from '../ui/PlayerBadge';
 import { addText, addTitle } from '../ui/theme';
 import { enterScene, goTo } from '../ui/Transition';
@@ -150,7 +150,7 @@ export class CharacterSelectScene extends Phaser.Scene {
     v.content.removeAll(true);
     const add = (o: Phaser.GameObjects.GameObject) => v.content.add(o);
     if (v.phase === 'empty') {
-      const glyphKind = input.hasGamepad() ? 'gamepad' : 'keyboard';
+      const glyphKind = glyphKindFor();
       const glyph = makeGlyph(this, 'A', 40, glyphKind);
       const label = addText(this, 0, 0, 'TO JOIN', 28, { color: UI.inkCss, weight: 700, align: 'left' });
       // Centre "[glyph] TO JOIN" as one line using the glyph's real width (key caps are wider).

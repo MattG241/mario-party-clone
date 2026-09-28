@@ -1,6 +1,7 @@
 import type { Button, NavDir } from './buttons';
 import { NO_CONTROLS, type Controls, type InputDevice } from './Controls';
-import { DEFAULT_DEADZONE, GamepadDevice } from './GamepadManager';
+import { DEFAULT_DEADZONE, GamepadDevice, padConfig } from './GamepadManager';
+import type { PadFamily, PadMapping } from './padProfiles';
 import { KeyboardDevice } from './KeyboardManager';
 import { SlotControls, type SlotResolver } from './PlayerInput';
 
@@ -39,6 +40,8 @@ export class InputManager implements SlotResolver {
   private vibration = true;
   /** Kind of device that most recently produced input (drives prompt glyphs). */
   lastKind: 'gamepad' | 'keyboard' = 'keyboard';
+  /** The gamepad that most recently produced input. */
+  private lastPad: GamepadDevice | null = null;
 
   constructor() {
     this.slotControls = [0, 1, 2, 3].map((i) => new SlotControls(this, i));
@@ -52,9 +55,11 @@ export class InputManager implements SlotResolver {
     win.addEventListener('gamepaddisconnected', () => this.poll(performance.now(), 0));
   }
 
-  configure(opts: { deadzone?: number; vibration?: boolean }): void {
+  configure(opts: { deadzone?: number; vibration?: boolean; padMappings?: Record<string, PadMapping>; nintendoByLabel?: boolean }): void {
     if (opts.deadzone !== undefined) this.deadzone = opts.deadzone;
     if (opts.vibration !== undefined) this.vibration = opts.vibration;
+    if (opts.padMappings !== undefined) padConfig.mappings = opts.padMappings;
+    if (opts.nintendoByLabel !== undefined) padConfig.nintendoByLabel = opts.nintendoByLabel;
     for (const p of this.pads.values()) {
       p.deadzone = this.deadzone;
       p.vibrationEnabled = this.vibration;
@@ -78,8 +83,21 @@ export class InputManager implements SlotResolver {
     this.keyboard.update(dt, now);
     const kbAct = this.keyboard.lastActivity;
     let padAct = 0;
-    for (const p of this.pads.values()) padAct = Math.max(padAct, p.lastActivity);
+    for (const p of this.pads.values()) {
+      if (p.lastActivity > padAct) {
+        padAct = p.lastActivity;
+        this.lastPad = p;
+      }
+    }
     if (kbAct || padAct) this.lastKind = padAct > kbAct ? 'gamepad' : 'keyboard';
+  }
+
+  /** Controller family of a slot's pad, or of the most recently used pad (for prompt glyphs). */
+  padFamily(slot?: number): PadFamily {
+    const ref = slot !== undefined ? this.slots[slot] : null;
+    if (ref && ref.kind === 'gamepad') return this.pads.get(ref.index)?.family ?? 'generic';
+    const last = this.lastPad && this.lastPad.connected ? this.lastPad : this.connectedPads()[0];
+    return last?.family ?? 'generic';
   }
 
   private poll(now: number, dt: number): void {

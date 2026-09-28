@@ -1,12 +1,38 @@
 import Phaser from 'phaser';
 import type { Button, KeyAction } from '../input/buttons';
 import { keyLabel } from '../input/buttons';
+import { padConfig } from '../input/GamepadManager';
 import { input } from '../input/InputManager';
+import type { PadFamily } from '../input/padProfiles';
 import { settings } from '../save/SettingsManager';
 import { drawSlate } from './Style';
 import { addText, BUTTON_COLORS } from './theme';
 
-export type GlyphKind = 'gamepad' | 'keyboard';
+/** Glyph set: key caps, or a controller family's buttons ('gamepad' = Xbox-style). */
+export type GlyphKind = 'keyboard' | 'gamepad' | 'xbox' | 'playstation' | 'nintendo';
+
+function padGlyphs(f: PadFamily): GlyphKind {
+  return f === 'playstation' ? 'playstation' : f === 'nintendo' ? 'nintendo' : 'xbox';
+}
+
+/** PlayStation face symbols by position (A = bottom): cross, circle, square, triangle. */
+const PS_FACE: Record<'A' | 'B' | 'X' | 'Y', { shape: 'cross' | 'circle' | 'square' | 'triangle'; color: number }> = {
+  A: { shape: 'cross', color: 0x86b4ff },
+  B: { shape: 'circle', color: 0xff737a },
+  X: { shape: 'square', color: 0xf09ad8 },
+  Y: { shape: 'triangle', color: 0x63d6a0 },
+};
+
+const SHOULDER_LABELS: Record<'playstation' | 'nintendo', Record<'LB' | 'RB' | 'LT' | 'RT', string>> = {
+  playstation: { LB: 'L1', RB: 'R1', LT: 'L2', RT: 'R2' },
+  nintendo: { LB: 'L', RB: 'R', LT: 'ZL', RT: 'ZR' },
+};
+
+/** The letter printed on a Nintendo pad's button for a logical face button. */
+function nintendoLabel(b: 'A' | 'B' | 'X' | 'Y'): string {
+  if (padConfig.nintendoByLabel) return b;
+  return ({ A: 'B', B: 'A', X: 'Y', Y: 'X' } as const)[b];
+}
 
 const BUTTON_TO_ACTION: Partial<Record<Button, KeyAction>> = {
   A: 'A',
@@ -29,10 +55,10 @@ const BUTTON_TO_ACTION: Partial<Record<Button, KeyAction>> = {
 export function glyphKindFor(slot?: number): GlyphKind {
   if (slot !== undefined) {
     const ref = input.slots[slot];
-    if (ref) return ref.kind === 'keyboard' ? 'keyboard' : 'gamepad';
+    if (ref) return ref.kind === 'keyboard' ? 'keyboard' : padGlyphs(input.padFamily(slot));
   }
   if (!input.hasGamepad()) return 'keyboard';
-  return input.lastKind;
+  return input.lastKind === 'keyboard' ? 'keyboard' : padGlyphs(input.padFamily());
 }
 
 export type PromptButton = Button | 'STICK' | 'RSTICK' | 'DPAD';
@@ -72,9 +98,30 @@ export function makeGlyph(scene: Phaser.Scene, button: PromptButton, size: numbe
     case 'Y': {
       g.fillStyle(0x000000, 0.22);
       g.fillCircle(0, 2.5, r);
-      g.fillStyle(BUTTON_COLORS[button], 1);
-      g.fillCircle(0, 0, r);
-      c.add(addText(scene, 0, -1, button, size * 0.56, { color: '#ffffff', weight: 700, fixed: true }));
+      if (kind === 'playstation') {
+        // dark button with the family's coloured symbol, drawn (not a font glyph)
+        const f = PS_FACE[button];
+        g.fillStyle(0x2a2438, 1);
+        g.fillCircle(0, 0, r);
+        g.lineStyle(Math.max(2, size * 0.1), f.color, 1);
+        const k = r * 0.46;
+        if (f.shape === 'cross') {
+          g.lineBetween(-k, -k, k, k);
+          g.lineBetween(-k, k, k, -k);
+        } else if (f.shape === 'circle') g.strokeCircle(0, 0, k * 1.05);
+        else if (f.shape === 'square') g.strokeRect(-k * 0.9, -k * 0.9, k * 1.8, k * 1.8);
+        else g.strokeTriangle(0, -k * 1.1, k * 1.05, k * 0.75, -k * 1.05, k * 0.75);
+      } else if (kind === 'nintendo') {
+        g.fillStyle(0x2a2438, 1);
+        g.fillCircle(0, 0, r);
+        g.lineStyle(2, 0xffffff, 0.85);
+        g.strokeCircle(0, 0, r - 1);
+        c.add(addText(scene, 0, -1, nintendoLabel(button), size * 0.56, { color: '#ffffff', weight: 700, fixed: true }));
+      } else {
+        g.fillStyle(BUTTON_COLORS[button], 1);
+        g.fillCircle(0, 0, r);
+        c.add(addText(scene, 0, -1, button, size * 0.56, { color: '#ffffff', weight: 700, fixed: true }));
+      }
       c.setSize(size, size);
       return c;
     }
@@ -82,6 +129,7 @@ export function makeGlyph(scene: Phaser.Scene, button: PromptButton, size: numbe
     case 'RB':
     case 'LT':
     case 'RT': {
+      const label = kind === 'playstation' || kind === 'nintendo' ? SHOULDER_LABELS[kind][button] : button;
       const w = size * 1.5;
       g.fillStyle(0x1b1530, 1);
       g.fillRoundedRect(-w / 2, -r + 3, w, size, button.endsWith('T') ? { tl: r, tr: r, bl: 6, br: 6 } : 8);
@@ -89,7 +137,7 @@ export function makeGlyph(scene: Phaser.Scene, button: PromptButton, size: numbe
       g.fillRoundedRect(-w / 2, -r, w, size, button.endsWith('T') ? { tl: r, tr: r, bl: 6, br: 6 } : 8);
       g.lineStyle(2, 0xffffff, 0.9);
       g.strokeRoundedRect(-w / 2, -r, w, size, button.endsWith('T') ? { tl: r, tr: r, bl: 6, br: 6 } : 8);
-      c.add(addText(scene, 0, -1, button, size * 0.46, { color: '#ffffff', weight: 700, fixed: true }));
+      c.add(addText(scene, 0, -1, label, size * 0.46, { color: '#ffffff', weight: 700, fixed: true }));
       c.setSize(w, size);
       return c;
     }
@@ -99,6 +147,14 @@ export function makeGlyph(scene: Phaser.Scene, button: PromptButton, size: numbe
       g.fillCircle(0, 0, r);
       g.lineStyle(2, 0xffffff, 0.9);
       g.strokeCircle(0, 0, r);
+      if (kind === 'nintendo') {
+        // + and − buttons
+        g.lineStyle(Math.max(2, size / 9), 0xffffff, 1);
+        g.lineBetween(-r * 0.45, 0, r * 0.45, 0);
+        if (button === 'MENU') g.lineBetween(0, -r * 0.45, 0, r * 0.45);
+        c.setSize(size, size);
+        return c;
+      }
       g.lineStyle(Math.max(2, size / 12), 0xffffff, 1);
       if (button === 'MENU') {
         for (const dy of [-r * 0.35, 0, r * 0.35]) g.lineBetween(-r * 0.45, dy, r * 0.45, dy);

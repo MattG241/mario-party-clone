@@ -8,6 +8,7 @@ import {
 } from '../constants';
 import { DEFAULT_KEY_BINDINGS, KEY_ACTIONS, type KeyAction } from '../input/buttons';
 import type { CharacterId } from '../data/characters';
+import { sanitizeMappings, type PadMapping } from '../input/padProfiles';
 
 export interface Settings {
   masterVolume: number;
@@ -23,6 +24,10 @@ export interface Settings {
   gameSpeed: GameSpeed;
   instructions: InstructionMode;
   keyBindings: Record<KeyAction, string[]>;
+  /** Controller layouts recorded on the Button Setup screen, keyed by Gamepad.id. */
+  padMappings: Record<string, PadMapping>;
+  /** Nintendo controllers: the button labelled A confirms (true) or the bottom button does (false). */
+  nintendoByLabel: boolean;
   /** Last character chosen by each player slot (pre-highlighted on the select screen). */
   lastCharacters: (CharacterId | null)[];
   /** Match defaults remembered from the previous setup. */
@@ -45,6 +50,8 @@ export const DEFAULT_SETTINGS: Settings = {
   gameSpeed: 'normal',
   instructions: 'on',
   keyBindings: cloneBindings(DEFAULT_KEY_BINDINGS),
+  padMappings: {},
+  nintendoByLabel: true,
   lastCharacters: [null, null, null, null],
   rounds: 10,
   cpuPlayers: true,
@@ -109,13 +116,13 @@ export class SettingsManager {
   }
 
   resetAll(): void {
-    this.data = { ...DEFAULT_SETTINGS, keyBindings: cloneBindings(DEFAULT_KEY_BINDINGS) };
+    this.data = { ...DEFAULT_SETTINGS, keyBindings: cloneBindings(DEFAULT_KEY_BINDINGS), padMappings: {} };
     this.persist();
     for (const l of this.listeners) l(this.data, Object.keys(this.data) as (keyof Settings)[]);
   }
 
   private load(): Settings {
-    const base: Settings = { ...DEFAULT_SETTINGS, keyBindings: cloneBindings(DEFAULT_KEY_BINDINGS), lastCharacters: [null, null, null, null] };
+    const base: Settings = { ...DEFAULT_SETTINGS, keyBindings: cloneBindings(DEFAULT_KEY_BINDINGS), padMappings: {}, lastCharacters: [null, null, null, null] };
     if (!this.store) return base;
     try {
       const raw = this.store.getItem(STORAGE_KEYS.settings);
@@ -150,7 +157,8 @@ function sanitize(p: Partial<Settings>): Partial<Settings> {
   if (p.musicVolume !== undefined) out.musicVolume = clamp01(p.musicVolume, DEFAULT_SETTINGS.musicVolume);
   if (p.sfxVolume !== undefined) out.sfxVolume = clamp01(p.sfxVolume, DEFAULT_SETTINGS.sfxVolume);
   if (typeof p.deadzone === 'number' && Number.isFinite(p.deadzone)) out.deadzone = Math.min(0.3, Math.max(0.1, p.deadzone));
-  for (const k of ['vibration', 'screenShake', 'reducedMotion', 'largeText', 'subtitles', 'cpuPlayers'] as const) {
+  if (p.padMappings !== undefined) out.padMappings = sanitizeMappings(p.padMappings);
+  for (const k of ['vibration', 'screenShake', 'reducedMotion', 'largeText', 'subtitles', 'cpuPlayers', 'nintendoByLabel'] as const) {
     if (typeof p[k] === 'boolean') out[k] = p[k];
   }
   if (p.gameSpeed === 'normal' || p.gameSpeed === 'fast') out.gameSpeed = p.gameSpeed;

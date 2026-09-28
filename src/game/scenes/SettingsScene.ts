@@ -79,14 +79,30 @@ export class SettingsScene extends Phaser.Scene {
       },
       { label: 'Keyboard Controls', onSelect: () => this.openBindings(), hint: 'Rebind the keyboard keys for every action.' },
       { label: 'Test Controllers', onSelect: () => goTo(this, 'GamepadDebug', { back: 'Settings' }), hint: 'See every connected controller and check buttons, sticks and triggers live.' },
+      { label: 'Controller Button Setup', onSelect: () => goTo(this, 'PadSetup', { back: 'Settings' }), hint: 'Buttons on a controller doing the wrong thing? Press each button when asked and the game remembers that controller\u2019s layout.' },
+      {
+        label: 'Nintendo Controllers',
+        value: () => (s().nintendoByLabel ? 'A confirms' : 'Bottom confirms'),
+        onChange: () => settings.set({ nintendoByLabel: !s().nintendoByLabel }),
+        hint: 'Switch Pro Controllers and Joy-Cons: confirm with the button labelled A (Nintendo style) or with the bottom face button (like Xbox and PlayStation).',
+      },
+      {
+        label: () => `Forget Button Setups (${Object.keys(s().padMappings).length})`,
+        onSelect: () => {
+          settings.set({ padMappings: {} });
+          audio.play('confirm');
+          this.menu.refresh();
+        },
+        hint: 'Clear every layout recorded with Controller Button Setup (controllers go back to their automatic layout).',
+      },
       { label: () => (this.resetArmed ? 'Press again to reset' : 'Reset to Defaults'), onSelect: () => this.reset(), hint: 'Restore every setting (and the keyboard layout) to its default.' },
       { label: 'BACK', onSelect: () => this.leave(), hint: 'Return to the previous screen.' },
     ];
     this.menu = new Menu(this, 610, 560, items, {
       width: 900,
-      itemHeight: 50,
-      gap: 7,
-      fontSize: 25,
+      itemHeight: 42,
+      gap: 5,
+      fontSize: 23,
       onCancel: () => this.leave(),
       onFocus: (it) => this.showHint(it),
     });

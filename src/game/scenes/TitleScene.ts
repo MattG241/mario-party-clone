@@ -7,7 +7,7 @@ import { EffectsManager } from '../effects/EffectsManager';
 import { input } from '../input/InputManager';
 import { saves } from '../save/SaveManager';
 import { session } from '../state/Session';
-import { makeGlyph, PromptBar } from '../ui/ControllerPrompt';
+import { glyphKindFor, makeGlyph, PromptBar, type GlyphKind } from '../ui/ControllerPrompt';
 import { Menu } from '../ui/Menu';
 import { drawCard, UI } from '../ui/Style';
 import { addText, addTitle } from '../ui/theme';
@@ -23,7 +23,7 @@ export class TitleScene extends Phaser.Scene {
   private phase: 'attract' | 'menu' = 'attract';
   private menu!: Menu;
   private pressText!: Phaser.GameObjects.Container;
-  private pressKind: 'gamepad' | 'keyboard' | null = null;
+  private pressKind: GlyphKind | null = null;
   private prompts!: PromptBar;
   private hint!: Phaser.GameObjects.Text;
   private audioHint!: Phaser.GameObjects.Text;
@@ -208,7 +208,7 @@ export class TitleScene extends Phaser.Scene {
   }
 
   private refreshPressPlate(): void {
-    const kind = input.hasGamepad() ? 'gamepad' : 'keyboard';
+    const kind = glyphKindFor();
     if (kind === this.pressKind) return;
     this.pressKind = kind;
     const c = this.pressText;

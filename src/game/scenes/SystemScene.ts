@@ -56,7 +56,11 @@ export class SystemScene extends Phaser.Scene {
       .setVisible(false);
     input.on((e) => {
       if (e.type === 'connected') {
-        if (!this.disconnect) this.toast(`🎮 Controller ${e.index + 1} connected`);
+        if (this.disconnect) return;
+        // A controller the browser doesn't map as standard gets a pointer to Button Setup.
+        const pad = input.pads.get(e.index);
+        if (pad && pad.layout === 'generic') this.toast(`Controller ${e.index + 1} connected: if its buttons feel wrong, try Settings > Controller Button Setup`, 5200);
+        else this.toast(`Controller ${e.index + 1} connected: ${e.name}`);
       } else {
         this.handleDisconnect(e.slot, e.index);
       }

@@ -10,6 +10,27 @@ pre-rendered from code in Blender (see [Art pipeline](#art-pipeline)).
 > Gleamtrail is an original game. Its world, characters, rules, art and audio are its own and do
 > not reference or reproduce any existing game franchise.
 
+## Play now
+
+**In your browser:** <https://mattg241.github.io/mario-party-clone/> — Chrome or Edge recommended.
+It is published from `main` by GitHub Actions (`.github/workflows/pages.yml`; one-time setup:
+repository Settings → Pages → Source: *GitHub Actions*). Or run it yourself (below):
+`npm install && npm run build && npm run preview`, then open <http://localhost:4173>.
+
+**Controllers.** Up to four at once, plus the keyboard:
+
+- Xbox (One, Series, 360), PlayStation (DualShock 4, DualSense), Nintendo Switch Pro Controller
+  and Joy-Cons, 8BitDo, Logitech and generic USB / Bluetooth pads all work.
+- Connect or pair them, then **press a button on each** — browsers only reveal a controller once
+  one of its buttons has been pressed on the page.
+- Button prompts follow each player's controller: Xbox letters, PlayStation symbols or Nintendo
+  letters. On Nintendo controllers the button labelled **A** confirms (Settings → Nintendo
+  Controllers switches to the bottom button instead).
+- If a controller's buttons do the wrong thing (usually a generic pad, or some pads in Firefox),
+  open **Settings → Controller Button Setup** and press each button when asked. The layout is
+  remembered for that controller; **Settings → Test Controllers** shows everything live.
+- If Steam is running it may remap controllers (Steam Input); close Steam if a pad behaves oddly.
+
 ## Quick start
 
 ```bash
@@ -62,9 +83,10 @@ The in-game **How to Play** screen covers the same ground with pictures.
 | Pause | Menu | P |
 
 Keyboard keys can be rebound in **Settings → Keyboard Controls**. **Settings → Test Controllers**
-shows every connected pad live (buttons, sticks with the dead-zone ring, triggers, rumble). If a
-controller disconnects mid-game, play pauses until it is reconnected, another free controller
-takes over (press A), or the player carries on with the keyboard.
+shows every connected pad live (buttons, sticks with the dead-zone ring, triggers, rumble), and
+**Settings → Controller Button Setup** records the layout of any controller the browser doesn't map
+as standard. If a controller disconnects mid-game, play pauses until it is reconnected, another
+free controller takes over (press A), or the player carries on with the keyboard.
 
 ### Minigames
 
@@ -86,7 +108,7 @@ set to full, quick or off in Settings. **Minigame Mode** lets you play any of th
 
 Master / music / effects volume, vibration, stick dead zone, screen shake, reduced motion, large
 text, game speed (fast CPU turns and board animations), minigame instruction level, keyboard
-rebinding and a full reset. Settings and the match in progress are saved in `localStorage`, so a
+rebinding, controller button setup, the Nintendo A/B layout and a full reset. Settings and the match in progress are saved in `localStorage`, so a
 board game can be continued from the title screen.
 
 ## Debug tools

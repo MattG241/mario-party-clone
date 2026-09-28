@@ -1,7 +1,17 @@
+import { BUTTONS } from './buttons';
 import { applyRadialDeadzone, InputDevice } from './Controls';
+import { identifyPad, readGeneric, readMapped, readStandard, TRIGGER_PRESS, type LogicalFrame, type PadFamily, type PadIdentity, type PadMapping } from './padProfiles';
 
 export const DEFAULT_DEADZONE = 0.18;
-export const TRIGGER_PRESS = 0.35;
+export { TRIGGER_PRESS };
+
+/** Controller preferences shared by every pad (set through InputManager.configure). */
+export const padConfig = {
+  /** Recorded layouts from the Button Setup screen, keyed by Gamepad.id. */
+  mappings: {} as Record<string, PadMapping>,
+  /** Nintendo controllers: the button labelled A confirms (true) or the bottom one does (false). */
+  nintendoByLabel: true,
+};
 
 export interface RawButton {
   pressed: boolean;
@@ -9,15 +19,15 @@ export interface RawButton {
 }
 
 /** How a controller's raw buttons/axes are interpreted. */
-export type PadLayout = 'standard' | 'xinput-axes' | 'unknown';
+export type PadLayout = 'standard' | 'xinput-axes' | 'generic' | 'custom';
 
 /**
  * One physical gamepad, polled from navigator.getGamepads() every frame.
  *
- * Browsers report Xbox controllers with the W3C "standard" mapping on Windows/macOS (Chrome,
- * Edge, Firefox, Safari). Some Linux setups expose the raw xpad layout instead (triggers and
- * D-pad on axes); that layout is detected and translated. The diagnostics screen shows the raw
- * values so any other layout can be troubleshot.
+ * Most controllers arrive with the W3C "standard" mapping (Xbox, PlayStation, Switch Pro, 8BitDo…
+ * in Chrome, Edge and Safari). Linux's raw xpad layout (triggers and D-pad on axes) is detected
+ * and translated; any other layout gets a best guess (with hat-switch D-pads) until the player
+ * records it on the Button Setup screen (see padProfiles.ts).
  */
 export class GamepadDevice extends InputDevice {
   readonly kind = 'gamepad' as const;
@@ -34,6 +44,9 @@ export class GamepadDevice extends InputDevice {
   deadzone = DEFAULT_DEADZONE;
   vibrationEnabled = true;
   private triggerAxisSeen = [false, false];
+  /** Axes seen resting outside [-1, 1]: hat-switch D-pads on non-standard pads. */
+  private hatAxes = new Set<number>();
+  private ident: PadIdentity = identifyPad('');
 
   constructor(readonly index: number) {
     super();
@@ -43,14 +56,22 @@ export class GamepadDevice extends InputDevice {
     return `Controller ${this.index + 1}`;
   }
 
+  /** Xbox, PlayStation, Nintendo or generic (drives prompt glyphs and the Nintendo layout). */
+  get family(): PadFamily {
+    return this.ident.family;
+  }
+
+  /** True when the pad needs (or has) a recorded layout: its browser mapping isn't standard. */
+  get nonStandard(): boolean {
+    return this.layout === 'generic' || this.layout === 'custom';
+  }
+
   /** Short, readable controller name. */
   get shortName(): string {
-    const id = this.id.toLowerCase();
-    if (id.includes('xbox') || id.includes('xinput') || id.includes('045e')) return 'Xbox Controller';
-    if (id.includes('dualsense') || id.includes('dualshock') || id.includes('054c')) return 'PlayStation Controller';
-    if (id.includes('pro controller') || id.includes('057e')) return 'Switch Controller';
-    const cleaned = this.id.replace(/\(.*?\)/g, '').trim();
-    return cleaned.length > 0 ? cleaned.slice(0, 28) : 'Gamepad';
+    if (this.family === 'xbox') return 'Xbox Controller';
+    if (this.family === 'playstation') return 'PlayStation Controller';
+    if (this.family === 'nintendo') return this.ident.name.toLowerCase().includes('joy-con') ? 'Joy-Con' : 'Switch Controller';
+    return this.ident.name.slice(0, 28);
   }
 
   get supportsVibration(): boolean {
@@ -70,77 +91,37 @@ export class GamepadDevice extends InputDevice {
 
   update(gp: Gamepad, dtMs: number, now: number): void {
     this.beginFrame();
+    if (gp.id !== this.id) {
+      this.ident = identifyPad(gp.id);
+      this.hatAxes.clear();
+    }
     this.id = gp.id;
     this.mapping = gp.mapping;
     this.timestamp = gp.timestamp;
     this.rawAxes = Array.from(gp.axes);
     this.rawButtons = Array.from(gp.buttons, (b) => ({ pressed: b.pressed, value: b.value }));
-    const btn = (i: number): boolean => {
-      const b = gp.buttons[i];
-      return !!b && (b.pressed || b.value > 0.5);
-    };
-    const val = (i: number): number => gp.buttons[i]?.value ?? 0;
-    const ax = (i: number): number => gp.axes[i] ?? 0;
-
-    this.layout = gp.mapping === 'standard' ? 'standard' : gp.axes.length >= 6 && gp.buttons.length <= 15 ? 'xinput-axes' : 'unknown';
-
-    let lx = 0;
-    let ly = 0;
-    let rx = 0;
-    let ry = 0;
-    const c = this.cur;
-    if (this.layout === 'xinput-axes') {
-      c.A = btn(0);
-      c.B = btn(1);
-      c.X = btn(2);
-      c.Y = btn(3);
-      c.LB = btn(4);
-      c.RB = btn(5);
-      c.VIEW = btn(6);
-      c.MENU = btn(7);
-      c.LS = btn(9);
-      c.RS = btn(10);
-      lx = ax(0);
-      ly = ax(1);
-      rx = ax(3);
-      ry = ax(4);
-      // Trigger axes rest at -1 once touched but often report 0 before first use.
-      this.lt = this.triggerFromAxis(0, ax(2));
-      this.rt = this.triggerFromAxis(1, ax(5));
-      if (gp.axes.length >= 8) {
-        c.LEFT = ax(6) < -0.5;
-        c.RIGHT = ax(6) > 0.5;
-        c.UP = ax(7) < -0.5;
-        c.DOWN = ax(7) > 0.5;
-      }
-      c.UP ||= btn(12);
-      c.DOWN ||= btn(13);
-      c.LEFT ||= btn(14);
-      c.RIGHT ||= btn(15);
+    const raw = { axes: this.rawAxes, buttons: this.rawButtons };
+    const swap = this.family === 'nintendo' && padConfig.nintendoByLabel;
+    const custom = padConfig.mappings[gp.id];
+    let f: LogicalFrame;
+    if (custom) {
+      this.layout = 'custom';
+      f = readMapped(raw, custom);
+    } else if (gp.mapping === 'standard') {
+      this.layout = 'standard';
+      f = readStandard(raw, swap);
+    } else if (this.family === 'xbox' && gp.axes.length >= 6 && gp.buttons.length <= 15) {
+      this.layout = 'xinput-axes';
+      f = this.readXinputAxes(gp);
     } else {
-      c.A = btn(0);
-      c.B = btn(1);
-      c.X = btn(2);
-      c.Y = btn(3);
-      c.LB = btn(4);
-      c.RB = btn(5);
-      this.lt = val(6);
-      this.rt = val(7);
-      c.VIEW = btn(8);
-      c.MENU = btn(9);
-      c.LS = btn(10);
-      c.RS = btn(11);
-      c.UP = btn(12);
-      c.DOWN = btn(13);
-      c.LEFT = btn(14);
-      c.RIGHT = btn(15);
-      lx = ax(0);
-      ly = ax(1);
-      rx = ax(2);
-      ry = ax(3);
+      this.layout = 'generic';
+      f = readGeneric(raw, this.hatAxes, swap);
     }
-    c.LT = this.lt > TRIGGER_PRESS;
-    c.RT = this.rt > TRIGGER_PRESS;
+    const c = this.cur;
+    for (const b of BUTTONS) c[b] = f.buttons[b];
+    this.lt = f.lt;
+    this.rt = f.rt;
+    const { lx, ly, rx, ry } = f;
 
     this.rawLeft = [lx, ly];
     this.rawRight = [rx, ry];
@@ -155,6 +136,46 @@ export class GamepadDevice extends InputDevice {
       this.moveY = dy / m;
     }
     this.finishFrame(dtMs, now);
+  }
+
+  /** Linux xpad (Xbox pads without the standard mapping): triggers and D-pad on axes. */
+  private readXinputAxes(gp: Gamepad): LogicalFrame {
+    const btn = (i: number): boolean => {
+      const b = gp.buttons[i];
+      return !!b && (b.pressed || b.value > 0.5);
+    };
+    const ax = (i: number): number => gp.axes[i] ?? 0;
+    // Trigger axes rest at -1 once touched but often report 0 before first use.
+    const lt = this.triggerFromAxis(0, ax(2));
+    const rt = this.triggerFromAxis(1, ax(5));
+    const hatX = gp.axes.length >= 8 ? ax(6) : 0;
+    const hatY = gp.axes.length >= 8 ? ax(7) : 0;
+    return {
+      buttons: {
+        A: btn(0),
+        B: btn(1),
+        X: btn(2),
+        Y: btn(3),
+        LB: btn(4),
+        RB: btn(5),
+        LT: lt > TRIGGER_PRESS,
+        RT: rt > TRIGGER_PRESS,
+        VIEW: btn(6),
+        MENU: btn(7),
+        LS: btn(9),
+        RS: btn(10),
+        UP: hatY < -0.5 || btn(12),
+        DOWN: hatY > 0.5 || btn(13),
+        LEFT: hatX < -0.5 || btn(14),
+        RIGHT: hatX > 0.5 || btn(15),
+      },
+      lx: ax(0),
+      ly: ax(1),
+      rx: ax(3),
+      ry: ax(4),
+      lt,
+      rt,
+    };
   }
 
   private triggerFromAxis(i: 0 | 1, v: number): number {

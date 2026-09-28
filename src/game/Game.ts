@@ -14,6 +14,7 @@ import { CharacterSelectScene } from './scenes/CharacterSelectScene';
 import { DevLaunchScene } from './scenes/DevLaunchScene';
 import { FinalResultsScene } from './scenes/FinalResultsScene';
 import { GamepadDebugScene } from './scenes/GamepadDebugScene';
+import { PadSetupScene } from './scenes/PadSetupScene';
 import { GameSetupScene } from './scenes/GameSetupScene';
 import { HowToPlayScene } from './scenes/HowToPlayScene';
 import { MinigameIntroScene } from './scenes/MinigameIntroScene';
@@ -43,6 +44,7 @@ export function createGame(parent: HTMLElement): Phaser.Game {
     HowToPlayScene,
     SettingsScene,
     GamepadDebugScene,
+    PadSetupScene,
     BoardBgScene,
     BoardScene,
     BoardUIScene,
@@ -62,11 +64,11 @@ export function createGame(parent: HTMLElement): Phaser.Game {
   const applyInputSettings = () => {
     const s = settings.get();
     input.keyboard.setBindings(s.keyBindings);
-    input.configure({ deadzone: s.deadzone, vibration: s.vibration });
+    input.configure({ deadzone: s.deadzone, vibration: s.vibration, padMappings: s.padMappings, nintendoByLabel: s.nintendoByLabel });
   };
   applyInputSettings();
   settings.onChange((_, changed) => {
-    if (changed.some((k) => k === 'keyBindings' || k === 'deadzone' || k === 'vibration')) applyInputSettings();
+    if (changed.some((k) => k === 'keyBindings' || k === 'deadzone' || k === 'vibration' || k === 'padMappings' || k === 'nintendoByLabel')) applyInputSettings();
   });
   game.events.on(Phaser.Core.Events.PRE_STEP, (time: number) => {
     input.update(time);

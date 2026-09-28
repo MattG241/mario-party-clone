@@ -85,7 +85,8 @@ export class GamepadDebugScene extends Phaser.Scene {
         this.drawEmpty(cx, cy + 20);
         continue;
       }
-      this.labels[i].setText(`${pad.label}${pad.supportsVibration ? '  ·  rumble ✓' : ''}`).setColor(CSS.cream);
+      const layout = pad.layout === 'custom' ? 'your Button Setup' : pad.layout === 'generic' ? 'unusual layout: try Button Setup in Settings' : 'standard layout';
+      this.labels[i].setText(`${pad.label} · ${pad.shortName} · ${layout}${pad.supportsVibration ? ' · rumble' : ''}`).setColor(CSS.cream);
       this.drawPad(pad, cx, cy + 20);
       if (pad.pressed('A')) pad.rumble(0.6, 0.6, 180);
     }
