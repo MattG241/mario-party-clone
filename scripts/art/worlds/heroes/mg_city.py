@@ -321,6 +321,15 @@ def antenna(mb_metal: MeshBuilder, mb_glow: MeshBuilder, cx: float, cy: float, z
     sphere(mb_glow, cx, cy, z + h + 0.03, 0.05, '#ff5a44', subdiv=1)
 
 
+def build(mb: MeshBuilder, name: str, material, angle: float = 35.0):
+    """MeshBuilder.build with auto-smooth: faces meeting at more than `angle` degrees keep a sharp edge
+    (boxes stay crisp blocks, round things stay round)."""
+    ob = mb.build(name, material, smooth=True)
+    if ob is not None:
+        ob.data.set_sharp_from_angle(angle=math.radians(angle))
+    return ob
+
+
 def render(path: str):
     lib.render_to(path)
 

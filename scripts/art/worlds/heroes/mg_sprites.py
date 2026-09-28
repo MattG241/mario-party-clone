@@ -115,11 +115,11 @@ def build(name: str):
         C.cyl(body, 0, 0, 0.02, 0.13, 0.15, 0.32, '#56607a', 20)
         C.cyl(glow, 0, 0, 0.34, 0.14, 0.14, 0.03, '#fff6d0', 20)
         C.cyl(dark, 0, 0, -0.03, 0.05, 0.05, 0.02, '#1b2230', 12)
-    body.build(f'{name}_body', C.mat('paint'))
-    metal.build(f'{name}_metal', C.mat('metal'))
-    glow.build(f'{name}_glow', C.mat('glow'))
-    dark.build(f'{name}_dark', C.mat('paint'))
-    soft.build(f'{name}_soft', C.mat('softglow'))
+    C.build(body, f'{name}_body', C.mat('paint'))
+    C.build(metal, f'{name}_metal', C.mat('metal'))
+    C.build(glow, f'{name}_glow', C.mat('glow'))
+    C.build(dark, f'{name}_dark', C.mat('paint'))
+    C.build(soft, f'{name}_soft', C.mat('softglow'))
     del lib
 
 

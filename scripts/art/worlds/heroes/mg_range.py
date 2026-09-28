@@ -42,7 +42,7 @@ def main():
         top = r.uniform(520, 640) if r.random() < 0.85 else r.uniform(430, 500)
         C.box(far, x / 100, 60, C.fz(1400, 60), (x + w) / 100, 62, C.fz(top, 60), '#4a3a78')
         x += w + r.uniform(-8, 20)
-    far.build('far_city', C.facade_material('r_far', lit='#ffcf8a', lit_frac=0.3, cell=(0.24, 0.26), win=(0.1, 0.12), seed=8.0, glass='#3a2f66', emit=1.6))
+    C.build(far, 'far_city', C.facade_material('r_far', lit='#ffcf8a', lit_frac=0.3, cell=(0.24, 0.26), win=(0.1, 0.12), seed=8.0, glass='#3a2f66', emit=1.6))
     # The deck: a wide slab reaching towards us (the players hover over its front, the targets pop up
     # from its middle at DECK_Y), a bright rim, lane stripes and chevrons, lights along the front edge
     trim, deck, metal, glow, paint, dark = (MeshBuilder() for _ in range(6))
@@ -90,13 +90,13 @@ def main():
         C.cyl(metal, px, 7.5, dz, 0.3, 0.2, 1.2, '#7c88a8', 16)
         for k in range(3):
             C.cyl(glow, px, 7.5, dz + 0.3 + k * 0.3, 0.26, 0.26, 0.06, '#5ce1ff', 16)
-    trim.build('trims', C.mat('paint'))
-    deck.build('deck', C.mat('deck'))
-    metal.build('metal', C.mat('metal'))
-    glow.build('glow', C.mat('glow'))
-    paint.build('paint', C.mat('paint'))
-    dark.build('dark', C.mat('paint'))
-    soft.build('lanes', C.mat('softglow'))
+    C.build(trim, 'trims', C.mat('paint'))
+    C.build(deck, 'deck', C.mat('deck'))
+    C.build(metal, 'metal', C.mat('metal'))
+    C.build(glow, 'glow', C.mat('glow'))
+    C.build(paint, 'paint', C.mat('paint'))
+    C.build(dark, 'dark', C.mat('paint'))
+    C.build(soft, 'lanes', C.mat('softglow'))
     # Floodlight glow on the deck
     for mx in (0.4, 18.8):
         ld = bpy.data.lights.new('flood', 'SPOT')

@@ -88,7 +88,7 @@ def backdrop():
         w = r.uniform(2.0, 4.2)
         for dx in (0.0, -PERIOD, PERIOD):
             C.sphere(cl, cx + dx, 120, C.fz(cy, 120), 1.0, '#ffc3a0', squash=(w, 0.2, 0.18), subdiv=2)
-    cl.build('clouds', C.mat('softglow'))
+    C.build(cl, 'clouds', C.mat('softglow'))
     # far silhouettes and a mid layer of bigger blocks with lit windows
     far = MeshBuilder()
     mid = MeshBuilder()
@@ -112,8 +112,8 @@ def backdrop():
         if r.random() < 0.4:
             w = x1 - x0
             wrap_dupes(mid_block, x0 + w * 0.2, x0 + w * 0.8, top - r.uniform(20, 60), 30.4, col)
-    far.build('far', C.facade_material('s_far', lit='#ffcf8a', lit_frac=0.18, cell=(0.28, 0.3), win=(0.12, 0.14), seed=2.0, glass='#4a3666', emit=1.2))
-    mid.build('mid', C.facade_material('s_mid', lit='#ffd9a0', lit_frac=0.26, cell=(0.36, 0.4), win=(0.18, 0.22), seed=6.0, glass='#4e3c6e', emit=1.6))
+    C.build(far, 'far', C.facade_material('s_far', lit='#ffcf8a', lit_frac=0.18, cell=(0.28, 0.3), win=(0.12, 0.14), seed=2.0, glass='#4a3666', emit=1.2))
+    C.build(mid, 'mid', C.facade_material('s_mid', lit='#ffd9a0', lit_frac=0.26, cell=(0.36, 0.4), win=(0.18, 0.22), seed=6.0, glass='#4e3c6e', emit=1.6))
     import mg_dress as dress
     dress.depth_haze(C.CAM_DIST + 10.0, C.CAM_DIST + 75.0, 0.5, color='#e08a9a', skip=('s_sky',))
     path = os.path.join(C.OUT, 'skyline_prev.png' if PREVIEW else 'skyline.png')
@@ -198,13 +198,13 @@ def street():
             hx = lx + 1.9
             C.cyl(metal, hx, 0.4, kerb, 0.07, 0.07, 0.22, '#e5484d', 10)
             C.sphere(metal, hx, 0.4, kerb + 0.24, 0.07, '#e5484d', subdiv=1)
-    wall.build('shops', C.mat('paint'))
-    trim.build('trims', C.mat('paint'))
-    glow.build('glow', C.mat('glow'))
-    metal.build('metal', C.mat('metal'))
-    pave.build('pave', C.mat('deck'))
-    road.build('road', C.mat('deck'))
-    awn.build('awnings', C.mat('paint'))
+    C.build(wall, 'shops', C.mat('paint'))
+    C.build(trim, 'trims', C.mat('paint'))
+    C.build(glow, 'glow', C.mat('glow'))
+    C.build(metal, 'metal', C.mat('metal'))
+    C.build(pave, 'pave', C.mat('deck'))
+    C.build(road, 'road', C.mat('deck'))
+    C.build(awn, 'awnings', C.mat('paint'))
     path = os.path.join(C.OUT, 'street_prev.png' if PREVIEW else 'street.png')
     C.render(path)
     if not PREVIEW:
@@ -250,7 +250,7 @@ def towers():
         wall = MeshBuilder()
         top = C.fz(roof_y)
         C.building({'wall': wall, 'trim': trim, 'deck': deck}, x0, x1, top, depth=2.4, bottom=C.fz(TOWER_H + 200), wall=wall_c, trim=trim_c, deck='#9a9fbe')
-        wall.build(f'tower_{i}', C.facade_material(f't_wall_{i}', lit='#ffd9a0', lit_frac=0.45, seed=20.0 + i, cell=(0.46, 0.52), win=(0.24, 0.3), glass='#3a3a66', emit=2.2))
+        C.build(wall, f'tower_{i}', C.facade_material(f't_wall_{i}', lit='#ffd9a0', lit_frac=0.45, seed=20.0 + i, cell=(0.46, 0.52), win=(0.24, 0.3), glass='#3a3a66', emit=2.2))
         if kind == 'cornice':
             # a stepped crown along the roof; the anchor is its front right corner (the game flips odd ones)
             C.box(trim, x0 - 0.08, -0.12, top + 0.14, x1 + 0.08, 0.3, top + 0.3, trim_c)
@@ -279,12 +279,12 @@ def towers():
             C.box(crane, mx - 0.5, 0.92, jz - 0.25, mx - 0.2, 1.08, jz, '#6c7892')  # counterweight
             C.box(metal, jx1 - 0.02, 0.98, jz - 0.35, jx1 + 0.02, 1.02, jz, '#3c4254')  # hook line
             anchors[i] = ((jx1 * 100) - (cx - SLOT / 2), C.screen_y(jz - 0.35, 1.0))
-    trim.build('trims', C.mat('paint'))
-    deck.build('decks', C.mat('deck'))
-    metal.build('metal', C.mat('metal'))
-    wood.build('wood', C.mat('paint'))
-    glow.build('glow', C.mat('glow'))
-    crane.build('crane', C.mat('paint'))
+    C.build(trim, 'trims', C.mat('paint'))
+    C.build(deck, 'decks', C.mat('deck'))
+    C.build(metal, 'metal', C.mat('metal'))
+    C.build(wood, 'wood', C.mat('paint'))
+    C.build(glow, 'glow', C.mat('glow'))
+    C.build(crane, 'crane', C.mat('paint'))
     path = os.path.join(C.OUT, 'towers_prev.png' if PREVIEW else 'towers.png')
     C.render(path)
     if PREVIEW:

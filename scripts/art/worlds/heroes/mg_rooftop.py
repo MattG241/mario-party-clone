@@ -75,7 +75,7 @@ def main():
         if r.random() < 0.3:
             C.box(far, (x + w * 0.4) / 100, d + 0.5, C.fz(top, d), (x + w * 0.6) / 100, d + 1.0, C.fz(top - r.uniform(30, 80), d), '#2a3668')
         x += w + r.uniform(-10, 25)
-    far.build('far_city', C.facade_material('h_far', lit='#ffcf7a', lit_frac=0.16, cell=(0.28, 0.3), win=(0.12, 0.14), seed=3.0, glass='#1c2550', emit=1.3))
+    C.build(far, 'far_city', C.facade_material('h_far', lit='#ffcf7a', lit_frac=0.16, cell=(0.28, 0.3), win=(0.12, 0.14), seed=3.0, glass='#1c2550', emit=1.3))
     mid = MeshBuilder()
     x = -80.0
     while x < 2000:
@@ -87,11 +87,11 @@ def main():
         if r.random() < 0.45:
             C.box(mid, (x + w * 0.2) / 100, d + 0.4, C.fz(top, d), (x + w * 0.8) / 100, d + 2.6, C.fz(top - r.uniform(20, 50), d), '#3a4a80')
         x += w + r.uniform(0, 40)
-    mid.build('mid_city', C.facade_material('h_mid', lit='#ffd58a', lit_frac=0.24, cell=(0.36, 0.4), win=(0.18, 0.22), seed=5.0, glass='#202b56', emit=1.6))
+    C.build(mid, 'mid_city', C.facade_material('h_mid', lit='#ffd58a', lit_frac=0.24, cell=(0.36, 0.4), win=(0.18, 0.22), seed=5.0, glass='#202b56', emit=1.6))
     blink = MeshBuilder()
     for (bx, top) in [(300, 560), (820, 600), (1180, 580), (1450, 620)]:
         C.antenna(blink, blink, bx / 100, 36.5, C.fz(top, 36.5), 0.8)
-    blink.build('far_masts', C.mat('softglow'))
+    C.build(blink, 'far_masts', C.mat('softglow'))
 
     # --- The rooftops ---------------------------------------------------------------------------
     trim, deck, metal, dark, wood, glow, paint = (MeshBuilder() for _ in range(7))
@@ -100,7 +100,7 @@ def main():
         depth = 3.2 if i in (0, 6) else 2.8
         C.building({'wall': walls[i], 'trim': trim, 'deck': deck}, x0 / 100, x1 / 100, deck_z(sy), depth=depth, bottom=C.fz(1400), wall=WALLS[i], trim=TRIMS[i], deck='#9a9fbe')
     for i, mb in enumerate(walls):
-        mb.build(f'block_{i}', C.facade_material(f'h_block_{i}', lit_frac=0.4 if i % 2 else 0.48, seed=10.0 + i, cell=(0.5, 0.56), win=(0.26, 0.32), glass='#26345e', emit=2.6))
+        C.build(mb, f'block_{i}', C.facade_material(f'h_block_{i}', lit_frac=0.4 if i % 2 else 0.48, seed=10.0 + i, cell=(0.5, 0.56), win=(0.26, 0.32), glass='#26345e', emit=2.6))
 
     # Vents: low exhaust grates with a warm glow in their slats.
     for (vx, sy) in VENTS:
@@ -170,14 +170,14 @@ def main():
                 sx = (s0 + (s1 - s0) * (0.15 + 0.7 * u)) / 100
                 C.box(metal, sx - 0.06, -0.4, z - 1.3 + 1.3 * (1 - u), sx + 0.06, -0.1, z - 1.3 + 1.3 * (1 - u) + 0.03, '#3c4254')
 
-    trim.build('trims', C.mat('paint'))
-    deck.build('decks', C.mat('deck'))
-    metal.build('metal', C.mat('metal'))
-    dark.build('dark', C.mat('paint'))
-    wood.build('wood', C.mat('paint'))
-    glow.build('glow', C.mat('glow'))
-    leaf.build('leaves', C.mat('paint'))
-    paint.build('paint', C.mat('paint'))
+    C.build(trim, 'trims', C.mat('paint'))
+    C.build(deck, 'decks', C.mat('deck'))
+    C.build(metal, 'metal', C.mat('metal'))
+    C.build(dark, 'dark', C.mat('paint'))
+    C.build(wood, 'wood', C.mat('paint'))
+    C.build(glow, 'glow', C.mat('glow'))
+    C.build(leaf, 'leaves', C.mat('paint'))
+    C.build(paint, 'paint', C.mat('paint'))
 
     # Warm light pooling round each searchlight, and the vents' glow on the decks.
     import bpy
