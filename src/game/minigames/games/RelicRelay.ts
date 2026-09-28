@@ -90,8 +90,8 @@ const PICK_MS = 340;
 const THROW_MS = 280;
 const THROW_VX = 460;
 const THROW_VZ = 780;
-/** Where the parcel sits in the carry pose, per character (local px from the feet, facing right). */
-const CARRY_HOLD: Record<CharacterId, { x: number; y: number }> = {
+/** Where the parcel sits in the carry pose on the 2D sheets (local px from the feet, facing right); rendered heroes carry their own anchor. */
+const CARRY_HOLD: Partial<Record<CharacterId, { x: number; y: number }>> = {
   kip: { x: 72, y: -112 },
   mossi: { x: 58, y: -92 },
   tumble: { x: 66, y: -112 },
@@ -1164,7 +1164,7 @@ export class RelicRelayScene extends BaseMinigame {
         pc.img.setPosition(r.x, r.y - r.z + c.headY * c.scaleY - 4 + Math.sin(now / 200) * 4).setAngle(0);
       } else {
         const grip = HERO_DATA.points[r.p.characterId]?.carry;
-        const hold = grip ? { x: grip[0], y: grip[1] + 18 } : CARRY_HOLD[r.p.characterId];
+        const hold = grip ? { x: grip[0], y: grip[1] + 18 } : (CARRY_HOLD[r.p.characterId] ?? { x: 72, y: -112 });
         const dir = c.isFacingLeft ? -1 : 1;
         const crouch = r.act === 'pick' ? 0.55 : 1;
         pc.x = r.x + dir * hold.x * c.scaleX;

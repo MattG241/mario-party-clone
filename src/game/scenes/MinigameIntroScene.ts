@@ -12,6 +12,7 @@ import { enterScene, goTo } from '../ui/Transition';
 import { centerOrigin, solidHeight } from '../util/spriteUtil';
 import { drawCard, drawSlate, UI } from '../ui/Style';
 import { HIDE_CPU_TAGS } from '../debug/debug';
+import { finishMinigameRenders, queueMinigameRenders } from '../data/minigameRenders';
 
 /** "MINIGAME!" card: name, instructions, controls, and a ready check for every human. */
 export class MinigameIntroScene extends Phaser.Scene {
@@ -40,13 +41,15 @@ export class MinigameIntroScene extends Phaser.Scene {
   }
 
   preload(): void {
-    // Lazy-load this minigame's own art while the card is up.
+    // Lazy-load this minigame's own art while the card is up (and its rendered arena, releasing the last one).
     for (const a of this.info.assets ?? []) {
       if (!this.textures.exists(a.key)) this.load.svg(a.key, a.path, { width: a.width, height: a.height });
     }
+    queueMinigameRenders(this, this.info.id);
   }
 
   create(): void {
+    finishMinigameRenders(this, this.info.id);
     enterScene(this);
     const mode = this.launchData.instructions;
     if (mode === 'off') {

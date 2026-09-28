@@ -32,6 +32,8 @@ export class GameSetupScene extends Phaser.Scene {
   private eventMode: EventMode = 'normal';
   private speed: GameSpeed = 'normal';
   private hint!: Phaser.GameObjects.Text;
+  /** The order CPUs take the free characters in: shuffled once per visit so the preview matches the match. */
+  private cpuOrder: CharacterId[] = [];
 
   constructor() {
     super('GameSetup');
@@ -39,6 +41,7 @@ export class GameSetupScene extends Phaser.Scene {
 
   create(): void {
     enterScene(this);
+    this.cpuOrder = Phaser.Utils.Array.Shuffle(CHARACTER_IDS.slice());
     const s = settings.get();
     this.rounds = s.rounds;
     this.cpuOn = s.cpuPlayers;
@@ -124,7 +127,7 @@ export class GameSetupScene extends Phaser.Scene {
       }
     }
     if (this.cpuOn || out.length < 2) {
-      const free = CHARACTER_IDS.filter((c) => !taken.has(c));
+      const free = this.cpuOrder.filter((c) => !taken.has(c));
       for (const s of session.slots) {
         if (out.some((p) => p.slot === s.slot)) continue;
         const c = free.shift();

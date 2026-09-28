@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { LITE, LITE_HALF_ATLASES, liteSvgDivisor } from '../perf';
+import { isLiteHalfAtlas, LITE, LITE_HALF_SCENES, liteSvgDivisor } from '../perf';
 import { audio } from '../audio/AudioManager';
 import { registerCharacterAnimations } from '../characters/Character';
 import { COLORS, CSS, GAME_HEIGHT, GAME_WIDTH, SUBTITLE, TITLE } from '../constants';
@@ -32,11 +32,11 @@ export class PreloadScene extends Phaser.Scene {
     this.startTime = performance.now();
     this.buildScreen();
     this.load.setPath('');
-    const half = this.halfAtlases();
+    const half = this.halfSize();
     for (const key of ATLAS_KEYS) {
       // rendered 3D sheets (heroes, NPCs) are WebP; the processed 2D sheets are PNG
       const ext = key.startsWith('hero_') || key === 'npcs3d' ? 'webp' : 'png';
-      const image = half.includes(key) ? `assets/lite/atlases/${key}.webp` : `assets/atlases/${key}.${ext}`;
+      const image = half && isLiteHalfAtlas(key) ? `assets/lite/atlases/${key}.webp` : `assets/atlases/${key}.${ext}`;
       this.load.atlas(key, image, `assets/atlases/${key}.json`);
     }
     for (const s of COMMON_SVGS) {
@@ -59,19 +59,18 @@ export class PreloadScene extends Phaser.Scene {
     if (LITE) this.load.image('rendered-sky-day', 'assets/lite/sky_day.webp');
     else for (const v of ['day', 'clear', 'golden', 'sunset', 'dusk']) this.load.image(`rendered-sky-${v}`, `assets/rendered/sky_${v}.webp`);
     // Optional rendered hero scenes (title island, minigame arenas).
-    if (!LITE) this.load.atlas('rendered-orbit-arms', 'assets/rendered/orbit_arms.webp', 'assets/rendered/orbit_arms.json');
     this.load.json('rendered-spaces', 'assets/rendered/spaces/spaces.json');
     for (const t of ['start', 'gleam', 'festival', 'mischief', 'market', 'portal', 'relic', 'event']) {
       this.load.image(`rendered-space-${t}`, `assets/rendered/spaces/space_${t}.webp`);
       this.load.image(`rendered-space-${t}-base`, `assets/rendered/spaces/space_${t}_base.webp`);
     }
-    if (!LITE) this.load.json('rendered-gleam3d', 'assets/rendered/scene_gleam3d.json');
-    const scenes = LITE ? ['title'] : ['title', 'gleam', 'gleam_wall', 'gleam3d', 'gleam3d_wall', 'gleam3d_blur', 'orbit', 'orbit_blur', 'select', 'results'];
-    for (const v of scenes) this.load.image(`rendered-scene-${v}`, `assets/${half.length && v === 'title' ? 'lite' : 'rendered'}/scene_${v}.webp`);
+    // The title island, lobby stage and podium (half size on Lite with WebGL; plain Lite keeps only the
+    // title). Minigame arenas load with each minigame's intro card (data/minigameRenders.ts).
+    const scenes = LITE && !half ? ['title'] : LITE_HALF_SCENES;
+    for (const v of scenes) this.load.image(`rendered-scene-${v}`, `assets/${half ? 'lite' : 'rendered'}/scene_${v}.webp`);
     this.load.image('rendered-ui-dial', 'assets/rendered/ui_dial.webp');
     this.load.image('rendered-ui-logo', 'assets/rendered/ui_logo.webp');
-    // Arenas and sprites for the later minigames (scripts/art/mg_arenas.py) and the sky islets.
-    if (!LITE) for (const v of ['crate', 'crate_wall', 'pond', 'relay', 'totem']) this.load.image(`rendered-scene-${v}`, `assets/rendered/scene_${v}.webp`);
+    // Sprites for the later minigames (scripts/art/mg_arenas.py) and the sky islets.
     this.load.json('rendered-mg-sprites', 'assets/rendered/mg/sprites.json');
     const mgSprites: [string, string][] = [
       ['crate', 'crate'],
@@ -89,7 +88,7 @@ export class PreloadScene extends Phaser.Scene {
     // Lite's Tumble Tower wall is half size (the minigame scales its tiling to fit).
     for (const [key, file] of mgSprites) this.load.image(`rendered-mg-${key}`, `assets/${LITE && key === 'tower-wall' ? 'lite' : 'rendered'}/mg/${file}.webp`);
     this.load.spritesheet('rendered-mg-log', 'assets/rendered/mg/log.webp', { frameWidth: 180, frameHeight: 180 });
-    if (!LITE) for (let k = 0; k < 3; k++) this.load.image(`rendered-islet-${k}`, `assets/rendered/mg/islet_${k}.webp`);
+    for (let k = 0; k < 3; k++) this.load.image(`rendered-islet-${k}`, `assets/rendered/mg/islet_${k}.webp`);
     this.load.on(Phaser.Loader.Events.PROGRESS, (p: number) => this.setProgress(p));
     this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, (file: Phaser.Loader.File) => {
       if (isOptionalAsset(file.key)) return;
@@ -139,9 +138,9 @@ export class PreloadScene extends Phaser.Scene {
     this.pctText.setText(`${Math.round(p * 100)}%`);
   }
 
-  /** Lite on WebGL loads the big atlases (and the title island) at half size. */
-  private halfAtlases(): string[] {
-    return LITE && this.game.renderer instanceof Phaser.Renderer.WebGL.WebGLRenderer ? LITE_HALF_ATLASES : [];
+  /** Lite on WebGL loads the big atlases and full-screen renders at half size. */
+  private halfSize(): boolean {
+    return LITE && this.game.renderer instanceof Phaser.Renderer.WebGL.WebGLRenderer;
   }
 
   create(): void {
@@ -149,9 +148,9 @@ export class PreloadScene extends Phaser.Scene {
       this.showError();
       return;
     }
-    const half = this.halfAtlases();
-    for (const key of half.length ? [...half, 'rendered-scene-title'] : []) {
-      if (this.textures.exists(key)) inflateTexture(this.textures.get(key), 2);
+    if (this.halfSize()) {
+      const keys = [...ATLAS_KEYS.filter(isLiteHalfAtlas), ...LITE_HALF_SCENES.map((v) => `rendered-scene-${v}`)];
+      for (const key of keys) if (this.textures.exists(key)) inflateTexture(this.textures.get(key), 2);
     }
     generateFxTextures(this);
     registerCommonAnimations(this.anims);

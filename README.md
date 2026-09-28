@@ -7,8 +7,9 @@ for Prism Relics and battle it out in minigames between rounds.
 Built with TypeScript, Vite and Phaser 3. Environment art and the four heroes are modelled and
 pre-rendered from code in Blender (see [Art pipeline](#art-pipeline)).
 
-> Gleamtrail is an original game. Its world, characters, rules, art and audio are its own and do
-> not reference or reproduce any existing game franchise.
+> Gleamtrail's world, rules, art and audio, and its four heroes, are original. The **guest
+> characters** (Luffy, Goku, Naruto, Batman, Spider-Man, Iron Man, Sonic and SpongeBob) are fan-made
+> models for private, non-commercial play at home; the characters belong to their respective owners.
 
 ## Play now
 
@@ -18,8 +19,10 @@ repository Settings → Pages → Source: *GitHub Actions*). Or run it yourself 
 `npm install && npm run build && npm run preview`, then open <http://localhost:4173>.
 
 **TVs and low-power devices.** Graphics switch to **Lite** automatically on TV browsers, low-memory
-devices and anything that runs the title screen very slowly: half-resolution board art, one small
-sky, simpler minigame arenas, no colour grade and a steady 30 fps (about a third of the memory).
+devices and anything that runs the title screen very slowly: every big image (board, characters,
+arenas, stages) at half resolution, one small sky, the TV-friendly single-texture shader, no colour
+grade and a steady 30 fps (about a quarter of the memory). Minigame arenas load with each minigame
+in every mode, so only one is held at a time.
 Force it with <https://mattg241.github.io/mario-party-clone/?lite> or **Settings → Graphics**. A
 computer plugged into the TV still gives the best experience.
 
@@ -66,7 +69,8 @@ load the assets.
 ## How to play
 
 1. **Title → Board Game** (or **Minigames**). Everyone presses **A** to join on the character
-   select screen and picks one of four heroes; empty seats can be filled by CPUs.
+   select screen, browses the roster along the bottom (left/right) and picks with **A**; each pick
+   stands on that player's pedestal. Empty seats can be filled by CPUs, who pick at random.
 2. **Your turn:** optionally open your items (**Y**), then stop the **Orbit Dial** (**A**) and move
    1–10 spaces. At forks, tilt the stick toward the path you want.
 3. **Spaces:** Gleam (+chips), Mischief (something sneaky), Festival (a lucky surprise), Market
@@ -190,7 +194,7 @@ python3.11 -m venv .artenv
 | `scenes.py title\|select\|results\|orbit` | Title island, select and results stages, Orbit Dodge arena |
 | `gleam3d.py` | Gleam Grab arena (perspective) and its floor mapping |
 | `mg_arenas.py yard\|pond\|relay\|totem\|tower\|sprites\|islets\|fg` | Arenas and sprites for the other minigames, sky islets, board foreground foliage |
-| `characters.py` | The four heroes: models (`char_models.py`, `char_<hero>.py`), poses (`char_anims.py`), rendered and packed into `public/assets/atlases/hero_<id>.webp/.json` plus `src/game/data/heroSprites.generated.ts` (`--hero kip --anims idle --preview` for quick looks) |
+| `characters.py` | Every playable character: models (`char_models.py`, `char_<id>.py`), poses (`char_anims.py`), rendered and packed into `public/assets/atlases/hero_<id>.webp/.json` plus `src/game/data/heroSprites.generated.ts` (`--hero kip --anims idle --preview` for quick looks; `--hero luffy --pack-only` re-packs). A guest joins the roster once its sheet is packed |
 | `logo.py` | The extruded 3D title wordmark (`ui_logo.webp`) |
 | `orbit_arms.py`, `ui.py`, `blur_backdrops.py` | Orbit Dodge arm frames, the dial, blurred intro backdrops |
 | `bloom.py` | Bakes a soft highlight bloom into finished renders |

@@ -19,7 +19,7 @@
 //   Board-action sheet ('boardfx'): 0–2 Kip Orbit Dial · 3–5 Mossi Orbit Dial
 //     12–13 Tumble coins · 14–15 Kip coins · 16 Zippa coins · 17 Zippa loses coins
 //     18–20 Mossi portal · 21–23 Tumble portal · 29 group pose
-import type { CharacterId } from '../data/characters';
+import { CHARACTER_IDS, type CharacterId } from '../data/characters';
 import { HERO_DATA } from '../data/heroSprites.generated';
 
 export type AnimName =
@@ -105,7 +105,8 @@ function actionAnims(slot: number): Pick<AnimSet, 'sprint' | 'carry' | 'throw' |
   };
 }
 
-const SHEET_ANIMATIONS: Record<CharacterId, AnimSet> = {
+/** The supplied 2D sheets' animations (the original four only; guests exist only as rendered sheets). */
+const SHEET_ANIMATIONS: Partial<Record<CharacterId, AnimSet>> = {
   kip: standard(0, {
     dial: { frames: [0, 1, 2, 1, 2], fps: 10, loop: false, atlas: 'boardfx' },
     coins: { frames: [14, 15, 14, 15], fps: FPS.emote, loop: false, atlas: 'boardfx' },
@@ -154,12 +155,10 @@ function renderedAnims(id: CharacterId): AnimSet | null {
   return out;
 }
 
-export const CHARACTER_ANIMATIONS: Record<CharacterId, AnimSet> = {
-  kip: renderedAnims('kip') ?? SHEET_ANIMATIONS.kip,
-  mossi: renderedAnims('mossi') ?? SHEET_ANIMATIONS.mossi,
-  tumble: renderedAnims('tumble') ?? SHEET_ANIMATIONS.tumble,
-  zippa: renderedAnims('zippa') ?? SHEET_ANIMATIONS.zippa,
-};
+/** Animations of every character on the roster (CHARACTER_IDS). */
+export const CHARACTER_ANIMATIONS = Object.fromEntries(
+  CHARACTER_IDS.map((id) => [id, renderedAnims(id) ?? SHEET_ANIMATIONS[id]]),
+) as Record<CharacterId, AnimSet>;
 
 /** Phaser animation key for a character + animation. */
 export function animKey(id: CharacterId, anim: AnimName): string {

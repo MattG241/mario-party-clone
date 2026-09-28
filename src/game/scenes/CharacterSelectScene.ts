@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 import { audio } from '../audio/AudioManager';
-import { animHeadTop, Character } from '../characters/Character';
+import { Character } from '../characters/Character';
 import { GAME_HEIGHT, GAME_WIDTH, PLAYER_COLORS } from '../constants';
-import { CHARACTER_IDS, CHARACTERS } from '../data/characters';
+import { CHARACTER_IDS, CHARACTERS, type CharacterId } from '../data/characters';
 import { EffectsManager } from '../effects/EffectsManager';
 import { slotForDevice } from '../input/assignment';
 import { input, type DeviceRef } from '../input/InputManager';
@@ -10,6 +10,7 @@ import { settings } from '../save/SettingsManager';
 import { session } from '../state/Session';
 import { glyphKindFor, makeGlyph, PromptBar } from '../ui/ControllerPrompt';
 import { PlayerBadge } from '../ui/PlayerBadge';
+import { placePortraitSprite } from '../ui/Portrait';
 import { addText, addTitle } from '../ui/theme';
 import { enterScene, goTo } from '../ui/Transition';
 import { applyGrade } from '../effects/GradePipeline';
@@ -21,10 +22,12 @@ type SlotPhase = 'empty' | 'choosing' | 'ready';
 interface SlotView {
   phase: SlotPhase;
   device: DeviceRef | null;
+  /** Index into CHARACTER_IDS of the character this player is pointing at (or has picked). */
   cursor: number;
   panel: Phaser.GameObjects.Container;
   content: Phaser.GameObjects.Container;
-  cursorBadge: PlayerBadge;
+  /** The player's pick, standing on their pedestal. */
+  hero: Character | null;
 }
 
 /**
@@ -35,26 +38,39 @@ const STAGE_K = 1.12;
 const STAGE_AY = 120;
 const stageX = (x: number) => GAME_WIDTH / 2 + (x - GAME_WIDTH / 2) * STAGE_K;
 const stageY = (y: number) => STAGE_AY + (y - STAGE_AY) * STAGE_K;
+/** One pedestal per player, left to right. */
 const PODIUM_X = [360, 760, 1160, 1560].map(stageX);
 const PODIUM_Y = stageY(560);
-/** Character scale on the pedestals (idle / pointed at). */
-const CHAR_K = 1.2;
-const SLOT_W = 440;
-const SLOT_H = 118;
+/** Character scale on the pedestals. */
+const CHAR_K = 1.12;
+const CARD_Y = 772;
+const CARD_W = 410;
+const CARD_H = 104;
+/** Roster tiles along the bottom. */
+const TILE_W = 132;
+const TILE_H = 142;
+const TILE_GAP = 10;
+const TILE_Y = 978;
+/** Tiles shrink if the roster ever outgrows the screen width. */
+const tileScale = (n: number) => Math.min(1, (GAME_WIDTH - 80) / (n * TILE_W + (n - 1) * TILE_GAP));
 
 /**
- * Controller-first lobby: press A to join, pick a character on the podiums, confirm. Every
- * joined player must confirm before continuing; a character can only be taken once.
+ * Controller-first lobby: press A to join, move along the roster, confirm. Each player's pick
+ * stands on their own pedestal; every joined player must confirm before continuing, and a
+ * character can only be taken once.
  */
 export class CharacterSelectScene extends Phaser.Scene {
   private slots: SlotView[] = [];
-  private chars: Character[] = [];
   private glows: Phaser.GameObjects.Graphics[] = [];
   private pools: Phaser.GameObjects.Image[] = [];
+  /** A soft "?" floating over each pedestal until its player joins. */
+  private vacant: Phaser.GameObjects.Container[] = [];
+  private tileRings: Phaser.GameObjects.Graphics[] = [];
+  private tileBadges: Phaser.GameObjects.Container[] = [];
+  private tileX: number[] = [];
   private renderedStage = false;
-  private namePlates: Phaser.GameObjects.Container[] = [];
-  private locked: (number | null)[] = [null, null, null, null]; // character index → slot
-  private highlightCount = [0, 0, 0, 0];
+  /** Character index → the slot that picked it. */
+  private locked = new Map<number, number>();
   private fx!: EffectsManager;
   private startBanner!: Phaser.GameObjects.Container;
   private footer!: PromptBar;
@@ -69,11 +85,13 @@ export class CharacterSelectScene extends Phaser.Scene {
     applyGrade(this, { vignette: 0.08 });
     this.leaving = false;
     this.slots = [];
-    this.chars = [];
     this.glows = [];
     this.pools = [];
-    this.namePlates = [];
-    this.locked = [null, null, null, null];
+    this.vacant = [];
+    this.tileRings = [];
+    this.tileBadges = [];
+    this.tileX = [];
+    this.locked = new Map();
     this.fx = new EffectsManager(this, 800);
     audio.playMusic('menu');
     this.renderedStage = this.textures.exists('rendered-scene-select');
@@ -87,62 +105,95 @@ export class CharacterSelectScene extends Phaser.Scene {
       addStrip(this, 0, 520, GAME_WIDTH, 560, 'bg-clouds-below').setOrigin(0).setAlpha(0.95);
     }
     addTitle(this, GAME_WIDTH / 2, 70, session.mode === 'board' ? 'CHOOSE YOUR ADVENTURERS' : 'MINIGAME MODE · CHOOSE YOUR PLAYERS', 64);
-    this.buildPodiums();
+    this.buildPedestals();
+    this.buildRoster();
     for (let i = 0; i < 4; i++) this.slots.push(this.buildSlot(i));
     this.startBanner = this.buildStartBanner();
     this.footer = new PromptBar(this, GAME_WIDTH / 2, 150, [], { size: 30, fontSize: 21 });
     // Restore players who are already joined (coming back from the setup screen).
     for (const cfg of session.slots) {
       if (cfg.joined && cfg.device && input.device(cfg.device)) {
-        const idx = cfg.characterId ? CHARACTER_IDS.indexOf(cfg.characterId) : 0;
-        this.join(cfg.slot, cfg.device, idx, true);
-        if (cfg.characterId) this.confirm(cfg.slot, true);
+        const idx = cfg.characterId ? CHARACTER_IDS.indexOf(cfg.characterId) : -1;
+        this.join(cfg.slot, cfg.device, idx >= 0 ? idx : undefined, true);
+        if (cfg.characterId && idx >= 0) this.confirm(cfg.slot, true);
       }
     }
+    this.refreshHighlights();
     this.refreshFooter();
   }
 
-  private buildPodiums(): void {
-    CHARACTER_IDS.forEach((id, i) => {
-      const x = PODIUM_X[i];
+  // --- Layout ---------------------------------------------------------------------------------
+  private buildPedestals(): void {
+    PODIUM_X.forEach((x) => {
       if (!this.renderedStage) this.add.image(x, PODIUM_Y + 40, 'podium').setScale(0.95);
-      // A soft pool of light on the pedestal top for the hero being pointed at.
+      // A soft pool of light on the pedestal top once a player stands there.
       const pool = this.add.image(x, PODIUM_Y - 2 * STAGE_K, 'fx-dot').setScale(9.5 * STAGE_K, 2.6 * STAGE_K).setTint(0xfff1cf).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0);
       this.pools.push(pool);
-      const glow = this.add.graphics({ x, y: PODIUM_Y - 30 * STAGE_K }).setScale(STAGE_K);
-      this.glows.push(glow);
-      const c = new Character(this, x, PODIUM_Y - 20 * STAGE_K, id, { scale: CHAR_K });
-      c.setDepth(10);
-      this.chars.push(c);
-      const plate = this.add.container(x, PODIUM_Y + 150 * STAGE_K);
-      const g = this.add.graphics();
-      drawCard(g, -160, -40, 320, 80, { radius: 40 });
-      g.fillStyle(CHARACTERS[id].color, 1);
-      g.fillRoundedRect(-28, 31, 56, 5, 2.5);
-      const name = addText(this, 0, -11, CHARACTERS[id].name.toUpperCase(), 29, { color: UI.inkCss, weight: 700 });
-      const role = addText(this, 0, 17, CHARACTERS[id].role, 17, { color: UI.inkSoftCss, weight: 600 });
-      plate.add([g, name, role]);
-      plate.setScale(0.94);
-      this.namePlates.push(plate);
+      this.glows.push(this.add.graphics({ x, y: PODIUM_Y - 30 * STAGE_K }).setScale(STAGE_K));
+      const orb = this.add.graphics();
+      orb.fillStyle(0xffffff, 0.14);
+      orb.fillCircle(0, 0, 74);
+      orb.lineStyle(4, 0xffffff, 0.45);
+      orb.strokeCircle(0, 0, 74);
+      const mark = addText(this, 0, 2, '?', 92, { color: '#ffffff', weight: 700 }).setAlpha(0.8);
+      const vacant = this.add.container(x, PODIUM_Y - 190, [orb, mark]).setDepth(9);
+      this.tweens.add({ targets: vacant, y: PODIUM_Y - 206, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+      this.vacant.push(vacant);
     });
   }
 
+  /** Portrait tiles for every character, in one row along the bottom of the screen. */
+  private buildRoster(): void {
+    const n = CHARACTER_IDS.length;
+    const k = tileScale(n);
+    const w = TILE_W * k;
+    const h = TILE_H * k;
+    const gap = TILE_GAP * k;
+    const x0 = GAME_WIDTH / 2 - (n * w + (n - 1) * gap) / 2 + w / 2;
+    const back = this.add.graphics();
+    back.fillStyle(0x0a1a26, 0.34);
+    back.fillRoundedRect(x0 - w / 2 - 22, TILE_Y - h / 2 - 16, n * w + (n - 1) * gap + 44, h + 32, 30);
+    // All portraits share one container and one mask (one stencil pass instead of one per tile).
+    const faces = this.add.container(0, 0).setDepth(21);
+    const maskG = this.make.graphics({ x: 0, y: 0 }, false);
+    maskG.fillStyle(0xffffff);
+    CHARACTER_IDS.forEach((id, i) => {
+      const x = x0 + i * (w + gap);
+      this.tileX.push(x);
+      const def = CHARACTERS[id];
+      const g = this.add.graphics({ x, y: TILE_Y }).setDepth(20);
+      drawCard(g, -w / 2, -h / 2, w, h, { radius: 20 * k, shadow: 0.8 });
+      const art = { x: -w / 2 + 7 * k, y: -h / 2 + 7 * k, w: w - 14 * k, h: h - 44 * k };
+      g.fillStyle(def.color, 1);
+      g.fillRoundedRect(art.x, art.y, art.w, art.h, 15 * k);
+      g.fillStyle(0xffffff, 0.28);
+      g.fillRoundedRect(art.x, art.y, art.w, art.h * 0.5, { tl: 15 * k, tr: 15 * k, bl: 0, br: 0 });
+      maskG.fillRoundedRect(x + art.x, TILE_Y + art.y, art.w, art.h, 15 * k);
+      const face = this.add.sprite(0, 0, def.atlas, '0');
+      placePortraitSprite(face, id, 0.52 * k, 0, false);
+      face.x += x;
+      face.y += TILE_Y + art.y + art.h * 0.58;
+      faces.add(face);
+      addText(this, x, TILE_Y + h / 2 - 20 * k, def.short.toUpperCase(), Math.round(17 * k), { color: UI.inkCss, weight: 700 }).setDepth(22);
+      this.tileRings.push(this.add.graphics({ x, y: TILE_Y }).setDepth(23));
+      this.tileBadges.push(this.add.container(x, TILE_Y - h / 2 - 4).setDepth(24));
+    });
+    faces.setMask(maskG.createGeometryMask());
+    back.setDepth(19);
+  }
+
   private buildSlot(slot: number): SlotView {
-    const w = SLOT_W;
-    const h = SLOT_H;
-    const x = 255 + slot * 470;
-    const y = 988;
-    const panel = this.add.container(x, y);
+    const x = PODIUM_X[slot];
+    const panel = this.add.container(x, CARD_Y).setDepth(30);
     const g = this.add.graphics();
-    drawCard(g, -w / 2, -h / 2, w, h, { radius: 30 });
+    drawCard(g, -CARD_W / 2, -CARD_H / 2, CARD_W, CARD_H, { radius: 28 });
     g.fillStyle(PLAYER_COLORS[slot], 1);
-    g.fillRoundedRect(-w / 2 + 24, -h / 2, w - 48, 6, { tl: 0, tr: 0, bl: 3, br: 3 });
-    const badge = new PlayerBadge(this, -w / 2 + 40, -h / 2 + 34, slot, 18);
-    const label = addText(this, -w / 2 + 70, -h / 2 + 34, `PLAYER ${slot + 1}`, 21, { color: UI.inkCss, weight: 700, align: 'left' });
-    const content = this.add.container(0, 22);
+    g.fillRoundedRect(-CARD_W / 2 + 24, -CARD_H / 2, CARD_W - 48, 6, { tl: 0, tr: 0, bl: 3, br: 3 });
+    const badge = new PlayerBadge(this, -CARD_W / 2 + 36, -CARD_H / 2 + 30, slot, 17);
+    const label = addText(this, -CARD_W / 2 + 64, -CARD_H / 2 + 30, `PLAYER ${slot + 1}`, 19, { color: UI.inkSoftCss, weight: 700, align: 'left' });
+    const content = this.add.container(0, 14);
     panel.add([g, badge, label, content]);
-    const cursorBadge = new PlayerBadge(this, 0, 0, slot, 24).setVisible(false).setDepth(50);
-    const view: SlotView = { phase: 'empty', device: null, cursor: 0, panel, content, cursorBadge };
+    const view: SlotView = { phase: 'empty', device: null, cursor: 0, panel, content, hero: null };
     this.renderSlot(slot, view);
     return view;
   }
@@ -151,8 +202,7 @@ export class CharacterSelectScene extends Phaser.Scene {
     v.content.removeAll(true);
     const add = (o: Phaser.GameObjects.GameObject) => v.content.add(o);
     if (v.phase === 'empty') {
-      const glyphKind = glyphKindFor();
-      const glyph = makeGlyph(this, 'A', 40, glyphKind);
+      const glyph = makeGlyph(this, 'A', 40, glyphKindFor());
       const label = addText(this, 0, 0, 'TO JOIN', 28, { color: UI.inkCss, weight: 700, align: 'left' });
       // Centre "[glyph] TO JOIN" as one line using the glyph's real width (key caps are wider).
       const gw = glyph.width || 44;
@@ -164,29 +214,27 @@ export class CharacterSelectScene extends Phaser.Scene {
       this.tweens.add({ targets: glyph, scale: { from: 1, to: 1.06 }, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
       return;
     }
-    const icon = this.add.image(-SLOT_W / 2 + 46, 2, v.device?.kind === 'keyboard' ? 'icon-keyboard' : 'icon-controller').setScale(0.26).setTint(0x3a4560);
+    const def = CHARACTERS[CHARACTER_IDS[v.cursor]];
+    const icon = this.add.image(CARD_W / 2 - 34, -CARD_H / 2 + 16, v.device?.kind === 'keyboard' ? 'icon-keyboard' : 'icon-controller').setScale(0.2).setTint(0x3a4560);
     add(icon);
-    const id = CHARACTER_IDS[v.cursor];
     if (v.phase === 'choosing') {
-      add(addText(this, 18, -8, `◀  ${CHARACTERS[id].name}  ▶`, 26, { color: UI.inkCss, weight: 700 }));
-      const bar = new PromptBar(this, 18, 26, [
+      add(addText(this, 0, -8, `◀  ${def.name.toUpperCase()}  ▶`, 26, { color: UI.inkCss, weight: 700 }));
+      const bar = new PromptBar(this, 0, 26, [
         { button: 'A', label: 'Pick' },
         { button: 'B', label: 'Leave' },
       ], { size: 24, fontSize: 16, color: UI.inkSoftCss, slot });
-      // The slot panel is already the backing; drop the bar's own pill.
+      // The card is already the backing; drop the bar's own pill.
       bar.list.filter((o) => o instanceof Phaser.GameObjects.Graphics).forEach((o) => o.destroy());
       add(bar);
     } else {
       // "READY" on a gold chip, the character's name beside it.
       const chipG = this.add.graphics();
       chipG.fillStyle(UI.focus, 1);
-      chipG.fillRoundedRect(-100, -22, 140, 44, 22);
-      const stamp = this.add.container(0, 0, [chipG, addText(this, -30, -1, 'READY', 26, { color: UI.inkCss, weight: 700 })]);
+      chipG.fillRoundedRect(-70, -22, 140, 44, 22);
+      const stamp = this.add.container(-110, -4, [chipG, addText(this, 0, -1, 'READY', 26, { color: UI.inkCss, weight: 700 })]);
       add(stamp);
-      add(addText(this, 70, -8, CHARACTERS[id].name, 20, { color: UI.inkCss, weight: 700, align: 'left' }));
-      const bar = new PromptBar(this, 120, 20, [{ button: 'B', label: 'Change' }], { size: 22, fontSize: 15, color: UI.inkSoftCss, slot });
-      bar.list.filter((o) => o instanceof Phaser.GameObjects.Graphics).forEach((o) => o.destroy());
-      add(bar);
+      add(addText(this, -28, -14, def.name, 22, { color: UI.inkCss, weight: 700, align: 'left' }));
+      add(addText(this, -28, 12, def.role, 15, { color: UI.inkSoftCss, weight: 600, align: 'left' }));
       stamp.setScale(0.8);
       this.tweens.add({ targets: stamp, scale: 1, duration: 200, ease: 'Back.Out' });
     }
@@ -202,7 +250,27 @@ export class CharacterSelectScene extends Phaser.Scene {
     return c;
   }
 
-  // --- Slot actions -------------------------------------------------------------------------
+  // --- Pedestals --------------------------------------------------------------------------------
+  /** Put the character a player is pointing at on their pedestal. */
+  private standHero(slot: number, anim: 'wave' | 'idle' | 'celebrate' = 'wave'): void {
+    const v = this.slots[slot];
+    const id: CharacterId | null = v.phase === 'empty' ? null : CHARACTER_IDS[v.cursor];
+    if (v.hero && (!id || v.hero.charId !== id)) {
+      v.hero.destroy();
+      v.hero = null;
+    }
+    if (id && !v.hero) {
+      v.hero = new Character(this, PODIUM_X[slot], PODIUM_Y - 20 * STAGE_K, id, { scale: CHAR_K });
+      v.hero.setDepth(10);
+      // A little hop in so the swap reads as a change of character.
+      v.hero.setScale(CHAR_K * 0.9);
+      this.tweens.add({ targets: v.hero, scale: CHAR_K, duration: 180, ease: 'Back.Out' });
+    }
+    if (v.hero && anim !== 'idle') v.hero.play(anim, { force: true });
+    this.vacant[slot]?.setVisible(!id);
+  }
+
+  // --- Slot actions -----------------------------------------------------------------------------
   private preferredSlot(ref: DeviceRef): number {
     return slotForDevice(ref, this.slots.map((s) => s.phase === 'empty'));
   }
@@ -212,11 +280,12 @@ export class CharacterSelectScene extends Phaser.Scene {
     v.phase = 'choosing';
     v.device = ref;
     input.assign(slot, ref);
+    const n = CHARACTER_IDS.length;
     const remembered = settings.get().lastCharacters[slot];
-    let c = cursor ?? (remembered ? CHARACTER_IDS.indexOf(remembered) : slot);
-    if (c < 0) c = 0;
+    let c = cursor ?? (remembered ? CHARACTER_IDS.indexOf(remembered) : slot % n);
+    if (c < 0) c = slot % n;
     // Start on a free character.
-    for (let k = 0; k < 4 && this.locked[c] !== null; k++) c = (c + 1) % 4;
+    for (let k = 0; k < n && this.locked.has(c); k++) c = (c + 1) % n;
     v.cursor = c;
     const cfg = session.slots[slot];
     cfg.joined = true;
@@ -229,23 +298,24 @@ export class CharacterSelectScene extends Phaser.Scene {
       this.tweens.add({ targets: v.panel, scale: { from: 1.08, to: 1 }, duration: 260, ease: 'Back.Out' });
       this.fx.sparks(v.panel.x, v.panel.y - 60, 20);
     }
-    v.cursorBadge.setVisible(true);
-    this.moveCursor(slot, 0, true);
+    this.standHero(slot, silent ? 'idle' : 'wave');
     this.renderSlot(slot);
+    this.refreshHighlights();
     this.refreshFooter();
   }
 
   private leave(slot: number): void {
     const v = this.slots[slot];
+    if (v.phase === 'ready') this.locked.delete(v.cursor);
     v.phase = 'empty';
     v.device = null;
-    v.cursorBadge.setVisible(false);
     input.assign(slot, null);
     const cfg = session.slots[slot];
     cfg.joined = false;
     cfg.device = null;
     cfg.characterId = null;
     audio.play('leave');
+    this.standHero(slot);
     this.renderSlot(slot);
     this.refreshHighlights();
     this.refreshFooter();
@@ -253,44 +323,41 @@ export class CharacterSelectScene extends Phaser.Scene {
 
   private moveCursor(slot: number, dir: number, silent = false): void {
     const v = this.slots[slot];
-    if (dir !== 0) {
-      let c = v.cursor;
-      for (let k = 0; k < 4; k++) {
-        c = (c + dir + 4) % 4;
-        if (this.locked[c] === null) break;
-      }
-      if (c === v.cursor) return;
-      v.cursor = c;
-      if (!silent) audio.play('menuMove');
+    const n = CHARACTER_IDS.length;
+    let c = v.cursor;
+    for (let k = 0; k < n; k++) {
+      c = (((c + dir) % n) + n) % n;
+      if (!this.locked.has(c)) break;
     }
-    const ch = this.chars[v.cursor];
-    if (ch.current === 'idle' || ch.current === 'wave') ch.play('wave', { force: true });
+    if (c === v.cursor || this.locked.has(c)) return;
+    v.cursor = c;
+    if (!silent) audio.play('menuMove');
+    this.standHero(slot);
     this.refreshHighlights();
     this.renderSlot(slot);
   }
 
   private confirm(slot: number, silent = false): void {
     const v = this.slots[slot];
-    if (this.locked[v.cursor] !== null) {
+    if (this.locked.has(v.cursor)) {
       audio.play('error');
       return;
     }
     v.phase = 'ready';
-    this.locked[v.cursor] = slot;
+    this.locked.set(v.cursor, slot);
     const id = CHARACTER_IDS[v.cursor];
     session.slots[slot].characterId = id;
     const last = [...settings.get().lastCharacters];
     last[slot] = id;
     settings.set({ lastCharacters: last });
-    const ch = this.chars[v.cursor];
-    ch.play('celebrate', { force: true });
-    if (!silent) {
+    this.standHero(slot, silent ? 'idle' : 'celebrate');
+    if (!silent && v.hero) {
       audio.play('ready');
       input.rumbleSlot(slot, 0.5, 0.6, 160);
-      this.fx.confetti(ch.x, ch.y - 200, 40);
-      this.fx.vfx('goldSwirl', ch.x, ch.y - 60, { scale: 0.9, blend: 'add', alpha: 0.8 });
+      this.fx.confetti(v.hero.x, v.hero.y - 200, 40);
+      this.fx.vfx('goldSwirl', v.hero.x, v.hero.y - 60, { scale: 0.9, blend: 'add', alpha: 0.8 });
     }
-    // Other players standing on this character get pushed to a free one.
+    // Other players pointing at this character move on to a free one.
     this.slots.forEach((o, i) => {
       if (i !== slot && o.phase === 'choosing' && o.cursor === v.cursor) this.moveCursor(i, 1, true);
     });
@@ -302,66 +369,57 @@ export class CharacterSelectScene extends Phaser.Scene {
   private unconfirm(slot: number): void {
     const v = this.slots[slot];
     v.phase = 'choosing';
-    this.locked[v.cursor] = null;
+    this.locked.delete(v.cursor);
     session.slots[slot].characterId = null;
     audio.play('cancel');
+    this.standHero(slot, 'idle');
     this.renderSlot(slot);
     this.refreshHighlights();
     this.refreshFooter();
   }
 
+  /** Pedestal glows, and the rings and badges on the roster tiles. */
   private refreshHighlights(): void {
-    this.highlightCount = [0, 0, 0, 0];
-    const perChar: number[][] = [[], [], [], []];
-    this.slots.forEach((v, i) => {
-      if (v.phase !== 'empty') {
-        this.highlightCount[v.cursor]++;
-        perChar[v.cursor].push(i);
-      }
-    });
-    CHARACTER_IDS.forEach((_, ci) => {
-      const g = this.glows[ci];
+    this.slots.forEach((v, slot) => {
+      const g = this.glows[slot];
       g.clear();
-      const owners = perChar[ci];
-      const lockedBy = this.locked[ci];
-      const active = owners.length > 0;
-      if (active) {
-        owners.forEach((slot, k) => {
-          // Selection ring lying on the pedestal's top face.
-          g.fillStyle(PLAYER_COLORS[slot], 0.3);
-          g.fillEllipse(0, 30, 216 - k * 30, 54 - k * 8);
-          g.lineStyle(6, PLAYER_COLORS[slot], 1);
-          g.strokeEllipse(0, 30, 226 - k * 34, 58 - k * 9);
-        });
+      const on = v.phase !== 'empty';
+      if (on) {
+        // Selection ring lying on the pedestal's top face; filled in once confirmed.
+        g.fillStyle(PLAYER_COLORS[slot], v.phase === 'ready' ? 0.5 : 0.28);
+        g.fillEllipse(0, 34, 220, 58);
+        g.lineStyle(6, PLAYER_COLORS[slot], 1);
+        g.strokeEllipse(0, 34, 230, 62);
       }
-      const ch = this.chars[ci];
-      const target = active ? CHAR_K * 1.08 : CHAR_K;
-      this.tweens.add({ targets: ch, scale: target, duration: 180, ease: 'Back.Out' });
-      // Characters nobody is pointing at (or has picked) step back into the shade.
-      const lit = active || lockedBy !== null || this.slots.every((v) => v.phase === 'empty');
-      if (lit) ch.sprite.clearTint();
-      else ch.sprite.setTint(0x9ba1b4);
-      this.tweens.add({ targets: this.pools[ci], alpha: active || lockedBy !== null ? 0.62 : 0, duration: 200 });
-      const plate = this.namePlates[ci];
-      this.tweens.add({ targets: plate, scale: active || lockedBy !== null ? 1 : 0.94, duration: 160 });
-      // Cursor badges hover above the head, side by side.
-      owners.forEach((slot, k) => {
-        if (this.slots[slot].phase !== 'choosing') return;
-        const b = this.slots[slot].cursorBadge;
-        const tx = PODIUM_X[ci] + (k - (owners.length - 1) / 2) * 62;
-        b.setVisible(this.slots[slot].phase === 'choosing');
-        this.tweens.add({ targets: b, x: tx, y: PODIUM_Y - 20 * STAGE_K + animHeadTop(CHARACTER_IDS[ci]) * CHAR_K * 1.08 - 44, duration: 140, ease: 'Quad.Out' });
-      });
-      if (lockedBy !== null) {
-        g.fillStyle(PLAYER_COLORS[lockedBy], 0.5);
-        g.fillEllipse(0, 50, 250, 70);
-      }
+      this.tweens.add({ targets: this.pools[slot], alpha: on ? 0.62 : 0, duration: 200 });
     });
-    // Ready badges sit on the podium.
-    for (const v of this.slots) {
-      if (v.phase !== 'ready') continue;
-      this.tweens.killTweensOf(v.cursorBadge);
-      v.cursorBadge.setVisible(true).setPosition(PODIUM_X[v.cursor], PODIUM_Y + 66);
+    const n = CHARACTER_IDS.length;
+    const k = tileScale(n);
+    const w = TILE_W * k;
+    const h = TILE_H * k;
+    for (let ci = 0; ci < n; ci++) {
+      const ring = this.tileRings[ci];
+      const badges = this.tileBadges[ci];
+      ring.clear();
+      badges.removeAll(true);
+      const lockedBy = this.locked.get(ci);
+      const pointing = this.slots.map((v, s) => (v.phase === 'choosing' && v.cursor === ci ? s : -1)).filter((s) => s >= 0);
+      if (lockedBy !== undefined) {
+        // Taken: dimmed, with the owner's colour and badge.
+        ring.fillStyle(0x0a1120, 0.45);
+        ring.fillRoundedRect(-w / 2, -h / 2, w, h, 20 * k);
+        ring.lineStyle(5, PLAYER_COLORS[lockedBy], 1);
+        ring.strokeRoundedRect(-w / 2 - 3, -h / 2 - 3, w + 6, h + 6, 22 * k);
+        badges.add(new PlayerBadge(this, 0, h / 2 - 8, lockedBy, 16));
+      }
+      pointing.forEach((s, j) => {
+        const grow = 4 + j * 7;
+        ring.lineStyle(6, PLAYER_COLORS[s], 1);
+        ring.strokeRoundedRect(-w / 2 - grow, -h / 2 - grow, w + grow * 2, h + grow * 2, 22 * k + grow);
+        badges.add(new PlayerBadge(this, (j - (pointing.length - 1) / 2) * 44, -8, s, 18));
+      });
+      badges.setVisible(badges.length > 0);
+      if (pointing.length > 0) this.tweens.add({ targets: badges, y: { from: TILE_Y - h / 2 - 12, to: TILE_Y - h / 2 - 4 }, duration: 160, ease: 'Back.Out' });
     }
   }
 
@@ -375,7 +433,7 @@ export class CharacterSelectScene extends Phaser.Scene {
     this.startBanner.setVisible(ready);
     this.footer.setVisible(!ready);
     const anyJoined = this.slots.some((s) => s.phase !== 'empty');
-    this.footer.setPrompts(anyJoined ? [{ button: 'A', label: 'Join / Pick' }, { button: 'B', label: 'Leave' }] : [{ button: 'A', label: 'Join' }, { button: 'B', label: 'Back to title' }]);
+    this.footer.setPrompts(anyJoined ? [{ button: 'A', label: 'Join / Pick' }, { button: 'STICK', label: 'Browse' }, { button: 'B', label: 'Leave' }] : [{ button: 'A', label: 'Join' }, { button: 'B', label: 'Back to title' }]);
   }
 
   private proceed(): void {
@@ -413,14 +471,13 @@ export class CharacterSelectScene extends Phaser.Scene {
       const dev = input.device(v.device);
       if (!dev) {
         // Controller unplugged on the lobby: free the slot.
-        if (v.phase === 'ready') this.locked[v.cursor] = null;
         this.leave(slot);
         return;
       }
       if (v.phase === 'choosing') {
         const nav = dev.nav();
-        if (nav === 'left') this.moveCursor(slot, -1);
-        else if (nav === 'right') this.moveCursor(slot, 1);
+        if (nav === 'left' || nav === 'up') this.moveCursor(slot, -1);
+        else if (nav === 'right' || nav === 'down') this.moveCursor(slot, 1);
         if (dev.pressed('A')) this.confirm(slot);
         else if (dev.pressed('B')) this.leave(slot);
       } else if (v.phase === 'ready') {

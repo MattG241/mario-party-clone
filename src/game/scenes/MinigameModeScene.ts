@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { audio } from '../audio/AudioManager';
 import { COLORS, CSS, GAME_HEIGHT, GAME_WIDTH, PLAYER_COLORS } from '../constants';
 import { CHARACTER_IDS } from '../data/characters';
+import { arenaThumbKey, queueArenaThumbs, releaseArenaThumbs } from '../data/minigameRenders';
 import { input } from '../input/InputManager';
 import { MINIGAMES, type MinigameInfo, type MinigameLaunch, type MinigamePlayer } from '../minigames/MinigameManager';
 import { registeredMinigames } from '../minigames/registry';
@@ -51,8 +52,14 @@ export class MinigameModeScene extends Phaser.Scene {
     this.leaving = false;
   }
 
+  preload(): void {
+    // Small arena pictures for the cards (the arenas themselves load with each minigame).
+    queueArenaThumbs(this);
+  }
+
   create(): void {
     enterScene(this);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => releaseArenaThumbs(this));
     audio.playMusic('menu');
     session.mode = 'minigame';
     buildBackdrop(this, 'day', 0.3);
@@ -132,7 +139,7 @@ export class MinigameModeScene extends Phaser.Scene {
     // Art: the rendered arena where there is one, otherwise a poster in the game's colour.
     const art = this.add.container(0, 0);
     root.add(art);
-    const arena = info.arena && this.textures.exists(info.arena) ? info.arena : null;
+    const arena = info.arena && this.textures.exists(arenaThumbKey(info.arena)) ? arenaThumbKey(info.arena) : null;
     if (arena) {
       const src = this.textures.get(arena).getSourceImage() as HTMLImageElement;
       const s = CARD_W / src.width;

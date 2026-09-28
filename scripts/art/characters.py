@@ -1,4 +1,4 @@
-"""Render the four heroes as 3D sprite sheets in the same Blender look as the rest of the game.
+"""Render the heroes as 3D sprite sheets in the same Blender look as the rest of the game.
 
     .artenv/bin/python scripts/art/characters.py [--hero kip,mossi] [--anims idle,walk] [--preview]
                                                   [--samples 48] [--pack-only]
@@ -31,7 +31,7 @@ from char_models import Kip, Mats, instantiate  # noqa: E402
 import char_anims  # noqa: E402
 
 p = argparse.ArgumentParser()
-p.add_argument('--hero', default='kip,mossi,tumble,zippa')
+p.add_argument('--hero', default='', help='comma-separated hero ids (default: every hero)')
 p.add_argument('--anims', default='')
 p.add_argument('--preview', action='store_true')
 p.add_argument('--samples', type=int, default=40)
@@ -50,13 +50,19 @@ ATLAS_DIR = os.path.join(lib.ROOT, 'public', 'assets', 'atlases')
 GEN_TS = os.path.join(lib.ROOT, 'src', 'game', 'data', 'heroSprites.generated.ts')
 
 HEROES = {'kip': Kip}
-for _name in ('mossi', 'tumble', 'zippa'):
-    # each of the other heroes lives in its own module (scripts/art/char_<name>.py)
+for _name in ('mossi', 'tumble', 'zippa', 'luffy', 'goku', 'batman', 'spiderman', 'naruto', 'ironman', 'sonic', 'spongebob'):
+    # each of the other heroes lives in its own module (scripts/art/char_<name>.py, class <Name>)
     try:
         _mod = __import__(f'char_{_name}')
         HEROES[_name] = getattr(_mod, _name.capitalize())
-    except ImportError:
-        pass
+    except ModuleNotFoundError as _e:
+        if _e.name != f'char_{_name}':
+            raise
+    except Exception:
+        # a hero being worked on elsewhere must not stop renders of the others
+        if not A.hero or _name in A.hero.split(','):
+            raise
+        print(f'skipping char_{_name}: it failed to load', flush=True)
 
 
 # ------------------------------------------------------------------------------------------
@@ -299,7 +305,7 @@ def write_ts(gen):
 
 
 def main():
-    heroes = [h for h in A.hero.split(',') if h in HEROES]
+    heroes = [h for h in A.hero.split(',') if h in HEROES] if A.hero else list(HEROES)
     if A.pack_only:
         pack(heroes)
         return

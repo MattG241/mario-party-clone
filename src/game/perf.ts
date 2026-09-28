@@ -27,11 +27,16 @@ export function setLite(v: boolean): void {
 }
 
 /**
- * Atlases Lite loads at half size (public/assets/lite/atlases, from scripts/build-lite.py). Each is
- * stretched back over its full-size frame coordinates after loading (see inflateTexture), so every
- * sprite keeps its size. WebGL only.
+ * Atlases Lite loads at half size (public/assets/lite/atlases, from scripts/build-lite.py): every
+ * rendered hero sheet plus the NPC and effect sheets. Each is stretched back over its full-size
+ * frame coordinates after loading (see inflateTexture), so every sprite keeps its size. WebGL only.
  */
-export const LITE_HALF_ATLASES = ['hero_kip', 'hero_mossi', 'hero_tumble', 'hero_zippa', 'npcs3d', 'vfx', 'items', 'props'];
+export function isLiteHalfAtlas(key: string): boolean {
+  return key.startsWith('hero_') || key === 'npcs3d' || key === 'vfx' || key === 'items' || key === 'props';
+}
+
+/** Full-screen renders Lite loads at half size and stretches back the same way. */
+export const LITE_HALF_SCENES = ['title', 'select', 'results'];
 
 /** Backdrop art Lite rasterises at half size; tiled strips of it draw at double scale. */
 const LITE_HALF_SVGS = new Set(['bg-sky', 'bg-clouds-far', 'bg-clouds-below', 'bg-islands-far']);

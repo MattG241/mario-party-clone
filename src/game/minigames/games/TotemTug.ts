@@ -112,11 +112,11 @@ interface PullPose {
 /** The braced pulling pose: the rendered 3D 'pull' pose when available, else a 2D sheet frame. */
 function pullPose(id: CharacterId): PullPose {
   const grip = HERO_DATA.points[id]?.pull;
-  return grip ? { anim: 'pull', frame: 0, hand: grip } : PULL_POSE[id];
+  return grip ? { anim: 'pull', frame: 0, hand: grip } : (PULL_POSE[id] ?? PULL_POSE.kip!);
 }
 
 /** Braced pulling pose per character (2D sheets). */
-const PULL_POSE: Record<CharacterId, PullPose> = {
+const PULL_POSE: Partial<Record<CharacterId, PullPose>> = {
   kip: { anim: 'crouch', frame: 0, hand: [20, -60] },
   mossi: { anim: 'surprised', frame: 2, hand: [34, -94] },
   tumble: { anim: 'jump', frame: 0, hand: [14, -74] },

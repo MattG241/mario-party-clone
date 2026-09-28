@@ -102,7 +102,9 @@ export class TitleScene extends Phaser.Scene {
       [86, 704],
       [248, 672],
     ];
-    const made = CHARACTER_IDS.map((id, i) => {
+    // Four of the roster, a different line-up each visit.
+    const cast = Phaser.Utils.Array.Shuffle(CHARACTER_IDS.slice()).slice(0, spots.length);
+    const made = cast.map((id, i) => {
       const [x, y] = spots[i];
       const c = new Character(this, x, y, id, { scale: 0.95 + ((y - 660) / 60) * 0.1 });
       c.face(i >= 2);

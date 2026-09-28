@@ -4,12 +4,12 @@
 // (public/assets/atlases/) by `npm run sprites`. Placeholder art lives in
 // public/assets/placeholders/ and can be swapped for final art by replacing the files.
 
+import { CHARACTER_IDS } from './characters';
 import { HERO_DATA } from './heroSprites.generated';
 import { NPC_ATLAS } from './npcs';
 
-const HEROES = ['kip', 'mossi', 'tumble', 'zippa'];
-const HERO_3D = HEROES.filter((h) => HERO_DATA.meta[`hero_${h}`]);
-const HERO_2D = HEROES.filter((h) => !HERO_DATA.meta[`hero_${h}`]);
+const HERO_3D = CHARACTER_IDS.filter((h) => HERO_DATA.meta[`hero_${h}`]);
+const HERO_2D = CHARACTER_IDS.filter((h) => !HERO_DATA.meta[`hero_${h}`]);
 
 /**
  * Atlases to load. Heroes with a rendered 3D sheet (hero_<id>) use it for every animation; any
