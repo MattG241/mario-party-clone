@@ -7,6 +7,7 @@ import { CHARACTERS } from '../../data/characters';
 import { NPC_ATLAS, npcFrame, type NpcId } from '../../data/npcs';
 import type { VirtualControls } from '../../input/PlayerInput';
 import { LITE } from '../../perf';
+import { settings } from '../../save/SettingsManager';
 import { addText } from '../../ui/theme';
 import { centerOrigin, standOrigin } from '../../util/spriteUtil';
 import { BaseMinigame, type MgPlayer } from '../BaseMinigame';
@@ -746,7 +747,8 @@ export class SkybridgeScrambleScene extends BaseMinigame {
       alpha: { start: 0.85, end: 0 },
       tint: [0xfff1dc, 0xf1dfc2, 0xffffff],
     });
-    const lines = { reserve: burst(32), lifespan: [170, 260] as [number, number], scale: { start: 0.9, end: 0.35 }, alpha: { start: 0.8, end: 0 }, align: true };
+    // Speed lines mostly cross the white cloud sea, so they are a cool blue-grey, not white.
+    const lines = { reserve: burst(32), lifespan: [170, 260] as [number, number], scale: { start: 1.25, end: 0.5 }, alpha: { start: 0.95, end: 0 }, tint: [0x8ea8d6, 0xa9bde2], align: true };
     this.jumpLines = new Spray(this, AFX.streak, { depth: DEPTH_PLAYER - 1, ...lines });
     this.fallLines = new Spray(this, AFX.streak, { depth: DEPTH_TILE - 2, ...lines });
     for (let i = 0; i < (LITE ? 3 : 5); i++) this.birds.push(this.add.image(0, 0, TEX_BIRD, 'up').setVisible(false).setDepth(DEPTH_CLOUD_FAR + 2));
@@ -1322,7 +1324,7 @@ export class SkybridgeScrambleScene extends BaseMinigame {
     const r = Math.floor((h.y - GRID_Y0) / PITCH_Y);
     h.c.setDepth(DEPTH_TILE + Math.max(-1, Math.min(ROWS - 1, r)) * DEPTH_ROW + 5);
     // Their speed lines share that slot, so the rows in front hide both alike.
-    this.fallLines.setDepth(h.c.depth - 1);
+    this.fallLines.setDepth(h.c.depth + 1);
     h.c.sprite.y = -h.z / h.c.scaleY;
     // Off the side of the grid, tumble outwards; through a hole, drop straight down.
     const dir = h.x < GRID_X0 ? -1 : h.x > GRID_X0 + GRID_W ? 1 : h.c.isFacingLeft ? -1 : 1;
@@ -1392,12 +1394,14 @@ export class SkybridgeScrambleScene extends BaseMinigame {
       if (h.state === 'out') continue;
       if (h.state === 'falling') {
         h.fallT += dt;
-        // Speed lines stream up past them as they drop (smaller as they shrink into the distance).
+        // Speed lines stream up past them as they drop, framing the body either side (closer in as
+        // they shrink into the distance).
         h.trailT -= dt;
         if (h.fallT < 820 && h.trailT <= 0) {
           h.trailT = every(50);
           const k = h.c.scaleX / CHAR_SCALE;
-          this.fallLines.fire(h.c.x + (Math.random() - 0.5) * 70 * k, h.c.y - (30 + Math.random() * 110) * k, 1, -90, 0, 280, 420);
+          const side = Math.random() < 0.5 ? -1 : 1;
+          this.fallLines.fire(h.c.x + side * (40 + Math.random() * 45) * k, h.c.y - (20 + Math.random() * 130) * k, 1, -90, 0, 280, 420);
         }
         if (h.fallT >= RESPAWN_MS) this.respawn(h);
         continue;
@@ -1570,8 +1574,9 @@ export class SkybridgeScrambleScene extends BaseMinigame {
     if (this.dread) {
       const want = this.phase === 'playing' && this.phaseIndex === PHASES.length - 1 ? 1 : 0;
       this.dreadK += (want - this.dreadK) * Math.min(1, dt / 900);
-      // A slow heartbeat of red at the edges (gentle: well under a flash).
-      this.dread.setAlpha(this.dreadK * (0.36 + 0.1 * Math.sin(this.time.now / 320)));
+      // A slow heartbeat of red at the edges (gentle: well under a flash; steady with Reduced Motion).
+      const beat = settings.get().reducedMotion ? 0 : 0.1 * Math.sin(this.time.now / 320);
+      this.dread.setAlpha(this.dreadK * (0.36 + beat));
     }
     if (this.phase !== 'playing') {
       for (const h of this.hoppers) if (h.state === 'play') h.c.setDepth(DEPTH_PLAYER + h.y);

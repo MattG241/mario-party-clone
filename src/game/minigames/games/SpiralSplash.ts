@@ -177,6 +177,8 @@ interface Blast {
 /** A dragonfly: hovers, then darts somewhere new over the water. */
 interface Fly {
   img: Phaser.GameObjects.Image;
+  /** A faint shadow on the water below, so it reads as flying rather than floating. */
+  shade: Phaser.GameObjects.Image;
   /** Water-plane position (world units) and height above the water (screen px). */
   x: number;
   y: number;
@@ -307,7 +309,8 @@ export class SpiralSplashScene extends BaseMinigame {
     for (let i = 0; i < (LITE ? 1 : 2); i++) {
       const p = this.waterPoint(140);
       const img = this.add.image(0, 0, 'ss-fly', 'a').setScale(1.45);
-      this.flies.push({ img, x: p.x, y: p.y, h: 70 + i * 30, sx: p.x, sy: p.y, tx: p.x, ty: p.y, t: 0, T: 400 + i * 700, hover: true });
+      const shade = this.add.image(0, 0, 'fx-contact').setScale(0.3, 0.1).setTint(0x06303a).setAlpha(0.3).setDepth(40);
+      this.flies.push({ img, shade, x: p.x, y: p.y, h: 70 + i * 30, sx: p.x, sy: p.y, tx: p.x, ty: p.y, t: 0, T: 400 + i * 700, hover: true });
     }
   }
 
@@ -1190,6 +1193,7 @@ export class SpiralSplashScene extends BaseMinigame {
         .setPosition(POND.cx + fl.x, qy - fl.h + Math.sin(now / 180 + fl.h) * 3)
         .setDepth(1000 + qy + 90)
         .setFrame(Math.floor(now / 40) % 2 ? 'b' : 'a');
+      fl.shade.setPosition(POND.cx + fl.x, qy);
     }
   }
 
