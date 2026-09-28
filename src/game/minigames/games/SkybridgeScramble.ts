@@ -78,6 +78,9 @@ const DEPTH_CLOUD_FRONT = 4000;
 const DEPTH_FX = DEPTH_TILE + ROWS * DEPTH_ROW + 5;
 const RAD = 180 / Math.PI;
 const WOOD_TINTS = [0xb07a44, 0x8e5a2b, 0xd9a066, 0x6e4420];
+/** Lifespans of the dribble off a shaking platform (fixed, so the bursts allocate nothing). */
+const LIFE_DRIBBLE: [number, number] = [380, 520];
+const LIFE_SPLINTER: [number, number] = [420, 600];
 /** Cool blue-grey for rings on the cloud sea (white alone vanishes against the clouds). */
 const CLOUD_PUFF = 0x9fb4d8;
 
@@ -570,7 +573,7 @@ function ensureTextures(scene: Phaser.Scene): void {
   make(TEX_TILE, TILE_TEX_W, TILE_TEX_H, paintTile);
   make(TEX_CRACK, TILE_TEX_W, TILE_TEX_H, paintCracks);
   for (let v = 0; v < CLOUD_VARIANTS; v++) make(`${TEX_CLOUD}-${v}`, 460, 190, (ctx) => paintCloud(ctx, 460, 190, v));
-  make(TEX_VIGNETTE, 160, 90, paintVignette);
+  if (!LITE) make(TEX_VIGNETTE, 160, 90, paintVignette);
   if (!scene.textures.exists(TEX_BIRD)) {
     const tex = scene.textures.createCanvas(TEX_BIRD, 64, 16);
     if (tex) {
@@ -1159,8 +1162,8 @@ export class SkybridgeScrambleScene extends BaseMinigame {
           if (t.dustT <= 0) {
             t.dustT = every(250 - 160 * k);
             const dx = t.x + (Math.random() - 0.5) * TILE_W * 0.85;
-            this.dust.fire(dx, t.y + TILE_H / 2 + 4, 1, 90, 20, 20, 60, [380, 520]);
-            if (Math.random() < 0.4 + 0.4 * k) this.chips.fire(dx, t.y + TILE_H / 2 + 2, 1, 90, 35, 30, 110, [420, 600]);
+            this.dust.fire(dx, t.y + TILE_H / 2 + 4, 1, 90, 20, 20, 60, LIFE_DRIBBLE);
+            if (Math.random() < 0.4 + 0.4 * k) this.chips.fire(dx, t.y + TILE_H / 2 + 2, 1, 90, 35, 30, 110, LIFE_SPLINTER);
           }
           const flash = Math.sin((t.warnMs - t.t) * (0.012 + 0.028 * k)) > 0.1;
           t.img.setTint(flash ? 0xff9f86 : 0xffe6d8);
@@ -1209,7 +1212,7 @@ export class SkybridgeScrambleScene extends BaseMinigame {
     for (const t of this.tiles) {
       const g = this.rowG[t.r];
       const x = t.x + t.ox - TILE_W / 2;
-      const y = t.y + t.oy - TILE_H / 2;
+      const y = t.y + t.oy + t.dy - TILE_H / 2;
       if (t.state === 'warn') {
         const k = 1 - Math.max(0, t.t) / t.warnMs;
         g.fillStyle(0xff3b1f, 0.1 + 0.16 * k * pulse);

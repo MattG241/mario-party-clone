@@ -79,6 +79,13 @@ const SPLASH_STOP = 60;
 const RAD = 180 / Math.PI;
 /** Water droplets: blues that read against the pale water, and white that reads over the pads. */
 const DROP_TINTS = [0x5ec8ff, 0x9fe2ff, 0xffffff];
+/** Droplet lifespans (fixed, so bursts allocate nothing): shake-off, splash column, muzzle, blast trail, drips, wake. */
+const LIFE_SHAKE: [number, number] = [420, 640];
+const LIFE_COLUMN: [number, number] = [520, 820];
+const LIFE_MUZZLE: [number, number] = [240, 400];
+const LIFE_TRAIL: [number, number] = [260, 380];
+const LIFE_DRIP: [number, number] = [320, 460];
+const LIFE_WAKE: [number, number] = [280, 420];
 /** A fish leaps every so often (ms between leaps). */
 const FISH_WAIT: [number, number] = [5000, 9000];
 
@@ -770,7 +777,7 @@ export class SpiralSplashScene extends BaseMinigame {
     this.time.delayedCall(130, () => {
       if (w.state !== 'pad') return;
       const q = this.screen(w.x, w.y);
-      this.drops.fire(q.x, q.y - 60, burst(14), -90, 115, 160, 420, [420, 640]);
+      this.drops.fire(q.x, q.y - 60, burst(14), -90, 115, 160, 420, LIFE_SHAKE);
       audio.play('splash', { volume: 0.2, throttleMs: 80 });
       if (!settings.get().reducedMotion) {
         this.tweens.add({ targets: w.c.sprite, angle: { from: -10, to: 10 }, duration: 65, yoyo: true, repeat: 2, ease: 'Sine.InOut', onComplete: () => w.c.sprite.setAngle(0) });
@@ -800,7 +807,7 @@ export class SpiralSplashScene extends BaseMinigame {
     this.fx.vfx('splash', q.x - 40, q.y - 10, { scale: 0.45, duration: 480, depth: 1000 + q.y + 1, flipX: true });
     this.fx.vfx('splash', q.x + 42, q.y - 12, { scale: 0.4, duration: 460, depth: 1000 + q.y + 1 });
     // A tall column of spray, rings rolling out across the pond, a freeze-frame and a thump down.
-    this.drops.fire(q.x, q.y - 24, burst(18), -90, 60, 280, 720, [520, 820]);
+    this.drops.fire(q.x, q.y - 24, burst(18), -90, 60, 280, 720, LIFE_COLUMN);
     this.ripple(w.x, w.y, 1.6, 1500);
     this.time.delayedCall(180, () => this.ripple(w.x, w.y, 1.1, 1200));
     this.time.delayedCall(380, () => this.ripple(w.x, w.y, 2.2, 1700));
@@ -898,7 +905,7 @@ export class SpiralSplashScene extends BaseMinigame {
     const q = this.screen(b.x, b.y);
     this.fx.vfx('splash', q.x, q.y - BLAST_Z, { scale: 0.16, duration: 220, alpha: 0.8, depth: 1000 + q.y + 1 });
     // A fan of droplets off the muzzle along the shot, and a little recoil.
-    this.drops.fire(q.x, q.y - BLAST_Z, burst(6), Math.atan2(w.ay * DEPTH_K, w.ax) * RAD, 22, 220, 480, [240, 400]);
+    this.drops.fire(q.x, q.y - BLAST_Z, burst(6), Math.atan2(w.ay * DEPTH_K, w.ax) * RAD, 22, 220, 480, LIFE_MUZZLE);
     w.c.squash(0.07, 100);
   }
 
@@ -1018,8 +1025,7 @@ export class SpiralSplashScene extends BaseMinigame {
       b.dripT -= dt;
       if (b.dripT <= 0) {
         b.dripT = every(40);
-        const q = this.screen(b.x, b.y);
-        this.drops.fire(q.x, q.y - BLAST_Z, 1, 90, 60, 20, 90, [260, 380]);
+        this.drops.fire(POND.cx + b.x, POND.cy + b.y * DEPTH_K - BLAST_Z, 1, 90, 60, 20, 90, LIFE_TRAIL);
       }
     }
     this.drawAims();
@@ -1073,7 +1079,7 @@ export class SpiralSplashScene extends BaseMinigame {
       w.dripT -= dt;
       if (w.dripT <= 0) {
         w.dripT = every(70);
-        this.drops.fire(x + (Math.random() - 0.5) * 30, y - w.z - 50, 1, 90, 12, 40, 90, [320, 460]);
+        this.drops.fire(x + (Math.random() - 0.5) * 30, y - w.z - 50, 1, 90, 12, 40, 90, LIFE_DRIP);
       }
       return;
     }
@@ -1085,7 +1091,7 @@ export class SpiralSplashScene extends BaseMinigame {
     w.wakeT = every(45);
     const back = Math.atan2(-w.vy * DEPTH_K, -w.vx) * RAD;
     this.foam.fire(x, y + 2, burst(2), back, 35, 40, 120);
-    this.drops.fire(x, y - 8, 1, -90, 40, 120, 260, [280, 420]);
+    this.drops.fire(x, y - 8, 1, -90, 40, 120, 260, LIFE_WAKE);
     const pad = w.pad;
     if (pad && Math.hypot(w.x - pad.x, w.y - pad.y) > pad.r - 34 && Math.random() < 0.45) this.ripple(w.x, w.y, 0.4, 700);
   }
