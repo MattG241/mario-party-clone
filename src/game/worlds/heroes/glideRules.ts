@@ -57,8 +57,8 @@ export const LAMPS: readonly Lamp[] = [
 ];
 
 export const GLIDE = {
-  /** Top of the flight space (the HUD strip is above it) and the side walls. */
-  CEIL: 176,
+  /** Top of the flight space (an open canopy then just clears the HUD strip) and the side walls. */
+  CEIL: 238,
   WALL_L: 70,
   WALL_R: 1850,
   /** Diving: gravity and top falling speed. */
@@ -371,7 +371,7 @@ export function beamOmega(b: Beam, speed: number): number {
   return ((Math.PI * 2) / b.lamp.period) * speed;
 }
 
-export function stepBeams(beams: Beam[], dt: number, speed: number): void {
+export function stepBeams(beams: readonly Beam[], dt: number, speed: number): void {
   for (const b of beams) {
     b.phase += beamOmega(b, speed) * (dt / 1000);
     b.angle = b.lamp.sweep * Math.sin(b.phase);

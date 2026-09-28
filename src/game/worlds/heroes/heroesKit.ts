@@ -140,6 +140,32 @@ function pinTree(o: Phaser.GameObjects.GameObject): void {
   if (o instanceof Phaser.GameObjects.Container) for (const child of o.list) pinTree(child);
 }
 
+/** Trace a player shape (circle, triangle, diamond, hexagon) as a canvas path, ready to fill or stroke. */
+export function canvasShape(ctx: CanvasRenderingContext2D, shape: string, x: number, y: number, r: number): void {
+  ctx.beginPath();
+  if (shape === 'circle') {
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    return;
+  }
+  const pts: [number, number][] =
+    shape === 'triangle'
+      ? [
+          [0, -1.12],
+          [1.05, 0.72],
+          [-1.05, 0.72],
+        ]
+      : shape === 'diamond'
+        ? [
+            [0, -1.15],
+            [0.95, 0],
+            [0, 1.15],
+            [-0.95, 0],
+          ]
+        : [0, 1, 2, 3, 4, 5].map((i) => [Math.cos(Math.PI / 6 + (i * Math.PI) / 3) * 1.05, Math.sin(Math.PI / 6 + (i * Math.PI) / 3) * 1.05] as [number, number]);
+  pts.forEach(([px, py], i) => (i === 0 ? ctx.moveTo(x + px * r, y + py * r) : ctx.lineTo(x + px * r, y + py * r)));
+  ctx.closePath();
+}
+
 /** The Character's player ring (the ellipse at its feet): hidden while it flies. */
 export function playerRing(c: Phaser.GameObjects.Container): Phaser.GameObjects.Ellipse | undefined {
   return c.list.find((o) => o instanceof Phaser.GameObjects.Ellipse) as Phaser.GameObjects.Ellipse | undefined;
