@@ -112,8 +112,9 @@ interface Slasher {
   multText: Phaser.GameObjects.Text;
   words: WordPops;
   poseT: number;
-  /** CPU: note index -> planned slash time (or -1 to let it pass). */
-  plan: Map<Note, number>;
+  /** CPU: the lanes it means to slash and when (parallel arrays, reused; notes it lets pass aren't here). */
+  planLane: number[];
+  planAt: number[];
   /** The score pop-up still gathering over the cut line. */
   pop?: { h: HudPop; value: number };
 }
@@ -142,6 +143,8 @@ export class TripleSlashScene extends BaseMinigame {
   private pulse = 0;
   private wrapped = false;
   private tmp: Proj = { x: 0, y: 0, s: 0 };
+  /** Which of the four chutes have a player on them. */
+  private chuteUsed = [false, false, false, false];
   private tmp2: Proj = { x: 0, y: 0, s: 0 };
 
   constructor() {
@@ -156,6 +159,7 @@ export class TripleSlashScene extends BaseMinigame {
   protected createArena(): void {
     this.duration = 40000;
     this.slashers = [];
+    this.chuteUsed.fill(false);
     this.halves = [];
     this.slashes = [];
     this.beatNext = 0;
@@ -306,8 +310,10 @@ export class TripleSlashScene extends BaseMinigame {
       multText,
       words: new WordPops(this, D_UI - 10, 6),
       poseT: 0,
-      plan: new Map(),
+      planLane: [],
+      planAt: [],
     });
+    this.chuteUsed[chute] = true;
     for (let i = 0; i < 12; i++) this.slashers[this.slashers.length - 1].objs.push(this.makeObj());
   }
 
@@ -742,9 +748,8 @@ export class TripleSlashScene extends BaseMinigame {
       }
     }
     // closed chutes (fewer than four players): a rope across the line
-    const used = new Set(this.slashers.map((s) => s.chute));
     for (let c = 0; c < 4; c++) {
-      if (used.has(c)) continue;
+      if (this.chuteUsed[c]) continue;
       const a = project(laneX(c, -0.6, Y), Y, HARBOUR.floorZ + 0.4, q);
       const b = project(laneX(c, 2.6, Y), Y, HARBOUR.floorZ + 0.4, q2);
       g.lineStyle(7, 0x6a5238, 1);
@@ -807,21 +812,33 @@ export class TripleSlashScene extends BaseMinigame {
     const err = (Math.random() + Math.random() + Math.random() - 1.5) * sigma * 1.4;
     if (n.kind === 'bomb') {
       // a nervous swing at a bomb now and then
-      if (Math.random() < sk.mistake * 0.5) s.plan.set(n, n.t + err * 0.5);
+      if (Math.random() < sk.mistake * 0.5) this.plan(s, n.lane, n.t + err * 0.5);
       return;
     }
     if (Math.random() < sk.mistake * 0.55) return;
-    s.plan.set(n, n.t + err);
+    this.plan(s, n.lane, n.t + err);
+  }
+
+  private plan(s: Slasher, lane: number, at: number): void {
+    s.planLane.push(lane);
+    s.planAt.push(at);
   }
 
   protected cpuThink(p: MgPlayer, vc: VirtualControls): void {
-    const s = this.slashers.find((q) => q.p === p);
+    let s: Slasher | undefined;
+    for (const q of this.slashers) if (q.p === p) s = q;
     if (!s || s.stunT > 0) return;
-    for (const [n, at] of s.plan) {
+    for (let i = s.planAt.length - 1; i >= 0; i--) {
+      const at = s.planAt[i];
       if (this.elapsed < at) continue;
-      s.plan.delete(n);
+      const lane = s.planLane[i];
+      // swap-remove
+      s.planAt[i] = s.planAt[s.planAt.length - 1];
+      s.planLane[i] = s.planLane[s.planLane.length - 1];
+      s.planAt.pop();
+      s.planLane.pop();
       if (this.elapsed - at > 200) continue;
-      vc.tap(PAD_KEYS[n.lane]);
+      vc.tap(PAD_KEYS[lane]);
     }
   }
 

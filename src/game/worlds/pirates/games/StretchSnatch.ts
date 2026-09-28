@@ -24,6 +24,7 @@ import {
   spinSpeed,
   tableTarget,
   type FoodKind,
+  type Lead,
   type Pt,
 } from './stretchSnatchRules';
 
@@ -109,6 +110,8 @@ interface Snatcher {
   dark: number;
   light: number;
   pop?: { h: HudPop; value: number };
+  /** CPU: where it's aiming (its brain's target, reused). */
+  aimAt: Pt;
 }
 
 type SlamState = 'idle' | 'wind' | 'drop' | 'lift';
@@ -156,6 +159,8 @@ export class StretchSnatchScene extends BaseMinigame {
   private tmp: Pt = { x: 0, y: 0 };
   private tmpA: Pt = { x: 0, y: 0 };
   private tmpB: Pt = { x: 0, y: 0 };
+  private lead: Lead = { x: 0, y: 0, len: 0, t: 0 };
+  private bestLead: Lead = { x: 0, y: 0, len: 0, t: 0 };
 
   constructor() {
     super('mg-stretch-snatch');
@@ -326,6 +331,7 @@ export class StretchSnatchScene extends BaseMinigame {
     this.snatchers.push({
       p,
       c,
+      aimAt: { x: 0, y: 0 },
       gx,
       gy,
       sx,
@@ -982,11 +988,12 @@ export class StretchSnatchScene extends BaseMinigame {
       s.fist.setVisible(a.state !== 'tangle').setPosition(fx, fy).setRotation(ang).setScale(a.state === 'bonk' ? 1.1 : 1, a.state === 'bonk' ? 0.7 : 1);
       g.fillStyle(s.color, 1);
       g.fillCircle(fx - Math.cos(ang) * 24, fy - Math.sin(ang) * 24, w * 0.62);
-      a.haul.forEach((f, i) => {
+      for (let i = 0; i < a.haul.length; i++) {
+        const f = a.haul[i];
         const ox = (i - (a.haul.length - 1) / 2) * 26;
         f.spr.setPosition(fx + nx * ox, fy - 20 - (i % 2) * 6).setDepth(D_HELD + i * 0.1).setScale(this.hasAtlas ? FOOD_SCALE * 0.82 : 2);
         f.glint?.setPosition(fx + nx * ox, fy - 34);
-      });
+      }
     }
   }
 
@@ -1034,7 +1041,8 @@ export class StretchSnatchScene extends BaseMinigame {
 
   // --- CPU -----------------------------------------------------------------------------------------
   protected cpuThink(p: MgPlayer, vc: VirtualControls, dt: number): void {
-    const s = this.snatchers.find((q) => q.p === p);
+    let s: Snatcher | undefined;
+    for (const q of this.snatchers) if (q.p === p) s = q;
     if (!s) return;
     const a = s.arm;
     const sk = this.skill(p);
@@ -1084,12 +1092,15 @@ export class StretchSnatchScene extends BaseMinigame {
   private pickTarget(s: Snatcher, p: MgPlayer): void {
     const sk = this.skill(p);
     const b = p.brain;
-    let best: { x: number; y: number; len: number } | null = null;
+    let found = false;
+    const best = this.bestLead;
     let bestScore = -1e9;
-    const sh = { x: s.sx, y: s.sy };
+    const sh = this.tmpA;
+    sh.x = s.sx;
+    sh.y = s.sy;
     for (const f of this.table.foods) {
       if (f.state !== 'table') continue;
-      const lead = leadTarget(sh, f.r, f.a, this.table.angle, this.omega, REACH_SPEED, 0.25, L_MAX - 16);
+      const lead = leadTarget(sh, f.r, f.a, this.table.angle, this.omega, REACH_SPEED, 0.25, L_MAX - 16, this.lead);
       if (!lead) continue;
       const ang = Math.atan2(lead.y - s.sy, lead.x - s.sx);
       if (Math.abs(angleDelta(ang, s.toCentre)) > AIM_DEV) continue;
@@ -1099,8 +1110,13 @@ export class StretchSnatchScene extends BaseMinigame {
         if (o === f || o.state !== 'table') continue;
         if (distToSegment(o.x, o.y, s.sx, s.sy, lead.x, lead.y) < GRAB_R * 0.8) score += FOOD_VALUE[o.kind] * 3;
       }
-      const claimed = this.players.some((q) => q !== p && q.brain.target && Math.hypot(q.brain.target.x - lead.x, q.brain.target.y - lead.y) < 60);
-      if (claimed) score -= 5;
+      for (const q of this.players) {
+        const qt = q.brain.target;
+        if (q !== p && qt && Math.hypot(qt.x - lead.x, qt.y - lead.y) < 60) {
+          score -= 5;
+          break;
+        }
+      }
       if (this.slamState === 'wind' && distToSegment(this.slamX, this.slamY, s.sx, s.sy, lead.x, lead.y) < SLAM_R + 20) score -= 12 * sk.accuracy;
       // careful CPUs keep clear of arms already out (a tangle drops everything)
       for (const o of this.snatchers) {
@@ -1111,16 +1127,23 @@ export class StretchSnatchScene extends BaseMinigame {
       score += (Math.random() - 0.5) * 12 * sk.mistake;
       if (score > bestScore) {
         bestScore = score;
-        best = lead;
+        found = true;
+        best.x = lead.x;
+        best.y = lead.y;
+        best.len = lead.len;
+        best.t = lead.t;
       }
     }
-    if (!best) {
+    if (!found) {
       b.target = undefined;
       return;
     }
     const miss = sk.aimNoise * 95 * (Math.random() - 0.5) * 2;
     const ang = Math.atan2(best.y - s.sy, best.x - s.sx) + Math.PI / 2;
-    b.target = { x: best.x + Math.cos(ang) * miss, y: best.y + Math.sin(ang) * miss };
+    const t = s.aimAt;
+    t.x = best.x + Math.cos(ang) * miss;
+    t.y = best.y + Math.sin(ang) * miss;
+    b.target = t;
     b.wait = best.len + 20 + (Math.random() < sk.mistake ? 140 : 0);
   }
 

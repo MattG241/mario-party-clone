@@ -102,7 +102,14 @@ export function onTable(r: number, a: number, tableAngle: number, out: Pt = { x:
  * point and the reach length, or null if it's out of reach. Two refinement passes are plenty: the table
  * turns slowly next to how fast a fist flies.
  */
-export function leadTarget(sh: Pt, r: number, a: number, tableAngle: number, omega: number, speed: number, delay: number, maxLen: number): { x: number; y: number; len: number; t: number } | null {
+export interface Lead {
+  x: number;
+  y: number;
+  len: number;
+  t: number;
+}
+
+export function leadTarget(sh: Pt, r: number, a: number, tableAngle: number, omega: number, speed: number, delay: number, maxLen: number, out: Lead = { x: 0, y: 0, len: 0, t: 0 }): Lead | null {
   let t = delay;
   let x = 0;
   let y = 0;
@@ -115,7 +122,11 @@ export function leadTarget(sh: Pt, r: number, a: number, tableAngle: number, ome
     t = delay + len / speed;
   }
   if (len > maxLen) return null;
-  return { x, y, len, t };
+  out.x = x;
+  out.y = y;
+  out.len = len;
+  out.t = t;
+  return out;
 }
 
 /** Local polar coordinates of a table-plane point once the table has turned to `tableAngle`. */

@@ -704,9 +704,10 @@ export class StormNavigatorScene extends BaseMinigame {
     // a stripe in the player's colour across the middle of the sail
     const col = PLAYER_COLORS[b.p.slot];
     g.lineStyle(9, col, 1);
-    const a0 = { x: topX + (mx - topX) * 0.55, y: topY + (footY - topY) * 0.55 };
+    const a0x = topX + (mx - topX) * 0.55;
+    const a0y = topY + (footY - topY) * 0.55;
     const i1 = 3;
-    g.lineBetween(a0.x, a0.y, (pts[i1].x ?? 0) * 0.6 + a0.x * 0.4, (pts[i1].y ?? 0) * 0.6 + a0.y * 0.4 + 10);
+    g.lineBetween(a0x, a0y, (pts[i1].x ?? 0) * 0.6 + a0x * 0.4, (pts[i1].y ?? 0) * 0.6 + a0y * 0.4 + 10);
     g.lineStyle(2.5, 0x6b4428, 1);
     g.lineBetween(topX, topY, mx, footY + 6);
     g.lineBetween(mx, footY, ex, ey);
@@ -947,7 +948,9 @@ export class StormNavigatorScene extends BaseMinigame {
     const cap = 6 + Math.round(this.players.length * 1.5) + (this.tide ? 5 : 0);
     if (this.spawnT <= 0) {
       this.spawnT = this.tide ? 450 : 1100;
-      if (this.loot.filter((l) => l.active).length < cap) this.spawnLoot(false);
+      let out = 0;
+      for (const l of this.loot) if (l.active) out++;
+      if (out < cap) this.spawnLoot(false);
     }
     for (const b of this.boats) this.drawBoat(b);
   }
@@ -988,7 +991,7 @@ export class StormNavigatorScene extends BaseMinigame {
 
   // --- CPU -----------------------------------------------------------------------------------------
   protected cpuThink(p: MgPlayer, vc: VirtualControls, dt: number): void {
-    const b = this.boats.find((q) => q.p === p);
+    const b = this.boatOf(p);
     if (!b) return;
     const sk = this.skill(p);
     const br = p.brain;
@@ -1051,6 +1054,11 @@ export class StormNavigatorScene extends BaseMinigame {
     if (b.boostCd <= 0 && (fleeing || (dist > 260 && b.eff > 0.75)) && Math.random() < sk.accuracy * 0.08) vc.tap('A');
   }
 
+  private boatOf(p: MgPlayer): Boat | undefined {
+    for (const b of this.boats) if (b.p === p) return b;
+    return undefined;
+  }
+
   /** CPU target: the best treasure for the time it takes to sail there (wind included), clear of storms. */
   private cpuTarget(b: Boat, p: MgPlayer): void {
     const sk = this.skill(p);
@@ -1075,7 +1083,9 @@ export class StormNavigatorScene extends BaseMinigame {
         best = l;
       }
     }
-    p.brain.target = best ? { x: best.x, y: best.y } : { x: 960, y: 600 / K };
+    const t = p.brain.target ?? (p.brain.target = { x: 0, y: 0 });
+    t.x = best ? best.x : BAY_MID.x;
+    t.y = best ? best.y : BAY_MID.y / K;
     if (!p.brain.mode) p.brain.mode = 'seek';
   }
 
