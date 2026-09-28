@@ -130,6 +130,9 @@ export class WebSwingScene extends BaseMinigame {
   private endQueued = false;
   private wrapped = false;
   private crowd: Phaser.GameObjects.Sprite[] = [];
+  /** Festival folk waving from some of the rooftops along the course (by anchor index; pooled). */
+  private fans = new Map<number, Phaser.GameObjects.Sprite>();
+  private fanPool: Phaser.GameObjects.Sprite[] = [];
   private hint = 0;
 
   constructor() {
@@ -157,6 +160,8 @@ export class WebSwingScene extends BaseMinigame {
     this.hookPool = [];
     this.trails = [];
     this.crowd = [];
+    this.fans = new Map();
+    this.fanPool = [];
     this.finished = 0;
     this.endQueued = false;
     this.wrapped = false;
@@ -635,6 +640,13 @@ export class WebSwingScene extends BaseMinigame {
           this.hookPool.push(h);
           this.hooks.delete(i);
         }
+        const fan = this.fans.get(i);
+        if (fan) {
+          this.tweens.killTweensOf(fan);
+          fan.setVisible(false);
+          this.fanPool.push(fan);
+          this.fans.delete(i);
+        }
       }
     }
     for (let i = this.hint; i < A.length && A[i].x <= x1; i++) if (!this.towers.has(i)) this.placeTower(i, A[i]);
@@ -658,6 +670,25 @@ export class WebSwingScene extends BaseMinigame {
     if (!h) h = this.add.image(0, 0, 'hws-hook').setDepth(DEPTH.hook).setBlendMode(Phaser.BlendModes.NORMAL);
     h.setPosition(a.x, a.y).setVisible(true);
     this.hooks.set(i, h);
+    // Every so often a flat roof has someone on it, waving the racers on (clear of the hook).
+    if (art.kind === 'cornice' && i % 4 === 1) {
+      const folk: [NpcId, string][] = [
+        ['ora', 'wave'],
+        ['pipper', 'wave'],
+        ['packsprout', 'cheer'],
+        ['mimi', 'happy'],
+        ['wrench', 'laugh'],
+      ];
+      const [id, pose] = folk[i % folk.length];
+      const frame = npcFrame(id, pose);
+      let fan = this.fanPool.pop();
+      if (!fan) fan = this.add.sprite(0, 0, NPC_ATLAS, frame);
+      const o = standOrigin(NPC_ATLAS, frame);
+      const fx = a.x + (flip ? 1 : -1) * Math.min(120, art.w * 0.4);
+      fan.setTexture(NPC_ATLAS, frame).setOrigin(o.x, o.y).setScale(0.3).setPosition(fx, a.y + 2).setFlipX(!flip).setDepth(DEPTH.tower + 0.8).setVisible(true);
+      if (!calmMotion()) this.tweens.add({ targets: fan, y: a.y - 5, duration: 360 + (i % 3) * 70, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+      this.fans.set(i, fan);
+    }
   }
 
   private syncRacer(r: Racer, sec: number): void {

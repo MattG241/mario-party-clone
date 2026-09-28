@@ -4,6 +4,9 @@
 import Phaser from 'phaser';
 import { animBaseline, type Character } from '../../characters/Character';
 import { GAME_WIDTH } from '../../constants';
+import { NPC_ATLAS, npcFrame, NPCS, type NpcId } from '../../data/npcs';
+import { settings } from '../../save/SettingsManager';
+import { standOrigin } from '../../util/spriteUtil';
 import { LITE } from '../../perf';
 import { inflateTexture } from '../../util/texture';
 
@@ -189,6 +192,60 @@ export function standOnFeet(c: Character, x: number, y: number): void {
   c.play('idle', { force: true });
   c.sprite.setOrigin(0.5, animBaseline(c.charId, 'idle'));
   c.marker?.setPosition(0, c.headY - 46).setRotation(0);
+}
+
+export interface CrowdSpot {
+  id: NpcId;
+  pose: string;
+  x: number;
+  /** Feet. */
+  y: number;
+  scale?: number;
+  flip?: boolean;
+}
+
+/**
+ * Festival folk watching from the edges of an arena: they bob along, hop and cheer on the big
+ * moments and gasp at the mishaps (then settle back into their own pose).
+ */
+export class Crowd {
+  private folk: { spr: Phaser.GameObjects.Sprite; spot: CrowdSpot; y: number }[] = [];
+
+  constructor(
+    private scene: Phaser.Scene,
+    spots: readonly CrowdSpot[],
+    depth: number,
+  ) {
+    const calm = settings.get().reducedMotion;
+    spots.forEach((spot, i) => {
+      const frame = npcFrame(spot.id, spot.pose);
+      const spr = scene.add.sprite(spot.x, spot.y, NPC_ATLAS, frame);
+      const o = standOrigin(NPC_ATLAS, frame);
+      spr.setOrigin(o.x, o.y).setScale(spot.scale ?? 0.34).setDepth(depth + i * 0.01).setFlipX(!!spot.flip);
+      if (!calm) scene.tweens.add({ targets: spr, y: spot.y - 6, duration: 400 + (i % 3) * 90, yoyo: true, repeat: -1, ease: 'Sine.InOut', delay: i * 70 });
+      this.folk.push({ spr, spot, y: spot.y });
+    });
+  }
+
+  /** Everyone hops, in a quick ripple (near a point, if given: only those within `range`). */
+  cheer(x?: number, range = 9999): void {
+    this.folk.forEach(({ spr, spot }, i) => {
+      if (x !== undefined && Math.abs(spot.x - x) > range) return;
+      const cheerPose = NPCS[spot.id].poses.cheer !== undefined ? 'cheer' : NPCS[spot.id].poses.happy !== undefined ? 'happy' : spot.pose;
+      spr.setFrame(npcFrame(spot.id, cheerPose));
+      this.scene.tweens.add({ targets: spr, scaleY: spr.scaleY * 1.08, duration: 120, yoyo: true, repeat: 1, delay: i * 30, onComplete: () => spr.setFrame(npcFrame(spot.id, spot.pose)) });
+    });
+  }
+
+  /** A gasp: the ones that can look surprised do, for a moment. */
+  gasp(): void {
+    for (const { spr, spot } of this.folk) {
+      const p = NPCS[spot.id].poses.surprised !== undefined ? 'surprised' : NPCS[spot.id].poses.alert !== undefined ? 'alert' : null;
+      if (!p) continue;
+      spr.setFrame(npcFrame(spot.id, p));
+      this.scene.time.delayedCall(700, () => spr.active && spr.setFrame(npcFrame(spot.id, spot.pose)));
+    }
+  }
 }
 
 /** The Character's player ring (the ellipse at its feet): hidden while it flies. */

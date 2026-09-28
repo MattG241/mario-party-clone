@@ -37,7 +37,7 @@ import {
   type GlideClue,
   type GlideView,
 } from '../glideRules';
-import { canvasTex, centreOnBody, fallbackSky, finishHeroSprites, glowTex, heroTex, playerRing, queueHeroSprites, standOnFeet, streakTex } from '../heroesKit';
+import { canvasTex, centreOnBody, Crowd, fallbackSky, finishHeroSprites, glowTex, heroTex, playerRing, queueHeroSprites, standOnFeet, streakTex } from '../heroesKit';
 
 /** The rendered night skyline (scripts/art/worlds/heroes/mg_rooftop.py). */
 const ARENA = 'rendered-scene-heroes_rooftops';
@@ -152,6 +152,7 @@ export class RooftopGlideScene extends BaseMinigame {
   private trails: Phaser.GameObjects.Image[] = [];
   private blinkers: Phaser.GameObjects.Image[] = [];
   private view!: GlideView & { claimed: Set<number>; rivals: { x: number; y: number }[] };
+  private crowd!: Crowd;
 
   constructor() {
     super('mg-rooftop-glide');
@@ -191,6 +192,17 @@ export class RooftopGlideScene extends BaseMinigame {
     this.buildDrafts();
     this.buildBeams();
     this.buildBlinkers();
+    // Festival folk watching from the two tall towers (they cheer the big catches, gasp at the spotted).
+    this.crowd = new Crowd(
+      this,
+      [
+        { id: 'ora', pose: 'flag', x: 52, y: 606, flip: false },
+        { id: 'pipper', pose: 'wave', x: 150, y: 606, flip: false },
+        { id: 'mimi', pose: 'happy', x: 1770, y: 622, flip: true },
+        { id: 'packsprout', pose: 'cheer', x: 1868, y: 622, flip: true },
+      ],
+      DEPTH.glider - 5,
+    );
     this.pops = new WordPops(this, DEPTH.words, 12);
     this.alarmG = this.add.graphics().setDepth(DEPTH.alarm);
   }
@@ -546,6 +558,7 @@ export class RooftopGlideScene extends BaseMinigame {
     this.storm = true;
     this.beamSpeed = 1.3;
     this.showFinalStretch('CLUE STORM!');
+    this.crowd.cheer();
     for (let i = 0; i < 3; i++) this.spawnClue(i === 1);
   }
 
@@ -657,6 +670,8 @@ export class RooftopGlideScene extends BaseMinigame {
     g.lastCatch = this.elapsed;
     if (c.gold) {
       audio.play('goldChip', { volume: 0.9 });
+      audio.play('cheer', { volume: 0.35 });
+      this.crowd.cheer();
       this.pops.pop(WORDS.big.key, c.x, c.y - 70, { owner: slot * 10 + 1, scale: 1, rise: 40, hold: 520 });
       this.fx.sparks(c.x, c.y, liteCount(22));
       shockwave(this, c.x, c.y, { radius: 120, color: 0xffd24a, alpha: 0.9, duration: 420, depth: DEPTH.clue - 1 });
@@ -793,6 +808,7 @@ export class RooftopGlideScene extends BaseMinigame {
     kick(this, (dx / d) * 12, (dy / d) * 12, 160);
     audio.play('hit', { volume: 0.7 });
     audio.play('alarm', { volume: 0.35 });
+    this.crowd.gasp();
     this.pops.pop(WORDS.spotted.key, g.f.x, g.f.y - 140, { owner: g.p.slot * 10, scale: 1, rise: 40, hold: 620, tilt: 8 });
     this.fx.vfx('starSwirl', g.f.x, g.f.y - 70, { scale: 0.45, duration: 800, blend: 'add' });
     shockwave(this, g.f.x, g.f.y, { radius: 110, color: 0xff6a4a, alpha: 0.85, duration: 380, depth: DEPTH.alarm });
@@ -999,6 +1015,7 @@ export class RooftopGlideScene extends BaseMinigame {
           g.streamer.setAlpha(0);
         }
       }
+      this.crowd.cheer();
     }
     super.end();
   }

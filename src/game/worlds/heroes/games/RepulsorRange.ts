@@ -10,7 +10,7 @@ import { bakeWord, calmMotion, liteCount, WordPops } from '../../../minigames/ga
 import { drawPlayerShape } from '../../../ui/PlayerBadge';
 import { addText } from '../../../ui/theme';
 import { standOrigin } from '../../../util/spriteUtil';
-import { canvasShape, canvasTex, fallbackSky, finishHeroSprites, glowTex, heroTex, playerRing, queueHeroSprites } from '../heroesKit';
+import { canvasShape, canvasTex, Crowd, fallbackSky, finishHeroSprites, glowTex, heroTex, playerRing, queueHeroSprites } from '../heroesKit';
 import {
   blastHits,
   chargeLevel,
@@ -103,6 +103,7 @@ export class RepulsorRangeScene extends BaseMinigame {
   private pops!: WordPops;
   private claimed = new Set<number>();
   private hits: { kind: TargetKind; killed: boolean; bullseye: boolean }[] = [];
+  private crowd!: Crowd;
 
   constructor() {
     super('mg-repulsor-range');
@@ -131,6 +132,17 @@ export class RepulsorRangeScene extends BaseMinigame {
     this.makeTextures();
     if (this.textures.exists(ARENA)) this.add.image(0, 0, ARENA).setOrigin(0).setDepth(DEPTH.arena);
     else this.drawFallbackDeck();
+    // Festival folk watching from both ends of the deck.
+    this.crowd = new Crowd(
+      this,
+      [
+        { id: 'wrench', pose: 'gadget', x: 70, y: 1000, scale: 0.4 },
+        { id: 'ora', pose: 'cheer', x: 170, y: 1010, scale: 0.4 },
+        { id: 'pipper', pose: 'happy', x: 1750, y: 1010, scale: 0.4, flip: true },
+        { id: 'mimi', pose: 'happy', x: 1850, y: 1000, scale: 0.4, flip: true },
+      ],
+      DEPTH.pad - 2,
+    );
     this.pops = new WordPops(this, DEPTH.words, 16);
   }
 
@@ -385,6 +397,7 @@ export class RepulsorRangeScene extends BaseMinigame {
   protected override onFinalStretch(): void {
     this.storm = true;
     this.showFinalStretch('DRONE SWARM!');
+    this.crowd.cheer();
     for (let i = 0; i < 3; i++) this.spawnTarget(i === 1 ? 'gold' : 'drone');
   }
 
@@ -527,6 +540,8 @@ export class RepulsorRangeScene extends BaseMinigame {
     if (kills >= 3) {
       this.pops.pop(WORDS.multi.key, shot.x, shot.y - 90, { owner: pl.p.slot + 10, scale: 1, rise: 40, hold: 520, tilt: -5 });
       audio.play('streak', { volume: 0.6 });
+      audio.play('cheer', { volume: 0.4 });
+      this.crowd.cheer();
     }
     // A freeze-frame only for the big moments (a charged blast landing, a heavy or gold drone down):
     // quick pops from four blasters at once would stutter.
@@ -563,7 +578,10 @@ export class RepulsorRangeScene extends BaseMinigame {
     this.fx.sparks(t.x, t.y, liteCount(heavy ? 22 : 12));
     shockwave(this, t.x, t.y, { radius: t.r * 1.8, color: t.kind === 'gold' ? 0xffd24a : 0xffc070, alpha: 0.85, duration: 320, depth: DEPTH.target + 1 });
     if (bull) this.pops.pop(WORDS.bull.key, t.x, t.y - 80, { owner: pl.p.slot + 30, scale: 0.9, rise: 36, hold: 460 });
-    if (t.kind === 'gold') audio.play('goldChip', { volume: 0.9 });
+    if (t.kind === 'gold') {
+      audio.play('goldChip', { volume: 0.9 });
+      this.crowd.cheer();
+    }
     if (heavy) kick(this, 0, 8, 140);
     if (v) {
       const img = v.img;
@@ -603,6 +621,7 @@ export class RepulsorRangeScene extends BaseMinigame {
     this.pops.pop(WORDS.oops.key, shot.x, shot.y - 100, { owner: pl.p.slot + 40, scale: 1, rise: 44, hold: 700, tilt: 7 });
     audio.play('error', { volume: 0.6 });
     audio.play('chipLose', { volume: 0.6 });
+    this.crowd.gasp();
     this.rumble(pl.p, 0.6, 0.4, 220);
     this.fx.shake(0.004, 150);
     pl.lastMult = 1;
