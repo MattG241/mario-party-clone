@@ -6,7 +6,7 @@
 Each hero (char_models.py) is posed for every animation (char_anims.py), rendered with the board's
 key light and sky fill through a camera 20° above the horizon, and packed into a trimmed atlas
 (public/assets/atlases/hero_<id>.webp/.json) plus src/game/data/heroSprites.generated.ts with
-per-frame artwork bounds, the frame list of every animation and a few anchor points (hands).
+per-frame artwork bounds, the frame list of every animation and a few anchor points (hands, face).
 Frames keep a fixed registration: the feet sit at FEET in every frame.
 """
 from __future__ import annotations
@@ -193,6 +193,14 @@ def shelf_pack(sizes, width=2048, pad=2):
     return pos, height
 
 
+def face_point(key):
+    """Centre of the head in the first idle frame; portraits are framed on it."""
+    hero = HEROES[key](Mats())
+    world = solve(hero, char_anims.animations(key)['idle'][0])
+    h = hero.HEAD  # rx, ry, rz, centre height above the head joint[, depth]
+    return project(world['head'] @ Vector((0.0, h[4] if len(h) > 4 else 0.0, h[3])))
+
+
 def pack(keys):
     src_root = OUT
     gen = {'meta': {}, 'anims': {}, 'points': {}}
@@ -216,9 +224,14 @@ def pack(keys):
             solids.append(solid)
             with open(path + '.json') as fh:
                 anchors.append(json.load(fh))
-        pos, height = shelf_pack([im.size for im in images])
-        H = 1 << max(0, int(math.ceil(math.log2(max(1, height)))))
-        atlas = Image.new('RGBA', (2048, H), (0, 0, 0, 0))
+        # power-of-two sheet (the game mipmaps its atlases): 2048 wide, or 4096 wide when that is smaller
+        W = H = pos = None
+        for width in (2048, 4096):
+            p_, height = shelf_pack([im.size for im in images], width)
+            h_ = 1 << max(0, int(math.ceil(math.log2(max(1, height)))))
+            if W is None or width * h_ < W * H:
+                W, H, pos = width, h_, p_
+        atlas = Image.new('RGBA', (W, H), (0, 0, 0, 0))
         fr = {}
         for k, (im, (x, y), bb) in enumerate(zip(images, pos, trims)):
             atlas.paste(im, (x, y))
@@ -230,7 +243,7 @@ def pack(keys):
         atlas.save(os.path.join(ATLAS_DIR, name + '.webp'), 'WEBP', quality=92, method=6)
         with open(os.path.join(ATLAS_DIR, name + '.json'), 'w') as fh:
             json.dump({'frames': fr, 'meta': {'app': 'gleamtrail/scripts/art/characters.py', 'image': name + '.webp', 'format': 'RGBA8888',
-                                              'size': {'w': 2048, 'h': H}, 'scale': '1'}}, fh)
+                                              'size': {'w': W, 'h': H}, 'scale': '1'}}, fh)
         gen['meta'][f'hero_{key}'] = {'pad': 80, 'anchor': 'feet', 'frames': [{'w': FRAME, 'h': FRAME, 'solid': s_} for s_ in solids]}
         playback = {}
         for anim, (order, fps, loop) in char_anims.PLAYBACK.items():
@@ -251,8 +264,9 @@ def pack(keys):
         gen['points'][key] = {
             'carry': rel(mid(carry['wristL'], carry['wristR'])),
             'pull': rel(mid(pull['wristL'], pull['wristR'])),
+            'face': rel(face_point(key)),
         }
-        print('packed', key, len(frames), 'frames', f'2048x{H}', flush=True)
+        print('packed', key, len(frames), 'frames', f'{W}x{H}', flush=True)
     write_ts(gen)
 
 
@@ -272,8 +286,8 @@ def write_ts(gen):
         "import type { SheetMeta } from './spriteMeta.generated';\n\n"
         'export interface HeroAnim {\n  frames: number[];\n  fps: number;\n  loop: boolean;\n}\n\n'
         'export interface HeroData {\n  meta: Record<string, SheetMeta>;\n  anims: Record<string, Record<string, HeroAnim>>;\n'
-        '  /** Anchor points in frame pixels relative to the feet, facing right: carry (parcel), pull (rope grip). */\n'
-        '  points: Record<string, { carry: [number, number]; pull: [number, number] }>;\n}\n\n'
+        '  /** Anchor points in frame pixels relative to the feet, facing right: carry (parcel), pull (rope grip), face (idle head centre). */\n'
+        '  points: Record<string, { carry: [number, number]; pull: [number, number]; face: [number, number] }>;\n}\n\n'
         f'/** Every hero frame is registered with the feet at this point of the {FRAME}x{FRAME} frame. */\n'
         f'export const HERO_FEET = {{ x: {FEET[0]}, y: {FEET[1]}, size: {FRAME} }};\n\n'
         f'export const HERO_DATA: HeroData = /*DATA*/{data}/*DATA*/;\n'

@@ -6,6 +6,7 @@ import type { MatchState, PlayerState } from '../state/MatchState';
 import { computeStandings } from '../state/scoring';
 import { centerOrigin } from '../util/spriteUtil';
 import { PlayerBadge } from './PlayerBadge';
+import { placePortraitSprite } from './Portrait';
 import { addText } from './theme';
 
 /** Corner block size (portrait + name + stats); items hang below/above it. */
@@ -114,8 +115,8 @@ export class PlayerHUD {
     disc.fillCircle(0, 0, PR - 3);
     disc.fillStyle(0xffffff, 0.22);
     disc.fillCircle(0, -PR * 0.35, PR * 0.62);
-    const portrait = s.add.sprite(0, 70, CHARACTERS[p.characterId].atlas, '0');
-    portrait.setOrigin(0.5, 0.62).setScale(0.6).setFlipX(flip);
+    const portrait = s.add.sprite(0, 0, CHARACTERS[p.characterId].atlas, '0');
+    placePortraitSprite(portrait, p.characterId, 0.6, 0.26 * PR, flip);
     const maskG = s.make.graphics({ x: 0, y: 0 }, false);
     maskG.fillStyle(0xffffff);
     maskG.fillCircle(x + pcx, y + pcy, PR - 3);
