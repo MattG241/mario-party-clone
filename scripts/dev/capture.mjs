@@ -20,7 +20,15 @@ const SCENARIOS = [
   {
     name: 'select',
     q: '?realtime',
-    steps: [['waitFor', ready, 60000], ['wait', 1200], ['key', 'Enter'], ['wait', 1500], ['key', 'Enter'], ['waitFor', sceneActive('CharacterSelect'), 60000], ['wait', 1500], ['key', 'Enter'], ['wait', 1800], ['shot', 'select.png']],
+    steps: [
+      ['waitFor', ready, 60000],
+      ['keyUntil', 'Enter', "window.__GLEAMTRAIL__.game.scene.getScene('Title').phase === 'menu'"],
+      ['keyUntil', 'Enter', sceneActive('CharacterSelect')],
+      ['wait', 1500],
+      ['keyUntil', 'Enter', 'window.__GLEAMTRAIL__.session.slots[0].joined === true'],
+      ['wait', 1800],
+      ['shot', 'select.png'],
+    ],
   },
   { name: 'board', q: '?quick&humans=1&seed=21&realtime&noflow&midgame&debug', steps: [['waitFor', sceneActive('BoardUI'), 60000], ['wait', 4000], ['shot', 'board-overview.png']] },
   {
@@ -45,6 +53,23 @@ const SCENARIOS = [
   },
 ];
 
+/**
+ * Press a key until a condition holds: on software GL a frame can take half a second, so a quick
+ * tap may fall between two input polls or land during a screen's entrance.
+ */
+async function keyUntil(page, key, cond, tries = 6) {
+  for (let i = 0; i < tries; i++) {
+    await page.keyboard.press(key, { delay: 60 });
+    try {
+      await page.waitForFunction(cond, null, { timeout: 5000 });
+      return;
+    } catch {
+      // not yet: press again
+    }
+  }
+  throw new Error(`pressing ${key} never reached: ${cond}`);
+}
+
 const browser = await chromium.launch({
   args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'],
 });
@@ -67,6 +92,7 @@ for (const sc of SCENARIOS) {
       else if (op === 'down') await page.keyboard.down(a);
       else if (op === 'up') await page.keyboard.up(a);
       else if (op === 'waitFor') await page.waitForFunction(a, null, { timeout: b ?? 30000 });
+      else if (op === 'keyUntil') await keyUntil(page, a, b);
       else if (op === 'shot') {
         await page.screenshot({ path: path.join(outDir, a), timeout: 240000 });
         console.log(`${sc.name}: ${a} @ ${((Date.now() - t0) / 1000).toFixed(0)}s`);
