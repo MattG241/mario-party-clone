@@ -20,11 +20,12 @@ from mathutils import Matrix, Vector
 
 import lib
 from lib import col
-from char_rig import HeadShape, R, S, T, cloth_strip, disc, ellipsoid, flat_sweep, open_sweep, polyline_segment, rad, superellipsoid, sweep, torus
+from char_rig import (I4, HeadShape, R, S, T, cloth_strip, disc, ellipsoid, flat_sweep, open_sweep, polyline_segment, rad, superellipsoid,
+                      sweep, torus)
 from char_models import Hero, hair_shell, periodic_interp
 from char_mossi import catmull, leaf, leaf_width, ramp_mat
 from char_zippa import SquirrelHead, direction
-from char_anims import IDLE_YAW, face, pose
+from char_anims import IDLE_YAW, face, pose, swing
 
 
 def _ss(x: float) -> float:
@@ -138,17 +139,6 @@ def ora_hand(side: int, kind: str, s: float = 1.0):
     return merge(meshes)
 
 
-def coil_points(R0: float, turns: float, H: float, n: int = 90, shrink: float = 0.8):
-    """A rising spiral: radius R0 at the base shrinking by `shrink`, `turns` turns, height H."""
-    pts = []
-    for i in range(n + 1):
-        t = i / n
-        a = t * turns * math.tau
-        r = R0 * (1.0 - shrink * t ** 0.9)
-        pts.append(Vector((r * math.cos(a), r * math.sin(a), H * math.sin(t * math.pi / 2))))
-    return pts
-
-
 def frame_z(origin: Vector, z: Vector, y_hint: Vector) -> Matrix:
     """A matrix at `origin` whose local +Z is `z` and local -Y leans towards y_hint."""
     z = z.normalized()
@@ -165,29 +155,36 @@ class Ora(Hero):
 
     key = 'ora'
     ankle_h = 0.158
-    hip_h = 0.59
-    spine = 0.09
-    chest = 0.19
-    neck = 0.16
+    hip_h = 0.658
+    spine = 0.11
+    chest = 0.23
+    neck = 0.19
     head_up = 0.06
-    shoulder = (0.2, 0.0, 0.1)
+    shoulder = (0.212, 0.0, 0.1)
     upper_arm = 0.225
     forearm = 0.212
     hip_w = 0.13
-    thigh = 0.18
-    shin = 0.212
+    thigh = 0.215
+    shin = 0.245
     sit_h = 0.17
 
-    HEAD = (0.385, 0.36, 0.35, 0.475)  # rx, ry, rz, centre height above the head joint
-    C = dict(skin='#ffcda6', skin_d='#eea27e', iris='#7a4122', brow='#4a2210', hair_d='#361708', hair_l='#9e5a2e',
-             scarf='#19a3b3', scarf_d='#10808d', shirt='#fae3c6', vest='#f2ac32', vest_d='#d98a1e', teal='#1d8f9c',
-             gold='#e8b33e', belt='#6e4020', shorts='#34497e', cuff='#4b5f97', boot='#7b4822', boot_d='#5e3517',
-             boot_cuff='#d5a268', sole='#efd3a4', bag='#9a6436', flap='#74451f', badge='#1ea3a8', yellow='#f6ba2a',
-             orange='#f07a24', red='#da4a2c', band='#1c9db0', band_y='#f4c233', petal_y='#f8bd22', petal_o='#f26a1f',
-             leaf='#7cb342', wood='#8b5a2e', banner='#1aa3b2', sun='#f7bb2a', sun_d='#e3861b', blush='#ff8a80', hand='#eca47c')
+    HEAD = (0.385, 0.36, 0.35, 0.475)  # rx, ry, rz, centre height above the head joint (before HEAD_K)
+    HEAD_K = 0.86  # everything on the head (face, hair, bun, flower) is scaled by this about the head joint
+    C = dict(skin='#ffd0aa', skin_d='#eea27e', hand='#eca47c', blush='#ff8a80', iris='#7a4222', brow='#4a2210',
+             hair_d='#361708', hair_l='#9e5a2e', bun_d='#2e1307', bun_l='#8a4a26', band='#1c9db0', band_y='#f4c233',
+             petal_o='#f26a1f', leaf='#7cb342', scarf='#19a3b3', scarf_d='#10808d', shirt='#fbe1bf', vest='#f5a526',
+             teal='#1d8f9c', gold='#e8b33e', belt='#6e4020', shorts='#34497e', cuff='#4b5f97', boot='#7b4822',
+             boot_d='#5e3517', boot_cuff='#d5a268', sole='#efd3a4', bag='#9a6436', flap='#74451f', badge='#1ea3a8',
+             yellow='#f6ba2a', orange='#f07a24', red='#da4a2c', wood='#8b5a2e', banner='#1aa3b2', sun='#f7bb2a', sun_d='#e3861b')
 
     def head_top(self) -> float:
-        return self.HEAD[3] + self.HEAD[2] + 0.45
+        return (self.HEAD[3] + self.HEAD[2] + 0.45) * self.HEAD_K
+
+    def add(self, name, mesh, mat, joint=None, local=I4, smooth=True, tip=None):
+        # parts on the head are modelled at full size and scaled down about the head joint
+        if joint == 'head' and self.HEAD_K != 1.0:
+            local = S(self.HEAD_K) @ local
+        super().add(name, mesh, mat, joint, local, smooth, tip)
 
     # --- materials ----------------------------------------------------------------------------
     def materials(self):
@@ -197,11 +194,11 @@ class Ora(Hero):
             skin_d=mt.skin('ora_skin_d', c['skin_d']),
             hand=mt.skin('ora_hand', c['hand']),
             hair=mt.hair('ora_hair', c['hair_d'], c['hair_l'], 0.4),
+            bun=mt.hair('ora_bun', c['bun_d'], c['bun_l'], 0.42),
             scarf=mt.cloth('ora_scarf', c['scarf'], 0.7, 0.5, 0.08),
             scarf_d=mt.cloth('ora_scarf_d', c['scarf_d'], 0.7, 0.5),
             shirt=mt.cloth('ora_shirt', c['shirt'], 0.75, 0.35),
             vest=mt.cloth('ora_vest', c['vest'], 0.62, 0.35, 0.06),
-            vest_d=mt.cloth('ora_vest_d', c['vest_d'], 0.62, 0.3),
             teal=mt.cloth('ora_teal', c['teal'], 0.65, 0.35),
             gold=mt.metal('ora_gold', c['gold'], 0.3),
             belt=mt.cloth('ora_belt', c['belt'], 0.55, 0.2, 0.1, 40),
@@ -246,7 +243,7 @@ class Ora(Hero):
     # --- torso: cream shirt, teal bodice under a golden vest, gold brooch -----------------------
     @staticmethod
     def prof(t: float) -> float:
-        return 0.2 - 0.022 * t + 0.012 * math.sin(math.pi * t)
+        return 0.21 - 0.022 * t + 0.014 * math.sin(math.pi * t)
 
     def torso(self):
         M = self.mat
@@ -259,17 +256,18 @@ class Ora(Hero):
 
         def vr(t):
             return prof((vz0 + (vz1 - vz0) * t - z0) / (z1 - z0))
-        self.add('bodice', open_sweep(vpts, lambda t: vr(t) + 0.002, -120, -60, 12, 0.8, 0.02), M['teal'], 'chest')
-        self.add('vest', open_sweep(vpts, lambda t: vr(t) + 0.012, -70, 250, 30, 0.8, 0.024), M['vest'], 'chest')
-        self.add('shoulders', ellipsoid(0.206, 0.158, 0.088, 26, 12, center=(0, 0, 0.1), zmin=-0.2), M['vest'], 'chest')
+        self.add('bodice', open_sweep(vpts, lambda t: vr(t) + 0.002, -116, -64, 12, 0.8, 0.02), M['teal'], 'chest')
+        self.add('vest', open_sweep(vpts, lambda t: vr(t) + 0.012, -74, 254, 30, 0.8, 0.024), M['vest'], 'chest')
+        self.add('shoulders', ellipsoid(0.216, 0.164, 0.088, 26, 12, center=(0, 0, 0.1), zmin=-0.2), M['vest'], 'chest')
         # gold piping down the vest's front edges
-        for a in (-70, 250):
+        for a in (-74, 254):
             ar = math.radians(a)
-            pts = [Vector((math.cos(ar) * (vr(i / 8) + 0.014), math.sin(ar) * (vr(i / 8) + 0.014) * 0.8, vz0 + (vz1 - vz0) * i / 8)) for i in range(9)]
-            self.add('piping', sweep(pts, 0.011, 8), M['gold'], 'chest')
+            pts = [Vector((math.cos(ar) * (vr(i / 8) + 0.014), math.sin(ar) * (vr(i / 8) + 0.014) * 0.8, vz0 + (vz1 - vz0) * i / 8))
+                   for i in range(9)]
+            self.add('piping', sweep(pts, 0.013, 8), M['gold'], 'chest')
         # brooch at the top of the bodice
-        by = -vr(0.9) * 0.8 - 0.024
-        bm = T(0, by, 0.1) @ R(-14, 0, 0)
+        by = -vr(0.78) * 0.8 - 0.024
+        bm = T(0, by, 0.05) @ R(-14, 0, 0)
         self.add('brooch', disc(0.052, 0.026, 28), M['gold'], 'chest', bm)
         self.add('brooch_in', disc(0.032, 0.03, 22), M['badge'], 'chest', bm)
         self.add('brooch_rim', torus(0.05, 0.009, 24, 6), M['gold'], 'chest', bm @ T(0, -0.012, 0) @ R(90, 0, 0))
@@ -284,8 +282,8 @@ class Ora(Hero):
         self.add('hem', open_sweep(pts, lambda t: 0.246 - 0.036 * t, -270, 90, 36, 0.82, 0.014), M['shirt'], 'spine', tilt)
         # panels hanging from the belt round her sides and back (angles: 0 her left, 90 back, -90 front)
         cols = ('red', 'yellow', 'orange', 'red', 'yellow', 'orange', 'yellow', 'red')
-        self.add('panel_f', open_sweep([Vector((0, 0, -0.22 + 0.32 * i / 6)) for i in range(7)], lambda t: 0.292 - 0.066 * t, -84, -58, 6, 0.84, 0.012),
-                 M['orange'], 'spine', tilt)
+        front = [Vector((0, 0, -0.22 + 0.32 * i / 6)) for i in range(7)]
+        self.add('panel_f', open_sweep(front, lambda t: 0.292 - 0.066 * t, -84, -58, 6, 0.84, 0.012), M['orange'], 'spine', tilt)
         for k, a in enumerate((-50, -20, 12, 48, 88, 128, 164, 196)):
             pz0 = -0.24 + 0.025 * math.sin(k * 1.7)
             pp = [Vector((0, 0, pz0 + (0.1 - pz0) * i / 6)) for i in range(7)]
@@ -298,10 +296,10 @@ class Ora(Hero):
         # shorts (hips frame)
         self.add('pelvis', superellipsoid(0.205, 0.166, 0.13, 2.4, 28, 16, center=(0, 0, 0.0)), M['shorts'], 'hips')
         # round satchel on her right hip with a teal-gold badge, hanging from the belt
-        sm = T(-0.36, -0.07, -0.025) @ R(0, 0, -30) @ R(0, -4, 0)
-        self.add('satchel', superellipsoid(0.17, 0.066, 0.162, 2.1, 30, 16), M['bag'], 'hips', sm)
-        self.add('satchel_flap', ellipsoid(0.176, 0.074, 0.084, 30, 12, center=(0, -0.002, 0.086), zmin=0.0), M['flap'], 'hips', sm)
-        self.add('satchel_rim', torus(0.166, 0.012, 40, 6), M['flap'], 'hips', sm @ R(90, 0, 0))
+        sm = T(-0.36, -0.07, -0.01) @ R(0, 0, -30) @ R(0, -4, 0)
+        self.add('satchel', superellipsoid(0.172, 0.068, 0.178, 2.1, 30, 16), M['bag'], 'hips', sm)
+        self.add('satchel_flap', ellipsoid(0.178, 0.076, 0.09, 30, 12, center=(0, -0.002, 0.098), zmin=0.0), M['flap'], 'hips', sm)
+        self.add('satchel_rim', torus(0.17, 0.012, 40, 6), M['flap'], 'hips', sm @ R(90, 0, 0) @ S(1.0, 1.0, 1.04))
         bd = sm @ T(0, -0.07, -0.03)
         self.add('badge', disc(0.086, 0.02, 32), M['gold'], 'hips', bd)
         self.add('badge_in', disc(0.064, 0.026, 28), M['badge'], 'hips', bd)
@@ -321,13 +319,13 @@ class Ora(Hero):
             hip, kn, an = f'hip{s_}', f'knee{s_}', f'ankle{s_}'
             self.limb('shorts' + s_, hip, kn, an, lambda t: 0.12 + 0.014 * t, M['shorts'], 0.0, 0.34, 16, 8, cap0=True, cap1=False)
             self.add('scuff' + s_, torus(0.132, 0.022, 24, 8), M['cuff'], None, self.limb_frame(hip, kn, an, 0.33, hip))
-            self.limb('leg' + s_, hip, kn, an, lambda t: 0.084 - 0.006 * t, M['skin'], 0.3, 0.78, 12, 10)
+            self.limb('leg' + s_, hip, kn, an, lambda t: 0.084 - 0.006 * t, M['skin'], 0.3, 0.82, 12, 10)
             # boot shaft up the shin with a folded cuff
-            self.limb('shaft' + s_, hip, kn, an, lambda t: 0.1 + 0.006 * t, M['boot'], 0.72, 1.0, 16, 8, cap0=False, cap1=True)
-            self.add('bcuff' + s_, torus(0.106, 0.034, 24, 8, squash=1.2), M['boot_cuff'], None, self.limb_frame(hip, kn, an, 0.73, hip))
+            self.limb('shaft' + s_, hip, kn, an, lambda t: 0.1 + 0.006 * t, M['boot'], 0.76, 1.0, 16, 8, cap0=False, cap1=True)
+            self.add('bcuff' + s_, torus(0.106, 0.034, 24, 8, squash=1.2), M['boot_cuff'], None, self.limb_frame(hip, kn, an, 0.77, hip))
             fm = self.J(an) @ R(0, 0, 16 * sd)
             self.add('boot' + s_, superellipsoid(0.146, 0.21, 0.128, 2.6, 22, 14, center=(0, -0.06, -0.03)), M['boot'], None, fm)
-            self.add('toe' + s_, ellipsoid(0.136, 0.118, 0.094, 18, 10, center=(0, -0.19, -0.07)), M['sole'], None, fm)
+            self.add('toe' + s_, ellipsoid(0.128, 0.105, 0.086, 18, 10, center=(0, -0.2, -0.074)), M['sole'], None, fm)
             self.add('sole' + s_, superellipsoid(0.152, 0.24, 0.03, 3.0, 22, 8, center=(0, -0.07, -0.128)), M['sole'], None, fm)
             strap = [Vector((-0.138, -0.07, -0.0)), Vector((0.0, -0.172, 0.03)), Vector((0.138, -0.07, -0.0))]
             self.add('bstrap' + s_, sweep(polyline_segment(catmull(strap, 6), 0, 1, 10), 0.019, 8, squash=0.6), M['boot_d'], None, fm)
@@ -352,22 +350,22 @@ class Ora(Hero):
     def head_and_face(self):
         M, c = self.mat, self.C
         hx, hy, hz, hc = self.HEAD
-        bumps = [(direction(48, -30), 42.0, 0.03), (direction(-48, -30), 42.0, 0.03), (direction(0, -70), 34.0, -0.012)]
+        bumps = [(direction(52, -34), 46.0, 0.05), (direction(-52, -34), 46.0, 0.05), (direction(0, -58), 30.0, 0.012)]
         head = RoundHead(hx, hy, hz, (0, 0, hc), bumps)
         self.add('head', head.mesh(44, 30), M['skin'], 'head')
         self.add('neck', sweep([Vector((0, 0.02, -0.12)), Vector((0, 0.02, 0.12))], 0.075, 16), M['skin'], 'head')
         for sd in (1, -1):
-            em = T((hx - 0.012) * sd, 0.03, hc - 0.07) @ R(0, 0, -12 * sd)
-            self.add('ear', ellipsoid(0.058, 0.036, 0.074, 16, 10), M['skin'], 'head', em)
+            em = T((hx - 0.004) * sd, 0.0, hc - 0.075) @ R(0, 0, -16 * sd)
+            self.add('ear', ellipsoid(0.062, 0.038, 0.078, 16, 10), M['skin'], 'head', em)
             self.add('earin', ellipsoid(0.031, 0.018, 0.043, 12, 8), M['skin_d'], 'head', em @ T(0.006 * sd, -0.022, 0.0))
             self.add('earring', ellipsoid(0.018, 0.018, 0.018, 10, 8), M['gold'], 'head', em @ T(0.004 * sd, -0.012, -0.074))
             self.add('earring2', ellipsoid(0.013, 0.013, 0.021, 10, 8), M['gold'], 'head', em @ T(0.004 * sd, -0.012, -0.105))
         n0 = len(self.parts)
-        self.face(head, 'head', eye_yaw=27.5, eye_pitch=-5, eye_size=(0.12, 0.13), iris=c['iris'], brow_col=c['brow'], mouth_pitch=-34,
-                  mouth_w=0.9, lid_col=c['skin'], skin=c['skin'], brow_pitch=25, blush=False)
+        self.face(head, 'head', eye_yaw=27.5, eye_pitch=-7, eye_size=(0.116, 0.128), iris=c['iris'], brow_col=c['brow'], mouth_pitch=-33,
+                  mouth_w=0.9, lid_col=c['skin'], skin=c['skin'], brow_pitch=26, blush=False)
         self.face_tweaks(head, n0)
         for sd in (1, -1):
-            self.feat('blush', ellipsoid(0.07, 0.004, 0.044, 16, 8), M['blush'], 'head', head, head.frame(sd * 44, -22, 0.004))
+            self.feat('blush', ellipsoid(0.07, 0.004, 0.044, 16, 8), M['blush'], 'head', head, head.frame(sd * 44, -24, 0.004))
 
     def face_tweaks(self, head, n0: int):
         """Bolder features than the stock face so they read at crowd size: a big open D-shaped mouth for
@@ -383,16 +381,16 @@ class Ora(Hero):
         self.parts = self.parts[:n0] + [p for p in self.parts[n0:] if p.name not in drop]
         lash = mt.glossy('lash_#2a1a14', '#2a1a14', 0.4, 0.2)
         if eyes in ('happy', 'closed', 'wink'):
-            ew, eh = 0.12, 0.13
+            ew, eh = 0.116, 0.128
             for sd, nm in ((1, 'L'), (-1, 'R')):
                 if eyes == 'wink' and sd > 0:
                     continue
-                fr = head.frame(27.5 * sd, -5, -ew * 0.34 * 0.55)
+                fr = head.frame(27.5 * sd, -7, -ew * 0.34 * 0.55)
                 pts = [Vector((t * ew * 0.82, -0.012, eh * 0.38 * (1 - t * t) - eh * 0.2)) for t in [i / 12 * 2 - 1 for i in range(13)]]
                 self.feat('happy' + nm, sweep(pts, lambda t: 0.013 + 0.009 * math.sin(math.pi * t), 8), lash, 'head', head, fr)
         if mouth in ('grin', 'laugh'):
             w, h = (0.158, 0.088) if mouth == 'grin' else (0.176, 0.114)
-            mf = head.frame(0, -33, 0.0)
+            mf = head.frame(0, -32, 0.0)
             inside = mt.glossy('mouth', '#6d2a26', 0.4, 0.2)
             v, fc = ellipsoid(w / 2, 0.022, h, 26, 12, zmax=0.12)
             v = [(x, y, z + 0.22 * h * (x / (w / 2)) ** 2) for (x, y, z) in v]
@@ -406,9 +404,9 @@ class Ora(Hero):
     # --- hair ---------------------------------------------------------------------------------------
     # the fringe's lock tips (yaw); between them the edge rises slowly and drops steeply, so the locks
     # sweep across the brow towards her right
-    TIPS = (-66, -44, -21, 4, 28)
-    BASE = [(-180, -46), (-150, -44), (-126, -28), (-110, 6), (-96, 16), (-84, 6), (-74, -4), (-66, -6), (-44, 3), (-21, 14), (4, 24),
-            (28, 31), (46, 30), (60, 16), (72, -12), (82, -36), (96, -42), (130, -42)]
+    TIPS = (-62, -40, -18, 6, 30)
+    BASE = [(-180, -46), (-150, -44), (-128, -28), (-112, 8), (-98, 22), (-86, 24), (-74, 24), (-62, 26), (-40, 33), (-18, 39), (6, 43),
+            (30, 46), (50, 42), (68, 28), (82, -6), (92, -34), (104, -42), (130, -42)]
 
     def boundary(self, yaw: float) -> float:
         b = periodic_interp(self.BASE, yaw)
@@ -450,14 +448,14 @@ class Ora(Hero):
         self.add('hair', (v, f), M['hair'], 'head', tip=tp)
         acc = Acc()
         # two broad locks lying on the fringe, sweeping from the parting (on her left) across the brow
-        for path, w0 in (([(40, 66), (16, 52), (-12, 38), (-36, 22)], 0.12), ([(20, 74), (-8, 58), (-34, 40), (-56, 14)], 0.11)):
+        for path, w0 in (([(42, 70), (18, 58), (-10, 48), (-34, 38)], 0.12), ([(22, 76), (-6, 64), (-32, 52), (-54, 34)], 0.11)):
             self.surface_lock(acc, hs, path, w0, 0.004)
         # full side locks: behind the ear and curling out on her right, framing the cheek on her left, short at the back
-        for yaw, p0, p1, drop, flare, curl, w0 in ((-106, 24, -34, 0.21, 0.17, 0.12, 0.19), (-127, 28, -40, 0.26, 0.2, 0.13, 0.2),
-                                                   (-150, 32, -46, 0.22, 0.13, 0.11, 0.19), (-168, 38, -50, 0.14, 0.06, 0.06, 0.16),
+        for yaw, p0, p1, drop, flare, curl, w0 in ((-114, 24, -34, 0.2, 0.12, 0.08, 0.18), (-132, 28, -40, 0.24, 0.14, 0.09, 0.2),
+                                                   (-152, 32, -46, 0.21, 0.1, 0.08, 0.19), (-170, 38, -50, 0.14, 0.05, 0.05, 0.16),
                                                    (170, 38, -50, 0.1, 0.04, 0.04, 0.14), (146, 34, -46, 0.15, 0.06, 0.06, 0.14),
-                                                   (122, 30, -42, 0.17, 0.08, 0.07, 0.145), (98, 26, -40, 0.14, 0.05, 0.06, 0.13),
-                                                   (77, 30, -36, 0.09, 0.02, -0.05, 0.115)):
+                                                   (122, 30, -42, 0.17, 0.08, 0.07, 0.145), (112, 26, -40, 0.14, 0.05, 0.06, 0.13),
+                                                   (94, 26, -36, 0.1, 0.03, -0.04, 0.115)):
             self.hang_lock(acc, hs, yaw, p0, p1, drop, flare, curl, w0)
         self.add('locks', acc.mesh, M['hair'], 'head', tip=acc.t)
         self.bun()
@@ -501,41 +499,38 @@ class Ora(Hero):
         acc.add(mesh, tip_values(19, 12, len(mesh[0]), 0.08, 1.0))
 
     def bun(self):
-        """A big bun of fat stacked rolls on the top of the head, towards the back on her right: a coil
-        whose turns press together (dark creases between the rolls, light on their outsides)."""
+        """One big round bun on the top of the head, towards the back on her right: a smooth ball with two
+        soft twist creases winding round it (darker in the creases), crowned by the star flower."""
         M = self.mat
         hx, hy, hz, hc = self.HEAD
-        centre = Vector((-0.225, 0.27, hc + 0.43))
-        axis = Vector((0.4, -0.06, 0.91)).normalized()  # the rolls stack up and over towards her left
-        R0, rt, turns, H = 0.148, 0.134, 1.85, 0.285
-        n = 120
-        F = frame_z(centre - axis * (H * 0.45), axis, Vector((0.0, 0.0, 1.0)))
-        pts = []
-        for i in range(n + 1):
-            t = i / n
-            a = t * turns * math.tau + 2.2
-            r = R0 * (1.0 - 0.26 * t)
-            pts.append(Vector((r * math.cos(a), r * math.sin(a), H * t)))
-        sides = 18
-        v, f = sweep(pts, lambda t: rt * (0.92 + 0.16 * math.sin(math.pi * min(1.0, t * 1.6)) - 0.2 * t ** 2), sides)
-        tip = []
-        for i in range(n + 1):
-            c = pts[i]
-            radial = Vector((c.x, c.y, 0.0)).normalized()
-            for k in range(sides):
-                d = (Vector(v[i * sides + k]) - c).normalized()
-                tip.append(0.02 + 0.66 * max(0.0, d.dot(radial) * 0.8 + d.z * 0.35) ** 1.1)
-        tip += [0.45] * (len(v) - len(tip))
-        self.add('bun', (v, f), M['hair'], 'head', F, tip=tip)
-        core = ellipsoid(R0 + 0.03, R0 + 0.03, H * 0.5 + 0.06, 20, 12, center=(0, 0, H * 0.45))
-        self.add('bun_core', core, M['hair'], 'head', F, tip=[0.04] * len(core[0]))
+        centre = Vector((-0.2, 0.25, hc + 0.39))
+        axis = Vector((-0.25, 0.2, 0.95)).normalized()
+        F = frame_z(centre, axis, Vector((0.0, -1.0, 0.0)))  # local -Y faces the front
+        R0 = 0.272
+        v, f = ellipsoid(1.0, 1.0, 1.0, 48, 30)
+        verts, tip = [], []
+        for (x, y, z) in v:
+            th = math.atan2(y, x)
+            ph = math.acos(max(-1.0, min(1.0, z)))  # 0 at the top
+            u = (th * 2.0 + ph * 3.2) / math.tau
+            d = abs(u - round(u))  # distance to the nearest crease (two creases winding down)
+            crease = math.exp(-(d / 0.075) ** 2) * math.sin(ph) ** 0.6 * _ss((2.6 - ph) / 0.6)
+            r = R0 * (1.0 - 0.07 * crease)
+            verts.append((x * r, y * r, z * r * 0.9))
+            tip.append(0.1 + 0.55 * (1.0 - crease) * (0.55 + 0.45 * max(0.0, z)))
+        self.add('bun', (verts, f), M['bun'], 'head', F, tip=tip)
+        # the flower sits on the bun's upper front, towards her left
+        d = Vector((0.66, -0.72, 0.02)).normalized()
+        pos = F @ (Vector((d.x, d.y, d.z * 0.9)) * R0)
+        nrm = (F.to_3x3() @ d).normalized()
+        self.flower_at(pos, nrm)
 
     def headband(self, hs: HeadShape):
         """A teal patterned Alice band from ear to ear, a little in front of the bun."""
         M = self.mat
         pts, nrms = [], []
         n = 32
-        tilt = Matrix.Rotation(rad(22), 3, 'X')
+        tilt = Matrix.Rotation(rad(18), 3, 'X')
         for i in range(n + 1):
             u = rad(-100 + 200 * i / n)
             d = tilt @ Vector((math.sin(u), 0.0, math.cos(u)))
@@ -546,26 +541,25 @@ class Ora(Hero):
             nrms.append(nn)
         mesh = flat_sweep(pts, 0.04, lambda t: nrms[min(n, int(round(t * n)))], 0.32, 12, cap0=True, cap1=True)
         self.add('headband', mesh, M['band'], 'head', tip=tip_values(n + 1, 12, len(mesh[0])))
-        self.flower(pts, nrms, 0.53)
 
-    def flower(self, pts, nrms, u: float):
-        """The yellow-orange star flower on the band, petals fanning up and out, with a green leaf."""
+    def flower_at(self, pos: Vector, nn: Vector):
+        """The yellow-orange star flower (at `pos` on a surface with normal `nn`), petals fanning up and
+        out, facing the front, with a green leaf."""
         M = self.mat
-        i = int(round(u * (len(pts) - 1)))
-        pos, nn = pts[i], nrms[i]
         fwd = Vector((0.3, -1.0, 0.1)).normalized()  # the flower faces front, a little to her left
         z = (nn * 0.5 + Vector((0, 0, 0.7))).normalized()
         x = z.cross(fwd).normalized()
         y = z.cross(x).normalized()
         F = Matrix((x, y, z)).transposed().to_4x4()
-        F.translation = pos + nn * 0.02 + Vector((0.0, 0.0, 0.03))
+        F.translation = pos + nn * 0.01
         acc = Acc()
         for k, (a, ln, w) in enumerate(((-74, 0.22, 0.12), (-48, 0.26, 0.13), (-22, 0.29, 0.135), (4, 0.3, 0.135), (30, 0.28, 0.132),
                                         (56, 0.25, 0.125), (80, 0.21, 0.115))):
             ar = rad(a)
             d0 = Vector((math.sin(ar), -0.22, math.cos(ar)))
             lo, hi = (0.02, 0.5) if k < 4 else (0.25, 1.0)
-            pv, pf, pt = leaf(Vector((0, 0, 0)), d0, Vector((0.0, -1.0, 0.25)), ln, leaf_width(w, 0.42, 1.1, 0.25), -14, 0, 0, 0.16, 0.08, (lo, hi), 0.0, 10)
+            pv, pf, pt = leaf(Vector((0, 0, 0)), d0, Vector((0.0, -1.0, 0.25)), ln, leaf_width(w, 0.42, 1.1, 0.25), -14, 0, 0, 0.16, 0.08,
+                              (lo, hi), 0.0, 10)
             acc.add((pv, pf), tip=pt)
         self.add('flower', placed(F, acc.mesh), M['petal'], 'head', tip=acc.t)
         self.add('flower_c', ellipsoid(0.062, 0.04, 0.056, 14, 8), M['orange'], 'head', F @ T(0, -0.034, 0.024))
@@ -582,9 +576,9 @@ class Ora(Hero):
         for i in range(seg):
             a = i / seg * math.tau
             front = max(0.0, -math.sin(a))  # 1 at the front (-Y)
-            rr = 0.076 + 0.024 * front ** 1.5
+            rr = 0.068 + 0.03 * front ** 1.5
             cx, cy = 0.17 * math.cos(a), 0.158 * math.sin(a) - 0.004
-            cz = 0.262 - 0.034 * front ** 2.2
+            cz = 0.205 - 0.03 * front ** 2.2
             for k in range(sides):
                 b = k / sides * math.tau
                 verts.append((cx + rr * math.cos(b) * math.cos(a), cy + rr * math.cos(b) * math.sin(a), cz + rr * math.sin(b) * 0.9))
@@ -594,7 +588,7 @@ class Ora(Hero):
                 a1, b1 = ((i + 1) % seg) * sides + (k + 1) % sides, ((i + 1) % seg) * sides + k
                 faces.append((a0, b0, a1, b1))
         self.add('scarf', (verts, faces), M['scarf'], 'chest')
-        drape = [Vector((0.03, -0.21, 0.23)), Vector((0.02, -0.235, 0.16)), Vector((0.0, -0.24, 0.1))]
+        drape = [Vector((0.03, -0.215, 0.17)), Vector((0.02, -0.24, 0.1)), Vector((0.0, -0.245, 0.04))]
         self.add('scarf_drape', cloth_strip(drape, lambda t: 0.2 * (1.0 - 0.75 * t ** 1.4), Vector((0.0, -1.0, 0.1)), 1.0, 0.01, 0.03, 8),
                  M['scarf_d'], 'chest')
         pts = []
@@ -604,7 +598,7 @@ class Ora(Hero):
             down = 0.5 * t ** 1.35 * (1 - 0.5 * fly)
             back = 0.1 + 0.1 * t + 0.4 * t * fly
             wob = math.sin(t * 3.5 + wave) * (0.03 + 0.04 * fly) * t
-            pts.append(Vector((-0.06 - side, back, 0.23 - down + wob)))
+            pts.append(Vector((-0.06 - side, back, 0.18 - down + wob)))
         # keep the cloth's broad side turned to the camera, whatever the body's twist
         cam = self.J('chest').to_3x3().inverted() @ Vector((0.0, -math.cos(rad(12)), math.sin(rad(12))))
         hint = (-cam.normalized() + Vector((0.0, 0.0, 0.25))).normalized()
@@ -703,32 +697,32 @@ MODEL = Ora
 # Poses (see char_anims.py for the conventions). Her left hand is on screen right.
 POSES = {
     'idle': pose(root=dict(yaw=IDLE_YAW), head=(0, 0, 4),
-                 armL=(18.4, 61.1, -9.9, 76.5), armR=(18.4, 61.1, -9.9, 76.5), wristL=(-32.6, 26.1, -81.4), wristR=(-32.6, -26.1, 81.4),
+                 armL=swing(18.0, 4.7, -10.0, 63.2), armR=swing(18.0, 4.7, -10.0, 63.2), wristL=(-33.7, 16.4, -84.9), wristR=(-33.6, -16.4, 84.8),
                  handL='clasp', handR='clasp',
                  legL=(0, 16, 0, 3), legR=(0, 16, 0, 3),
                  face=face('open', 'smile'), extra=dict(scarf=0.1, wave=0.4)),
-    'wave': pose(root=dict(yaw=20.0), chest=(-3, 0, 4), head=(0, 0, 10),
-                 armL=(117.1, 22.4, -0.0, 0.0), armR=(50.8, -27.1, -9.3, 121.8), wristL=(-2.7, -41.4, 9.9), wristR=(32.5, -63.6, -5.3),
+    'wave': pose(root=dict(yaw=20.0), chest=(-3, 0, 4), head=(0, 0, 6),
+                 armL=(101.6, 1.0, 0.0, 42.8), armR=swing(-22.9, 38.5, -12.1, 108.6), wristL=(32.3, -54.1, -21.3), wristR=(4.0, -58.5, 31.1),
                  handL='open', handR='fist',
                  legL=(12, 28, 0, 10), legR=(-6, 15, 0, 6), footL=(0, 0, 8),
                  face=face('open', 'grin'), extra=dict(scarf=0.2, wave=1.0)),
     'welcome': pose(root=dict(yaw=IDLE_YAW), chest=(-6, 0, 0), head=(6, 0, 4),
-                    armL=(111.5, -6.1, -0.0, 37.0), armR=(99.9, -12.3, -0.0, 63.6), wristL=(30.8, -11.3, 43.6), wristR=(34.5, 27.8, -43.0),
+                    armL=(94.3, -19.7, 0.0, 64.8), armR=(82.1, -17.6, 0.0, 71.9), wristL=(30.1, -31.6, 36.5), wristR=(8.0, 27.2, -60.0),
                     handL='open', handR='open',
                     legL=(18, 28, 0, 18), legR=(-4, 15, 0, 4), footL=(-18, 0, 10),
                     face=face('happy', 'laugh'), extra=dict(scarf=0.25, wave=2.0)),
     'point': pose(root=dict(yaw=26.0), chest=(-3, 0, -2), head=(0, -4, 10),
-                  armL=(118.9, 16.4, -0.0, 0.0), armR=(78.4, -32.3, 0.0, 92.8), wristL=(-9.8, 17.1, -19.3), wristR=(24.2, 43.3, -49.7),
+                  armL=(106.5, 16.0, 0.0, 0.0), armR=(60.7, -29.4, 0.0, 74.2), wristL=(-6.1, 5.9, -17.7), wristR=(-5.6, 42.8, -58.1),
                   handL='point', handR='open',
                   legL=(12, 19, 0, 10), legR=(-8, 17, 0, 8),
-                  face=face('open', 'grin'), extra=dict(scarf=0.3, wave=2.6)),
-    'flag': pose(root=dict(yaw=32.0, lean=7.0), chest=(2, 0, 18), head=(-6, 0, -12),
-                 armL=(127.6, 38.3, 0.1, 89.9), armR=(55.6, 152.8, 0.0, 61.8), wristL=(-21.8, -6.4, 48.4), wristR=(-5.5, -9.5, 147.4),
+                  face=face('open', 'grin', look=(0.5, 0.15)), extra=dict(scarf=0.3, wave=2.6)),
+    'flag': pose(root=dict(yaw=32.0, lean=7.0), chest=(2, 0, 18), head=(2, 0, -12),
+                 armL=(113.0, 44.6, 0.0, 91.2), armR=(31.2, 155.0, -13.2, 52.9), wristL=(-10.5, -12.3, 31.4), wristR=(17.7, 2.3, 117.5),
                  handL='fist', handR='fist',
                  legL=(40, 10, 0, 20), legR=(-32, 9, 0, 30), footL=(-18, 0, 6), footR=(18, 0, 0), rise=0.03,
-                 face=face('open', 'grin'), extra=dict(scarf=0.5, wave=3.2, flag=dict(tilt=12.0))),
+                 face=face('open', 'grin', look=(0.55, 0.3)), extra=dict(scarf=0.5, wave=3.2, flag=dict(tilt=12.0))),
     'cheer': pose(root=dict(yaw=IDLE_YAW), chest=(4, 0, 2), head=(-6, -12, 10),
-                  armL=(81.3, 68.3, -0.0, 77.0), armR=(90.0, 97.5, -0.0, 53.0), wristL=(58.1, -37.0, -69.5), wristR=(49.9, 52.5, 45.3),
+                  armL=(77.2, 68.7, 0.0, 85.8), armR=(89.6, 97.5, 0.0, 60.9), wristL=(56.0, -27.9, -73.2), wristR=(74.8, 23.0, 70.8),
                   handL='open', handR='open',
                   legL=(4, 7, 0, 14), legR=(4, 7, 0, 14),
                   face=face('happy', 'laugh'), extra=dict(scarf=0.15, wave=4.0)),

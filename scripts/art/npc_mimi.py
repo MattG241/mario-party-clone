@@ -2,15 +2,20 @@
 
 A chibi creature built on char_models.Hero: a big, wide head (a cream face mask under blue fur that
 comes down to a widow's peak between the eyes, puffy cheeks with cream tufts), huge fan-shaped ears
-(blue fur outside, a cream band and a peach centre inside, soft scalloped rims), a green sprout
-growing from a brown seed on the forehead, a round cream body on stubby legs with big round feet
-(peach pads underneath), blue arms with cream paws and a big fluffy blue-and-cream tail curling up
-behind. Costume: a green scarf with leaf ends and a round wooden clover badge, and a small brown
-satchel on the right hip.
+(blue fur outside, a cream band and a peach centre inside, softly scalloped rims), a green
+three-leaf sprout growing from a brown seed on the forehead, a round cream body on stubby legs with
+big round feet (peach pads underneath), chunky blue arms with round cream paws (peach pads on the
+open ones) and a big fluffy plume of a tail, blue outside and cream inside, sticking out behind her
+right side. Costume: a green leaf scarf (a collar with pointed ends, leaf tips at the sides and
+back) pinned with a round wooden clover badge, and a brown satchel on her right hip.
+
+Colour zones (face mask, ears, arms, tail) are per-vertex 'tip' values read by ramp materials, so
+the fur borders stay soft and follow the geometry in every pose. The face is the shared Hero.face()
+(eyes, blush) with her own cat mouth, no brows and bolder lid lines so it reads at crowd size.
 
 Pose extras: 'ears' (elevation of the left / right ear in degrees: 0 points out to the side, 90
-straight up), 'tail' (0 relaxed curl, 1 lifted and streaming out), 'apple' (hugs a big red apple)
-and 'alert' (two yellow alert ticks over the head).
+straight up), 'tail' (0 relaxed, 1 lifted and streaming out), 'apple' (hugs a big red apple) and
+'alert' (two yellow alert ticks over her head).
 """
 from __future__ import annotations
 
@@ -19,7 +24,7 @@ import math
 from mathutils import Matrix, Vector
 
 import lib
-from char_rig import (HeadShape, R, S, T, arc_points, curve3, disc, ellipsoid, flat_sweep, polyline_segment, rad, rmf_frames,
+from char_rig import (HeadShape, R, T, arc_points, curve3, disc, ellipsoid, flat_sweep, polyline_segment, rad, rmf_frames,
                       superellipsoid, sweep, torus)
 from char_models import DEFAULT_FACE, Hero
 from char_mossi import Batch, frame_at, leaf, leaf_width, ramp_mat
@@ -71,7 +76,7 @@ def zone_mat(mats, name: str, stops, rough: float = 0.62, sheen: float = 0.7, bu
 
 class FluffHead(HeadShape):
     """The head ellipsoid plus soft bumps (cheeks, muzzle). point() and surface() follow the bumped
-    surface, so the features Hero.face() places and wraps sit on it; mesh() builds the head from it."""
+    surface, so the features Hero.face() places and wraps sit on it; surf() also builds the head mesh."""
 
     def __init__(self, rx, ry, rz, center, bumps):
         super().__init__(rx, ry, rz, center)
@@ -113,8 +118,7 @@ class FluffHead(HeadShape):
 # ------------------------------------------------------------------------------------------
 # Geometry
 def ear_mesh(L: float, W: float, cup: float = 0.07, thick: float = 0.13, rim: float = 0.07, bend: float = 0.06,
-             lobes: int = 10, lobe_amp: float = 0.03, n_around: int = 96, n_front: int = 10, n_rim: int = 6, n_back: int = 6,
-             tufts: int = 0):
+             lobes: int = 10, lobe_amp: float = 0.03, n_around: int = 96, n_front: int = 10, n_rim: int = 6, n_back: int = 6):
     """A big cupped ear in its own frame: the root at the origin, growing along +Z to the tip at z = L,
     the inner (front) face towards -Y, width W either side along X. The rim is scalloped into soft
     lobes towards the tip. Returns (verts, faces, zone): zone runs 0 at the centre of the inner face
@@ -183,23 +187,6 @@ def ear_mesh(L: float, W: float, cup: float = 0.07, thick: float = 0.13, rim: fl
                 faces.append((a[k], b, a[k2]))
             else:
                 faces.append((a[k], b[k], b[k2], a[k2]))
-    # soft tufts of fur round the outer rim (flat locks in the ear's plane, leaning towards the tip)
-    if tufts:
-        idx = [k for k in range(n_around) if us[k] > 0.32]
-        step = max(1, len(idx) // tufts)
-        for j, k in enumerate(idx[step // 2::step]):
-            nv = (out_n[k] + Vector((0.0, 0.0, 0.35 * (1.0 if us[k] < 0.97 else 0.0)))).normalized()
-            ln = 0.075 + 0.025 * math.sin(j * 2.3)
-            base = outline[k] - out_n[k] * 0.035 + Vector((0.0, rim * 0.5, 0.0))
-            pts = [base + nv * (ln * t) + Vector((0.0, 0.012 * t * t, 0.0)) for t in [q / 6 for q in range(7)]]
-            v2, f2 = flat_sweep(pts, lambda t: 0.042 * (1.0 - 0.85 * t ** 1.3), Vector((0.0, -1.0, 0.0)), 0.45, 10)
-            b0 = len(verts)
-            for q in v2:
-                q = Vector(q)
-                q.y += bend * (max(0.0, q.z) / L) ** 2
-                verts.append(tuple(q))
-                zone.append(1.0)
-            faces.extend(tuple(i + b0 for i in fc) for fc in f2)
     return verts, faces, zone
 
 
@@ -267,13 +254,13 @@ class Mimi(Hero):
     EYE = (31.0, 7.0)  # eye yaw / pitch on the head
     EYE_SIZE = (0.14, 0.16)
 
-    C = dict(blue='#4f95d6', blue_d='#3b7cc2', blue_l='#6fb0e6', cream='#ecca98', cream_l='#f4dcb6', peach='#f4a074', peach_d='#ec8456',
-             pad='#f2a07e', nose='#e8787a', iris='#4e240c', scarf='#7cab28', scarf_d='#62901e', wood='#a4602c', wood_d='#7c4520',
+    C = dict(blue='#4f95d6', blue_d='#3b7cc2', blue_l='#6fb0e6', cream='#ecca98', cream_l='#f4dcb6', peach='#ee8c58', peach_d='#e8723e',
+             pad='#f2a07e', nose='#e8787a', iris='#4e240c', scarf='#7cab28', wood='#a4602c', wood_d='#7c4520',
              badge='#e9c84a', clover='#4c9a2c', bag='#7c4424', bag_d='#5e3218', strap='#6a3a1c', button='#33b0a0', seed='#b0703a',
              seed_d='#8a5228', apple='#e0242a', stem='#6b4220', tick='#f5a300')
     LEAF = [(0.0, '#3d7a1a'), (0.3, '#5c9c26'), (0.6, '#86bd33'), (0.85, '#a8d444'), (1.0, '#c4e45e')]
 
-    # tail control points in the hips frame (x: her left, y: back, z: up), relaxed / lifted
+    # tail control points in the hips frame (x: her left, y: back, z: up): relaxed / lifted (streaming out)
     TAIL = [(-0.12, 0.16, -0.1), (-0.3, 0.2, -0.12), (-0.48, 0.2, -0.06), (-0.6, 0.17, 0.04), (-0.66, 0.13, 0.16),
             (-0.66, 0.1, 0.27), (-0.6, 0.08, 0.36)]
     TAIL_UP = [(-0.12, 0.16, -0.1), (-0.32, 0.22, -0.06), (-0.52, 0.24, 0.02), (-0.68, 0.22, 0.12), (-0.78, 0.18, 0.22),
@@ -286,10 +273,9 @@ class Mimi(Hero):
     def dress(self):
         c, mt = self.C, self.m
         self.mat = dict(
-            blue=mt.fur('mimi_blue', c['blue']),
             cream=mt.fur('mimi_cream', c['cream']),
             head=zone_mat(mt, 'mimi_head', [(0.35, c['cream']), (0.65, c['blue'])], fuzz=0.25),
-            ear=zone_mat(mt, 'mimi_ear', [(0.0, '#e8723e'), (0.28, '#ee8c58'), (0.4, '#f0ae7c'), (0.5, '#f0cc9e'), (0.66, c['cream']),
+            ear=zone_mat(mt, 'mimi_ear', [(0.0, c['peach_d']), (0.28, c['peach']), (0.4, '#f0ae7c'), (0.5, '#f0cc9e'), (0.66, c['cream']),
                                           (0.76, c['blue_l']), (0.86, c['blue']), (1.0, c['blue_d'])], fuzz=0.14),
             arm=zone_mat(mt, 'mimi_arm', [(0.8, c['blue']), (0.92, c['cream'])], fuzz=0.12),
             tail=zone_mat(mt, 'mimi_tail', [(0.0, c['cream_l']), (0.45, c['cream']), (0.6, c['blue_l']), (0.85, c['blue']), (1.0, c['blue'])],
@@ -299,7 +285,6 @@ class Mimi(Hero):
             nose=mt.glossy('mimi_nose', c['nose'], 0.3, 0.5),
             leaf=ramp_mat(mt, 'mimi_leaf', self.LEAF, 0.42, 0.35, 0.15),
             scarf=mt.cloth('mimi_scarf', c['scarf'], 0.7, 0.45, 0.06),
-            scarf_d=mt.cloth('mimi_scarf_d', c['scarf_d'], 0.7, 0.4),
             wood=mt.cloth('mimi_wood', c['wood'], 0.5, 0.2, 0.12, 30),
             wood_d=mt.cloth('mimi_wood_d', c['wood_d'], 0.5, 0.2),
             badge=mt.glossy('mimi_badge', c['badge'], 0.35, 0.4),
@@ -309,6 +294,7 @@ class Mimi(Hero):
             strap=mt.cloth('mimi_strap', c['strap'], 0.6, 0.2),
             button=mt.glossy('mimi_button', c['button'], 0.25, 0.7),
             seed=mt.glossy('mimi_seed', c['seed'], 0.4, 0.3),
+            seed_d=mt.glossy('mimi_seed_d', c['seed_d'], 0.45, 0.2),
             apple=mt.glossy('mimi_apple', c['apple'], 0.22, 0.8),
             stem=mt.cloth('mimi_stem', c['stem'], 0.6, 0.2),
             tick=mt.emit('mimi_tick', c['tick'], 0.7),
@@ -327,6 +313,28 @@ class Mimi(Hero):
             self.alert_ticks()
 
     # --- body ---------------------------------------------------------------------------------
+    BODY = [(0.0, 0.085), (0.13, 0.095), (0.23, 0.125), (0.295, 0.18), (0.325, 0.26), (0.325, 0.35), (0.3, 0.45), (0.265, 0.54),
+            (0.22, 0.62), (0.15, 0.7), (0.0, 0.75)]  # (radius, world height) of the body profile
+    BODY_SQUASH = 0.85
+
+    def body_r(self, zw: float) -> float:
+        prof = smooth_profile(self.BODY, 5)
+        for (r0, z0), (r1, z1) in zip(prof, prof[1:]):
+            if z0 <= zw <= z1:
+                return r0 + (r1 - r0) * (zw - z0) / max(1e-9, z1 - z0)
+        return 0.0
+
+    def body_point(self, ang: float, zw: float, lift: float = 0.0):
+        """Point and outward normal on the body (spine frame) at angle `ang` (0 = front, 90 = her left)
+        and world height zw (in the rest pose), lifted off the surface by `lift`."""
+        r = self.body_r(zw)
+        a = rad(ang)
+        z = zw - (self.hip_h + self.spine)
+        dz = 0.01
+        slope = (self.body_r(zw + dz) - self.body_r(zw - dz)) / (2 * dz)
+        n = Vector((math.sin(a), -math.cos(a) / self.BODY_SQUASH, -slope)).normalized()
+        return Vector((math.sin(a) * r, -math.cos(a) * r * self.BODY_SQUASH, z)) + n * lift, n
+
     def body(self):
         # a round, pear-shaped cream body (spine frame; the spine joint sits at hip_h + spine)
         z0 = self.hip_h + self.spine
@@ -394,7 +402,7 @@ class Mimi(Hero):
         return clamp(0.5 + (pitch - hl) / 7.0)
 
     def head_parts(self):
-        c, mm = self.C, self.mat
+        mm = self.mat
         hx, hy, hz, hc = self.HEAD
         bumps = [(direction(0, -22), 26.0, 0.022), (direction(64, -24), 38.0, 0.04), (direction(-64, -24), 38.0, 0.04)]
         head = FluffHead(hx, hy, hz, (0, 0, hc), bumps)
@@ -496,7 +504,6 @@ class Mimi(Hero):
             self.feat('tongue', ellipsoid(0.04, 0.014, 0.028, 12, 6, center=(0, -0.014, -0.072)), tongue, 'head', head, mf)
 
     def cheek_tufts(self):
-        hx, hy, hz, hc = self.HEAD
         hs = self.headshape
         acc = MeshAcc()
         for sd in (1, -1):
@@ -526,8 +533,7 @@ class Mimi(Hero):
         mm = self.mat
         pos, n = head.point(0, 60, -0.01)
         self.add('seed', ellipsoid(0.05, 0.046, 0.05, 16, 10), mm['seed'], 'head', T(*pos) @ R(-20, 0, 0))
-        self.add('seedcap', ellipsoid(0.056, 0.05, 0.03, 16, 8, center=(0, 0, 0.022), zmin=-0.2), self.m.glossy('mimi_seed_d', self.C['seed_d'], 0.45, 0.2),
-                 'head', T(*pos) @ R(-20, 0, 0))
+        self.add('seedcap', ellipsoid(0.056, 0.05, 0.03, 16, 8, center=(0, 0, 0.022), zmin=-0.2), mm['seed_d'], 'head', T(*pos) @ R(-20, 0, 0))
         top = pos + n * 0.045
         b = Batch()
         for d0, n0, ln, w, cu, be, sh in (
@@ -595,41 +601,6 @@ class Mimi(Hero):
         self.add('tail', (v, f), self.mat['tail'], 'hips', tip=zone)
 
     # --- costume ------------------------------------------------------------------------------
-    BODY = [(0.0, 0.085), (0.13, 0.095), (0.23, 0.125), (0.295, 0.18), (0.325, 0.26), (0.325, 0.35), (0.3, 0.45), (0.265, 0.54),
-            (0.22, 0.62), (0.15, 0.7), (0.0, 0.75)]  # (radius, world height) of the body profile
-    BODY_SQUASH = 0.85
-
-    def body_r(self, zw: float) -> float:
-        prof = smooth_profile(self.BODY, 5)
-        for (r0, z0), (r1, z1) in zip(prof, prof[1:]):
-            if z0 <= zw <= z1:
-                return r0 + (r1 - r0) * (zw - z0) / max(1e-9, z1 - z0)
-        return 0.0
-
-    def body_point(self, ang: float, zw: float, lift: float = 0.0):
-        """Point and outward normal on the body (spine frame) at angle `ang` (0 = front, 90 = her left)
-        and world height zw (in the rest pose), lifted off the surface by `lift`."""
-        r = self.body_r(zw)
-        a = rad(ang)
-        z = zw - (self.hip_h + self.spine)
-        dz = 0.01
-        slope = (self.body_r(zw + dz) - self.body_r(zw - dz)) / (2 * dz)
-        n = Vector((math.sin(a), -math.cos(a) / self.BODY_SQUASH, -slope)).normalized()
-        return Vector((math.sin(a) * r, -math.cos(a) * r * self.BODY_SQUASH, z)) + n * lift, n
-
-    def cloth_flap(self, ang0: float, z0: float, ang1: float, z1: float, width: float, lift: float = 0.03, n: int = 10):
-        """A pointed cloth flap lying on the body from (ang0, z0) down to its tip at (ang1, z1): (verts, faces)."""
-        from char_mossi import blade
-        pts, nrm = [], []
-        for i in range(n + 1):
-            u = i / n
-            p, nn = self.body_point(ang0 + (ang1 - ang0) * u, z0 + (z1 - z0) * u, lift + 0.012 * math.sin(math.pi * u))
-            pts.append(p)
-            nrm.append(nn)
-        wf = lambda u: 0.5 * width * max(0.04, (1.0 - u) ** 0.9) * (0.9 + 0.1 * math.sin(math.pi * min(1.0, u * 2.5)))  # noqa: E731
-        v, f, _t = blade(pts, nrm, wf, 0.05, -0.06, (0.5, 0.5), 0.0)
-        return v, f
-
     # pointed ends of the scarf's lower edge: (angle, length below the edge, angular half-width)
     SCARF_TIPS = [(-14, 0.19, 44), (38, 0.1, 24), (84, 0.06, 26), (-84, 0.06, 26), (128, 0.07, 30), (-128, 0.07, 30), (180, 0.08, 32)]
 
@@ -755,34 +726,36 @@ class Mimi(Hero):
 
 MODEL = Mimi
 
+# Arm angles were found by aiming each paw at its place in the reference art (palm to camera for the
+# raised paws); see char_anims for the conventions. Hands: 'open' shows the peach pads, 'fist' a round paw.
 POSES = {
     # standing, paws down at her sides, a little cat smile
     'idle': pose(
-        armL=(14, 16, 0, 30), armR=(14, 16, 0, 30), legL=(0, 10, 0, 4), legR=(0, 10, 0, 4),
+        root=dict(yaw=IDLE_YAW), armL=swing(4, 13.5, 0, 30), armR=swing(4, 13.5, 0, 30), legL=(0, 10, 0, 4), legR=(0, 10, 0, 4),
         face=face('open', 'smile'), extra=dict(ears=(48.0, 18.0), tail=0.0)),
     # hopping on her right foot, left paw thrown up beside her head, laughing with her eyes shut
     'happy': pose(
-        root=dict(yaw=16.0, lean=8.0), rise=0.07, spine=(0, 6, 0), head=(-4, -2, -2),
+        root=dict(yaw=IDLE_YAW + 2, lean=8.0), rise=0.1, spine=(0, 6, 0), head=(-4, -2, -2),
         armL=(139, 36, 4, 1), wristL=(18, -17, 0), armR=(53, 52, -1, 94), wristR=(5, 5, 0), handL='open', handR='fist',
-        legL=(80, 10, 0, 70), legR=(-35, 14, 0, 30), footL=(-70, 0, 0), footR=(35, 0, 0),
+        legL=(80, 10, 0, 70), legR=(-35, 14, 0, 30), footL=(-70, 0, 0), footR=(12, 0, 0),
         face=face('happy', 'laugh'), extra=dict(ears=(48.0, 6.0), tail=0.7)),
     # both paws up by her cheeks, laughing
     'laugh': pose(
-        root=dict(yaw=6.0), armL=(127, 35, -3, 1), wristL=(17, -19, 0), armR=(127, 37, -10, 0), wristR=(23, 15, 3),
+        root=dict(yaw=IDLE_YAW - 8), armL=(127, 35, -3, 1), wristL=(17, -19, 0), armR=(127, 37, -10, 0), wristR=(23, 15, 3),
         handL='open', handR='open', face=face('happy', 'laugh'), extra=dict(ears=(46.0, 46.0), tail=0.2)),
     # something caught her eye: left paw up, looking up with her mouth open (yellow alert ticks)
     'alert': pose(
-        root=dict(yaw=22.0), neck=(-4, 0, 0), head=(-12, 0, 10),
+        root=dict(yaw=IDLE_YAW + 8), neck=(-4, 0, 0), head=(-12, 0, 10),
         armL=(125, -1, 6, 6), wristL=(-1, -21, 4), armR=(56, 97, 7, 0), wristR=(9, 0, 0), handL='open', handR='fist',
         face=face('open', 'open', 'up', (0.1, 0.9)), extra=dict(ears=(42.0, -6.0), tail=0.1, alert=True)),
     # hugging a big shiny apple, eyes shut with delight
     'apple': pose(
-        root=dict(yaw=28.0), neck=(0, 0, -6), head=(4, -14, -8),
+        root=dict(yaw=IDLE_YAW + 14), neck=(0, 0, -6), head=(4, -14, -8),
         armL=(81, 65, 4, 7), wristL=(-23, -30, 0), armR=(77, 80, -14, 14), wristR=(-15, 46, 0), handL='open', handR='open',
         face=face('happy', 'laugh'), extra=dict(ears=(36.0, 10.0), tail=0.0, apple=True)),
     # startled: sitting back with her feet up, paws raised, wide eyes and a gasp
     'surprised': pose(
-        root=dict(yaw=16.0, lean=-10.0), head=(4, 0, 0),
+        root=dict(yaw=IDLE_YAW + 2, lean=-10.0), rise=0.024, head=(4, 0, 0),
         armL=(81, 31, 0, 0), wristL=(2, -34, 0), armR=(92, 100, 0, 18), wristR=(-1, -5, -1), handL='open', handR='fist',
         legL=(62, 14, 0, 10), legR=(44, 14, 0, 10), footL=(-70, 0, 0), footR=(-50, 0, 0),
         face=face('wide', 'gasp', 'up'), extra=dict(ears=(4.0, 52.0), tail=0.3)),
