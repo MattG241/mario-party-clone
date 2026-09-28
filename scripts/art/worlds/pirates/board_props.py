@@ -81,6 +81,10 @@ class Galleon:
                     faces.append((a, a + 1, a + per + 1, a + per))
         from terrain import orient
         faces = orient(faces, verts, lambda c: Vector((0.0, c.y - yc, -0.3)))
+        # transom: close the stern end of the hull
+        nprof = len(profile)
+        transom = [j for j in range(nprof)] + [nprof + j for j in reversed(range(nprof))]
+        faces += orient([tuple(transom)], verts, lambda c: Vector((-1.0, 0.0, 0.0)))
         P.b['paint'].add(verts, faces, lambda vv: col('#2f5d7a') if vv[2] < DECK_Z - 0.62 else (col('#f4e6c8') if vv[2] < DECK_Z - 0.48 else col('#7a4a2a')))
         # deck
         dverts, dfaces = [], []
@@ -130,11 +134,6 @@ class Galleon:
         P.b['wood'].add(v, f, WOOD_D)
         v, f = lib.lathe([(0.0, 0.0), (0.07, 0.03), (0.08, 0.14), (0.05, 0.2), (0.0, 0.22)], 10, (x0 + 0.05, yc, DECK_Z + 1.0))
         P.b['glow'].add(v, f, col('#ffc36a'))
-        fx = x1 - 0.95
-        v, f = lib.box((fx, yc, DECK_Z + 0.16), (0.7, self.beam * 0.62, 0.32))
-        P.b['paint'].add(v, f, col('#8a4a2a'))
-        v, f = lib.box((fx, yc, DECK_Z + 0.34), (0.76, self.beam * 0.66, 0.04))
-        P.b['wood'].add(v, f, WOOD_L)
         # hatch, barrels and coiled rope on deck (north side, behind the spaces)
         for (u, dy) in [(0.45, 0.55), (0.5, 0.7), (0.58, 0.62)]:
             bx = x0 + (x1 - x0) * u
@@ -433,8 +432,8 @@ def map_room(bx, by, s=1.0) -> list:
         P.b['metal'].add(tri, [(0, 1, 2), (2, 1, 0)], GOLD)
     v, f = lib.tube([(x - 0.2 * s, y, 2.06 * s), (x + 0.22 * s, y, 2.06 * s)], 0.012 * s, 5)
     P.b['metal'].add(v, f, GOLD)
-    # chart table with maps, a compass and a spyglass
-    tx, ty = x + 0.95 * s, y - 0.25 * s
+    # chart table with maps, a compass and a spyglass (in front of the door)
+    tx, ty = x + 0.3 * s, y - 0.85 * s
     v, f = lib.box((tx, ty, 0.32 * s), (0.7 * s, 0.44 * s, 0.04 * s))
     P.b['wood'].add(v, f, WOOD_L)
     for dx in (-0.3, 0.3):
@@ -451,8 +450,8 @@ def map_room(bx, by, s=1.0) -> list:
     v, f = lib.cylinder((0, 0, 0), 0.025 * s, 0.02 * s, 0.3 * s, 8)
     v = lib.transform(v, loc=(tx + 0.1 * s, ty - 0.14 * s, 0.37 * s), rot=(0.0, math.pi / 2, 0.3))
     P.b['metal'].add(v, f, GOLD)
-    # the globe
-    gx, gy = x - 0.95 * s, y - 0.2 * s
+    # the globe (behind, on the north-west side)
+    gx, gy = x - 0.55 * s, y + 0.6 * s
     v, f = lib.lathe([(0.12 * s, 0.0), (0.04 * s, 0.1 * s), (0.03 * s, 0.4 * s)], 10, (gx, gy, 0), cap_top=False)
     P.b['wood'].add(v, f, WOOD_D)
     v, f = lib.blob((gx, gy, 0.6 * s), 0.2 * s, rough=0.0, subdiv=3)

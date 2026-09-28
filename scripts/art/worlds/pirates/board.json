@@ -431,7 +431,7 @@
    "id": "m1",
    "x": 2830,
    "y": 1690,
-   "type": "market",
+   "type": "gleam",
    "region": "Harbour Market",
    "exposed": false
   },
@@ -439,7 +439,7 @@
    "id": "m2",
    "x": 2675,
    "y": 1785,
-   "type": "gleam",
+   "type": "market",
    "region": "Harbour Market",
    "exposed": false
   },
@@ -856,8 +856,8 @@
   {
    "texture": "props",
    "frame": "6",
-   "x": 1000,
-   "y": 565,
+   "x": 872,
+   "y": 398,
    "scale": 0.34,
    "sorted": true,
    "id": "chest"
@@ -897,9 +897,9 @@
   {
    "texture": "props",
    "frame": "15",
-   "x": 1640,
-   "y": 1262,
-   "scale": 0.36,
+   "x": 1845,
+   "y": 1272,
+   "scale": 0.34,
    "sorted": true,
    "id": "cannon"
   },

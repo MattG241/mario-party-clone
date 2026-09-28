@@ -108,7 +108,7 @@ ROCKY = [(840, 460, 330), (1650, 260, 330), (3420, 1250, 200), (2700, 380, 180)]
 # Landmark sprites (tex = placeholder decoration each one replaces in game)
 GALLEON = BP.Galleon(1170, 1880, 1285)
 LANDMARKS = [
-    dict(id='galleon-rig', kind='rig', x=1520, y=1285, tex='', depth_y=1286),
+    dict(id='galleon-rig', kind='rig', x=1520, y=1285, tex='', depth_y=1250),
     dict(id='lighthouse', kind='lighthouse', x=3372, y=1300, s=1.0, tex='observatory'),
     dict(id='dojo', kind='dojo', x=2460, y=372, s=0.95, tex='workshop'),
     dict(id='map-room', kind='map_room', x=500, y=1420, s=0.95, tex='stall'),
@@ -289,6 +289,14 @@ def plan():
     for lm in LANDMARKS:
         d.rectangle([lm['x'] * k - 3, lm['y'] * k - 3, lm['x'] * k + 3, lm['y'] * k + 3], outline=(255, 255, 0))
     d.ellipse([2020 * k - 4, 1500 * k - 4, 2020 * k + 4, 1500 * k + 4], outline=(255, 0, 255))
+    # where the game stands its NPCs (BoardManager): they need ground under their feet
+    spots = {'ora': (B.data['hostSpot']['x'], B.data['hostSpot']['y']), 'mimi': (2020, 1500)}
+    for i, n in N.items():
+        if n['type'] == 'market':
+            spots[f'shop@{i} (pipper +78,-52)'] = (n['x'] + 78, n['y'] - 52)
+            spots[f'shop@{i} (wrench -70,-58)'] = (n['x'] - 70, n['y'] - 58)
+    for k, (x, y) in spots.items():
+        print('NPC', k, (x, y), 'inside shore by', round(B.at(sd, x, y)), 'px')
     im.save(os.path.join(OUT, 'plan.png'))
     print('wrote', os.path.join(OUT, 'plan.png'))
 
@@ -334,8 +342,10 @@ def build_scene():
     rnd = random.Random(5)
     picks = sorted(rnd.sample(picks, min(4, len(picks))))
     K.rim_falls(B, ring, nrm, picks, water, rnd)
-    lagoon_falls(water, raise_z)
-    water.build('falls', lib.falls_material('falls', -0.02, -3.6), smooth=True)
+    water.build('falls', lib.falls_material('falls', K.WATER_Z + 0.04, K.WATER_Z - 3.6), smooth=True)
+    lagoon = lib.MeshBuilder()
+    top_z = lagoon_falls(lagoon, raise_z)
+    lagoon.build('lagoon_falls', lib.falls_material('lagoon_falls', top_z, -0.35), smooth=True)
     mats = scatter_mats()
     scatter(mask, sd, raise_z, sand, paving, trail, mats)
     trails_over_water(mats)
@@ -373,6 +383,7 @@ def lagoon_falls(water, raise_z):
     for k in range(5):
         v, f = lib.blob((w0.x + (k - 2) * 0.12, w0.y - 0.02, w0.z + 0.01), 0.06, squash=(1.2, 1.0, 0.5), rough=0.3, subdiv=1, seed=k + 9)
         water.add(v, f, (1, 1, 1, 1))
+    return w0.z
 
 
 def scatter_mats():

@@ -92,8 +92,8 @@ const nodes: BoardNodeDef[] = [
   n('f2', 2820, 1435, 'event', ['m0'], { eventId: 'cove_high_tide', meta: REEF }),
   // Harbour Market
   n('m0', 2975, 1580, 'gleam', ['m1'], { meta: MARKET }),
-  n('m1', 2830, 1690, 'market', ['m2'], { meta: { ...MARKET, shop: 'pipper' } }),
-  n('m2', 2675, 1785, 'gleam', ['m3'], { meta: MARKET }),
+  n('m1', 2830, 1690, 'gleam', ['m2'], { meta: MARKET }),
+  n('m2', 2675, 1785, 'market', ['m3'], { meta: { ...MARKET, shop: 'pipper' } }),
   n('m3', 2520, 1870, 'festival', ['m4'], { meta: MARKET }),
   n('m4', 2370, 1950, 'gleam', ['m5'], { meta: HARBOUR }),
   n('m5', 2210, 2010, 'mischief', ['s0'], { meta: HARBOUR }),
@@ -185,15 +185,15 @@ export const PIRATES_BOARD: BoardDef | null = {
     { texture: 'tree-twist', x: 600, y: 1150, scale: 0.22, sorted: true, tint: 0xffd0a0 },
     { texture: 'props', frame: '25', x: 880, y: 1100, scale: 0.34, sorted: true },
     // Treasure Cave
-    { texture: 'props', frame: '6', x: 1000, y: 565, scale: 0.34, sorted: true, id: 'chest' },
+    { texture: 'props', frame: '6', x: 872, y: 398, scale: 0.34, sorted: true, id: 'chest' },
     { texture: 'props', frame: '26', x: 930, y: 790, scale: 0.32, sorted: true },
     { texture: 'lantern', x: 700, y: 560, scale: 0.45, sorted: true, bob: 4 },
     // Waterfall Lagoon
     { texture: 'lantern', x: 1790, y: 450, scale: 0.45, sorted: true, bob: 4 },
     // Dojo Isle
     { texture: 'workshop', x: 2450, y: 425, scale: 0.4, sorted: true, id: 'dojo' },
-    // the galleon: its festival cannon fires the volley
-    { texture: 'props', frame: '15', x: 1640, y: 1262, scale: 0.36, sorted: true, id: 'cannon' },
+    // the galleon: its bow chaser (a festival cannon) fires the volley
+    { texture: 'props', frame: '15', x: 1845, y: 1272, scale: 0.34, sorted: true, id: 'cannon' },
     { texture: 'lantern', x: 1200, y: 1262, scale: 0.42, sorted: true, bob: 3 },
     // Lighthouse Point
     { texture: 'observatory', x: 3390, y: 1320, scale: 0.4, sorted: true, id: 'lighthouse' },

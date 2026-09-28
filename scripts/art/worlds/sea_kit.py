@@ -896,6 +896,7 @@ def render_props(board, built, terrain_objs, frame, scale, out_dir, only=()):
     man_path = os.path.join(dest, 'manifest.json')
     old = {e['id']: e for e in json.load(open(man_path)).get('props', [])} if (only and os.path.exists(man_path)) else {}
     entries = []
+    bpy.context.view_layer.update()  # some props were moved by location (the galleon's pedestal)
     dg = bpy.context.evaluated_depsgraph_get()
     for pid, (lm, obs) in built.items():
         if only and pid not in only:

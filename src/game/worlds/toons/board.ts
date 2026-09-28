@@ -40,7 +40,7 @@ const nodes: BoardNodeDef[] = [
   n('q1', 1170, 1062, 'event', ['q2'], { eventId: 'coast_loop_launch', meta: LOOP }),
   n('q2', 1340, 1045, 'gleam', ['q3'], { meta: LOOP }),
   n('q3', 1498, 985, 'mischief', ['m0'], { meta: LOOP }),
-  // The Hilltop Trail over the checkered hills (longer, past a Star Coin gate)
+  // The Hilltop Trail over the checkered hills (longer, past a Star Coin space)
   n('u0', 800, 960, 'gleam', ['u1'], { meta: HILLS }),
   n('u1', 850, 800, 'festival', ['u2'], { meta: HILLS }),
   n('u2', 975, 690, 'relic', ['u3'], { meta: HILLS }),
@@ -142,11 +142,10 @@ export const TOONS_BOARD: BoardDef | null = {
     { texture: 'bunting', x: 1860, y: 1980, scale: 0.65, sorted: false, depth: -15 },
     { texture: 'lantern', x: 1400, y: 1965, scale: 0.5, sorted: true, bob: 4 },
     { texture: 'lantern', x: 2110, y: 1950, scale: 0.5, sorted: true, bob: 5 },
-    // the loop lane's springs and the hills
-    { texture: 'props', frame: '21', x: 1085, y: 1010, scale: 0.3, sorted: true },
-    { texture: 'props', frame: '21', x: 1420, y: 960, scale: 0.3, sorted: true },
+    // springs beside the loop lane, and the hills' signpost
+    { texture: 'props', frame: '21', x: 940, y: 1172, scale: 0.3, sorted: true },
+    { texture: 'props', frame: '21', x: 1452, y: 1112, scale: 0.3, sorted: true },
     { texture: 'props', frame: '25', x: 700, y: 1110, scale: 0.34, sorted: true },
-    { texture: 'windmill', x: 1230, y: 780, scale: 0.36, sorted: true, id: 'hill-mill' },
     // Maple Street: the donut shop and the family house
     { texture: 'stall', x: 2445, y: 480, scale: 0.4, sorted: true, tint: 0xffc6e0, id: 'donut-shop' },
     { texture: 'workshop', x: 2640, y: 490, scale: 0.42, sorted: true, id: 'family-house' },
