@@ -123,9 +123,8 @@ export class OrbitDodgeScene extends BaseMinigame {
     this.arms = [{ id: 0, angle: Math.PI * 0.25, type: 'low', flipIn: -1 }];
     const rendered = this.textures.exists('rendered-scene-orbit');
     if (rendered) {
-      // Pre-rendered observatory rooftop (engraved stone, brass rings, crystal lights).
-      const sky = ['rendered-sky-clear', 'rendered-sky-day'].find((k) => this.textures.exists(k));
-      if (sky) this.add.image(GAME_WIDTH / 2, 480, sky).setDisplaySize(GAME_WIDTH * 1.12, 1210).setDepth(-100);
+      // Pre-rendered observatory rooftop (engraved stone, brass rings, crystal lights) with its
+      // golden-hour sky baked in: the image is opaque, so no separate sky layer is drawn under it.
       this.add.image(0, 0, 'rendered-scene-orbit').setOrigin(0).setDepth(-10);
       this.buildSpectators();
     } else {

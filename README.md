@@ -202,7 +202,7 @@ python3.11 -m venv .artenv
 | `board.py --scale 1.25 --samples 64 --export` | Board terrain tiles, landmark sprites and manifest (`--props-only [--only id,…]` re-renders landmarks) |
 | `island_shadow.py` | Soft island shadow layer for the board |
 | `spaces.py` | The eight board space pieces |
-| `sky.py --variant day\|clear\|golden\|sunset` | Sky backdrops |
+| `sky.py --variant day\|clear\|golden\|sunset\|orbit` | Sky backdrops (`orbit` is baked into the Orbit Dodge arena: `sky.py --variant orbit`, then `scenes.py orbit`, then `blur_backdrops.py`) |
 | `scenes.py title\|select\|results\|orbit` | Title island, select and results stages, Orbit Dodge arena |
 | `gleam3d.py` | Gleam Grab arena (perspective) and its floor mapping |
 | `mg_arenas.py yard\|pond\|relay\|totem\|tower\|sprites\|islets\|fg` | Arenas and sprites for the other minigames, sky islets, board foreground foliage |

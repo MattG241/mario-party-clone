@@ -1,8 +1,10 @@
 """Baked bloom: bright, saturated pixels (crystals, lamps, gold) bleed a soft glow into their
 surroundings. Applied to rendered images offline so the game gets the look at no runtime cost.
 
-    python3 scripts/art/bloom.py public/assets/rendered/scene_orbit.webp [...]          (in place)
+    python3 scripts/art/bloom.py public/assets/rendered/scene_<name>.webp [...]         (in place)
     python3 scripts/art/bloom.py --terrain suncoil                                      (re-slices tiles)
+
+Not for scene_orbit.webp: scenes.py bakes its sky and bloom in, and a second pass washes out the sun.
 """
 from __future__ import annotations
 
