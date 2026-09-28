@@ -47,7 +47,7 @@ interface Drop {
 const ARENA = { x: 250, y: 290, w: 1420, h: 640 };
 /** Character scale at a depth scale of 1 (the perspective arena scales it by depth). */
 const CHAR_SCALE = 0.58;
-const CHAR_SCALE_3D = 0.7;
+const CHAR_SCALE_3D = 0.66;
 const FALL_MS = 950;
 const DASH_MS = 190;
 const DASH_CD = 1200;

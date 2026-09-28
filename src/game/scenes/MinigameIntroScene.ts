@@ -65,7 +65,7 @@ export class MinigameIntroScene extends Phaser.Scene {
       this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, arenaKey).setScale(1.08).setAlpha(0.7);
     }
     const veil = this.add.graphics();
-    veil.fillGradientStyle(0x0a2230, 0x0a2230, 0x06141a, 0x06141a, 0.28, 0.28, 0.5, 0.5);
+    veil.fillGradientStyle(0x0a2230, 0x0a2230, 0x06141a, 0x06141a, 0.12, 0.12, 0.34, 0.34);
     veil.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
     // A small "MINIGAME" chip in the game's colour above the title.
     const header = this.add.container(GAME_WIDTH / 2, 58);
@@ -104,13 +104,6 @@ export class MinigameIntroScene extends Phaser.Scene {
       this.tweens.add({ targets: art, y: art.y - 15, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
       frame.lineStyle(6, this.info.color, 1);
       frame.strokeRoundedRect(PX, PY, PW, PH, 28);
-    }
-    const lead = this.launchData.players.find((pl) => !pl.isCpu) ?? this.launchData.players[0];
-    if (lead) {
-      const hero = new Character(this, PX + PW - 40, PY + PH + 50, lead.characterId, { scale: 0.95 });
-      hero.setDepth(50);
-      hero.play('celebrate');
-      this.time.addEvent({ delay: 2600, loop: true, callback: () => hero.play('celebrate', { force: true }) });
     }
     const RX = 1050;
     const RW = 720;

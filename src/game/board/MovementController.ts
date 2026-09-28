@@ -211,7 +211,7 @@ export class MovementController {
       tag.glow.setAlpha(active ? 0.28 : 0);
       // One marker size for everyone; markers grow when the camera pulls back so players stay easy
       // to find on the overview.
-      const zoomK = Phaser.Math.Clamp(0.85 / this.scene.cameras.main.zoom, 1, 1.9);
+      const zoomK = Phaser.Math.Clamp(0.85 / this.scene.cameras.main.zoom, 1, 2.5);
       const want = 0.78 * zoomK;
       if (Math.abs(tag.container.scale - want) > 0.01) tag.container.setScale(tag.container.scale + (want - tag.container.scale) * 0.2);
     }

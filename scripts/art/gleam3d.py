@@ -43,12 +43,12 @@ os.makedirs(OUT, exist_ok=True)
 PW, PD = 15.6, 9.2
 SLAB_Z = 0.1
 # Gameplay area inside the curbs (logical ARENA maps onto this).
-GX = 7.1
+GX = 6.9
 GY0, GY1 = 0.6, 8.6
 ARENA = (250, 290, 1670, 930)
 TILT = 40.0
 DIST = 17.5
-LENS = 34.0
+LENS = 36.5  # tight enough that the plaza fills the frame (little empty lawn at the bottom)
 
 # terrain/props helpers take board px under the default orthographic mapping; convert world -> board.
 lib.BETA = math.radians(90 - 52)
@@ -365,8 +365,8 @@ def main():
     leaves.build('leaves', lib.attr_mat('leaf', rough=0.78, ao=0.5))
     wood.build('wood', lib.attr_mat('wood', rough=0.8, ao=0.3))
     flowers.build('flowers', lib.attr_mat('flower', rough=0.55))
-    props.stall(*bpx(-9.7, 5.4), 1.6, stripe=('#ff6b5e', '#fff4dc'))
-    props.stall(*bpx(9.7, 5.4), 1.6, stripe=('#1fa5a0', '#fff4dc'))
+    props.stall(*bpx(-9.0, 6.4), 1.6, stripe=('#ff6b5e', '#fff4dc'))
+    props.stall(*bpx(9.0, 6.4), 1.6, stripe=('#1fa5a0', '#fff4dc'))
     # spectator bleachers behind the back wall (the in-game crowd stands on these tiers)
     stands, stand_trim = lib.MeshBuilder(), lib.MeshBuilder()
     for i, (dy, dz) in enumerate(TIERS):
