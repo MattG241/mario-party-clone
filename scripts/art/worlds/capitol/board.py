@@ -44,6 +44,7 @@ def args():
     p.add_argument('--crop', default='', help='x0,y0,x1,y1 board px region to render')
     p.add_argument('--plan', action='store_true', help='write the island plan (plan.png) and exit')
     p.add_argument('--dry', action='store_true', help='build the whole scene but render nothing (script check)')
+    p.add_argument('--sketch', action='store_true', help='with --dry: a quick flat-shaded projection (sketch.png)')
     return p.parse_args(sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else sys.argv[1:])
 
 
@@ -62,6 +63,7 @@ FOUNTAIN = (2410, 958)
 POOL = (1190, 858, 2290, 990)  # x0, y0, x1, y1
 COURT = (560, 1255)
 GREEN = (2 * AXIS - COURT[0], COURT[1])
+SPORT_S = 1.3  # the court and the green share one size
 BANDSTAND = (2010, 1946)
 MIMI = (2020, 1500)
 
@@ -133,7 +135,7 @@ def near_landmark(bx, by, pad=0.0):
     if (bx - FOUNTAIN[0]) ** 2 + ((by - FOUNTAIN[1]) * 1.25) ** 2 < (95 + pad) ** 2:
         return True
     for (cx, cy) in (COURT, GREEN):
-        if in_box(bx, by, cx, cy, 165 + pad, 95 + pad):
+        if in_box(bx, by, cx, cy, 210 + pad, 125 + pad):
             return True
     if (bx - MIMI[0] - 40) ** 2 + (by - MIMI[1] - 50) ** 2 < (80 + pad) ** 2:
         return True
@@ -301,6 +303,8 @@ def main():
     if A.dry:
         tv = sum(len(o.data.vertices) for o in bpy.context.scene.objects if o.type == 'MESH')
         print('dry run: objects', len(bpy.context.scene.objects), 'vertices', tv, 'sprites', len(built), flush=True)
+        if A.sketch:
+            K.sketch(os.path.join(out, 'sketch.png'), frame, 0.3)
         return
     if A.crop:
         x0, y0, x1, y1 = [float(v) for v in A.crop.split(',')]
@@ -316,6 +320,8 @@ def main():
             K.export_tiles(png, B.id, frame, SCALE)
     if A.export or A.props_only:
         K.render_props(B.id, built, terrain_objs, frame, SCALE, out, only={t for t in A.only.split(',') if t})
+    if A.export:
+        K.island_shadow(B.id, png)
     print('islands', len(islands), flush=True)
 
 
@@ -360,11 +366,12 @@ def scatter(isl, pm, G, BP):
             return bx, by
         return None
 
-    n_trees = int(area / 60000 * (0.75 if isl['theme'] == 'park' else 1.4)) + (1 if isl['theme'] == 'islet' else 0)
-    for _ in range(n_trees * 5):
+    # trees frame the park round its rim; the lawns in the middle stay open
+    n_trees = int(area / 60000 * (0.4 if isl['theme'] == 'park' else 1.4)) + (1 if isl['theme'] == 'islet' else 0)
+    for _ in range(n_trees * 6):
         if n_trees <= 0:
             break
-        pt = pick(min_edge=30, path_clear=0.0, node_r=110)
+        pt = pick(min_edge=30, max_edge=230 if isl['theme'] == 'park' else 1e9, path_clear=0.0, node_r=110)
         if not pt:
             continue
         bx, by = pt
@@ -387,7 +394,7 @@ def scatter(isl, pm, G, BP):
         if K.dist_in(dist, bx, by) < 6 or K.pmask_at(pm, bx, by) > 0.2 or near_landmark(bx, by, 0):
             continue
         terrain.grass_tuft(L['grass'], bx, by, rnd, rnd.uniform(0.55, 0.8))
-    for _ in range(int(area / 20000 * 0.55)):
+    for _ in range(int(area / 20000 * 0.25)):
         pt = pick(min_edge=24, path_clear=0.02, node_r=85)
         if pt:
             terrain.flower_bed(L['flowers'], L['leaves'], *pt, rnd)
@@ -416,14 +423,14 @@ def gardens(islands, G, BP, pm):
     park = next(isl for isl in islands if isl['theme'] == 'park')
     BP.reflecting_pool(G, *POOL)
     BP.fountain(G, FOUNTAIN[0], FOUNTAIN[1], 1.0)
-    BP.court(G, COURT[0], COURT[1], 1.0)
-    BP.putting_green(G, GREEN[0], GREEN[1], 1.0)
-    # the same low hedge frames both, mirrored across the centre line
+    BP.court(G, COURT[0], COURT[1], SPORT_S)
+    BP.putting_green(G, GREEN[0], GREEN[1], SPORT_S)
+    # the same low hedge frames both, mirrored across the centre line, with a bench behind each
     for (cx, flip) in ((COURT[0], 1), (GREEN[0], -1)):
         cy = COURT[1]
-        for (ax, ay, bx2, by2) in [(-150, -85, 150, -85), (-160, -75, -160, 75)]:
+        for (ax, ay, bx2, by2) in [(-195, -110, 195, -110), (-205, -100, -205, 100)]:
             BP.hedge(G, cx + ax * flip, cy + ay, cx + bx2 * flip, cy + by2, h=0.16, w=0.14)
-        BP.bench(G, cx - 20 * flip, cy - 108, 1.0)
+        BP.bench(G, cx - 30 * flip, cy - 132, 1.0)
     # cherry avenue: blossom trees down both sides of the walk
     for y in (1880, 1715, 1550, 1385):
         for x in (AXIS - 122, AXIS + 122):
@@ -437,7 +444,8 @@ def gardens(islands, G, BP, pm):
             r2 = random.Random(int(x) * 7 + int(y))
             terrain.tree_blossom(G['flora'], G['trunks'], x, y, r2, 1.2, pal=('#e0679a', '#ffc6de'))
     # rose garden beds inside the rose loop
-    for (x, y, rx, ry, n) in [(880, 1862, 62, 26, 14), (935, 1745, 50, 22, 10), (1215, 1880, 46, 20, 9)]:
+    # (Pipper stands at her stall by the Hedge Walk, about (938, 1878): the beds keep clear of her)
+    for (x, y, rx, ry, n) in [(930, 1758, 56, 24, 12), (820, 1700, 40, 18, 8), (1215, 1880, 46, 20, 9)]:
         if near_node(x, y, 70):
             continue
         BP.rose_bed(G, x, y, rnd, rx, ry, n)

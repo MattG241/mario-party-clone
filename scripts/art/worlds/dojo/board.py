@@ -42,6 +42,7 @@ def args():
     p.add_argument('--crop', default='', help='x0,y0,x1,y1 board px region to render')
     p.add_argument('--plan', action='store_true', help='write the island plan (plan.png) and exit')
     p.add_argument('--dry', action='store_true', help='build the whole scene but render nothing (script check)')
+    p.add_argument('--sketch', action='store_true', help='with --dry: a quick flat-shaded projection (sketch.png)')
     return p.parse_args(sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else sys.argv[1:])
 
 
@@ -378,6 +379,8 @@ def main():
     if A.dry:
         tv = sum(len(o.data.vertices) for o in bpy.context.scene.objects if o.type == 'MESH')
         print('dry run: objects', len(bpy.context.scene.objects), 'vertices', tv, 'sprites', len(built), flush=True)
+        if A.sketch:
+            K.sketch(os.path.join(out, 'sketch.png'), frame, 0.3)
         return
     if A.crop:
         x0, y0, x1, y1 = [float(v) for v in A.crop.split(',')]
@@ -393,6 +396,8 @@ def main():
             K.export_tiles(png, B.id, frame, SCALE)
     if A.export or A.props_only:
         K.render_props(B.id, built, terrain_objs, frame, SCALE, out, only={t for t in A.only.split(',') if t})
+    if A.export:
+        K.island_shadow(B.id, png)
     print('islands', len(islands), flush=True)
 
 
@@ -608,7 +613,8 @@ def structures(islands, zof, G, BP, pm):
         BP.village_house(L, gx, gy, rnd, s=1.0, deck=DECK)
         G.merge(L, zv)
     # village houses between the two routes and round the edges (only where they hide no trail)
-    spots = [(860, 1845), (760, 1720), (1140, 2000 - 250), (560, 1880), (1210, 1900 - 60), (990, 1650), (640, 2105), (1300, 1960)]
+    spots = [(860, 1845), (760, 1720), (1140, 1750), (1180, 1760), (540, 1790), (500, 1680), (520, 1930), (560, 1880), (1210, 1840),
+             (990, 1650), (1300, 1880), (640, 2105), (1300, 1960), (880, 1560), (600, 1560)]
     for (hx, hy) in spots:
         if K.pmask_at(pm, hx, hy) > 0.02 or near_node(hx, hy, 105) or deck_zone(hx, hy) or not canopy_clear(hx, hy, 80, 150):
             continue

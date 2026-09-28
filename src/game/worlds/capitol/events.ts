@@ -29,7 +29,7 @@ const parade: BoardEventDef = {
     const { gainChips, pushForward } = await turnFlow();
     await present(ctx, this, [{ npc: 'mimi', pose: 'laugh', text: 'A garden parade! Drums, horns and pennants: everybody fall in and march!' }], { fx: 'parade' });
     if (p) {
-      await ctx.io.say([{ npc: 'mimi', pose: 'happy', text: `${p.name} leads the parade! Here are ${coins(scale(ctx, 3))} for the grand marshal.` }], p);
+      await ctx.io.say([{ npc: 'mimi', pose: 'happy', text: `${p.name} gets to lead the marching band! Here are ${coins(scale(ctx, 3))} for keeping the beat.` }], p);
       checkpoint(ctx);
       await gainChips(ctx, p, scale(ctx, 3), 'parade');
     }

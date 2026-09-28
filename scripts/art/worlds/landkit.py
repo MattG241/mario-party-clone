@@ -760,6 +760,70 @@ def island_shadow(board_id: str, terrain_png: str, offset=(150, 70), blur=34.0, 
     print('wrote shadow', sw, sh, man['shadow'])
 
 
+def sketch(path: str, frame, scale: float = 0.25, objects=None):
+    """A quick flat-shaded projection of the scene's meshes (painter's algorithm in numpy/PIL; no
+    Blender render), for checking the layout while the render slot is busy."""
+    fx, fy, fw, fh = frame
+    img = Image.new('RGB', (int(fw * scale), int(fh * scale)), (150, 190, 230))
+    draw = ImageDraw.Draw(img)
+    sun = np.array([0.45, 0.35, 0.82])
+    sun /= np.linalg.norm(sun)
+    tris_all, cols_all, depth_all = [], [], []
+    objs = objects if objects is not None else [o for o in bpy.context.scene.objects if o.type == 'MESH']
+    for o in objs:
+        me = o.data
+        n = len(me.vertices)
+        if n == 0 or o.hide_render:
+            continue
+        co = np.zeros(n * 3, np.float32)
+        me.vertices.foreach_get('co', co)
+        co = co.reshape(-1, 3)
+        mw = np.array(o.matrix_world, np.float32)
+        co = co @ mw[:3, :3].T + mw[:3, 3]
+        attr = me.color_attributes.get('col')
+        if attr is not None and attr.domain == 'POINT':
+            c = np.zeros(n * 4, np.float32)
+            attr.data.foreach_get('color', c)
+            vc = c.reshape(-1, 4)[:, :3]
+        else:
+            vc = None
+        me.calc_loop_triangles()
+        nt = len(me.loop_triangles)
+        if nt == 0:
+            continue
+        tv = np.zeros(nt * 3, np.int32)
+        me.loop_triangles.foreach_get('vertices', tv)
+        tv = tv.reshape(-1, 3)
+        p = co[tv]  # (nt, 3, 3)
+        nrm = np.cross(p[:, 1] - p[:, 0], p[:, 2] - p[:, 0])
+        nrm /= np.maximum(np.linalg.norm(nrm, axis=1, keepdims=True), 1e-9)
+        if vc is not None:
+            base = vc[tv].mean(axis=1)
+        else:
+            # islands: grass on top, rock on the sides
+            up = nrm[:, 2]
+            base = np.where(up[:, None] > 0.6, np.array([0.12, 0.35, 0.08]), np.array([0.25, 0.18, 0.14]))
+        shade = 0.45 + 0.55 * np.clip(np.abs(nrm @ sun), 0, 1)
+        rgb = np.clip(base * shade[:, None], 0, 1) ** (1 / 2.2)
+        bx = p[..., 0] * PX
+        by = -(p[..., 1] * COSB + p[..., 2] * SINB) * PX
+        d = (p[..., 1] * SINB - p[..., 2] * COSB).mean(axis=1)
+        tris_all.append(np.stack([(bx - fx) * scale, (by - fy) * scale], axis=-1))
+        cols_all.append((rgb * 255).astype(np.uint8))
+        depth_all.append(d)
+    if not tris_all:
+        img.save(path)
+        return
+    T = np.concatenate(tris_all)
+    C = np.concatenate(cols_all)
+    D = np.concatenate(depth_all)
+    for i in np.argsort(-D):
+        t = T[i]
+        draw.polygon([(t[0, 0], t[0, 1]), (t[1, 0], t[1, 1]), (t[2, 0], t[2, 1])], fill=tuple(int(v) for v in C[i]))
+    img.save(path)
+    print('sketch', path, img.size, len(D), 'triangles', flush=True)
+
+
 def export_tiles(png: str, board_id: str, frame, scale: float):
     from tiles import export_tiles as _export
     return _export(png, board_id, frame[:2], scale)
