@@ -154,6 +154,29 @@ builds opened with `?debug`; the URL shortcuts work in any build:
   `&instructions=on|quick|off`, `&intro`, `&midgame` (round 4 with players spread out) and
   `&realtime` (lock game time to wall time on slow software-GL machines, used by tests).
 
+### Recording footage and the trailer
+
+`scripts/dev/record.mjs` records smooth 30 fps gameplay on machines far too slow to run the game
+in real time: it takes over the game loop and steps it on a virtual clock, saving every frame and
+the sound effects the game played. A shot is a URL plus steps (wait for a condition, skip, record,
+press keys or fake controllers, run code in the page); with a `random` seed and `hold` a run
+repeats frame for frame, so a dry run (`PROBE=1`: nothing drawn, seconds per minigame) finds the
+moments worth recording. The promo trailer is cut from `scripts/dev/trailer/shots.json`:
+
+```bash
+npx vite build && npx vite preview --port 4190 --strictPort &
+node scripts/dev/record.mjs scripts/dev/trailer/shots.json raw http://localhost:4190/
+node scripts/dev/trailer/sfx_render.mjs raw sfx          # the game's own sound effects as WAV
+python3 scripts/dev/trailer/music.py music.wav           # the score (numpy + scipy)
+python3 scripts/dev/trailer/cut.py raw                   # the cut list (edl.json) from the logs
+SFX_DIR=sfx python3 scripts/dev/trailer/edit.py raw music.wav trailer.mp4   # needs ffmpeg
+```
+
+`cut.py` places every cut so that a moment in the footage (a call-out, a sound effect, found in
+the recording logs) lands on a chosen beat, so re-recorded shots stay in sync. `edit.py` renders
+`edl.json` and poses the guests from the character renders in `art-out/chars`
+(`scripts/art/characters.py`); `--preview`, `--from/--to` and `--still` render quick checks.
+
 ## Project layout
 
 ```
@@ -173,7 +196,8 @@ scripts/
   build-sprites.mjs, build-placeholders.mjs   sprite atlas / placeholder generation
   dev/           capture.mjs and drive.mjs: headless screenshot helpers used during development;
                  record.mjs: frame-stepped gameplay recorder; trailer/: the promo trailer's shot
-                 list, score (music.py), sound-effect renderer and edit (edit.py + edl.json)
+                 list, score (music.py), sound-effect renderer, cut list (cut.py -> edl.json)
+                 and edit (edit.py)
 tests/unit, tests/e2e
 public/assets/   atlases, audio, rendered art (WebP) and manifests
 ```

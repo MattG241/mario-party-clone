@@ -1,16 +1,25 @@
 """Cut the Gleamtrail trailer from recorded gameplay (scripts/dev/record.mjs + shots.json) and the
 score (music.py): beat-synced cuts, punch-in zooms, flashes, a spiral wipe, an animated logo reveal,
-a hero roster, callouts and an end card, with the game's own sound effects under the score
+a roster of the guests, callouts and an end card, with the game's own sound effects under the score
 (SFX_DIR, from sfx_render.mjs), encoded with ffmpeg.
 
     python3 scripts/dev/trailer/edit.py <rawDir> <music.wav> <out.mp4> [--preview] [--from S --to S]
 
 <rawDir> holds one folder of 30 fps JPEG frames per shot. --preview renders at half size and fast
 settings; --from/--to render only part of the timeline (for checking a section); --still t1,t2
-writes single frames (<out>_<t>.png) instead of a video.
+writes single frames (<out>_<t>.png) instead of a video. The cut list is edl.json (or $EDL): times
+are [bar, beat] on the score's grid.
+
+Guest poses come from the character renders (scripts/art/characters.py, art-out/chars or $POSES):
+<id>/victory_<n>.png at any supersampling (the frame is 389 px at 1x).
+
+Environment: FFMPEG (the ffmpeg binary), SFX_DIR (rendered effects; without it the score plays
+alone), SFX_GAIN (effects level, default 1.8), EDL, POSES, CRF (final quality, default 17) and
+AUDIO_FADE (seconds; by default the sound fades with a closing fadeout overlay).
 """
 from __future__ import annotations
 
+import json
 import math
 import os
 import subprocess
@@ -28,6 +37,7 @@ W, H, FPS = 1920, 1080, 30
 INK = (22, 32, 58)
 FONT = os.path.join(ROOT, 'art-out', 'logo', 'fredoka-700.ttf')
 LOGO = os.path.join(ROOT, 'public', 'assets', 'rendered', 'ui_logo.webp')
+POSES = os.environ.get('POSES', os.path.join(ROOT, 'art-out', 'chars'))
 
 args = [a for a in sys.argv[1:] if not a.startswith('--')]
 RAW, MUSIC, OUT = args[0], args[1], args[2]
@@ -64,12 +74,16 @@ def ease_in_out(x):
 
 # ------------------------------------------------------------------------------------------
 # Footage
+@lru_cache(maxsize=None)
+def shot_len(shot: str) -> int:
+    d = os.path.join(RAW, shot)
+    return len([f for f in os.listdir(d) if f.endswith('.jpg')])
+
+
 @lru_cache(maxsize=48)
 def src_frame(shot: str, idx: int) -> Image.Image:
-    d = os.path.join(RAW, shot)
-    n = len([f for f in os.listdir(d) if f.endswith('.jpg')])
-    idx = max(0, min(n - 1, idx))
-    return Image.open(os.path.join(d, f'f{idx:05d}.jpg')).convert('RGB')
+    idx = max(0, min(shot_len(shot) - 1, idx))
+    return Image.open(os.path.join(RAW, shot, f'f{idx:05d}.jpg')).convert('RGB')
 
 
 def footage(shot: str, t: float, zoom: float = 1.0, focus=(0.5, 0.5)) -> Image.Image:
@@ -104,6 +118,7 @@ def title_sprite(text: str, size: int, fill=(255, 255, 255), stroke=INK) -> Imag
     asc, desc = f.getmetrics()
     pad = size // 2
     w, h = int(x - track + pad * 2), int(asc + desc + pad * 2)
+
     def layer(color, stroke_on, dy=0):
         im = Image.new('RGBA', (w, h), (0, 0, 0, 0))
         d = ImageDraw.Draw(im)
@@ -210,14 +225,12 @@ def draw_logo(base, u, cx=960, cy=430, width=1060, sub=True):
     rnd = np.random.default_rng(3)
     for i in range(9):
         t0 = 0.15 + i * 0.09
+        a, rr, ry, sc = rnd.uniform(0, math.tau), rnd.uniform(0.7, 1.0), rnd.uniform(0.8, 1.3), rnd.uniform(0.6, 1.1)
         if t0 < u < t0 + 0.7:
-            a = rnd.uniform(0, math.tau)
-            px = cx + math.cos(a) * width * 0.52 * rnd.uniform(0.7, 1.0)
-            py = cy + math.sin(a) * 110 * rnd.uniform(0.8, 1.3)
+            px = cx + math.cos(a) * width * 0.52 * rr
+            py = cy + math.sin(a) * 110 * ry
             q = (u - t0) / 0.7
-            paste_scaled(base, sparkle(64), px, py, math.sin(math.pi * q) * rnd.uniform(0.6, 1.1), 1.0, rot=q * 90)
-        else:
-            rnd.uniform(0, math.tau), rnd.uniform(0.7, 1.0), rnd.uniform(0.8, 1.3), rnd.uniform(0.6, 1.1)
+            paste_scaled(base, sparkle(64), px, py, math.sin(math.pi * q) * sc, 1.0, rot=q * 90)
     if sub and u > 0.55:
         s = title_sprite('FESTIVAL OF THE SPIRAL ISLES', 56)
         q = ease_out_cubic((u - 0.55) / 0.35)
@@ -236,80 +249,105 @@ def draw_callout(base, u, dur, text, sub=None, cx=960, cy=190, size=112):
         paste_scaled(base, capsule(sub, 40), cx, cy + size * 0.95, 1.0, min(q, kout))
 
 
-def draw_tag(base, u, dur, text, color):
+def draw_tag(base, u, dur, text, color, y=980):
     """Minigame name: a capsule sliding in from the left with a dot in the game's colour."""
     if u < 0 or u > dur:
         return
     sp = capsule(text.upper(), 46, dot=color)
     q = ease_out_cubic(u / 0.28)
     out = clamp01((dur - u) / 0.14)
-    x = -sp.width / 2 + (sp.width / 2 + 70 + sp.width / 2) * q
-    paste_scaled(base, sp, x - sp.width / 2 + sp.width / 2, 980, 1.0, out)
+    x = -sp.width / 2 + (sp.width + 70) * q
+    paste_scaled(base, sp, x, y, 1.0, out)
 
 
 def draw_endcard(base, u):
-    draw_logo(base, u, cx=960, cy=390, width=1000, sub=False)
+    draw_logo(base, u, cx=960, cy=360, width=1100, sub=False)
     if u > 0.45:
         q = ease_out_cubic((u - 0.45) / 0.35)
-        paste_scaled(base, title_sprite('FESTIVAL OF THE SPIRAL ISLES', 58), 960, 540 + (1 - q) * 24, 1.0, q)
-    chips = [('1–4 PLAYERS', (31, 165, 160)), ('LOCAL MULTIPLAYER', (255, 107, 94)), ('8 MINIGAMES', (244, 184, 59))]
-    xs = [560, 960, 1360]
-    for i, (txt, col) in enumerate(chips):
+        paste_scaled(base, title_sprite('FESTIVAL OF THE SPIRAL ISLES', 60), 960, 540 + (1 - q) * 24, 1.0, q)
+    chips = [capsule(txt, 38, dot=col) for txt, col in (('1–4 PLAYERS', (31, 165, 160)), ('8 MINIGAMES', (244, 184, 59)), ('LOCAL MULTIPLAYER', (255, 107, 94)))]
+    margin, gap = 24, 18  # capsule sprites carry a 24 px shadow margin on each side
+    total = sum(c.width - 2 * margin for c in chips) + gap * (len(chips) - 1)
+    x = 960 - total / 2
+    for i, sp in enumerate(chips):
+        w = sp.width - 2 * margin
         t0 = 0.8 + i * 0.12
         if u > t0:
-            paste_scaled(base, capsule(txt, 38, dot=col), xs[i], 680, ease_out_back((u - t0) / 0.3, 2.0), clamp01((u - t0) / 0.1))
+            paste_scaled(base, sp, x + w / 2, 676, ease_out_back((u - t0) / 0.3, 2.0), clamp01((u - t0) / 0.1))
+        x += w + gap
     if u > 1.3:
         q = ease_out_back((u - 1.3) / 0.35, 1.8)
-        paste_scaled(base, capsule('PLAY NOW IN YOUR BROWSER', 46, bg=(255, 200, 61), fg=INK), 960, 840, 0.6 + 0.4 * q, clamp01((u - 1.3) / 0.1))
+        a = clamp01((u - 1.3) / 0.1)
+        paste_scaled(base, title_sprite('PLAY FREE IN YOUR BROWSER', 44), 960, 812, 0.7 + 0.3 * q, a)
+        paste_scaled(base, capsule('mattg241.github.io/mario-party-clone', 48, bg=(255, 200, 61), fg=INK), 960, 900, 0.6 + 0.4 * q, a)
+    if u > 1.8:
+        note = fine_print('Guest characters are fan-made tributes for private, non-commercial play and belong to their respective owners.')
+        paste_scaled(base, note, 960, 1040, 1.0, clamp01((u - 1.8) / 0.4) * 0.9)
 
 
-# The four heroes (player colours as in a four-player match), rendered at 3x by
-# scripts/art/characters.py --anims victory --ss 3 --out $HEROES_HQ for crisp close-ups.
-HEROES_HQ = os.environ.get('HEROES_HQ', os.path.join(ROOT, 'art-out', 'heroes_hq'))
-HEROES = [
-    ('kip', 'KIP QUILL', (34, 195, 214)),
-    ('mossi', 'MOSSI BLOOM', (255, 107, 94)),
-    ('tumble', 'TUMBLE FLINT', (139, 211, 70)),
-    ('zippa', 'ZIPPA WREN', (255, 176, 32)),
-]
-PANEL_W, PANEL_SLANT = W // 4, 70
-HERO_K = 0.64  # display scale of the 3x renders (keeps the heroes' relative sizes)
-HQ_FEET = (194.5 * 3, 304.0 * 3)
+@lru_cache(maxsize=4)
+def fine_print(text: str, size: int = 24) -> Image.Image:
+    """Small white text with a soft shadow, for the end card's note."""
+    f = font(size)
+    box = f.getbbox(text)
+    w, h = box[2] - box[0] + 24, box[3] - box[1] + 24
+    im = Image.new('RGBA', (w, h), (0, 0, 0, 0))
+    sh = Image.new('RGBA', (w, h), (0, 0, 0, 0))
+    ImageDraw.Draw(sh).text((12 - box[0], 14 - box[1]), text, font=f, fill=(10, 17, 32, 160))
+    im = Image.alpha_composite(im, sh.filter(ImageFilter.GaussianBlur(2)))
+    ImageDraw.Draw(im).text((12 - box[0], 12 - box[1]), text, font=f, fill=(255, 250, 241, 235))
+    return im
 
 
-@lru_cache(maxsize=32)
-def hero_pose(hid: str, anim: str, i: int) -> Image.Image | None:
-    path = os.path.join(HEROES_HQ, hid, f'{anim}_{i}.png')
+# ------------------------------------------------------------------------------------------
+# The guests: a page of slanted colour panels per bar, each guest landing on an eighth note in
+# their victory pose with their name. Panel colours cycle through the festival palette (not the
+# characters' own colours), so every guest gets the same treatment.
+GUESTS = {
+    'luffy': 'LUFFY', 'zoro': 'ZORO', 'nami': 'NAMI', 'goku': 'GOKU', 'naruto': 'NARUTO',
+    'batman': 'BATMAN', 'spiderman': 'SPIDER-MAN', 'ironman': 'IRON MAN', 'sonic': 'SONIC',
+    'spongebob': 'SPONGEBOB', 'homer': 'HOMER', 'elvis': 'ELVIS', 'sabrina': 'SABRINA CARPENTER',
+    'chappell': 'CHAPPELL ROAN', 'sandler': 'ADAM SANDLER', 'obama': 'BARACK OBAMA', 'trump': 'DONALD TRUMP',
+}
+PAGES = [['luffy', 'zoro', 'nami', 'goku', 'naruto'], ['batman', 'spiderman', 'ironman', 'sonic'],
+         ['spongebob', 'homer', 'elvis', 'sabrina'], ['chappell', 'sandler', 'obama', 'trump']]
+FESTIVAL = [(31, 165, 160), (255, 107, 94), (244, 184, 59), (142, 92, 217), (92, 168, 255), (108, 194, 74)]
+SLANT = 70
+POSE_K = 2.05  # display pixels per 1x frame pixel (keeps the guests' relative sizes)
+FEET = (194.5, 304.0)  # where the feet sit in a 1x frame (scripts/art/characters.py)
+FEET_Y = 880
+
+
+@lru_cache(maxsize=48)
+def pose(cid: str, i: int) -> Image.Image | None:
+    path = os.path.join(POSES, cid, f'victory_{i}.png')
     if not os.path.exists(path):
         return None
     im = Image.open(path).convert('RGBA')
-    return im.resize((int(im.width * HERO_K), int(im.height * HERO_K)), Image.LANCZOS)
+    k = POSE_K * 389 / im.width
+    out = im.resize((int(im.width * k), int(im.height * k)), Image.LANCZOS)
+    if k > 1.05:  # a lower-resolution render: a touch of sharpening after the upscale
+        out = out.filter(ImageFilter.UnsharpMask(radius=2, percent=60, threshold=2))
+    return out
 
 
-def hero_frames(hid: str, anim: str) -> int:
-    d = os.path.join(HEROES_HQ, hid)
-    return len([f for f in os.listdir(d) if f.startswith(anim + '_') and f.endswith('.png')]) if os.path.isdir(d) else 0
-
-
-@lru_cache(maxsize=8)
-def panel_bg(i: int) -> Image.Image:
-    """A hero's panel: their colour, lighter towards the top, as a slanted strip."""
-    c = np.array(HEROES[i][2], np.float32)
-    pw = PANEL_W + PANEL_SLANT * 2
+@lru_cache(maxsize=24)
+def panel_bg(color: tuple, pw: int) -> Image.Image:
+    """A guest's panel: their colour, lighter towards the top."""
+    c = np.array(color, np.float32)
     t = np.linspace(0, 1, H, dtype=np.float32)[:, None]
-    top, bot = c + (255 - c) * 0.32, c * 0.78
+    top, bot = c + (255 - c) * 0.34, c * 0.72
     col_ = top * (1 - t) + bot * t
     arr = np.repeat(col_[:, None, :], pw, axis=1).reshape(H, pw, 3)
     return Image.fromarray(arr.astype(np.uint8), 'RGB').convert('RGBA')
 
 
-@lru_cache(maxsize=4)
-def panel_mask(i: int) -> Image.Image:
-    pw = PANEL_W + PANEL_SLANT * 2
+@lru_cache(maxsize=24)
+def panel_mask(i: int, n: int, pw: int) -> Image.Image:
     m = Image.new('L', (pw, H), 0)
     # the outer panels run square to the screen edges, so no corner is left uncovered
-    left = [(0, 0), (0, H)] if i == 0 else [(PANEL_SLANT * 2, 0), (0, H)]
-    right = [(pw, H), (pw, 0)] if i == len(HEROES) - 1 else [(pw - PANEL_SLANT * 2, H), (pw, 0)]
+    left = [(0, 0), (0, H)] if i == 0 else [(SLANT * 2, 0), (0, H)]
+    right = [(pw, H), (pw, 0)] if i == n - 1 else [(pw - SLANT * 2, H), (pw, 0)]
     ImageDraw.Draw(m).polygon([left[0], right[1], right[0], left[1]], fill=255)
     return m
 
@@ -325,43 +363,42 @@ def rays(size, cx, cy, angle, n=12, alpha=0.16) -> Image.Image:
     return im
 
 
-def draw_roster(base, u, dur):
-    """Meet the heroes: four slanted colour panels land one after another, each hero pops in
-    with their victory pose and a name capsule."""
-    step = dur / 4 * 0.5
-    pw = PANEL_W + PANEL_SLANT * 2
-    for i, (hid, name, colr) in enumerate(HEROES):
-        t0 = i * step
-        if u < t0:
+def draw_page(base, u, page: int, step: float):
+    """One page of guests: panels land every `step` seconds, alternately from above and below."""
+    ids = PAGES[page]
+    n = len(ids)
+    colw = W / n
+    pw = int(colw + SLANT * 2)
+    first = sum(len(p) for p in PAGES[:page])
+    for i, cid in enumerate(ids):
+        q = u - i * step
+        if q < 0:
             continue
-        q = u - t0
-        k = ease_out_back(q / 0.34, 1.3)
-        dy = int((1 - k) * (-H if i % 2 == 0 else H))
-        layer = panel_bg(i).copy()
-        layer.alpha_composite(rays((pw, H), pw / 2, 560, u * 0.35 + i, alpha=0.14))
-        n = hero_frames(hid, 'victory')
-        if n:
-            seq = [f for f in (0, 1, 2, 3, 2) if f < n]  # the game's victory order, holding on 2
-            fi = seq[min(len(seq) - 1, int(max(0.0, q - 0.1) * 7))]
-            hero = hero_pose(hid, 'victory', fi)
-            hk = ease_out_back((q - 0.08) / 0.32, 1.8)
-            if hero is not None and hk > 0.02:
-                sh = Image.new('RGBA', (pw, H), (0, 0, 0, 0))
-                ImageDraw.Draw(sh).ellipse((pw / 2 - 130, 866, pw / 2 + 130, 902), fill=(10, 17, 32, 80))
-                layer.alpha_composite(sh.filter(ImageFilter.GaussianBlur(10)))
-                bob = math.sin(max(0.0, q - 0.8) * 5.0) * 6 if q > 0.8 else 0
-                fx, fy = pw / 2, 884 + bob
-                hs = hero.resize((max(1, int(hero.width * hk)), max(1, int(hero.height * hk))), Image.BICUBIC) if abs(hk - 1) > 0.01 else hero
-                layer.alpha_composite(hs, (int(fx - HQ_FEET[0] * HERO_K * hk), int(fy - HQ_FEET[1] * HERO_K * hk)))
-        base.paste(layer, (i * PANEL_W - PANEL_SLANT, dy), panel_mask(i))
-        # a slim white seam along the panel's left edge
-        if i > 0:
-            d = ImageDraw.Draw(base)
-            x0 = i * PANEL_W - PANEL_SLANT
-            d.line([(x0 + PANEL_SLANT * 2, dy), (x0, dy + H)], fill=(255, 255, 255, 255), width=6)
-        if q > 0.18:
-            cq = ease_out_back((q - 0.18) / 0.3, 2.0)
-            paste_scaled(base, capsule(name, 40, dot=colr), i * PANEL_W + PANEL_W / 2, 968 + dy, 0.6 + 0.4 * cq, clamp01((q - 0.18) / 0.1))
+        k = ease_out_back(q / 0.3, 1.25)
+        dy = int((1 - k) * (-H if (first + i) % 2 == 0 else H))
+        color = FESTIVAL[(first + i) % len(FESTIVAL)]
+        layer = panel_bg(color, pw).copy()
+        layer.alpha_composite(rays((pw, H), pw / 2, 600, u * 0.35 + i, alpha=0.13))
+        seq = (0, 1, 2, 3, 2)  # the game's victory order, holding on 2
+        fi = seq[min(len(seq) - 1, int(max(0.0, q - 0.08) * 8))]
+        hero = pose(cid, fi)
+        hk = ease_out_back((q - 0.06) / 0.28, 1.8)
+        if hero is not None and hk > 0.02:
+            sh = Image.new('RGBA', (pw, H), (0, 0, 0, 0))
+            ImageDraw.Draw(sh).ellipse((pw / 2 - 120, FEET_Y - 20, pw / 2 + 120, FEET_Y + 16), fill=(10, 17, 32, 80))
+            layer.alpha_composite(sh.filter(ImageFilter.GaussianBlur(10)))
+            hs = hero.resize((max(1, int(hero.width * hk)), max(1, int(hero.height * hk))), Image.BICUBIC) if abs(hk - 1) > 0.01 else hero
+            fx, fy = pw / 2, FEET_Y
+            layer.alpha_composite(hs, (int(fx - FEET[0] * POSE_K * hk), int(fy - FEET[1] * POSE_K * hk)))
+        x0 = int(i * colw - SLANT)
+        base.paste(layer, (x0, dy), panel_mask(i, n, pw))
+        if i > 0:  # a slim white seam along the panel's left edge
+            ImageDraw.Draw(base).line([(x0 + SLANT * 2, dy), (x0, dy + H)], fill=(255, 255, 255, 255), width=6)
+        if q > 0.16:
+            cq = ease_out_back((q - 0.16) / 0.3, 2.0)
+            name = GUESTS[cid]
+            size = 38 if len(name) <= 13 else (34 if n <= 4 else 30)
+            paste_scaled(base, capsule(name, size, dot=color), i * colw + colw / 2, 980 + dy, 0.6 + 0.4 * cq, clamp01((q - 0.16) / 0.1))
 
 
 def spiral_wipe_mask(p: float) -> Image.Image:
@@ -380,6 +417,15 @@ def spiral_wipe_mask(p: float) -> Image.Image:
     return m.filter(ImageFilter.GaussianBlur(3))
 
 
+@lru_cache(maxsize=2)
+def letterbox_mask(h: int) -> Image.Image:
+    im = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    d.rectangle((0, 0, W, h), fill=(0, 0, 0, 255))
+    d.rectangle((0, H - h, W, H), fill=(0, 0, 0, 255))
+    return im
+
+
 # ------------------------------------------------------------------------------------------
 # Timeline
 MG = {  # shot -> (name, colour)
@@ -388,13 +434,12 @@ MG = {  # shot -> (name, colour)
     'mg_relay': ('Relic Relay', (196, 155, 255)), 'mg_tower': ('Tumble Tower', (108, 194, 74)),
 }
 
-# (start, end, shot, source in-point, zoom from, zoom to, focus, flash-in)
 SEGMENTS = []
 OVERLAYS = []
 
 
-def seg(start, end, shot, src, z0=1.0, z1=1.04, focus=(0.5, 0.5), flash=0.0, speed=1.0):
-    SEGMENTS.append(dict(start=start, end=end, shot=shot, src=src, z0=z0, z1=z1, focus=focus, flash=flash, speed=speed))
+def seg(start, end, shot, src, z0=1.0, z1=1.04, focus=(0.5, 0.5), flash=0.0, speed=1.0, punch=0.0, mute=False, sfx=1.0):
+    SEGMENTS.append(dict(start=start, end=end, shot=shot, src=src, z0=z0, z1=z1, focus=focus, flash=flash, speed=speed, punch=punch, mute=mute, sfx=sfx))
 
 
 def ov(start, end, kind, **kw):
@@ -403,27 +448,33 @@ def ov(start, end, kind, **kw):
 
 def load_edl():
     """The cut list (edl.json, or $EDL): bars/beats on the score's grid, in-points in shot seconds."""
-    import json
     path = os.environ.get('EDL') or os.path.join(os.path.dirname(__file__), 'edl.json')
     edl = json.load(open(path))
     for s in edl['segments']:
-        seg(bar(*s['start']), bar(*s['end']), s['shot'], s['src'], s.get('z0', 1.0), s.get('z1', 1.04), tuple(s.get('focus', (0.5, 0.5))), s.get('flash', 0.0), s.get('speed', 1.0))
+        seg(bar(*s['start']), bar(*s['end']), s['shot'], s['src'], s.get('z0', 1.0), s.get('z1', 1.04), tuple(s.get('focus', (0.5, 0.5))),
+            s.get('flash', 0.0), s.get('speed', 1.0), s.get('punch', 0.0), s.get('mute', False), s.get('sfx', 1.0))
     for o in edl['overlays']:
         kw = {k: v for k, v in o.items() if k not in ('start', 'end', 'kind')}
         ov(bar(*o['start']), bar(*o['end']), o['kind'], **kw)
     return edl
 
 
+def seg_image(s, t):
+    """A segment's picture at timeline time t: its footage at the right source time and zoom."""
+    u = t - s['start']
+    p = u / max(1e-6, s['end'] - s['start'])
+    z = s['z0'] + (s['z1'] - s['z0']) * ease_in_out(p)
+    if s['punch']:
+        z *= 1.0 + s['punch'] * (1.0 - ease_out_cubic(u / 0.3))
+    return footage(s['shot'], s['src'] + u * s['speed'], z, s['focus'])
+
+
 def render_frame(t: float) -> Image.Image:
     active = [s for s in SEGMENTS if s['start'] <= t < s['end']]
     base = Image.new('RGBA', (W, H), (0, 0, 0, 255))
     for s in active[-1:]:
-        u = t - s['start']
-        p = u / max(1e-6, s['end'] - s['start'])
-        z = s['z0'] + (s['z1'] - s['z0']) * ease_in_out(p)
-        im = footage(s['shot'], s['src'] + u * s['speed'], z, s['focus'])
-        base.paste(im, (0, 0))
-        white_flash(base, s['flash'] * (1 - clamp01(u / 0.28)))
+        base.paste(seg_image(s, t), (0, 0))
+        white_flash(base, s['flash'] * (1 - clamp01((t - s['start']) / 0.28)))
     for o in OVERLAYS:
         if not (o['start'] <= t < o['end']):
             continue
@@ -436,29 +487,43 @@ def render_frame(t: float) -> Image.Image:
             draw_callout(base, u, dur, o['text'], o.get('sub'), o.get('cx', 960), o.get('cy', 190), o.get('size', 112))
         elif k == 'tag':
             name, col = MG[o['shot']]
-            draw_tag(base, u, dur, name, col)
+            draw_tag(base, u, dur, name, col, o.get('y', 980))
         elif k == 'endcard':
             draw_endcard(base, u)
-        elif k == 'roster':
-            draw_roster(base, u, dur)
+        elif k == 'page':
+            # the previous page stays up underneath until the new panels have swept over it
+            if o['page'] > 0 and o.get('under', True):
+                draw_page(base, 99.0, o['page'] - 1, 0.0)
+            draw_page(base, u, o['page'], o.get('step', BEAT / 2))
         elif k == 'fadein':
             white_flash(base, 1 - clamp01(u / dur), (0, 0, 0))
         elif k == 'fadeout':
             white_flash(base, clamp01(u / dur), (0, 0, 0))
         elif k == 'flash':
-            white_flash(base, o.get('a', 0.9) * (1 - clamp01(u / dur)))
+            white_flash(base, o.get('a', 0.9) * (1 - clamp01(u / dur)), tuple(o.get('color', (255, 255, 255))))
+        elif k == 'black':
+            white_flash(base, o.get('a', 1.0), (0, 0, 0))
+        elif k == 'letterbox':
+            e = ease_out_cubic(u / 0.35)
+            if not o.get('hold'):
+                e = min(e, ease_out_cubic((dur - u) / 0.35))
+            hgt = int(o.get('h', 90) * e)
+            if hgt > 0:
+                base.alpha_composite(letterbox_mask(hgt))
         elif k == 'spiral':
             # reveal the next segment through a spiral-edged circle over the previous one
             prev = [s for s in SEGMENTS if s['end'] <= t + 1e-6 and s['end'] >= o['start'] - 1e-6]
             if prev:
                 s = prev[-1]
-                im = footage(s['shot'], s['src'] + (t - s['start']) * s['speed'], s['z1'], s['focus']).convert('RGBA')
+                im = seg_image(dict(s, end=s['end'] + dur), t).convert('RGBA')
                 mask = spiral_wipe_mask(ease_in_out(u / dur))
                 inv = Image.fromarray(255 - np.asarray(mask))
                 base.paste(im, (0, 0), inv)
         elif k == 'blur':
-            base = base.filter(ImageFilter.GaussianBlur(o.get('r', 8)))
-            white_flash(base, o.get('dim', 0.15), (10, 17, 32))
+            r = o.get('r', 8) * ease_in_out(u / o.get('ramp', 0.001)) if o.get('ramp') else o.get('r', 8)
+            if r > 0.3:
+                base = base.filter(ImageFilter.GaussianBlur(r))
+            white_flash(base, o.get('dim', 0.15) * (ease_in_out(u / o['ramp']) if o.get('ramp') else 1.0), (10, 17, 32))
     return base.convert('RGB')
 
 
@@ -466,12 +531,11 @@ def render_frame(t: float) -> Image.Image:
 # Sound: the score plus the game's own effects (sfx.json from record.mjs, rendered to WAV by
 # sfx_render.mjs into $SFX_DIR), each laid at the moment it happened in the footage on screen.
 SFX_DIR = os.environ.get('SFX_DIR', '')
-SFX_GAIN = float(os.environ.get('SFX_GAIN', '1.0'))
+SFX_GAIN = float(os.environ.get('SFX_GAIN', '1.8'))  # after level_fx: about 10 dB under the score
 
 
 @lru_cache(maxsize=None)
 def sfx_events(shot: str):
-    import json
     f = os.path.join(RAW, shot, 'sfx.json')
     return json.load(open(f))['events'] if os.path.exists(f) else []
 
@@ -486,6 +550,31 @@ def sfx_wave(key: str, rate):
     return np.frombuffer(w.readframes(w.getnframes()), np.int16).astype(np.float32) / 32768
 
 
+def level_fx(fx: np.ndarray, sr: int, thr_db: float = -18.0, ratio: float = 3.0, tc: float = 0.02) -> np.ndarray:
+    """Even out the effects bus before it goes under the score: a gentle RMS compressor, so the
+    footsteps and pops stay audible while the big hits (countdown, FINISH!) do not jump out."""
+    from scipy import signal
+    a = 1.0 - math.exp(-1.0 / (tc * sr))
+    rms = np.sqrt(np.maximum(signal.lfilter([a], [1.0, a - 1.0], fx.astype(np.float64) ** 2), 1e-12))
+    thr = 10 ** (thr_db / 20)
+    gain = (np.maximum(rms, thr) / thr) ** (1.0 / ratio - 1.0)
+    return (fx * gain).astype(np.float32)
+
+
+def limit(x: np.ndarray, sr: int, ceiling: float = 0.891, hold: float = 0.03, ramp: float = 0.01) -> np.ndarray:
+    """Look-ahead peak limiter (-1 dBFS): the gain each sample needs, held over the neighbouring
+    `hold` seconds and smoothed over `ramp`, so it is already down when a peak arrives and comes
+    back up without clicks."""
+    from scipy import ndimage
+    need = np.minimum(1.0, ceiling / np.maximum(np.abs(x).max(axis=1), 1e-9))
+    if need.min() >= 1.0:
+        return x
+    nh, nr = int(hold * sr), int(ramp * sr)
+    g = ndimage.minimum_filter1d(need, 2 * nh + 1, mode='nearest')
+    g = ndimage.uniform_filter1d(g, 2 * nr + 1, mode='nearest')  # nr <= nh keeps g <= need
+    return x * np.minimum(g, need)[:, None]
+
+
 def mix_audio(t0: float, t1: float, path: str) -> str:
     """Write the score with the footage's sound effects mixed in (t0..t1) to a WAV at path."""
     import wave
@@ -494,9 +583,11 @@ def mix_audio(t0: float, t1: float, path: str) -> str:
     music = np.frombuffer(w.readframes(w.getnframes()), np.int16).reshape(-1, ch).astype(np.float32) / 32768
     fx = np.zeros(len(music), np.float32)
     # full-screen graphics hide the footage, so its sounds go too
-    muted = [(o['start'], o['end']) for o in OVERLAYS if o['kind'] in ('roster', 'endcard')]
+    muted = [(o['start'], o['end']) for o in OVERLAYS if o['kind'] in ('page', 'endcard', 'black')]
     placed = 0
     for sg in SEGMENTS:
+        if sg['mute']:
+            continue
         dur = sg['end'] - sg['start']
         for fi, key, rate, vol in sfx_events(sg['shot']):
             ts = fi / FPS
@@ -511,13 +602,31 @@ def mix_audio(t0: float, t1: float, path: str) -> str:
             i = int(t * sr)
             n = min(len(wv), len(fx) - i)
             if n > 0:
-                fx[i:i + n] += wv[:n] * vol
+                fx[i:i + n] += wv[:n] * vol * sg['sfx']
                 placed += 1
-    mix = music + (fx * SFX_GAIN)[:, None]
+    # effects the edit adds for its own graphics (a whoosh as a panel lands, say)
+    for o in OVERLAYS:
+        if o['kind'] != 'sfx':
+            continue
+        wv = sfx_wave(o['key'], o.get('rate', 1))
+        if wv is None:
+            print(f"missing effect {o['key']}@{o.get('rate', 1)} (render it with EXTRA_SFX)")
+            continue
+        i = int(o['start'] * sr)
+        n = min(len(wv), len(fx) - i)
+        if n > 0:
+            fx[i:i + n] += wv[:n] * o.get('vol', 1.0)
+            placed += 1
+    mix = music + (level_fx(fx, sr) * SFX_GAIN)[:, None]
     peak = float(np.abs(mix).max())
-    if peak > 0.89:  # soft safety limit (the score alone peaks well below this)
-        mix = np.tanh(mix / 0.89) * 0.89
+    mix = limit(mix, sr)
     seg_ = mix[int(t0 * sr):int(t1 * sr)]
+    # the sound fades with the picture when a fadeout ends the render (AUDIO_FADE=seconds overrides)
+    ends = [o['end'] - o['start'] for o in OVERLAYS if o['kind'] == 'fadeout' and abs(o['end'] - t1) < 1e-3]
+    fade = int(min(len(seg_), sr * float(os.environ.get('AUDIO_FADE', ends[-1] if ends else 0))))
+    if fade:
+        seg_ = seg_.copy()
+        seg_[-fade:] *= np.linspace(1, 0, fade)[:, None] ** 2
     out = wave.open(path, 'wb')
     out.setnchannels(ch)
     out.setsampwidth(2)
@@ -529,13 +638,14 @@ def mix_audio(t0: float, t1: float, path: str) -> str:
 
 
 def main():
-    load_edl()
+    edl = load_edl()
     if '--still' in sys.argv:
         # render single frames for checking the graphics: --still t1,t2,... (seconds); OUT is a prefix
         for tt in sys.argv[sys.argv.index('--still') + 1].split(','):
             render_frame(float(tt)).save(f'{OUT}_{float(tt):06.2f}.png')
         return
-    t0, t1 = opt('--from', 0.0), opt('--to', max(s['end'] for s in SEGMENTS + OVERLAYS))
+    end = bar(*edl['length']) if 'length' in edl else max(s['end'] for s in SEGMENTS + OVERLAYS)
+    t0, t1 = opt('--from', 0.0), opt('--to', end)
     ff = os.environ.get('FFMPEG', 'ffmpeg')
     size = (W // 2, H // 2) if PREVIEW else (W, H)
     audio_in, audio_ss = MUSIC, t0
@@ -543,7 +653,7 @@ def main():
         audio_in, audio_ss = mix_audio(t0, t1, OUT + '.mix.wav'), 0.0
     cmd = [ff, '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{size[0]}x{size[1]}', '-r', str(FPS), '-i', '-',
            '-ss', f'{audio_ss:.3f}', '-t', f'{t1 - t0:.3f}', '-i', audio_in,
-           '-c:v', 'libx264', '-preset', 'veryfast' if PREVIEW else 'slow', '-crf', '26' if PREVIEW else '16', '-pix_fmt', 'yuv420p',
+           '-c:v', 'libx264', '-preset', 'veryfast' if PREVIEW else 'slow', '-crf', '26' if PREVIEW else os.environ.get('CRF', '17'), '-pix_fmt', 'yuv420p',
            '-c:a', 'aac', '-b:a', '192k', '-shortest', '-movflags', '+faststart', OUT]
     proc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
     n = int(round((t1 - t0) * FPS))
