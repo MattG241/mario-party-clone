@@ -73,7 +73,7 @@ const nodes: BoardNodeDef[] = [
   n('x1', 1272, 1112, 'mischief', ['x2'], { meta: POOL }),
   n('x2', 1448, 1118, 'event', ['x3'], { eventId: 'capitol_parade', meta: POOL }),
   n('x3', 1624, 1122, 'gleam', ['x4'], { meta: POOL }),
-  n('x4', 1800, 1124, 'relic', ['x5'], { meta: POOL }),
+  n('x4', 1800, 1124, 'festival', ['x5'], { meta: POOL }),
   n('x5', 1976, 1122, 'gleam', ['x6'], { meta: POOL }),
   n('x6', 2152, 1118, 'festival', ['x7'], { meta: POOL }),
   n('x7', 2328, 1112, 'mischief', ['x8'], { meta: POOL }),
@@ -81,7 +81,7 @@ const nodes: BoardNodeDef[] = [
   // Cherry Avenue (behind the Bandstand Green's garden gate), up to the middle of the pool.
   n('w0', 1760, 1955, 'gleam', ['w1'], { meta: { ...AVENUE, gate: 'avenue' } }),
   n('w1', 1790, 1790, 'festival', ['w2'], { meta: AVENUE }),
-  n('w2', 1800, 1625, 'gleam', ['w3'], { meta: AVENUE }),
+  n('w2', 1800, 1625, 'relic', ['w3'], { meta: AVENUE }),
   n('w3', 1800, 1460, 'mischief', ['w4'], { meta: AVENUE }),
   n('w4', 1800, 1295, 'gleam', ['x4'], { meta: AVENUE }),
 ];
@@ -165,7 +165,7 @@ export const CAPITOL_BOARD: BoardDef | null = {
   height: 2400,
   nodes,
   startNode: 'a0',
-  relicGates: ['k1', 'n4', 'g1', 'p4', 'x4'],
+  relicGates: ['k1', 'n4', 'g1', 'p4', 'w2'],
   portals: [['rh2', 'p1']],
   bridges: [],
   gates: [{ id: 'avenue', from: 'a1', to: 'w0', prop: { x: 1725, y: 2040, scale: 0.5 } }],
