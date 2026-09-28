@@ -2,6 +2,7 @@
 // scene, half size on Lite and stretched back like the arenas), soft generated textures, a night
 // sky fallback for when a render is missing, and pinning a scrolling game's UI to the screen.
 import Phaser from 'phaser';
+import { animBaseline, type Character } from '../../characters/Character';
 import { GAME_WIDTH } from '../../constants';
 import { LITE } from '../../perf';
 import { inflateTexture } from '../../util/texture';
@@ -164,6 +165,30 @@ export function canvasShape(ctx: CanvasRenderingContext2D, shape: string, x: num
         : [0, 1, 2, 3, 4, 5].map((i) => [Math.cos(Math.PI / 6 + (i * Math.PI) / 3) * 1.05, Math.sin(Math.PI / 6 + (i * Math.PI) / 3) * 1.05] as [number, number]);
   pts.forEach(([px, py], i) => (i === 0 ? ctx.moveTo(x + px * r, y + py * r) : ctx.lineTo(x + px * r, y + py * r)));
   ctx.closePath();
+}
+
+/**
+ * Register a character's sprite on its body centre instead of its feet (the container then sits at
+ * the body centre, the feet `bodyPx` screen px below it), so tilts and flips turn about the middle.
+ * Call after every play()/hold(), which put the origin back on the feet.
+ */
+export function centreOnBody(c: Character, bodyPx: number, scale: number): void {
+  const h = c.sprite.frame.realHeight || 389;
+  c.sprite.setOrigin(0.5, animBaseline(c.charId, c.current) - bodyPx / scale / h);
+}
+
+/** Keep the player badge `offsetPx` screen px above the body centre and upright, whatever the tilt. */
+export function uprightBadge(c: Character, offsetPx: number, rot: number, scale: number): void {
+  const m = offsetPx / scale;
+  c.marker?.setPosition(m * Math.sin(rot), m * Math.cos(rot)).setRotation(-rot);
+}
+
+/** Back to standing on the feet at (x, y) (for the finish poses, which play from the feet). */
+export function standOnFeet(c: Character, x: number, y: number): void {
+  c.setRotation(0).setPosition(x, y);
+  c.play('idle', { force: true });
+  c.sprite.setOrigin(0.5, animBaseline(c.charId, 'idle'));
+  c.marker?.setPosition(0, c.headY - 46).setRotation(0);
 }
 
 /** The Character's player ring (the ellipse at its feet): hidden while it flies. */

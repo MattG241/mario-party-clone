@@ -108,9 +108,10 @@ export interface Swinger {
   /** Anchor index while swinging (-1 = none), and the rope's length. */
   anchor: number;
   rope: number;
-  /** Timer for 'down' and 'zip'. */
+  /** Timer for 'down' and 'zip'; a zip runs from zipFrom, zipDX along and up to ZIP_TO_Y. */
   t: number;
   zipFrom: { x: number; y: number };
+  zipDX: number;
   face: 1 | -1;
   /** Swings chained since the last fall (for the combo call-outs). */
   chain: number;
@@ -152,7 +153,7 @@ function clearEvents(e: SwingEvents): void {
 }
 
 export function newSwinger(x: number): Swinger {
-  return { x, y: SWING.ROOF_Y - SWING.BODY, vx: 0, vy: 0, mode: 'roof', anchor: -1, rope: 0, t: 0, zipFrom: { x, y: 0 }, face: 1, chain: 0 };
+  return { x, y: SWING.ROOF_Y - SWING.BODY, vx: 0, vy: 0, mode: 'roof', anchor: -1, rope: 0, t: 0, zipFrom: { x, y: 0 }, zipDX: 140, face: 1, chain: 0 };
 }
 
 /**
@@ -245,7 +246,9 @@ export function stepSwinger(s: Swinger, inp: SwingInput, course: Course, dt: num
       if (s.t <= 0) {
         s.mode = 'zip';
         s.t = SWING.ZIP_MS;
-        s.zipFrom = { x: s.x, y: s.y };
+        s.zipFrom.x = s.x;
+        s.zipFrom.y = s.y;
+        s.zipDX = 140;
         out.zipped = true;
       }
       return;
@@ -253,7 +256,7 @@ export function stepSwinger(s: Swinger, inp: SwingInput, course: Course, dt: num
       s.t -= dt;
       const u = 1 - Math.max(0, s.t) / SWING.ZIP_MS;
       const e = 1 - (1 - u) * (1 - u) * (1 - u);
-      s.x = s.zipFrom.x + 140 * e;
+      s.x = s.zipFrom.x + s.zipDX * e;
       s.y = s.zipFrom.y + (SWING.ZIP_TO_Y - s.zipFrom.y) * e;
       if (s.t <= 0) {
         s.mode = 'air';
@@ -273,7 +276,7 @@ export function stepSwinger(s: Swinger, inp: SwingInput, course: Course, dt: num
         out.jump = true;
         return;
       }
-      if (s.mode === 'swing') return;
+      if (modeOf(s) === 'swing') return;
       s.x += s.vx * sec;
       if (s.x > SWING.ROOF_END) {
         s.mode = 'air';
@@ -313,7 +316,7 @@ export function stepSwinger(s: Swinger, inp: SwingInput, course: Course, dt: num
       s.y += s.vy * sec;
     } else stepPendulum(s, A[s.anchor], inp, sec);
   }
-  if (s.y + SWING.BODY >= SWING.STREET_Y && s.mode !== 'roof') {
+  if (s.y + SWING.BODY >= SWING.STREET_Y && modeOf(s) !== 'roof') {
     out.down = Math.hypot(s.vx, s.vy) || 1;
     s.y = SWING.STREET_Y - SWING.BODY;
     s.mode = 'down';
@@ -323,7 +326,13 @@ export function stepSwinger(s: Swinger, inp: SwingInput, course: Course, dt: num
     s.vx = 0;
     s.vy = 0;
   }
-  if (s.x >= course.finish && s.mode !== 'down' && s.mode !== 'zip') s.mode = 'done';
+  const m = modeOf(s);
+  if (s.x >= course.finish && m !== 'down' && m !== 'zip') s.mode = 'done';
+}
+
+/** A swinger's mode, read afresh (the step changes it on the way through). */
+function modeOf(s: Swinger): SwingMode {
+  return s.mode;
 }
 
 function releaseBoost(s: Swinger, r: Release): void {
@@ -376,6 +385,16 @@ function stepPendulum(s: Swinger, a: Anchor, inp: SwingInput, sec: number): void
 }
 
 // --- Race standing ---------------------------------------------------------------------------
+
+/** Pull a straggler back into the picture: a web zip from where they are to `toX`, up high. */
+export function catchUp(s: Swinger, toX: number): void {
+  s.mode = 'zip';
+  s.t = SWING.ZIP_MS;
+  s.zipFrom.x = s.x;
+  s.zipFrom.y = s.y;
+  s.zipDX = toX - s.x;
+  s.anchor = -1;
+}
 
 /** Race score: finishers by time (sooner is better), then everyone else by distance. */
 export function raceScore(done: boolean, doneAt: number, x: number): { score: number; label: string } {
