@@ -97,8 +97,8 @@ describe('Cloud Rider bumps and bursts', () => {
   it('knocks loose at most what a rider has', () => {
     expect(ringsLost(0, 'bump')).toBe(0);
     expect(ringsLost(1, 'bump')).toBe(1);
-    expect(ringsLost(10, 'bump')).toBe(2);
-    expect(ringsLost(10, 'zap')).toBe(1);
+    expect(ringsLost(10, 'bump')).toBe(3);
+    expect(ringsLost(10, 'zap')).toBe(2);
   });
 
   it('gives even a tap some push, and a full charge the most', () => {

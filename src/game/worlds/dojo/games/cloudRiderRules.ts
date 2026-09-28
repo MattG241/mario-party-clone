@@ -21,7 +21,7 @@ export const WORTH = { ring: 1, orb: 3 } as const;
 /** Half the distance between the two storms of a corridor (their centres). */
 const STORM_GAP = 185;
 /** Rings knocked loose from a rider who is rammed / zapped (never more than they have). */
-export const DROP = { bump: 2, zap: 1 } as const;
+export const DROP = { bump: 3, zap: 2 } as const;
 /** Bonus for flying through every ring of a trail of at least PERFECT_MIN rings on your own. */
 export const PERFECT_BONUS = 2;
 export const PERFECT_MIN = 5;
@@ -171,7 +171,7 @@ const PATTERNS: Record<string, Builder> = {
   },
   rush: (rng) => {
     const ys = lanes(rng, 3);
-    const items = [...line(ys[0], 6, 0), ...wave(ys[1], 6, 60, 1, 1, COURSE.ringGap / 2), ...line(ys[2], 6, 2)];
+    const items = [...line(ys[0], 5, 0), ...wave(ys[1], 6, 60, 1, 1, COURSE.ringGap / 2), ...line(ys[2], 5, 2)];
     if (rng.chance(0.6)) items.push({ kind: 'orb', dx: 6 * COURSE.ringGap + 20, y: rng.pick(ys), trail: -1 });
     return { name: 'rush', items };
   },
@@ -204,7 +204,7 @@ export function nextPattern(rng: Random, t: number, rush: boolean, prev?: string
   const opts = patternWeights(t, rush).filter((o) => o.item !== prev && !(prev && hazards.has(prev) && hazards.has(o.item)));
   const name = rng.weighted(opts.length ? opts : patternWeights(t, rush));
   const p = PATTERNS[name](rng, rush);
-  const length = p.length ?? span(p.items) + (hazards.has(name) ? 520 : 400);
+  const length = p.length ?? span(p.items) + (hazards.has(name) ? 640 : rush ? 430 : 520);
   return { name: p.name, items: p.items, length, gust: p.gust };
 }
 

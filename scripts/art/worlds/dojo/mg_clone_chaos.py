@@ -40,7 +40,7 @@ ROWS = [
     (1.0, 766, 545, [320, 640, 960, 1280, 1600], 2.45, '#9c4f3c'),
     (0.0, 900, 760, [560, 960, 1360], 3.0, '#4f6f8f'),
 ]
-DEPTH = 1.7  # house depth (units)
+DEPTH = 1.4  # house depth (units)
 DECK_BY = 972  # the deck's back edge (board y): its railing
 DECK_FEET = 1040
 
@@ -77,10 +77,10 @@ def roof(b: B, x0, x1, y_front, y_back, y_mid, z_eave, z_ridge, colr):
         for i in range(N + 1):
             u = i / N
             x = x0 + (x1 - x0) * u
-            end = abs(2 * u - 1) ** 5
+            end = abs(2 * u - 1) ** 4
             for j in range(M + 1):
                 v = j / M
-                z = z_eave + (z_ridge - z_eave) * v ** 1.6 + end * (1 - v) ** 2 * 0.22
+                z = z_eave + (z_ridge - z_eave) * v ** 1.6 + end * (1 - v) ** 2 * 0.36
                 y = ya + (yb - ya) * v
                 verts.append((x, y, z))
         for i in range(N):
@@ -93,8 +93,8 @@ def roof(b: B, x0, x1, y_front, y_back, y_mid, z_eave, z_ridge, colr):
     for i in range(N + 1):
         u = i / N
         x = x0 + (x1 - x0) * u
-        end = abs(2 * u - 1) ** 5
-        z = z_eave + end * 0.22
+        end = abs(2 * u - 1) ** 4
+        z = z_eave + end * 0.36
         verts += [(x, y_front, z), (x, y_front - 0.02, z - 0.09)]
     for i in range(N):
         a = 2 * i
@@ -109,8 +109,8 @@ def house(b: B, cx_px, row, rnd, idx):
     hw, hd = width / 2, DEPTH / 2
     z_cap = ridge_top_z(by_c, y_top)  # top of the ridge cap (where the clones stand)
     z_ridge = z_cap - 0.1
-    # keep the roof pitch steeper than the camera (28 deg), so its back slope hides behind the ridge
-    z_eave = z_g + min(0.8, (z_ridge - z_g) - 0.64)
+    # a roof about as steep as the camera (28 deg): its back slope folds away behind the ridge
+    z_eave = z_ridge - 0.45
     wh = z_eave - z_g
     # stone footing and plaster walls
     v, f = lib.box((X, Y, z_g + 0.06), (width + 0.06, DEPTH + 0.06, 0.12))
@@ -134,6 +134,12 @@ def house(b: B, cx_px, row, rnd, idx):
             b.m['wood'].add(v, f, col('#7a5236'))
             v, f = lib.box((bxw, yf - 0.02, z_g + wh * 0.44), (0.34, 0.02, wh * 0.56))
             b.m['paper'].add(v, f, col('#ffe2b0'))
+            # a short split curtain over the doorway, in a festival colour
+            cc = col(rnd.choice(['#1fa5a0', '#ff6b5e', '#f4b83b', '#8e5cd9', '#3f7fd9']))
+            for q in range(3):
+                qx = bxw - 0.12 + q * 0.12
+                v, f = lib.box((qx, yf - 0.04, z_g + wh * 0.72), (0.105, 0.012, wh * 0.26))
+                b.m['cloth'].add(v, f, cc)
         else:
             zc_, hh_ = z_g + wh * 0.55, wh * 0.38
             v, f = lib.box((bxw, yf - 0.01, zc_), (0.42, 0.03, hh_))
@@ -143,9 +149,28 @@ def house(b: B, cx_px, row, rnd, idx):
                 b.m['wood'].add(v, f, col('#5a3a28'))
             v, f = lib.box((bxw, yf - 0.03, zc_), (0.42, 0.02, 0.02))
             b.m['wood'].add(v, f, col('#5a3a28'))
+    # hanging lanterns at the front corners, a potted plant by the door, now and then a water barrel
+    for sx in (-1, 1):
+        lx, ly = X + sx * (hw + 0.02), Y - hd - 0.16
+        v, f = lib.tube([(lx, ly, z_eave - 0.02), (lx, ly, z_eave - 0.16)], 0.008, 4)
+        b.m['wood'].add(v, f, col('#3a2a22'))
+        v, f = lib.blob((lx, ly, z_eave - 0.24), 0.07, squash=(1, 1, 1.3), rough=0.02, subdiv=2)
+        b.m['glow'].add(v, f, col('#ff7a4a' if (idx + (sx > 0)) % 2 else '#ffb347'))
+    px = bays[door] + (0.34 if door < 2 else -0.34)
+    v, f = lib.cylinder((px, yf - 0.12, z_g), 0.08, 0.1, 0.14, sides=10)
+    b.m['stone'].add(v, f, col('#b86a45'))
+    v, f = lib.blob((px, yf - 0.12, z_g + 0.24), 0.13, squash=(1, 1, 0.9), rough=0.25, freq=2.5, subdiv=2, seed=rnd.random() * 40)
+    b.m['leaf'].add(v, f, col(rnd.choice(['#3f8f3a', '#4f9f3f', '#2f7f45'])))
+    if rnd.random() < 0.5:
+        bx_ = X + (hw - 0.14) * (1 if door == 0 else -1)
+        v, f = lib.cylinder((bx_, yf - 0.14, z_g), 0.11, 0.1, 0.26, sides=12)
+        b.m['wood'].add(v, f, col('#8a5a34'))
+        for zz in (0.06, 0.2):
+            v, f = lib.cylinder((bx_, yf - 0.14, z_g + zz), 0.115, 0.115, 0.02, sides=12)
+            b.m['metal'].add(v, f, col('#6b6f7a'))
     # the roof and its ridge cap, with upturned ornaments at both ends
-    ov = 0.26
-    roof(b, X - hw - 0.3, X + hw + 0.3, Y - hd - ov, Y + hd + ov, Y, z_eave, z_ridge, colr)
+    ov = 0.2
+    roof(b, X - hw - 0.26, X + hw + 0.26, Y - hd - ov, Y + hd + ov, Y, z_eave, z_ridge, colr)
     v, f = lib.box((X, Y, z_ridge + 0.05), (width + 0.2, 0.2, 0.12))
     b.m['cap'].add(v, f, col('#e8dcc2'))
     for s in (-1, 1):
@@ -179,6 +204,27 @@ def lifted(mbs, dz, fn, *a, **kw):
             x, y, z = mb.v[i]
             mb.v[i] = (x, y, z + dz)
     return out
+
+
+def bamboo(b: B, cx_px, by, z0, rnd, n=6):
+    """A clump of bamboo: tall segmented green canes with leaf sprays at their tops."""
+    c = W(cx_px, by, z0)
+    for k in range(n):
+        x = c.x + rnd.uniform(-0.3, 0.3)
+        y = c.y + rnd.uniform(-0.2, 0.2)
+        h = rnd.uniform(1.7, 2.6)
+        lean = rnd.uniform(-0.12, 0.12)
+        pts = [(x + lean * t * t * h, y, z0 + t * h) for t in [i / 6 for i in range(7)]]
+        v, f = lib.tube(pts, 0.035, 6)
+        b.m['leaf'].add(v, f, col(rnd.choice(['#5f9f3a', '#6aa840', '#4f8f35'])))
+        for t in (0.3, 0.52, 0.74):
+            v, f = lib.cylinder((x + lean * t * t * h, y, z0 + t * h), 0.042, 0.042, 0.025, sides=6)
+            b.m['leaf'].add(v, f, col('#3f6f2a'))
+        top = pts[-1]
+        for j in range(4):
+            v, f = lib.blob((top[0] + rnd.uniform(-0.2, 0.2), top[1] + rnd.uniform(-0.1, 0.1), top[2] - rnd.uniform(0, 0.35)), rnd.uniform(0.12, 0.2),
+                            squash=(1.8, 1.0, 0.5), rough=0.3, freq=2.5, subdiv=2, seed=rnd.random() * 60)
+            b.m['leaf'].add(v, f, col(rnd.choice(['#4f9a38', '#63ad45', '#3f8a33'])))
 
 
 def stairs(b: B, cx_px, by_front, z0, z1, steps=6, width=0.9):
@@ -247,10 +293,16 @@ def village():
             a = r * n + i
             faces.append((a, a + 1, a + n + 1, a + n))
     b.m['grass'].add(verts, faces, col('#6aa845'))
-    # grass strips along the terrace edges
-    for (byq, zq) in ((718, 1.0), (606, 2.2)):
-        v, f = lib.box(((L + R) / 2, W(0, byq).y, zq + 0.01), (R - L, 0.2, 0.03))
-        b.m['grass'].add(v, f, col('#74b04c'))
+    # grassy terrace tops behind a stone coping, and a verge along the lane's wall
+    for (by0, by1, zq) in ((810, 712, 1.0), (700, 600, 2.2)):
+        y0, y1 = W(0, by0).y, W(0, by1).y
+        v, f = lib.box(((L + R) / 2, (y0 + y1) / 2, zq + 0.015), (R - L, abs(y1 - y0), 0.03))
+        b.m['grass'].add(v, f, col('#6fae48'))
+    v, f = lib.box(((L + R) / 2, W(0, 830).y, 0.015), (R - L, 0.22, 0.03))
+    b.m['grass'].add(v, f, col('#6fae48'))
+    # bamboo groves along the hill
+    for (x, n) in [(210, 6), (1010, 5), (1540, 6), (720, 4), (1350, 4)]:
+        bamboo(b, x, 520, 2.9, rnd, n)
     # the houses
     eaves = []
     for r, (_, _, _, xs, _, _) in enumerate(ROWS):
@@ -317,9 +369,18 @@ def village():
     wv.inputs['Scale'].default_value = 5.5
     wv.inputs['Distortion'].default_value = 0.0
     tiles.link(pos, wv.inputs['Vector'])
-    tc = tiles.mult(tiles.attr('col'), tiles.mix(tiles.maprange(wv.outputs['Fac'], 0.2, 0.9), col('#a9adb8'), col('#ffffff')))
+    wz = tiles.node('ShaderNodeTexWave')
+    wz.wave_type = 'BANDS'
+    wz.bands_direction = 'Z'
+    wz.inputs['Scale'].default_value = 7.0
+    wz.inputs['Distortion'].default_value = 0.0
+    tiles.link(pos, wz.inputs['Vector'])
+    grid = tiles.math('MULTIPLY', tiles.maprange(wv.outputs['Fac'], 0.15, 0.85), tiles.maprange(wz.outputs['Fac'], 0.05, 0.4))
+    jit = tiles.noise(6.0, 2, 0.5, pos)
+    tc = tiles.mult(tiles.attr('col'), tiles.mix(grid, col('#8d91a0'), col('#ffffff')))
+    tc = tiles.mult(tc, tiles.mix(tiles.maprange(jit.outputs['Fac'], 0.3, 0.7), col('#d9dce6'), col('#ffffff')))
     tc = tiles.mult(tc, tiles.mix(tiles.ao(0.3, 6), col('#51506a'), col('#ffffff')))
-    tiles.bsdf(tc, 0.5, normal=tiles.bump(wv.outputs['Fac'], 0.5, 0.03), coat=0.25)
+    tiles.bsdf(tc, 0.5, normal=tiles.bump(grid, 0.5, 0.03), coat=0.25)
     b.m['roof'].build('roof', tiles.mat)
     b.m['cap'].build('cap', lib.attr_mat('cc_cap', rough=0.6, ao=0.3))
     b.m['stone'].build('stone', mats['stone_big'])
@@ -336,7 +397,15 @@ def village():
     b.m['deck'].build('deck', mats['wood'])
     b.m['cloth'].build('cloth', lib.attr_mat('cc_cloth', rough=0.8, sheen=0.4))
     b.m['metal'].build('metal', mats['metal'])
-    b.m['grass'].build('grass', lib.attr_mat('cc_grass', rough=0.9, ao=0.4))
+    gm = lib.NT('cc_grass')
+    gpos = gm.position()
+    g1 = gm.noise(0.9, 4, 0.6, gpos)
+    g2 = gm.noise(7.0, 3, 0.5, gpos)
+    gcol = gm.ramp(gm.math('ADD', gm.math('MULTIPLY', g1.outputs['Fac'], 0.8), gm.math('MULTIPLY', g2.outputs['Fac'], 0.35)),
+                   [(0.3, '#2f7a2c'), (0.48, '#4c9a36'), (0.62, '#72b544'), (0.78, '#a3cc58')])
+    gcol = gm.mult(gcol, gm.mix(gm.ao(0.6, 8), col('#4d5d45'), col('#ffffff')))
+    gm.bsdf(gcol, 0.9, normal=gm.bump(g2.outputs['Fac'], 0.3, 0.03), sheen=0.3)
+    b.m['grass'].build('grass', gm.mat)
     png = os.path.join(C.OUT, 'roofs_village.png')
     lib.render_to(png)
     return png
@@ -409,6 +478,7 @@ def backdrop():
     mtn = lib.MeshBuilder()
     for (x, y, h, r) in [(-620, 1500, 520, 520), (-150, 1700, 640, 560), (380, 1600, 560, 520), (820, 1900, 600, 600),
                          (-980, 2200, 700, 700), (60, 2600, 820, 820), (1200, 2500, 700, 720)]:
+        h *= 1.4
         prof = [(r, -300.0), (r * 0.8, h * 0.2), (r * 0.45, h * 0.62), (r * 0.18, h * 0.9), (0.0, h)]
         v, f = lib.lathe(prof, 40, (x, y, -200), cap_bottom=False, cap_top=False)
         v = [(vx + 40 * math.sin(vz * 0.02 + vy * 0.01), vy, vz + 25 * math.sin(vx * 0.03)) for (vx, vy, vz) in v]
@@ -422,9 +492,6 @@ def backdrop():
         C.puff_cluster(clouds, (x, y, z), s, 12, random.Random(int(x)), flat=0.6)
     clouds.build('clouds', C.cloud_material('bd_cloud', top='#ffffff', mid='#ffe9da', low='#c4b7d8', glow='#ffd2b0', glow_strength=0.15,
                                             z_low=-200, z_top=200, ao_tint='#b8a8d2'))
-    # a waterfall down the middle mountain
-    fv = [(-175, 1385, 190), (-135, 1385, 190), (-122, 1185, -60), (-188, 1185, -60)]
-    lib.mesh_object('falls', fv, [(0, 1, 2, 3)], smooth=False, material=lib.falls_material('bd_falls', 420, -60))
     png = os.path.join(C.OUT, 'roofs_back.png')
     lib.render_to(png)
     return png

@@ -63,7 +63,7 @@ def golden_cloud() -> None:
     puffs = [
         (0.0, 0.0, 0.02, 0.56), (0.6, 0.08, -0.06, 0.45), (-0.6, 0.05, -0.04, 0.46), (1.02, -0.02, -0.14, 0.32),
         (-1.0, 0.1, -0.12, 0.34), (-0.28, -0.12, 0.28, 0.33), (0.3, -0.1, 0.26, 0.34), (0.05, 0.2, 0.3, 0.3),
-        (-1.34, 0.0, -0.02, 0.2), (-1.55, 0.02, 0.1, 0.13), (0.72, -0.2, 0.1, 0.28), (-0.7, -0.2, 0.12, 0.27),
+        (-1.24, 0.0, -0.02, 0.19), (-1.42, 0.02, 0.08, 0.12), (0.72, -0.2, 0.1, 0.28), (-0.7, -0.2, 0.12, 0.27),
     ]
     for (x, y, z, r) in puffs:
         v, f = lib.blob((x, y, z), r, squash=(1.12, 1.0, 0.86), rough=0.06, freq=1.3, subdiv=3, seed=rnd.random() * 80)
@@ -93,17 +93,30 @@ def ring() -> None:
     b = m.bsdf(c, 0.26, emission=col('#ffcf4a'), emission_strength=0.42, coat=0.7)
     b.inputs['Metallic'].default_value = 0.85
     lib.mesh_object('ring', v, f, smooth=True, material=m.mat)
-    # a bright bead of light riding the rim
-    bv, bf = lib.blob((-0.1, -0.3, 0.52), 0.05, rough=0.0, subdiv=2)
-    lib.mesh_object('ring_glint', bv, bf, material=lib.simple_mat('glint', '#ffffff', 0.1, emission=col('#ffffff'), emission_strength=4.0))
     finish('ring')
 
 
 def orb() -> None:
     """Energy orb: a white-hot core in a soft cyan glow, circled by two thin energy bands."""
     begin('orb', elev=0.0)
-    v, f = lib.blob((0, 0, 0), 0.27, rough=0.0, subdiv=3)
-    lib.mesh_object('orb_core', v, f, material=lib.simple_mat('orb_core', '#ffffff', 0.2, emission=col('#e8fbff'), emission_strength=7.0))
+    v, f = lib.blob((0, 0, 0), 0.17, rough=0.0, subdiv=3)
+    lib.mesh_object('orb_core', v, f, material=lib.simple_mat('orb_core', '#ffffff', 0.2, emission=col('#e8fbff'), emission_strength=6.0))
+    # a cyan inner glow between the core and the shell
+    v, f = lib.blob((0, 0, 0), 0.3, rough=0.0, subdiv=3)
+    inner = lib.NT('orb_inner')
+    lw0 = inner.node('ShaderNodeLayerWeight')
+    lw0.inputs['Blend'].default_value = 0.3
+    fac0 = inner.maprange(lw0.outputs['Facing'], 0.0, 1.0, 0.85, 0.2)
+    em0 = inner.node('ShaderNodeEmission')
+    em0.inputs['Color'].default_value = col('#3fc9ff')
+    em0.inputs['Strength'].default_value = 3.5
+    tr0 = inner.node('ShaderNodeBsdfTransparent')
+    mx0 = inner.node('ShaderNodeMixShader')
+    inner.link(fac0, mx0.inputs['Fac'])
+    inner.link(tr0.outputs['BSDF'], mx0.inputs[1])
+    inner.link(em0.outputs['Emission'], mx0.inputs[2])
+    inner.link(mx0.outputs['Shader'], inner.out.inputs['Surface'])
+    lib.mesh_object('orb_inner', v, f, material=inner.mat)
     # translucent shell: emissive at the rim, clear in the middle (fresnel alpha)
     m = lib.NT('orb_shell')
     lw = m.node('ShaderNodeLayerWeight')
@@ -111,7 +124,7 @@ def orb() -> None:
     rim = m.maprange(lw.outputs['Facing'], 0.1, 0.95, 0.25, 1.0)
     em = m.node('ShaderNodeEmission')
     em.inputs['Color'].default_value = col('#63dcff')
-    em.inputs['Strength'].default_value = 2.6
+    em.inputs['Strength'].default_value = 3.2
     tr = m.node('ShaderNodeBsdfTransparent')
     mx = m.node('ShaderNodeMixShader')
     m.link(rim, mx.inputs['Fac'])
@@ -123,7 +136,7 @@ def orb() -> None:
     lib.mesh_object('orb_shell', v, f, material=m.mat)
     band = lib.simple_mat('orb_band', '#bff4ff', 0.2, emission=col('#9cefff'), emission_strength=3.2)
     for tilt, spin in ((0.5, 0.3), (-0.7, -0.5)):
-        prof = [(0.5 + 0.022 * math.cos(t), 0.022 * math.sin(t)) for t in [k / 10 * math.tau for k in range(11)]]
+        prof = [(0.5 + 0.016 * math.cos(t), 0.016 * math.sin(t)) for t in [k / 10 * math.tau for k in range(11)]]
         v, f = lib.lathe(prof, 48, cap_bottom=False, cap_top=False)
         v = lib.transform(v, rot=(tilt + math.pi / 2, spin, 0.0))
         lib.mesh_object('orb_band', v, f, material=band)
@@ -139,8 +152,8 @@ def storm() -> None:
     for (x, z, r) in [(-0.55, 0.45, 0.42), (0.35, 0.5, 0.46), (-0.05, 0.62, 0.36), (0.95, 0.2, 0.36), (-1.1, 0.12, 0.34)]:
         v, f = lib.blob((x, rnd.uniform(-0.1, 0.1), z), r, squash=(1.1, 1.0, 0.9), rough=0.1, freq=1.4, subdiv=3, seed=rnd.random() * 60)
         mb.add(v, f, (1, 1, 1, 1))
-    mat = C.cloud_material('storm_cloud', top='#9a9cc0', mid='#5e5f86', low='#2e2c47', glow='#8f6dff', glow_strength=0.1,
-                           z_low=-0.45, z_top=1.0, ao_tint='#4b3f86', sheen=0.3)
+    mat = C.cloud_material('storm_cloud', top='#aeb0d2', mid='#5d5e88', low='#1f1d33', glow='#8f6dff', glow_strength=0.12,
+                           z_low=-0.5, z_top=1.05, ao_tint='#40357a', sheen=0.35)
     mb.build('storm_cloud', mat)
     finish('storm')
 

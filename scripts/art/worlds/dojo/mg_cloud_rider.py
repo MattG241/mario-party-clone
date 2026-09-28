@@ -81,34 +81,31 @@ def spire_profile(radius, height, rnd, shoulders=0.18):
 
 
 def rock_material(name, haze=0.0, haze_col=SKY['haze'], top_z=3.0, base_z=-3.0):
-    """Warm grey karst stone streaked with moss, with grass on its crown; `haze` fades it towards the
-    sky colour (more at its foot, where it stands in the cloud sea)."""
+    """Cool grey karst stone streaked vertically (rain-washed flutes), mossy patches, grass on its
+    crown; `haze` fades it towards the sky colour (more at its foot, in the cloud sea). Kept cool and
+    soft so the golden rings and clouds of the game read in front of it."""
     m = lib.NT(name)
     pos = m.position()
     x, y, z = m.sep(pos)
     nz = m.sep(m.normal())[2]
-    wave = m.node('ShaderNodeTexWave')
-    wave.wave_type = 'BANDS'
-    wave.bands_direction = 'Z'
-    wave.inputs['Scale'].default_value = 0.9
-    wave.inputs['Distortion'].default_value = 5.0
-    wave.inputs['Detail'].default_value = 2.0
-    m.link(pos, wave.inputs['Vector'])
-    n1 = m.noise(1.6, 4, 0.6, pos)
-    streak = m.noise(0.9, 3, 0.5, m.position())
-    f = m.math('ADD', m.math('MULTIPLY', wave.outputs['Fac'], 0.45), m.math('MULTIPLY', n1.outputs['Fac'], 0.6))
-    rock = m.ramp(f, [(0.2, '#6d5f60'), (0.42, '#9b8676'), (0.6, '#c2ab8f'), (0.8, '#d9c7a8')])
-    moss = m.maprange(m.math('ADD', streak.outputs['Fac'], m.math('MULTIPLY', m.maprange(z, top_z - 1.6, top_z), 0.5)), 0.55, 0.8)
-    rock = m.mix(m.math('MULTIPLY', moss, 0.75), rock, col('#5f9344'))
-    grass = m.ramp(n1.outputs['Fac'], [(0.3, '#3f8a35'), (0.55, '#62ad3f'), (0.8, '#9ccc55')])
+    mp = m.node('ShaderNodeMapping')
+    mp.inputs['Scale'].default_value = (3.2, 3.2, 0.32)
+    m.link(pos, mp.inputs['Vector'])
+    streak = m.noise(1.3, 4, 0.62, mp.outputs['Vector'])
+    n1 = m.noise(1.8, 3, 0.55, pos)
+    f = m.math('ADD', m.math('MULTIPLY', streak.outputs['Fac'], 0.75), m.math('MULTIPLY', n1.outputs['Fac'], 0.35))
+    rock = m.ramp(f, [(0.25, '#65708a'), (0.45, '#8993a6'), (0.62, '#aab3c2'), (0.8, '#cdd3dc')])
+    moss = m.maprange(m.math('ADD', n1.outputs['Fac'], m.math('MULTIPLY', m.maprange(z, top_z - 1.4, top_z), 0.35)), 0.58, 0.78)
+    rock = m.mix(m.math('MULTIPLY', moss, 0.8), rock, col('#6f9c55'))
+    grass = m.ramp(n1.outputs['Fac'], [(0.3, '#3f8a3e'), (0.55, '#5fa84a'), (0.8, '#8fc45a')])
     crown = m.math('MULTIPLY', m.maprange(nz, 0.35, 0.75), m.maprange(z, top_z - 0.9, top_z - 0.3))
     c = m.mix(crown, rock, grass)
-    c = m.mult(c, m.mix(m.ao(0.6, 8), col('#5a4c6a'), col('#ffffff')))
-    c = m.mult(c, m.mix(m.maprange(z, base_z, base_z + 2.5, 0.0, 1.0), col('#7d86b8'), col('#ffffff')))
+    c = m.mult(c, m.mix(m.ao(0.5, 8), col('#4d4f73'), col('#ffffff')))
+    c = m.mult(c, m.mix(m.maprange(z, base_z, base_z + 2.5, 0.0, 1.0), col('#8a93c4'), col('#ffffff')))
     if haze:
         hz = m.math('ADD', haze, m.math('MULTIPLY', m.maprange(z, base_z + 2.5, base_z), 0.35))
         c = m.mix(hz, c, col(haze_col))
-    m.bsdf(c, 0.88, normal=m.bump(m.math('ADD', wave.outputs['Fac'], n1.outputs['Fac']), 0.35, 0.05))
+    m.bsdf(c, 0.88, normal=m.bump(m.math('ADD', streak.outputs['Fac'], m.math('MULTIPLY', n1.outputs['Fac'], 0.5)), 0.4, 0.05))
     return m.mat
 
 
@@ -227,15 +224,22 @@ def warm_cloud(name, haze=0.0):
 # ------------------------------------------------------------------------------------------
 # peaks: the scrolling mid layer
 PEAKS = [
-    # x, y (depth), top z, radius, pines
-    (1.3, 2.2, 2.2, 0.8, 2),
-    (4.2, 0.8, 3.5, 1.0, 3),
-    (6.9, 3.0, 1.5, 0.65, 2),
-    (9.5, 1.3, 4.1, 1.1, 4),
-    (12.6, 1.2, 2.6, 0.85, 3),
-    (15.4, 1.2, 3.3, 0.95, 3),
-    (17.9, 2.4, 1.9, 0.72, 2),
+    # x, y (depth), top z, radius, pines: slim needles of stone with room to see the sky between them,
+    # some tall, some barely clearing the clouds
+    (0.9, 2.4, 1.3, 0.6, 2),
+    (2.9, 0.6, 2.6, 0.78, 3),
+    (4.8, 3.2, 0.5, 0.5, 1),
+    (6.6, 1.4, 3.0, 0.85, 3),
+    (8.7, 2.8, 1.0, 0.55, 2),
+    (10.6, 0.9, 2.1, 0.72, 3),
+    (12.7, 2.2, 1.6, 0.62, 2),
+    (14.6, 2.2, 2.7, 0.8, 3),
+    (16.9, 1.2, 0.7, 0.6, 2),
+    (18.4, 3.0, 1.8, 0.5, 2),
 ]
+PAVILION = 3
+BRIDGE = (6, 7)
+FALLS = 1
 
 
 def peaks():
@@ -252,10 +256,10 @@ def peaks():
             tz = spire(mbs, x + shift, y, base, top - base, r, seed=100 + i, pines=n)
             tops[(i, shift)] = tz
         # the pavilion on the tallest spire, a bridge between two neighbours, and a waterfall
-        x, y, top, r, _ = PEAKS[3]
-        pavilion(mbs['post'], mbs['roof'], mbs['trim'], x + shift - 0.15, y - 0.1, tops[(3, shift)] + r * 0.2, 0.95)
-        a, b = PEAKS[4], PEAKS[5]
-        rope_bridge(mbs['plank'], mbs['rope'], (a[0] + shift + a[3] * 0.7, 1.2, a[2] + 0.2), (b[0] + shift - b[3] * 0.72, 1.2, b[2] - 0.1), 0.55)
+        x, y, top, r, _ = PEAKS[PAVILION]
+        pavilion(mbs['post'], mbs['roof'], mbs['trim'], x + shift - 0.1, y - 0.1, tops[(PAVILION, shift)] + r * 0.2, 0.8)
+        a, b = PEAKS[BRIDGE[0]], PEAKS[BRIDGE[1]]
+        rope_bridge(mbs['plank'], mbs['rope'], (a[0] + shift + a[3] * 0.72, a[1], a[2] + 0.18), (b[0] + shift - b[3] * 0.74, b[1], b[2] - 0.12), 0.4, planks=12)
         # cloud sea: rolling puffs along the bottom, in two depths
         rnd = random.Random(900)
         for k in range(10):
@@ -264,11 +268,11 @@ def peaks():
         for k in range(8):
             cx = (k + 0.5) / 8 * P + rnd.uniform(-0.3, 0.3)
             C.puff_cluster(mbs['cloud'], (cx + shift, 3.2, -1.7 + rnd.uniform(-0.2, 0.2)), rnd.uniform(0.7, 0.95), 6, rnd, flat=0.4, depth=0.3, subdiv=2)
-    build_all(mbs, 'peaks', haze=0.26, top_z=4.4, base_z=base, cloud_mat=warm_cloud('peaks_cloud'))
-    # a waterfall down the face of the big spire
-    x, y, top, r, _ = PEAKS[1]
+    build_all(mbs, 'peaks', haze=0.3, top_z=3.0, base_z=base, cloud_mat=warm_cloud('peaks_cloud'))
+    # a waterfall down the face of one spire
+    x, y, top, r, _ = PEAKS[FALLS]
     for shift in (-P, 0.0, P):
-        fv = [(x + shift + 0.25, y - r * 1.02, top - 0.5), (x + shift + 0.55, y - r * 1.02, top - 0.5), (x + shift + 0.62, y - r * 1.18, base + 1.0), (x + shift + 0.18, y - r * 1.18, base + 1.0)]
+        fv = [(x + shift + 0.12, y - r * 1.02, top - 0.4), (x + shift + 0.34, y - r * 1.02, top - 0.4), (x + shift + 0.4, y - r * 1.2, base + 1.0), (x + shift + 0.06, y - r * 1.2, base + 1.0)]
         lib.mesh_object('falls', fv, [(0, 1, 2, 3)], smooth=False, material=lib.falls_material('peaks_falls', top - 0.5, base + 1.0))
     png = os.path.join(C.OUT, 'sky_peaks.png')
     lib.render_to(png)

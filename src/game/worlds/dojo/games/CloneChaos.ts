@@ -9,11 +9,12 @@ import { BaseMinigame, type MgPlayer } from '../../../minigames/BaseMinigame';
 import { banner, popToHud, punch, shockwave, titleTexture } from '../../../minigames/juice';
 import { bakeWord, calmMotion, liteCount, WordPops } from '../../../minigames/games/stageKit';
 import { LITE } from '../../../perf';
+import { glyphKindFor, makeGlyph } from '../../../ui/ControllerPrompt';
 import { PlayerBadge } from '../../../ui/PlayerBadge';
 import { addText } from '../../../ui/theme';
 import { DOJO_SPRITES, finishDojoSprites, queueDojoSprites, type DojoSprite } from '../dojoArt';
 import { DECK_FEET, DECK_SCALE, DECK_XS, SPOTS, START_SPOT, spotDist } from './cloneChaosLayout';
-import { applyStep, initialOccupancy, leapsOf, navFrom, navToward, pickPoints, planShuffle, ROUNDS, roundPlan, spotOf, trackStep, type Occupancy, type RoundPlan, type Step } from './cloneChaosRules';
+import { applyStep, initialOccupancy, leapsOf, navFrom, navToward, pickPoints, planShuffle, ROUNDS, roundPlan, SPEED_STEPS, spotOf, trackStep, type Occupancy, type RoundPlan, type Step } from './cloneChaosRules';
 
 const SPRITES: DojoSprite[] = ['puff'];
 /** The ninja who clones himself (the guest this game celebrates). */
@@ -57,6 +58,11 @@ interface Picker {
   marker: Phaser.GameObjects.Container;
   arrow: Phaser.GameObjects.Graphics;
   ring: Phaser.GameObjects.Graphics;
+  /** Humans, early rounds: an A button over the marker until they lock in. */
+  hint?: Phaser.GameObjects.Container;
+  /** "LOCKED" over their deck character once they've chosen (the choice itself stays hidden). */
+  tag: Phaser.GameObjects.Container;
+  tagPips: Phaser.GameObjects.Graphics;
   /** Marker's drawn position (it glides between clones). */
   mx: number;
   my: number;
@@ -98,6 +104,8 @@ export class CloneChaosScene extends BaseMinigame {
   private pillar?: Phaser.GameObjects.Image;
   private words!: WordPops;
   private lastTick = 0;
+  /** Spots with a clone on them (kept in step with occ, so picking allocates nothing per frame). */
+  private taken: number[] = [];
   private wrapped = false;
   private clock = 0;
 
@@ -128,7 +136,6 @@ export class CloneChaosScene extends BaseMinigame {
     for (const n of [2, 3, 4, 5, 6, 8, 10]) titleTexture(this, `+${n}`, POP_SIZE, POP_COLOR);
     this.words = new WordPops(this, 5600, 16);
     bakeWord(this, 'cc-miss', 'MISS', { size: 50, fill: ['#e9edf5', '#9aa6ba'] });
-    bakeWord(this, 'cc-locked', 'LOCKED!', { size: 40, fill: ['#ffffff', '#ffe08a'] });
     bakeWord(this, 'cc-real', 'THE REAL ONE!', { size: 52, fill: ['#fff9d6', '#ffcf3a'] });
     bakeWord(this, 'cc-dark', 'LIGHTS OUT!', { size: 60, fill: ['#e6ecff', '#9fb2ff'] });
     bakeWord(this, 'cc-smoke', 'SMOKE SCREEN!', { size: 60, fill: ['#ffffff', '#c7cfdf'] });
@@ -226,8 +233,24 @@ export class CloneChaosScene extends BaseMinigame {
     const arrow = this.add.graphics();
     const badge = new PlayerBadge(this, 0, -56, p.slot, 20);
     const marker = this.add.container(0, 0, [arrow, badge]).setDepth(D_MARK + index).setVisible(false);
+    let hint: Phaser.GameObjects.Container | undefined;
+    if (!p.isCpu) {
+      hint = makeGlyph(this, 'A', 40, glyphKindFor(p.slot));
+      hint.setPosition(0, -112).setVisible(false);
+      marker.add(hint);
+    }
     const ring = this.add.graphics().setDepth(D_MARK - 10 + index).setVisible(false);
-    this.pickers.push({ p, spot: START_SPOT, locked: false, lockMs: null, belief: 0, marker, arrow, ring, mx: 0, my: 0, points: 0 });
+    const tg = this.add.graphics();
+    tg.fillStyle(0x0a1120, 0.3);
+    tg.fillRoundedRect(-76, -20, 152, 48, 22);
+    tg.fillStyle(0x121b2b, 0.9);
+    tg.fillRoundedRect(-78, -24, 156, 48, 22);
+    tg.lineStyle(3, PLAYER_COLORS[p.slot], 1);
+    tg.strokeRoundedRect(-77, -23, 154, 46, 21);
+    const tt = addText(this, -10, -1, 'LOCKED', 24, { color: '#ffffff', weight: 700, fixed: true });
+    const tagPips = this.add.graphics();
+    const tag = this.add.container(x, DECK_FEET - 250, [tg, tt, tagPips]).setDepth(5600 + index).setVisible(false);
+    this.pickers.push({ p, spot: START_SPOT, locked: false, lockMs: null, belief: 0, marker, arrow, ring, hint, tag, tagPips, mx: 0, my: 0, points: 0 });
   }
 
   protected override onStart(): void {
@@ -390,9 +413,13 @@ export class CloneChaosScene extends BaseMinigame {
       const s = SPOTS[start];
       pk.mx = s.x;
       pk.my = s.y;
-      pk.marker.setVisible(true).setAlpha(1).setScale(0.3);
-      this.tweens.add({ targets: pk.marker, scale: 1, duration: 220, ease: 'Back.Out' });
-      pk.ring.setVisible(true).setAlpha(1);
+      // only a human sees their own marker while choosing: nobody can copy a CPU's pick
+      const own = !pk.p.isCpu;
+      pk.marker.setVisible(own).setAlpha(1).setScale(0.3);
+      if (own) this.tweens.add({ targets: pk.marker, scale: 1, duration: 220, ease: 'Back.Out' });
+      pk.ring.setVisible(own).setAlpha(1);
+      pk.hint?.setVisible(this.round <= 2);
+      pk.tag.setVisible(false);
       const b = pk.p.brain;
       b.timer = this.skill(pk.p).reaction * (1.8 + Math.random() * 1.0);
       b.n = 0;
@@ -406,20 +433,45 @@ export class CloneChaosScene extends BaseMinigame {
     if (pk.locked) return;
     pk.locked = true;
     pk.lockMs = auto ? null : this.stageT;
-    const s = SPOTS[pk.spot];
-    this.tweens.add({ targets: pk.marker, scale: { from: 1.35, to: 1 }, duration: 220, ease: 'Back.Out' });
-    if (!auto) {
-      audio.play('confirm', { volume: 0.6 });
-      this.words.pop('cc-locked', pk.mx + this.markerOffset(pk), s.y + this.clones[0].c.headY * s.scale - 150, { scale: 0.8, hold: 400, rise: 18, owner: pk.p.slot });
+    pk.hint?.setVisible(false);
+    if (auto) return;
+    // the choice goes under wraps until the reveal: the marker slips away, LOCKED shows on the deck
+    if (pk.marker.visible) {
+      const s = SPOTS[pk.spot];
       shockwave(this, pk.mx, s.y, { radius: 70 * s.scale, ratio: 0.35, color: PLAYER_COLORS[pk.p.slot], alpha: 0.9, duration: 300, depth: D_MARK - 20 });
-      this.rumble(pk.p, 0.2, 0.3, 80);
+      this.tweens.add({ targets: pk.marker, scale: 0.2, alpha: 0, duration: 180, ease: 'Quad.In', onComplete: () => pk.marker.setVisible(false) });
+      pk.ring.setVisible(false);
     }
+    const tier = SPEED_STEPS.filter((t) => this.stageT <= t).length;
+    const g = pk.tagPips;
+    g.clear();
+    for (let i = 0; i < 3; i++) {
+      g.fillStyle(i < tier ? 0xffe08a : 0xffffff, i < tier ? 1 : 0.2);
+      g.fillCircle(46 + (i - 1) * 16 + 10, 0, 5.5);
+    }
+    pk.tag.setVisible(true).setAlpha(1).setScale(0.4);
+    this.tweens.add({ targets: pk.tag, scale: 1, duration: 220, ease: 'Back.Out' });
+    pk.p.character?.squash(0.14, 160);
+    audio.play('confirm', { volume: 0.6 });
+    this.rumble(pk.p, 0.2, 0.3, 80);
   }
 
   private resolveRound(): void {
     this.setStage('result');
     for (const pk of this.pickers) if (!pk.locked) this.lockIn(pk, true);
     this.words.clear();
+    // everyone's pick comes out together
+    for (const pk of this.pickers) {
+      const sp = SPOTS[pk.spot];
+      pk.mx = sp.x;
+      pk.my = sp.y;
+      this.tweens.killTweensOf(pk.marker);
+      pk.marker.setVisible(true).setAlpha(1).setScale(0.3);
+      this.tweens.add({ targets: pk.marker, scale: 1, duration: 200, ease: 'Back.Out' });
+      pk.ring.setVisible(true).setAlpha(1);
+      this.tweens.add({ targets: pk.tag, alpha: 0, duration: 200, onComplete: () => pk.tag.setVisible(false) });
+    }
+    audio.play('stamp', { volume: 0.5 });
     const real = spotOf(this.occ, 0);
     // the smoke clears: every clone vanishes in a ripple of puffs, leaving the real ninja
     const fakes = this.clones.filter((c) => c.shown && c.id !== 0);
@@ -501,6 +553,7 @@ export class CloneChaosScene extends BaseMinigame {
     for (const pk of this.pickers) {
       pk.marker.setVisible(false);
       pk.ring.setVisible(false);
+      pk.tag.setVisible(false);
     }
   }
 
@@ -600,32 +653,35 @@ export class CloneChaosScene extends BaseMinigame {
   }
 
   private takenSpots(): number[] {
-    const out: number[] = [];
-    this.occ.forEach((c, id) => {
-      if (c >= 0) out.push(id);
-    });
-    return out;
+    this.taken.length = 0;
+    for (let id = 0; id < this.occ.length; id++) if (this.occ[id] >= 0) this.taken.push(id);
+    return this.taken;
   }
 
   /** Markers sharing a clone stand side by side. */
   private markerOffset(pk: Picker): number {
-    const same = this.pickers.filter((q) => q.spot === pk.spot && q.marker.visible);
-    if (same.length < 2) return 0;
-    const i = same.indexOf(pk);
-    return (i - (same.length - 1) / 2) * 46;
+    let n = 0;
+    let i = 0;
+    for (const q of this.pickers) {
+      if (q.spot !== pk.spot || !q.marker.visible) continue;
+      if (q === pk) i = n;
+      n++;
+    }
+    return n < 2 ? 0 : (i - (n - 1) / 2) * 46;
   }
 
   private syncMarkers(dt: number): void {
     const k = 1 - Math.exp(-dt / 55);
     for (const pk of this.pickers) {
-      if (!pk.marker.visible) continue;
       const s = SPOTS[pk.spot];
       pk.mx += (s.x - pk.mx) * k;
       pk.my += (s.y - pk.my) * k;
+      if (!pk.marker.visible) continue;
       const head = this.clones[0].c.headY * s.scale;
       const off = this.markerOffset(pk);
       const bob = pk.locked || this.stage !== 'pick' ? 0 : Math.sin(this.clock / 150 + pk.p.slot) * 6;
       if (this.stage === 'pick' || this.stage === 'result') pk.marker.setPosition(pk.mx + off, pk.my + head - 70 + bob);
+      if (pk.hint?.visible) pk.hint.setY(-112 + Math.sin(this.clock / 120) * 6);
       const g = pk.arrow;
       g.clear();
       const col = PLAYER_COLORS[pk.p.slot];

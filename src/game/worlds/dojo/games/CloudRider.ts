@@ -8,7 +8,9 @@ import { flashScreen, kick, popToHud, shockwave, titleTexture, type HudPop } fro
 import { AFX, ensureArenaFxTextures } from '../../../minigames/games/arenaFx';
 import { bakeWord, calmMotion, liteCount, WordPops } from '../../../minigames/games/stageKit';
 import { LITE } from '../../../perf';
+import { glyphKindFor, makeGlyph } from '../../../ui/ControllerPrompt';
 import { PlayerBadge } from '../../../ui/PlayerBadge';
+import { addText } from '../../../ui/theme';
 import { finishDojoSprites, queueDojoSprites, DOJO_SPRITES, type DojoSprite } from '../dojoArt';
 import { burstPower, COURSE, courseSpeed, nextPattern, PERFECT_BONUS, PERFECT_MIN, resolveBump, ringsLost, WORTH, type CoursePattern } from './cloudRiderRules';
 
@@ -108,6 +110,8 @@ interface Rider {
   home: number;
   /** CPUs: no new ram attempt before this (game ms). */
   nextRam: number;
+  /** Humans: a "hold A" prompt beside them until their first burst. */
+  hint?: Phaser.GameObjects.Container;
 }
 
 type ItemKind = 'ring' | 'orb' | 'loose';
@@ -234,12 +238,11 @@ export class CloudRiderScene extends BaseMinigame {
     for (let n = 1; n <= 6; n++) titleTexture(this, `+${n}`, POP_SIZE, POP_WHITE);
     titleTexture(this, '+3', POP_SIZE, POP_ORB);
     const word = (key: string, text: string, fill: readonly [string, string], size = 64) => bakeWord(this, key, text, { size, fill });
-    word('cr-bonk', 'BONK!', ['#fff6c4', '#ffb52e']);
-    word('cr-zap', 'ZAP!', ['#f3e6ff', '#a47bff']);
-    word('cr-clash', 'CLASH!', ['#ffffff', '#ffd23f']);
-    word('cr-perfect', 'PERFECT TRAIL!', ['#fff9d6', '#ffcf3a'], 56);
-    word('cr-lose1', '-1', ['#ffd9d2', '#ff6b5e'], 54);
-    word('cr-lose2', '-2', ['#ffd9d2', '#ff6b5e'], 54);
+    word('cr-bonk', 'BONK!', ['#fff6c4', '#ffb52e'], 58);
+    word('cr-zap', 'ZAP!', ['#f3e6ff', '#a47bff'], 58);
+    word('cr-clash', 'CLASH!', ['#ffffff', '#ffd23f'], 58);
+    word('cr-perfect', 'PERFECT TRAIL!', ['#fff9d6', '#ffcf3a'], 46);
+    for (let n = 1; n <= 3; n++) word(`cr-lose${n}`, `-${n}`, ['#ffd9d2', '#ff6b5e'], 54);
     this.words = new WordPops(this, 5600, 16);
     this.buildSky();
     this.gustG = this.add.graphics().setDepth(D_GUST - 1);
@@ -305,7 +308,13 @@ export class CloudRiderScene extends BaseMinigame {
     c.hold('balance');
     p.character = c;
     const gauge = this.add.graphics();
-    this.riders.push({ p, c, cloud, glow, aura, gauge, x, y, vx: 0, vy: 0, charging: false, charge: 0, chimes: 0, ramT: 0, recharge: 0, dizzy: 0, guard: 0, bob: index * 1.7, streak: 0, lastRing: -1e9, popN: 0, popAt: -1e9, ghostT: 0, pose: 'balance', gustV: 0, home: y, nextRam: 2500 + index * 700 });
+    let hint: Phaser.GameObjects.Container | undefined;
+    if (!p.isCpu) {
+      const glyph = makeGlyph(this, 'A', 44, glyphKindFor(p.slot));
+      const label = addText(this, 34, 0, 'HOLD', 26, { color: '#ffffff', stroke: '#1b1530', weight: 700, align: 'left', fixed: true });
+      hint = this.add.container(0, 0, [glyph, label]).setDepth(5500).setVisible(false);
+    }
+    this.riders.push({ p, c, cloud, glow, aura, gauge, x, y, vx: 0, vy: 0, charging: false, charge: 0, chimes: 0, ramT: 0, recharge: 0, dizzy: 0, guard: 0, bob: index * 1.7, streak: 0, lastRing: -1e9, popN: 0, popAt: -1e9, ghostT: 0, pose: 'balance', gustV: 0, home: y, nextRam: 2500 + index * 700, hint });
   }
 
   protected override onStart(): void {
@@ -396,6 +405,7 @@ export class CloudRiderScene extends BaseMinigame {
     it.back?.setVisible(true).setAlpha(1).setScale(s).setAngle(0).setDepth(loose ? D_LOOSE - 1 : D_RING_BACK).clearTint();
     it.glow?.setVisible(true).setScale(kind === 'orb' ? 4.4 : 3.2).setAlpha(kind === 'orb' ? 0.7 : 0.4).setDepth(kind === 'orb' ? D_ORB - 1 : D_RING_BACK - 1);
     it.rays?.setVisible(true).setScale(0.34).setAlpha(0.7).setDepth(D_ORB - 2);
+    for (const o of [it.img, it.back, it.glow, it.rays]) o?.setPosition(x, y);
     return it;
   }
 
@@ -412,7 +422,7 @@ export class CloudRiderScene extends BaseMinigame {
     s.phase = this.rng.range(0, 6);
     s.flick = this.rng.range(500, 1400);
     s.seenAt = this.elapsed;
-    s.img.setVisible(true).clearTint().setAlpha(1);
+    s.img.setVisible(true).clearTint().setAlpha(1).setPosition(x, y);
     s.warning = 'on';
     this.tweens.killTweensOf(s.warn);
     s.warn.setVisible(true).setPosition(GAME_WIDTH - 70, y).setAlpha(0).setScale(0.6);
@@ -462,12 +472,8 @@ export class CloudRiderScene extends BaseMinigame {
     const s = dt / 1000;
     const ds = this.speed * s;
     this.scroll += ds;
-    const wrap = (imgs: Phaser.GameObjects.Image[], k: number) => {
-      const off = (this.scroll * k) % GAME_WIDTH;
-      imgs.forEach((img, i) => img.setX(i * GAME_WIDTH - off));
-    };
-    wrap(this.peaks, PEAKS_K);
-    wrap(this.near, NEAR_K);
+    this.wrapStrip(this.peaks, PEAKS_K);
+    this.wrapStrip(this.near, NEAR_K);
     for (const w of this.wisps) {
       w.img.x -= ds * w.k;
       if (w.img.x < -260) {
@@ -514,6 +520,12 @@ export class CloudRiderScene extends BaseMinigame {
         st.warn.setVisible(false);
       }
     }
+  }
+
+  /** A seamless strip: two copies side by side, sliding at k times the course speed. */
+  private wrapStrip(imgs: Phaser.GameObjects.Image[], k: number): void {
+    const off = (this.scroll * k) % GAME_WIDTH;
+    for (let i = 0; i < imgs.length; i++) imgs[i].setX(i * GAME_WIDTH - off);
   }
 
   // --- Frame ------------------------------------------------------------------------------------
@@ -633,6 +645,11 @@ export class CloudRiderScene extends BaseMinigame {
   /** Let go: shoot forward, ramming anyone in the way while the burst is hot. */
   private burst(r: Rider): void {
     const k = r.charge;
+    if (r.hint) {
+      const h = r.hint;
+      r.hint = undefined;
+      this.tweens.add({ targets: h, alpha: 0, scale: 0.6, duration: 200, onComplete: () => h.destroy() });
+    }
     const power = burstPower(k);
     r.charging = false;
     r.charge = 0;
@@ -701,6 +718,7 @@ export class CloudRiderScene extends BaseMinigame {
     kick(this, 14, sy * 10, 170);
     audio.play('hit', { volume: 0.85 });
     audio.play('bounce', { volume: 0.55, rate: 1.1 });
+    if (lost > 0) audio.play('cheer', { volume: 0.22, throttleMs: 600 });
     shockwave(this, mx, my, { radius: 150, color: 0xffe08a, alpha: 0.9, duration: 360, depth: D_RIDER + 300 });
     this.fx.vfx('impact', mx, my, { scale: 0.62, blend: 'add', depth: D_RIDER + 310 });
     this.words.pop('cr-bonk', mx, my - 90, { scale: 1, hold: 480, tilt: -8 });
@@ -745,7 +763,7 @@ export class CloudRiderScene extends BaseMinigame {
   private loseRings(r: Rider, n: number, dir: number): void {
     if (n <= 0) return;
     r.p.score -= n;
-    this.words.pop(n >= 2 ? 'cr-lose2' : 'cr-lose1', r.x - 70, r.y + 40, { scale: 0.85, hold: 520, rise: 30 });
+    this.words.pop(`cr-lose${Math.min(3, n)}`, r.x - 70, r.y + 40, { scale: 0.85, hold: 520, rise: 30 });
     audio.play('chipLose', { volume: 0.6 });
     for (let i = 0; i < n; i++) {
       const it = this.spawnItem('loose', r.x, r.y + HIT_DY, -1);
@@ -822,6 +840,7 @@ export class CloudRiderScene extends BaseMinigame {
     this.popScore(r, r.x + 40, r.y + HIT_DY - 60, PERFECT_BONUS, POP_GOLD);
     this.words.pop('cr-perfect', r.x + 60, r.y + HIT_DY - 150, { scale: 0.9, hold: 650, owner: r.p.slot });
     audio.play('streak', { volume: 0.7, rate: 1.1 });
+    audio.play('cheer', { volume: 0.3, throttleMs: 400 });
     shockwave(this, r.x, r.y + HIT_DY, { radius: 130, color: PLAYER_COLORS[r.p.slot], alpha: 0.85, duration: 380, depth: D_RIDER + 300 });
   }
 
@@ -967,6 +986,15 @@ export class CloudRiderScene extends BaseMinigame {
     r.bob += dt / 1000;
     const bobY = Math.sin(r.bob * 3.1 + r.p.slot) * 6;
     const cy = r.y + bobY;
+    if (r.hint) {
+      const show = this.phase === 'playing' && this.elapsed > 600 && this.elapsed < 9000;
+      r.hint.setVisible(show);
+      if (show) r.hint.setPosition(r.x + 96, cy - 150 + Math.sin(this.clock / 160) * 5).setScale(r.charging ? 1.12 : 1);
+      if (this.elapsed >= 9000) {
+        r.hint.destroy();
+        r.hint = undefined;
+      }
+    }
     const tilt = Phaser.Math.Clamp(r.vy * 0.014, -12, 12);
     r.cloud.setPosition(r.x, cy).setAngle(tilt).setDepth(D_RIDER + r.y * 0.01);
     r.c.setPosition(r.x + 4, cy + FEET_DY).setDepth(D_RIDER + r.y * 0.01 + 0.005);
@@ -1018,23 +1046,30 @@ export class CloudRiderScene extends BaseMinigame {
     if (r.ghostT > 0) return;
     r.ghostT = LITE ? 80 : 45;
     const sp = r.c.sprite;
-    for (const [tex, frame, x, y, sx, sy, flip, ox, oy] of [
-      [r.cloud.texture.key, undefined, r.cloud.x, r.cloud.y, r.cloud.scaleX, r.cloud.scaleY, false, 0.5, 0.5],
-      [sp.texture.key, sp.frame.name, r.c.x, r.c.y, CHAR_SCALE * sp.scaleX, CHAR_SCALE * sp.scaleY, sp.flipX, sp.originX, sp.originY],
-    ] as const) {
-      let img = this.ghosts.find((gi) => !gi.visible);
-      if (!img) {
-        img = this.add.image(0, 0, tex).setVisible(false);
-        this.ghosts.push(img);
+    const tint = PLAYER_COLORS[r.p.slot];
+    this.ghost(r.cloud.texture.key, undefined, r.cloud.x, r.cloud.y, r.cloud.scaleX, r.cloud.scaleY, false, 0.5, 0.5, tint);
+    this.ghost(sp.texture.key, sp.frame.name, r.c.x, r.c.y, CHAR_SCALE * sp.scaleX, CHAR_SCALE * sp.scaleY, sp.flipX, sp.originX, sp.originY, tint);
+  }
+
+  private ghost(tex: string, frame: string | undefined, x: number, y: number, sx: number, sy: number, flip: boolean, ox: number, oy: number, tint: number): void {
+    let img: Phaser.GameObjects.Image | undefined;
+    for (const gi of this.ghosts) {
+      if (!gi.visible) {
+        img = gi;
+        break;
       }
-      if (frame !== undefined) img.setTexture(tex, frame);
-      else img.setTexture(tex);
-      img.setOrigin(ox, oy).setPosition(x, y).setScale(sx, sy).setFlipX(flip).setAngle(0);
-      img.setTintFill(PLAYER_COLORS[r.p.slot]).setAlpha(0.4).setDepth(D_RIDER - 1).setVisible(true);
-      const ghost = img;
-      this.tweens.killTweensOf(ghost);
-      this.tweens.add({ targets: ghost, alpha: 0, x: x - 40, duration: 220, ease: 'Quad.Out', onComplete: () => ghost.setVisible(false) });
     }
+    if (!img) {
+      img = this.add.image(0, 0, tex).setVisible(false);
+      this.ghosts.push(img);
+    }
+    if (frame !== undefined) img.setTexture(tex, frame);
+    else img.setTexture(tex);
+    img.setOrigin(ox, oy).setPosition(x, y).setScale(sx, sy).setFlipX(flip).setAngle(0);
+    img.setTintFill(tint).setAlpha(0.4).setDepth(D_RIDER - 1).setVisible(true);
+    const g = img;
+    this.tweens.killTweensOf(g);
+    this.tweens.add({ targets: g, alpha: 0, x: x - 40, duration: 220, ease: 'Quad.Out', onComplete: () => g.setVisible(false) });
   }
 
   /** Streaks of wind rushing past: the sense of speed. */
@@ -1093,10 +1128,11 @@ export class CloudRiderScene extends BaseMinigame {
       this.gustLines.push({ img: this.add.image(0, 0, AFX.streak).setDepth(D_GUST).setVisible(false), x: 0, y: 0, v: 0 });
     }
     const s = dt / 1000;
-    this.gustLines.forEach((l, i) => {
+    for (let i = 0; i < this.gustLines.length; i++) {
+      const l = this.gustLines[i];
       if (i >= n) {
         l.img.setVisible(false);
-        return;
+        continue;
       }
       if (!l.img.visible || l.x < -300) {
         l.x = GAME_WIDTH + this.rng.range(0, 600);
@@ -1108,7 +1144,7 @@ export class CloudRiderScene extends BaseMinigame {
       l.y += g.dir * (warn ? 20 : 260) * s;
       if (l.y < top || l.y > top + g.half * 2) l.y = g.dir > 0 ? top + 8 : top + g.half * 2 - 8;
       l.img.setPosition(l.x, l.y).setScale(3.2, 1.3).setAngle(g.dir * 8).setAlpha(warn ? 0.25 : 0.6);
-    });
+    }
   }
 
   protected override ambient(dt: number): void {
