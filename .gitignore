@@ -10,3 +10,4 @@ art-out/
 __pycache__/
 *.pyc
 scripts/dev/tmp/
+.claude/worktrees/
