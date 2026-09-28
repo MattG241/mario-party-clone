@@ -1,9 +1,9 @@
-import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { HEROES_INFO } from '../../src/game/worlds/heroes/info';
 
-const ROOT = resolve(__dirname, '..', '..');
+// The art on disk (paths only: nothing is loaded).
+const FULL = Object.keys(import.meta.glob('../../public/assets/rendered/scene_heroes_*.webp'));
+const LITE = Object.keys(import.meta.glob('../../public/assets/lite/scene_heroes_*.webp'));
 const WORDS_TO_AVOID = /\bchips?\b|\brelics?\b|prism/i;
 
 describe('Hero Heights minigames', () => {
@@ -44,8 +44,8 @@ describe('Hero Heights minigames', () => {
   it('ship every image they list, full size and for Lite', () => {
     for (const set of Object.values(HEROES_INFO.renders ?? {})) {
       for (const name of set.images) {
-        expect(existsSync(resolve(ROOT, 'public/assets/rendered', `scene_${name}.webp`)), name).toBe(true);
-        expect(existsSync(resolve(ROOT, 'public/assets/lite', `scene_${name}.webp`)), `lite ${name}`).toBe(true);
+        expect(FULL.some((f) => f.endsWith(`/scene_${name}.webp`)), name).toBe(true);
+        expect(LITE.some((f) => f.endsWith(`/scene_${name}.webp`)), `lite ${name}`).toBe(true);
       }
     }
   });

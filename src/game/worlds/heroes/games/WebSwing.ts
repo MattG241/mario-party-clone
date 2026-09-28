@@ -112,6 +112,8 @@ interface Racer {
 export class WebSwingScene extends BaseMinigame {
   private course!: Course;
   private racers: Racer[] = [];
+  /** The racers in course order for the progress bar (re-sorted in place each frame). */
+  private barOrder: Racer[] = [];
   private camX = 0;
   private backs: Phaser.GameObjects.Image[] = [];
   private streets: Phaser.GameObjects.Image[] = [];
@@ -151,6 +153,7 @@ export class WebSwingScene extends BaseMinigame {
     this.duration = 50000;
     this.course = buildCourse(this.rng);
     this.racers = [];
+    this.barOrder = [];
     this.camX = 0;
     this.backs = [];
     this.streets = [];
@@ -813,8 +816,13 @@ export class WebSwingScene extends BaseMinigame {
     if (!g) return;
     const { x0, x1, y } = BAR;
     g.clear();
-    const sorted = this.racers.slice().sort((a, b) => a.s.x - b.s.x);
-    sorted.forEach((r, k) => {
+    const order = this.barOrder;
+    if (order.length !== this.racers.length) {
+      order.length = 0;
+      order.push(...this.racers);
+    }
+    order.sort((a, b) => a.s.x - b.s.x);
+    order.forEach((r, k) => {
       const f = Phaser.Math.Clamp(r.s.x / COURSE_LEN, 0, 1);
       const px = x0 + f * (x1 - x0);
       drawPlayerShape(g, PLAYER_SHAPES[r.p.slot], px, y - 8 - (k % 2) * 6, 13, PLAYER_COLORS[r.p.slot], 0xffffff, 3);
