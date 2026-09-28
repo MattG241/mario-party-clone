@@ -362,6 +362,15 @@ def main():
         if abs(X) < PW / 2 + 0.6 and -0.6 < Y < PD + 0.6:
             continue
         terrain.flower_bed(flowers, leaves, *bpx(X, Y), rnd)
+    # the strip of lawn in front of the curb (the bottom of the frame): tufts and a few small
+    # flower clusters, so it reads as grass rather than a flat green band
+    tufts = lib.MeshBuilder()
+    for _ in range(90):
+        X, Y = rnd.uniform(-9.5, 9.5), rnd.uniform(-1.0, -0.18)
+        terrain.grass_tuft(tufts, *bpx(X, Y), rnd, rnd.uniform(1.0, 1.5))
+    for X in (-7.6, -3.1, 1.9, 6.4):
+        terrain.flower_bed(flowers, leaves, *bpx(X + rnd.uniform(-0.6, 0.6), rnd.uniform(-0.8, -0.45)), rnd)
+    tufts.build('front_tufts', lib.attr_mat('tuft', rough=0.8, ao=0.4), smooth=False)
     leaves.build('leaves', lib.attr_mat('leaf', rough=0.78, ao=0.5))
     wood.build('wood', lib.attr_mat('wood', rough=0.8, ao=0.3))
     flowers.build('flowers', lib.attr_mat('flower', rough=0.55))

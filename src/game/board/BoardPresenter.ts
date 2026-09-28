@@ -307,7 +307,7 @@ export class BoardPresenter implements FlowIO {
 
   async landed(p: PlayerState, node: BoardNodeDef): Promise<void> {
     this.moves.settle(this.state, p);
-    const colors: Record<string, number> = { gleam: 0x5ce1ff, festival: 0xffb050, mischief: 0xc49bff, event: 0xffffff, market: 0xffe08a, portal: 0x9bf2e8, relic: 0xffffff, start: 0x79dcd5 };
+    const colors: Record<string, number> = { gleam: 0x5ce1ff, festival: 0xffb050, mischief: 0xc49bff, event: 0xff8fa3, market: 0xffe08a, portal: 0x9bf2e8, relic: 0xffffff, start: 0x79dcd5 };
     this.scene.board.pulseNode(node.id, colors[node.type] ?? 0xffffff);
     audio.play('land', { volume: 0.7 });
     const c = this.controls(p);

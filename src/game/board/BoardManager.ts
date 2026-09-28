@@ -40,6 +40,7 @@ export class BoardManager {
   readonly decorations = new Map<string, Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.Transform>();
   /** Fork arrows on the ground (grown when the camera pulls back so junctions stay readable). */
   private chevrons: Phaser.GameObjects.Container[] = [];
+  private npcPlates: Phaser.GameObjects.Container[] = [];
   private bridgeLayer!: Phaser.GameObjects.Container;
   private detourLayer!: Phaser.GameObjects.Container;
   private relic!: Phaser.GameObjects.Container;
@@ -240,14 +241,20 @@ export class BoardManager {
     pg.lineStyle(2, def.color, 1);
     pg.strokeRoundedRect(-pw / 2, -13, pw, 26, 13);
     plate.add([pg, label]);
+    this.npcPlates.push(plate);
     // Gentle idle breathing.
     this.scene.tweens.add({ targets: spr, scaleY: 0.432, duration: 1200 + Math.random() * 400, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
   }
 
-  /** Keep fork arrows readable at any zoom (called every frame with the board camera's zoom). */
+  /**
+   * Keep fork arrows readable at any zoom (called every frame with the board camera's zoom). NPC
+   * name plates fade out in the overview, where they would be too small to read.
+   */
   scaleForZoom(zoom: number): void {
     const k = 1.4 * Phaser.Math.Clamp(0.9 / zoom, 1, 2);
     for (const c of this.chevrons) if (Math.abs(c.scaleX - k) > 0.01) c.setScale(k, k * GROUND_SQUASH);
+    const a = Phaser.Math.Clamp((zoom - 0.62) / 0.24, 0, 1);
+    for (const p of this.npcPlates) if (Math.abs(p.alpha - a) > 0.01) p.setAlpha(a);
   }
 
   npcPose(id: NpcId, pose: string): void {

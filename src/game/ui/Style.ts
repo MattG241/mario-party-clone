@@ -4,7 +4,8 @@ import Phaser from 'phaser';
  * House UI style: calm, clean surfaces with few accents.
  *  - Cards: warm-white rounded panels with a slim darker lip (they read as solid panels, not web
  *    cards), a soft drop shadow and ink text (menus, info cards).
- *  - Slate: a translucent dark pill over gameplay (HUD), white text, no outlines or sheens.
+ *  - Slate: a near-opaque dark pill over gameplay (HUD), white text, no outlines or sheens. It
+ *    stays solid enough that busy art behind it never shows through the numbers.
  * Colour is used sparingly: player colours as small accents, gold only for the focused item.
  */
 export const UI = {
@@ -15,7 +16,7 @@ export const UI = {
   inkCss: '#1f2940',
   inkSoftCss: '#5f6a84',
   slate: 0x121b2b,
-  slateAlpha: 0.74,
+  slateAlpha: 0.93,
   shadow: 0x0a1120,
   focus: 0xffc83d,
   focusCss: '#ffc83d',
@@ -79,7 +80,7 @@ export interface SlateOpts {
   borderWidth?: number;
 }
 
-/** Translucent dark HUD surface. */
+/** Dark HUD surface. */
 export function drawSlate(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number, o: SlateOpts = {}): void {
   const r = Math.min(o.radius ?? h / 2, h / 2);
   g.fillStyle(UI.shadow, 0.14);

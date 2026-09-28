@@ -207,7 +207,7 @@ export abstract class BaseMinigame extends Phaser.Scene {
     }
   }
 
-  /** Row of hearts: filled ones in coral, lost ones as dark hollows. */
+  /** Row of hearts: filled ones in coral, lost ones as rimmed hollows. */
   private drawPips(g: Phaser.GameObjects.Graphics, x0: number, y: number, pips: { filled: number; total: number }, flip: boolean): void {
     g.clear();
     const heart = (x: number, cy: number, sz: number, color: number, alpha: number) => {
@@ -225,7 +225,9 @@ export abstract class BaseMinigame extends Phaser.Scene {
         g.fillStyle(0xffffff, 0.55);
         g.fillCircle(x - 8, y - 8, 4);
       } else {
-        heart(x, y, 34, 0x3a5560, 1);
+        // an empty heart: light rim around a dark hollow, so it still reads on the dark plate
+        heart(x, y, 38, 0xffffff, 0.42);
+        heart(x, y + 1, 29, 0x1c2a36, 1);
       }
     }
   }

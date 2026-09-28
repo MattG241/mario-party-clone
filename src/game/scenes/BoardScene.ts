@@ -109,7 +109,7 @@ export class BoardScene extends Phaser.Scene {
     cam.centerOn(ov.centerX, ov.centerY);
     cam.setZoom(this.overviewZoom());
     // Lifted mid-tones on the board: the valley greens read fresh and sunny rather than murky.
-    applyGrade(this, { gamma: 0.95, saturation: 1.1 });
+    applyGrade(this, { gamma: 0.95, saturation: 1.1, lift: [0.022, 0.032, 0.044] });
     audio.playMusic(isFinalRound(state) ? 'boardFinal' : 'board');
     this.bg.setIntensity(isFinalRound(state) ? 1 : 0);
     this.moves.setLightTint(isFinalRound(state));

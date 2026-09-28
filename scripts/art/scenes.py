@@ -782,8 +782,8 @@ def select():
 
 # ------------------------------------------------------------------------------------------
 # Results podium: x and height by finishing place (1st in the centre). Must match ResultsScene.
-RESULT_X = [960, 600, 1320, 1680]
-RESULT_H = [270, 200, 150, 105]
+RESULT_X = [920, 560, 1280, 1640]
+RESULT_H = [330, 215, 150, 95]
 RESULT_BASE = 880
 RANK_ACCENT = ['#f2c14e', '#d9e2ea', '#d8894a', '#5fb3ad']
 RANK_TOP = ['#fff0c2', '#f2f5f8', '#f8dcc2', '#e8efea']

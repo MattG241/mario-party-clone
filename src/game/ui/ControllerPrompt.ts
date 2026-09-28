@@ -180,7 +180,7 @@ export class PromptBar extends Phaser.GameObjects.Container {
     if (!dark && parts.length) {
       const h = this.size + 18;
       const pill = this.scene.add.graphics();
-      drawSlate(pill, -total / 2 - 22, -h / 2, total + 44, h, { alpha: 0.66 });
+      drawSlate(pill, -total / 2 - 22, -h / 2, total + 44, h, { alpha: 0.88 });
       this.add(pill);
     }
     for (const p of parts) {

@@ -25,6 +25,7 @@ from PIL import Image, ImageDraw, ImageFilter  # noqa: E402
 p = argparse.ArgumentParser()
 p.add_argument('--preview', action='store_true')
 p.add_argument('--base', action='store_true', help='render the pieces without their icons (space_<type>_base.webp)')
+p.add_argument('--only', default='', help='comma-separated space types to re-render')
 A = p.parse_args(sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else sys.argv[1:])
 
 SCALE = 2.0
@@ -41,7 +42,7 @@ TYPES = {
     'market': ('#a67a18', '#f2c14e', '#ffe39a'),
     'portal': ('#18867b', '#34cdbd', '#9bf2e8'),
     'relic': ('#6f8fb0', '#dcefff', '#ffffff'),
-    'event': ('#8d856f', '#e9e2cf', '#fff9ea'),
+    'event': ('#a3294a', '#ff5c7a', '#ffa3b5'),
     'start': ('#0f6f6b', '#1fa5a0', '#79dcd5'),
 }
 R_TOP = 0.5
@@ -134,8 +135,10 @@ def icon_texture(kind, top, hl):
         d.polygon([(c, c - S * 0.3), (c + S * 0.2, c - S * 0.1), (c, c - S * 0.02), (c - S * 0.2, c - S * 0.1)], fill=(200, 246, 255, 255))
         d.line([(c, c - S * 0.02), (c, c + S * 0.27)], fill=(40, 120, 170, 255), width=int(S * 0.012))
     elif kind == 'event':
-        d.rounded_rectangle([c - S * 0.06, c - S * 0.28, c + S * 0.06, c + S * 0.08], radius=int(S * 0.05), fill=(255, 107, 60, 255))
-        d.ellipse([c - S * 0.065, c + S * 0.14, c + S * 0.065, c + S * 0.27], fill=(255, 107, 60, 255))
+        # a bold white "!" with a soft darker drop, on rose enamel
+        for dy, fill in ((S * 0.012, (150, 30, 66, 255)), (0, (255, 255, 255, 255))):
+            d.rounded_rectangle([c - S * 0.065, c - S * 0.29 + dy, c + S * 0.065, c + S * 0.08 + dy], radius=int(S * 0.055), fill=fill)
+            d.ellipse([c - S * 0.07, c + S * 0.14 + dy, c + S * 0.07, c + S * 0.28 + dy], fill=fill)
     elif kind == 'start':
         d.rounded_rectangle([c - S * 0.16, c - S * 0.3, c - S * 0.12, c + S * 0.28], radius=int(S * 0.02), fill=(255, 244, 220, 255))
         d.polygon([(c - S * 0.12, c - S * 0.3), (c + S * 0.24, c - S * 0.18), (c - S * 0.12, c - S * 0.04)], fill=(255, 107, 94, 255))
@@ -163,7 +166,7 @@ def face_material(name, img_path):
 lib.BETA = math.radians(90 - 52)
 lib.COSB, lib.SINB = math.cos(lib.BETA), math.sin(lib.BETA)
 meta = {'scale': SCALE}
-names = ['gleam'] if A.preview else list(TYPES)
+names = A.only.split(',') if A.only else (['gleam'] if A.preview else list(TYPES))
 for kind in names:
     side, top, hl = TYPES[kind]
     lib.reset(12 if A.preview else 48)

@@ -27,10 +27,10 @@ export interface NavyPanelOpts {
   header?: { color: number; height?: number };
 }
 
-/** The HUD material as a panel: calm translucent slate, optional flat header band and thin rim. */
+/** The HUD material as a panel: calm dark slate, optional flat header band and thin rim. */
 export function drawNavyPanel(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number, o: NavyPanelOpts = {}): void {
   const r = o.radius ?? 28;
-  drawSlate(g, x, y, w, h, { radius: r, alpha: o.alpha ?? 0.82, border: o.border, borderWidth: 3 });
+  drawSlate(g, x, y, w, h, { radius: r, alpha: o.alpha ?? 0.9, border: o.border, borderWidth: 3 });
   if (o.header) {
     const hh = o.header.height ?? 70;
     g.fillStyle(o.header.color, 1);

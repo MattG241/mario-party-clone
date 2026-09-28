@@ -16,6 +16,7 @@ uniform float uGlow;
 uniform float uGlowThreshold;
 uniform vec3 uShadowTint;
 uniform vec3 uHighTint;
+uniform vec3 uLift;
 varying vec2 outTexCoord;
 
 void main() {
@@ -59,6 +60,8 @@ void main() {
   float l = dot(rgb, vec3(0.2126, 0.7152, 0.0722));
   rgb = mix(vec3(l), rgb, uSaturation);
   rgb = (rgb - 0.5) * uContrast + 0.5;
+  // Lift the blacks a touch towards a cool blue-green, so deep shade reads as air, not ink.
+  rgb = uLift + rgb * (1.0 - uLift);
   rgb *= uTint;
   // Split toning: cool shadows, warm highlights (adds depth without shifting the mid-tones much).
   float tl = dot(clamp(rgb, 0.0, 1.0), vec3(0.2126, 0.7152, 0.0722));
@@ -87,6 +90,8 @@ export interface GradeSettings {
   glowThreshold: number;
   shadowTint: [number, number, number];
   highTint: [number, number, number];
+  /** Black level lift per channel (0 = none). */
+  lift: [number, number, number];
 }
 
 export const DEFAULT_GRADE: GradeSettings = {
@@ -103,11 +108,12 @@ export const DEFAULT_GRADE: GradeSettings = {
   glowThreshold: 0.8,
   shadowTint: [0.96, 0.98, 1.04],
   highTint: [1.03, 1.0, 0.96],
+  lift: [0.016, 0.024, 0.034],
 };
 
 /**
- * Camera colour grade shared by the world scenes: a mid-tone curve, saturation, contrast, split
- * toning, a light bloom and a vignette in a single full-screen pass.
+ * Camera colour grade shared by the world scenes: a mid-tone curve, saturation, contrast, a
+ * black lift, split toning, a light bloom and a vignette in a single full-screen pass.
  */
 export class GradePipeline extends Phaser.Renderer.WebGL.Pipelines.PostFXPipeline {
   settings: GradeSettings = { ...DEFAULT_GRADE };
@@ -130,6 +136,7 @@ export class GradePipeline extends Phaser.Renderer.WebGL.Pipelines.PostFXPipelin
     this.set1f('uGlowThreshold', s.glowThreshold);
     this.set3f('uShadowTint', s.shadowTint[0], s.shadowTint[1], s.shadowTint[2]);
     this.set3f('uHighTint', s.highTint[0], s.highTint[1], s.highTint[2]);
+    this.set3f('uLift', s.lift[0], s.lift[1], s.lift[2]);
   }
 }
 

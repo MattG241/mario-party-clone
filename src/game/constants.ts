@@ -66,7 +66,7 @@ export const PLAYER_SHAPES: readonly PlayerShape[] = ['circle', 'triangle', 'dia
 export const PLAYER_SHAPE_NAMES = ['Circle', 'Triangle', 'Diamond', 'Hexagon'] as const;
 
 /** Board camera zoom for the close-up beats of a turn (the overview zoom is computed from the board). */
-export const CAMERA_ZOOM = { turn: 1.12, dial: 1.22, follow: 1.06 } as const;
+export const CAMERA_ZOOM = { turn: 1.2, dial: 1.32, follow: 1.12 } as const;
 
 /** Render depth bands. */
 export const DEPTH = {

@@ -579,6 +579,8 @@ export class RelicRelayScene extends BaseMinigame {
     this.course = buildCourse(this.rng);
     for (const o of this.course) if (o.kind === 'log') this.nextRelease.set(o, o.phase);
     if (this.textures.exists(ART.scene)) {
+      // The rendered island is cut out, so the sky shows through above it.
+      if (this.textures.exists(SKY_KEY)) this.add.image(GAME_WIDTH / 2, 540, SKY_KEY).setDisplaySize(GAME_WIDTH * 1.04, 1124).setDepth(-100);
       this.add.image(0, 0, ART.scene).setOrigin(0).setDepth(-50);
       if (this.textures.exists(ART.sceneFront)) this.add.image(0, 0, ART.sceneFront).setOrigin(0).setDepth(2000);
     } else {

@@ -103,6 +103,31 @@ export function generateFxTextures(scene: Phaser.Scene): void {
       tex.refresh();
     }
   }
+  if (!scene.textures.exists('fx-shaft')) {
+    // A soft shaft of light falling from above: brightest just above its foot, fading upwards and
+    // out to the sides (the results winner stands in one).
+    const tex = scene.textures.createCanvas('fx-shaft', 128, 512);
+    if (tex) {
+      const ctx = tex.getContext();
+      const img = ctx.createImageData(128, 512);
+      for (let y = 0; y < 512; y++) {
+        const v = y / 511;
+        const up = Math.min(1, v / 0.8) ** 1.6;
+        const foot = v > 0.9 ? 1 - (v - 0.9) / 0.1 : 1;
+        for (let x = 0; x < 128; x++) {
+          const u = (x - 63.5) / 64;
+          const a = Math.exp(-u * u * 4.5) * up * foot;
+          const i = (y * 128 + x) * 4;
+          img.data[i] = 255;
+          img.data[i + 1] = 255;
+          img.data[i + 2] = 255;
+          img.data[i + 3] = Math.round(a * 255);
+        }
+      }
+      ctx.putImageData(img, 0, 0);
+      tex.refresh();
+    }
+  }
   if (!scene.textures.exists('fx-rays')) {
     // Soft sunburst: blurred wedges that fade out from the centre (results spotlight).
     const S = 512;

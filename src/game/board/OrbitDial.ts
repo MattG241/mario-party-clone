@@ -38,8 +38,12 @@ export class OrbitDial {
     tail.fillStyle(opts.color, 1);
     tail.fillTriangle(-16, 80, 16, 80, 0, 104);
     // The world dims around the hero while the dial spins (a spotlight centred on the screen).
-    const dim = s.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'fx-spot').setScrollFactor(0).setDisplaySize(GAME_WIDTH * 1.5, GAME_HEIGHT * 1.5).setDepth(DEPTH.worldUi + 40).setAlpha(0);
+    const dim = s.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'fx-spot').setScrollFactor(0).setDisplaySize(GAME_WIDTH * 1.18, GAME_HEIGHT * 1.18).setDepth(DEPTH.worldUi + 40).setAlpha(0);
     s.tweens.add({ targets: dim, alpha: 1, duration: 300 });
+    // A pool of light in the player's colour under the hero's feet (under the hero, over the ground).
+    const pool = s.add.image(x, token.y + 4, 'fx-dot').setTint(opts.color).setBlendMode(Phaser.BlendModes.ADD).setDepth(token.depth - 0.5).setScale(7.5, 2.4).setAlpha(0);
+    s.tweens.add({ targets: pool, alpha: 0.75, duration: 300 });
+    s.tweens.add({ targets: pool, scaleX: 8.4, scaleY: 2.7, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
     const rendered = s.textures.exists('rendered-ui-dial');
     const ring = rendered ? s.add.image(0, 0, 'rendered-ui-dial').setDisplaySize(180, 180) : s.add.image(0, 0, 'orbit-dial').setScale(0.4);
     // A darker copy just below reads as the medallion's thickness (a coin edge), not a flat decal.
@@ -119,7 +123,9 @@ export class OrbitDial {
     num.setText(String(result)).setColor(CSS.goldDark);
     audio.play('dialStop');
     this.fx.sparks(x, y, 26);
-    this.fx.vfx('impact', x, y, { scale: 0.7, blend: 'add', alpha: 0.9 });
+    // A clean white shockwave ring off the medallion (instead of a flat burst).
+    const wave = s.add.image(x, y, 'fx-target').setDepth(DEPTH.worldUi + 49).setDisplaySize(200, 200).setAlpha(0.9);
+    s.tweens.add({ targets: wave, displayWidth: 460, displayHeight: 460, alpha: 0, duration: 420, ease: 'Quad.Out', onComplete: () => wave.destroy() });
     s.tweens.add({ targets: num, scale: { from: 1.7, to: 1.15 }, duration: 380, ease: 'Back.Out' });
     s.tweens.add({ targets: ring, scaleX: ring.scaleX * 1.15, scaleY: ring.scaleY * 1.15, duration: 200, yoyo: true });
     token.play('jump');
@@ -139,6 +145,8 @@ export class OrbitDial {
     token.play('celebrate');
     setDebugInfo('dialShown', false);
     s.tweens.add({ targets: dim, alpha: 0, duration: 320, onComplete: () => dim.destroy() });
+    s.tweens.killTweensOf(pool);
+    s.tweens.add({ targets: pool, alpha: 0, duration: 320, onComplete: () => pool.destroy() });
     await new Promise<void>((r) =>
       s.tweens.add({
         targets: root,

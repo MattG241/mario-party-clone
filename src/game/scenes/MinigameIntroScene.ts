@@ -149,7 +149,7 @@ export class MinigameIntroScene extends Phaser.Scene {
       const portrait = addPortrait(this, p.characterId, p.slot, 46, { worldX: x - w / 2 + 50, worldY: y });
       portrait.setPosition(x - w / 2 + 50, y);
       addText(this, x - w / 2 + 112, y - 22, CHARACTERS[p.characterId].name.split(' ')[0].toUpperCase(), 20, { color: UI.inkSoftCss, weight: 700, align: 'left' });
-      const mark = addText(this, x - w / 2 + 112, y + 14, p.isCpu ? 'CPU READY' : 'READY?', 30, { color: p.isCpu ? '#2a8f6a' : UI.inkCss, weight: 700, align: 'left' });
+      const mark = addText(this, x - w / 2 + 112, y + 14, p.isCpu ? 'CPU READY' : 'READY?', 30, { color: p.isCpu ? CSS.tealDark : UI.inkCss, weight: 700, align: 'left' });
       this.readyMarks.set(p.slot, mark);
       this.ready.set(p.slot, p.isCpu);
       if (!p.isCpu) {

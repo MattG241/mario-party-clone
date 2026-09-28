@@ -70,14 +70,17 @@ export class MovementController {
       stem.fillTriangle(-6, 16, 6, 16, 0, 28);
       const badge = new PlayerBadge(this.scene, 0, 0, p.slot, 20);
       const counter = this.scene.add.container(0, -6).setVisible(false);
+      // Steps left, styled as a small Orbit Dial medallion: white rim, player-colour ring, warm face.
       const cg = this.scene.add.graphics();
-      cg.fillStyle(0x1b1530, 0.35);
-      cg.fillCircle(0, 5, 40);
-      cg.fillStyle(COLORS.gold, 1);
-      cg.fillCircle(0, 0, 40);
-      cg.lineStyle(5, COLORS.cream, 1);
-      cg.strokeCircle(0, 0, 40);
-      const counterText = addText(this.scene, 0, -2, '0', 48, { color: CSS.ink, weight: 700, fixed: true });
+      cg.fillStyle(0x0a1120, 0.3);
+      cg.fillCircle(0, 5, 42);
+      cg.fillStyle(0xffffff, 1);
+      cg.fillCircle(0, 0, 42);
+      cg.fillStyle(PLAYER_COLORS[p.slot], 1);
+      cg.fillCircle(0, 0, 38);
+      cg.fillStyle(0xfffaf1, 1);
+      cg.fillCircle(0, 0, 31);
+      const counterText = addText(this.scene, 0, -2, '0', 44, { color: CSS.ink, weight: 700, fixed: true });
       counter.add([cg, counterText]);
       const shield = this.scene.add.sprite(0, 0, 'items', '24').play('bubble-idle').setVisible(false).setAlpha(0.7).setScale(0.42);
       // A faint steady halo in the player's colour behind the active player's badge (every badge is

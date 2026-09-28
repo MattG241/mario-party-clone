@@ -53,7 +53,7 @@ const MEDAL_COLORS: [number, number][] = [
   [0xffd45c, 0xd89b22],
   [0xe9eef3, 0xa7b2bd],
   [0xf2ae70, 0xb86d33],
-  [0xc9c3d8, 0x8a84a0],
+  [0x8fd8d0, 0x4f9f98],
 ];
 
 /** Stat positions (local x): relic then chips left to right, clear of the portrait. */

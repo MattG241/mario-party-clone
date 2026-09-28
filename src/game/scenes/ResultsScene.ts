@@ -19,8 +19,8 @@ import { applyGrade } from '../effects/GradePipeline';
 import { setDebugInfo } from '../debug/debug';
 
 /** Podium x and height by finishing place (1st in the centre). Must match scripts/art/scenes.py. */
-const PODIUM_X = [960, 600, 1320, 1680];
-const PODIUM_H = [270, 200, 150, 105];
+const PODIUM_X = [920, 560, 1280, 1640];
+const PODIUM_H = [330, 215, 150, 95];
 const PODIUM_BASE = 880;
 /** Camera elevation of the rendered results stage (degrees). */
 const STAGE_ELEV = 16;
@@ -178,6 +178,11 @@ export class ResultsScene extends Phaser.Scene {
           // The winner stands in a warm pool of light.
           const pool = this.add.image(x, baseY - h + 6, 'fx-dot').setScale(11, 3).setTint(0xfff0c8).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0).setDepth(-1);
           this.tweens.add({ targets: pool, alpha: 0.45, duration: 400 });
+          // ...under a soft shaft of warm light from above.
+          if (this.textures.exists('fx-shaft')) {
+            const shaft = this.add.image(x, baseY - h + 30, 'fx-shaft').setOrigin(0.5, 1).setDisplaySize(330, 820).setTint(0xfff0cf).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0).setDepth(-1);
+            this.tweens.add({ targets: shaft, alpha: 0.32, duration: 600 });
+          }
           this.tweens.add({ targets: ribbon, scale: 1, duration: 360, ease: 'Back.Out' });
           if (!lp.isCpu) {
             input.rumbleSlot(lp.slot, 0.6, 0.6, 150);
