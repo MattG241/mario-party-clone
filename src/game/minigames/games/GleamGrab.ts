@@ -302,7 +302,11 @@ export class GleamGrabScene extends BaseMinigame {
             this.tweens.add({ targets: zone, scale: d.ss, duration: 180, ease: 'Back.Out' });
             this.tweens.add({ targets: zone, alpha: { from: 1, to: 0.45 }, duration: 110, yoyo: true, repeat: -1 });
             d.zone = zone;
-          } else d.state = 'landed';
+          } else {
+            d.state = 'landed';
+            // a firm contact shadow so the resting chip sits on the flagstones
+            d.shadow.setScale(0.62 * d.ss, 0.2 * d.ss).setAlpha(0.7);
+          }
         }
       } else if (d.state === 'landed') {
         d.life -= dt;

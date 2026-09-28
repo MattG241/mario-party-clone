@@ -188,8 +188,8 @@ def plaza_texture(path, S=2048, squash=1.0):
     for mx in (fx, w - fx):
         for my in (h * 0.3, h * 0.7):
             medallion(mx, my, mr)
-    # festival litter: confetti near the middle, a few leaves and petals toward the edges
-    for _ in range(420):
+    # festival litter: a light sprinkle of confetti, a few leaves and petals toward the edges
+    for _ in range(110):
         a = rnd.uniform(0, math.tau)
         r = rnd.uniform(R * 1.5, min(w, h) * 0.62)
         px, py = cx + math.cos(a) * r * 1.3, cy + math.sin(a) * r * 0.9
@@ -199,7 +199,7 @@ def plaza_texture(path, S=2048, squash=1.0):
         ang = rnd.uniform(0, math.pi)
         L = rnd.uniform(5, 9)
         d.line([(px, py), (px + math.cos(ang) * L, py + math.sin(ang) * L)], fill=c, width=4)
-    for _ in range(90):
+    for _ in range(40):
         side = rnd.choice(['l', 'r', 't', 'b'])
         px = rnd.uniform(bw + 10, bw + 120) if side == 'l' else rnd.uniform(w - bw - 120, w - bw - 10) if side == 'r' else rnd.uniform(bw, w - bw)
         py = rnd.uniform(bw + 10, bw + 90) if side == 't' else rnd.uniform(h - bw - 90, h - bw - 10) if side == 'b' else rnd.uniform(bw, h - bw)
