@@ -8,6 +8,7 @@ import { slotForDevice } from '../input/assignment';
 import { input, type DeviceRef } from '../input/InputManager';
 import { settings } from '../save/SettingsManager';
 import { session } from '../state/Session';
+import type { SystemScene } from './SystemScene';
 import { glyphKindFor, makeGlyph, PromptBar } from '../ui/ControllerPrompt';
 import { PlayerBadge } from '../ui/PlayerBadge';
 import { placePortraitSprite } from '../ui/Portrait';
@@ -474,6 +475,16 @@ export class CharacterSelectScene extends Phaser.Scene {
         return;
       }
     }
+    // A controller shown twice (an adapter, DS4Windows or Steam) that took two seats: once the two
+    // have mirrored each other through some real play, the copy's seat is freed.
+    this.slots.forEach((v, slot) => {
+      if (v.phase === 'empty' || v.device?.kind !== 'gamepad') return;
+      const index = v.device.index;
+      const of = input.mirrorOf(index);
+      if (of === null || input.slotOf({ kind: 'gamepad', index: of }) === null) return;
+      this.leave(slot);
+      (this.scene.get('System') as SystemScene).toast(`Controller ${index + 1} is a copy of controller ${of + 1} (shown twice by an adapter or Steam), so it was left out`, 4200);
+    });
     // Joined players drive their own cursor.
     this.slots.forEach((v, slot) => {
       if (v.phase === 'empty' || !v.device || joinedNow.has(slot)) return;

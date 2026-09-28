@@ -7,8 +7,11 @@ import { URL_PARAMS } from './debug/debug';
 
 export type GraphicsMode = 'auto' | 'full' | 'lite';
 
-/** Smart-TV and streaming-stick browsers (they have a fraction of a computer's memory). */
-const TV_UA = /smart-?tv|tizen|web0s|webos|netcast|hbbtv|bravia|crkey|\baft[a-z]|googletv|android ?tv|viera|vidaa|hisense|philipstv|nettv|roku|aquos/i;
+/**
+ * Smart-TV, streaming-stick and games-console browsers (they have a fraction of a computer's
+ * memory: Edge on Xbox, for one, gives web pages far less than the console has).
+ */
+const TV_UA = /smart-?tv|tizen|web0s|webos|netcast|hbbtv|bravia|crkey|\baft[a-z]|googletv|android ?tv|viera|vidaa|hisense|philipstv|nettv|roku|aquos|xbox|playstation|nintendo/i;
 
 /** Whether this device should run Lite graphics. `?lite` / `?full` in the URL override everything. */
 export function decideLite(mode: GraphicsMode, nav: (Navigator & { deviceMemory?: number }) | undefined = globalThis.navigator): boolean {

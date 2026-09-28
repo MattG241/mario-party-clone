@@ -178,7 +178,7 @@ describe('CPU virtual controls', () => {
   });
 });
 
-describe('joining without echoes', () => {
+describe('joining: two players, never a copied controller', () => {
   const gp = (index: number, id: string, down: number[]) =>
     ({
       id,
@@ -196,14 +196,53 @@ describe('joining without echoes', () => {
     return d;
   };
 
-  it('counts one physical press once when a controller shows up twice', () => {
+  /** One frame of two pads' state; the manager tracks how long they have mirrored each other. */
+  const frame = (m: InputManager, t: number, a: number[], b: number[], ids = ['pad one', 'pad two']) => {
+    m.pads.get(0)!.update(gp(0, ids[0], a), 16, t);
+    m.pads.get(1)!.update(gp(1, ids[1], b), 16, t);
+    m.trackMirrors();
+  };
+
+  it('lets two controllers pressing A in the same frame both join', () => {
     const m = new InputManager();
-    m.pads.set(0, pressing(0, 'Wireless Controller (STANDARD GAMEPAD Vendor: 054c Product: 09cc)', [0]));
-    m.pads.set(1, pressing(1, 'Xbox 360 Controller (XInput STANDARD GAMEPAD)', [0]));
-    expect(m.joinPresses('A')).toEqual([{ kind: 'gamepad', index: 0 }]);
-    // the mirror of a seated controller doesn't take a second seat
+    m.pads.set(0, pressing(0, 'Xbox Wireless Controller (STANDARD GAMEPAD Vendor: 045e Product: 0b13)', [0]));
+    m.pads.set(1, pressing(1, 'Xbox Wireless Controller (STANDARD GAMEPAD Vendor: 045e Product: 0b13)', [0]));
+    m.trackMirrors();
+    expect(m.joinPresses('A')).toHaveLength(2);
+  });
+
+  it('spots a controller shown twice once it has mirrored some play, and keeps it out', () => {
+    const m = new InputManager();
+    const ids = ['Wireless Controller (STANDARD GAMEPAD Vendor: 054c Product: 09cc)', 'Xbox 360 Controller (XInput STANDARD GAMEPAD)'];
+    m.pads.set(0, new GamepadDevice(0));
+    m.pads.set(1, new GamepadDevice(1));
+    // the same presses and releases land on both, frame for frame
+    let t = 0;
+    for (let k = 0; k < 4; k++) {
+      for (let f = 0; f < 4; f++) frame(m, (t += 16), [12], [12], ids);
+      frame(m, (t += 16), [], [], ids);
+    }
+    expect(m.mirrorOf(1)).toBe(0);
+    expect(m.mirrorOf(0)).toBeNull();
     m.assign(0, { kind: 'gamepad', index: 0 });
-    expect(m.joinPresses('A').filter((r) => m.slotOf(r) === null)).toEqual([]);
+    frame(m, (t += 16), [], [], ids);
+    frame(m, (t += 16), [0], [0], ids);
+    expect(m.joinPresses('A')).toEqual([{ kind: 'gamepad', index: 0 }]);
+  });
+
+  it('never mistakes two players for a copy when their timing differs by a frame', () => {
+    const m = new InputManager();
+    m.pads.set(0, new GamepadDevice(0));
+    m.pads.set(1, new GamepadDevice(1));
+    let t = 0;
+    for (let k = 0; k < 6; k++) {
+      frame(m, (t += 16), [0], []);
+      for (let f = 0; f < 5; f++) frame(m, (t += 16), [0], [0]);
+      frame(m, (t += 16), [], [0]);
+      frame(m, (t += 16), [], []);
+    }
+    expect(m.mirrorOf(0)).toBeNull();
+    expect(m.mirrorOf(1)).toBeNull();
   });
 
   it('still lets different controllers join together', () => {

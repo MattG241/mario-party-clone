@@ -68,6 +68,18 @@ export class GamepadDevice extends InputDevice {
     return BUTTONS.filter((b) => this.cur[b]).join(',');
   }
 
+  /**
+   * Everything the player is doing right now (buttons held, both sticks roughly), or '' when idle.
+   * A controller an adapter or Steam shows twice produces the same signature on every frame.
+   */
+  stateSignature(): string {
+    const q = (v: number) => Math.round(v * 5);
+    const held = this.heldSignature();
+    const sticks = [this.moveX, this.moveY, this.aimX, this.aimY].map(q);
+    if (!held && sticks.every((v) => v === 0)) return '';
+    return `${held}|${sticks.join(',')}`;
+  }
+
   /** True when the pad needs (or has) a recorded layout: its browser mapping isn't standard. */
   get nonStandard(): boolean {
     return this.layout === 'generic' || this.layout === 'custom';

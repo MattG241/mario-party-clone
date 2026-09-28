@@ -5,6 +5,9 @@ import type { PadFamily, PadMapping } from './padProfiles';
 import { KeyboardDevice } from './KeyboardManager';
 import { SlotControls, type SlotResolver } from './PlayerInput';
 
+/** Frames of play two controllers must match exactly before one counts as a copy of the other (about a fifth of a second). */
+const MIRROR_FRAMES = 12;
+
 export type DeviceRef = { kind: 'gamepad'; index: number } | { kind: 'keyboard' };
 
 export function sameDevice(a: DeviceRef | null, b: DeviceRef | null): boolean {
@@ -29,6 +32,8 @@ type InputEvent =
  */
 export class InputManager implements SlotResolver {
   readonly keyboard = new KeyboardDevice();
+  /** Active frames in a row each pair of controllers has matched exactly ("a:b", a < b). */
+  private mirrorRun = new Map<string, number>();
   readonly pads = new Map<number, GamepadDevice>();
   /** Device assigned to each player slot (null = unassigned or CPU). */
   readonly slots: (DeviceRef | null)[] = [null, null, null, null];
@@ -80,6 +85,7 @@ export class InputManager implements SlotResolver {
     const dt = this.lastUpdate ? Math.min(100, now - this.lastUpdate) : 16;
     this.lastUpdate = now;
     this.poll(now, dt);
+    this.trackMirrors();
     this.keyboard.update(dt, now);
     const kbAct = this.keyboard.lastActivity;
     let padAct = 0;
@@ -186,17 +192,51 @@ export class InputManager implements SlotResolver {
   joinPresses(b: Button): DeviceRef[] {
     const pads = this.connectedPads().filter((p) => p.pressed(b));
     if (pads.length === 0) return this.keyboard.pressed(b) ? [{ kind: 'keyboard' }] : [];
-    const seen = new Set<string>();
-    // Seated controllers first, so a mirror of a seated one is recognised as such.
-    const order = [...pads].sort((a, c) => Number(this.slotOf({ kind: 'gamepad', index: c.index }) !== null) - Number(this.slotOf({ kind: 'gamepad', index: a.index }) !== null) || a.index - c.index);
-    const out: DeviceRef[] = [];
-    for (const p of order) {
-      const sig = p.heldSignature();
-      if (seen.has(sig)) continue;
-      seen.add(sig);
-      out.push({ kind: 'gamepad', index: p.index });
+    // Every controller joins, except one already caught copying another frame for frame. (Two
+    // friends pressing A in the same frame are two players, so a matching press alone proves
+    // nothing; a copy is recognised as soon as it has mirrored some real play, see mirrorOf.)
+    return pads.filter((p) => this.mirrorOf(p.index) === null).map((p) => ({ kind: 'gamepad' as const, index: p.index }));
+  }
+
+  /**
+   * Update how long each pair of controllers has mirrored each other exactly (call once a frame,
+   * after polling). Any frame where they differ while one of them is in use resets the pair.
+   */
+  trackMirrors(): void {
+    const pads = this.connectedPads();
+    const live = new Set<string>();
+    for (let i = 0; i < pads.length; i++) {
+      for (let j = i + 1; j < pads.length; j++) {
+        const a = pads[i];
+        const c = pads[j];
+        const key = a.index < c.index ? `${a.index}:${c.index}` : `${c.index}:${a.index}`;
+        live.add(key);
+        const sa = a.stateSignature();
+        const sc = c.stateSignature();
+        if (!sa && !sc) continue;
+        this.mirrorRun.set(key, sa === sc ? Math.min(10000, (this.mirrorRun.get(key) ?? 0) + 1) : 0);
+      }
     }
-    return out;
+    for (const k of [...this.mirrorRun.keys()]) if (!live.has(k)) this.mirrorRun.delete(k);
+  }
+
+  /**
+   * The controller this one is a copy of (an adapter, DS4Windows or Steam showing one controller
+   * twice), once they have matched frame for frame through MIRROR_FRAMES frames of play. Of the
+   * two, the copy is the one without a seat, or the later seat, or the higher index.
+   */
+  mirrorOf(index: number): number | null {
+    for (const [key, run] of this.mirrorRun) {
+      if (run < MIRROR_FRAMES) continue;
+      const [a, c] = key.split(':').map(Number);
+      if (index !== a && index !== c) continue;
+      const other = index === a ? c : a;
+      const seat = (i: number) => this.slotOf({ kind: 'gamepad', index: i }) ?? 99;
+      const mine = seat(index);
+      const theirs = seat(other);
+      if (mine > theirs || (mine === theirs && index > other)) return other;
+    }
+    return null;
   }
 
   allDevices(): InputDevice[] {
