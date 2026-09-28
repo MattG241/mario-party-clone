@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../constants';
 import { applyGrade } from '../effects/GradePipeline';
+import { addStrip } from '../ui/Screen';
 
 /**
  * Sky and far parallax layers behind the board. Lives in its own scene so the board camera can
@@ -32,9 +33,9 @@ export class BoardBgScene extends Phaser.Scene {
       }
     } else {
       this.add.image(0, 0, 'bg-sky').setOrigin(0).setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
-      this.cloudsFar = this.add.tileSprite(0, 120, GAME_WIDTH, 420, 'bg-clouds-far').setOrigin(0).setAlpha(0.85);
-      this.islandsFar = this.add.tileSprite(0, 330, GAME_WIDTH, 640, 'bg-islands-far').setOrigin(0).setAlpha(0.75);
-      this.cloudsLow = this.add.tileSprite(0, 640, GAME_WIDTH, 560, 'bg-clouds-below').setOrigin(0).setAlpha(0.9);
+      this.cloudsFar = addStrip(this, 0, 120, GAME_WIDTH, 420, 'bg-clouds-far').setOrigin(0).setAlpha(0.85);
+      this.islandsFar = addStrip(this, 0, 330, GAME_WIDTH, 640, 'bg-islands-far').setOrigin(0).setAlpha(0.75);
+      this.cloudsLow = addStrip(this, 0, 640, GAME_WIDTH, 560, 'bg-clouds-below').setOrigin(0).setAlpha(0.9);
     }
     this.buildIslets();
     applyGrade(this, { vignette: 0.08, glow: 0 });

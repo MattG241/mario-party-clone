@@ -14,6 +14,7 @@ import { addText, addTitle } from '../ui/theme';
 import { enterScene, goTo } from '../ui/Transition';
 import { findBoard } from '../data/boards';
 import { applyGrade } from '../effects/GradePipeline';
+import { addStrip } from '../ui/Screen';
 
 /**
  * Title screen. Attract state ("PRESS A"), then the main menu. The four heroes hang out on a
@@ -50,6 +51,8 @@ export class TitleScene extends Phaser.Scene {
     this.buildBackground();
     this.buildIsland();
     this.buildLogo();
+    // Before the menu: it reports its first focus straight away.
+    this.hint = addText(this, 470, 1030, '', 26, { color: '#ffffff', weight: 600 }).setDepth(600).setShadow(0, 2, 'rgba(10,17,32,0.5)', 5, false, true);
     this.buildMenu();
     // "Press A to start" on a clean white card under the logo; it breathes gently.
     this.pressText = this.add.container(440, 648).setDepth(600);
@@ -57,7 +60,6 @@ export class TitleScene extends Phaser.Scene {
     this.refreshPressPlate();
     this.tweens.add({ targets: this.pressText, alpha: { from: 1, to: 0.72 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
     this.prompts = new PromptBar(this, GAME_WIDTH / 2, GAME_HEIGHT - 60, [], { size: 40, fontSize: 28 }).setDepth(600).setVisible(false);
-    this.hint = addText(this, 470, 1030, '', 26, { color: '#ffffff', weight: 600 }).setDepth(600).setShadow(0, 2, 'rgba(10,17,32,0.5)', 5, false, true);
     this.audioHint = addText(this, GAME_WIDTH - 30, 36, '🔇 Press any key or click to enable sound', 22, { color: '#ffffff', align: 'right', weight: 600 })
       .setDepth(600)
       .setShadow(0, 2, 'rgba(10,17,32,0.5)', 5, false, true);
@@ -74,9 +76,9 @@ export class TitleScene extends Phaser.Scene {
       return;
     }
     this.add.image(0, 0, 'bg-sky').setOrigin(0).setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
-    this.cloudsFar = this.add.tileSprite(0, 150, GAME_WIDTH, 420, 'bg-clouds-far').setOrigin(0).setAlpha(0.9);
-    this.farIslands = this.add.tileSprite(0, 380, GAME_WIDTH, 640, 'bg-islands-far').setOrigin(0).setAlpha(0.85);
-    this.cloudsBelow = this.add.tileSprite(0, 700, GAME_WIDTH, 560, 'bg-clouds-below').setOrigin(0).setAlpha(0.95);
+    this.cloudsFar = addStrip(this, 0, 150, GAME_WIDTH, 420, 'bg-clouds-far').setOrigin(0).setAlpha(0.9);
+    this.farIslands = addStrip(this, 0, 380, GAME_WIDTH, 640, 'bg-islands-far').setOrigin(0).setAlpha(0.85);
+    this.cloudsBelow = addStrip(this, 0, 700, GAME_WIDTH, 560, 'bg-clouds-below').setOrigin(0).setAlpha(0.95);
     // Distant floating islets drifting past
     for (let i = 0; i < 3; i++) {
       const isl = this.add.image(200 + i * 620, 600 + (i % 2) * 90, 'island-tiny').setScale(0.55 + i * 0.1).setAlpha(0.75);

@@ -17,6 +17,7 @@ import { addText, addTitle } from '../ui/theme';
 import { enterScene, goTo } from '../ui/Transition';
 import { randomSeed } from '../util/Random';
 import { URL_PARAMS } from '../debug/debug';
+import { addStrip } from '../ui/Screen';
 
 const cycle = <T,>(list: readonly T[], cur: T, dir: number): T => list[(list.indexOf(cur) + dir + list.length) % list.length];
 
@@ -47,11 +48,13 @@ export class GameSetupScene extends Phaser.Scene {
     this.speed = s.gameSpeed;
     if (session.humans().length < 2) this.cpuOn = true;
     this.add.image(0, 0, 'bg-sky').setOrigin(0).setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
-    this.add.tileSprite(0, 560, GAME_WIDTH, 560, 'bg-clouds-below').setOrigin(0).setAlpha(0.9);
+    addStrip(this, 0, 560, GAME_WIDTH, 560, 'bg-clouds-below').setOrigin(0).setAlpha(0.9);
     addTitle(this, GAME_WIDTH / 2, 66, 'GAME SETTINGS', 70);
 
     new Panel(this, 520, 520, 860, 700, { title: 'Match Rules' });
     const humans = session.humans().length;
+    // Before the menu: it reports its first focus straight away.
+    this.hint = addText(this, 520, 912, '', 26, { color: CSS.inkSoft, weight: 500, wrap: 780 });
     this.menu = new Menu(
       this,
       520,
@@ -79,7 +82,6 @@ export class GameSetupScene extends Phaser.Scene {
       ],
       { width: 760, itemHeight: 66, gap: 14, fontSize: 30, onCancel: () => goTo(this, 'CharacterSelect'), onFocus: (it) => this.hint?.setText(it.hint ?? '') },
     );
-    this.hint = addText(this, 520, 912, '', 26, { color: CSS.inkSoft, weight: 500, wrap: 780 });
     this.hint.setText(this.menu.items[0].hint ?? '');
 
     // Board card

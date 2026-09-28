@@ -17,6 +17,7 @@ import { PlayerBadge } from '../ui/PlayerBadge';
 import { addText, addTitle } from '../ui/theme';
 import { enterScene, goTo } from '../ui/Transition';
 import { randomSeed } from '../util/Random';
+import { addStrip } from '../ui/Screen';
 
 /** Bonus awards, the final tally and the winner's podium. Never auto-skips the celebration. */
 export class FinalResultsScene extends Phaser.Scene {
@@ -42,7 +43,7 @@ export class FinalResultsScene extends Phaser.Scene {
     audio.playMusic('final');
     this.fx = new EffectsManager(this, 800);
     this.add.image(0, 0, 'bg-sky').setOrigin(0).setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
-    this.add.tileSprite(0, 640, GAME_WIDTH, 560, 'bg-clouds-below').setOrigin(0);
+    addStrip(this, 0, 640, GAME_WIDTH, 560, 'bg-clouds-below').setOrigin(0);
     this.add.image(480, 120, 'bunting').setScale(1.3);
     this.add.image(1440, 120, 'bunting').setScale(1.3);
     this.layer = this.add.container(0, 0);

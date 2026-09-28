@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { audio } from '../audio/AudioManager';
 import { CSS, GAME_HEIGHT, GAME_WIDTH } from '../constants';
-import type { Button } from '../input/buttons';
+import { keyLabel, type Button } from '../input/buttons';
 import type { GamepadDevice } from '../input/GamepadManager';
 import { input } from '../input/InputManager';
 import { isHatRest, type PadMapping, type PadSource, type StickAxis } from '../input/padProfiles';
@@ -9,7 +9,7 @@ import { settings } from '../save/SettingsManager';
 import { makeGlyph, PromptBar } from '../ui/ControllerPrompt';
 import { buildBackdrop, drawNavyPanel } from '../ui/Screen';
 import { addText, addTitle } from '../ui/theme';
-import { enterScene, goTo } from '../ui/Transition';
+import { enterScene, goTo, isLeaving } from '../ui/Transition';
 
 type StickKey = 'lx' | 'ly' | 'rx' | 'ry';
 type Step =
@@ -65,7 +65,6 @@ export class PadSetupScene extends Phaser.Scene {
   private noteText!: Phaser.GameObjects.Text;
   private glyph: Phaser.GameObjects.Container | null = null;
   private bar!: Phaser.GameObjects.Graphics;
-  private keys: { esc?: Phaser.Input.Keyboard.Key; space?: Phaser.Input.Keyboard.Key } = {};
 
   constructor() {
     super('PadSetup');
@@ -83,6 +82,7 @@ export class PadSetupScene extends Phaser.Scene {
     this.used = new Map();
     this.rest = [];
     this.quirkAxes = new Set();
+    this.glyph = null;
   }
 
   create(): void {
@@ -97,9 +97,9 @@ export class PadSetupScene extends Phaser.Scene {
     this.noteText = addText(this, GAME_WIDTH / 2, 650, '', 28, { color: CSS.goldLight, weight: 700 });
     this.bar = this.add.graphics();
     new PromptBar(this, GAME_WIDTH / 2, GAME_HEIGHT - 44, [], { size: 34, fontSize: 22 });
-    addText(this, GAME_WIDTH / 2, GAME_HEIGHT - 110, 'Keyboard: Esc cancels · Space skips a button your controller does not have', 22, { color: CSS.cream, weight: 600, stroke: '#06141a', strokeThickness: 4 });
-    const kb = this.input.keyboard;
-    if (kb) this.keys = { esc: kb.addKey('ESC'), space: kb.addKey('SPACE') };
+    // The keyboard's own Back and Confirm keys (Esc and Enter/Space unless rebound).
+    const keys = (a: 'A' | 'B') => (input.keyboard.bindings[a] ?? []).map(keyLabel).join('/') || '?';
+    addText(this, GAME_WIDTH / 2, GAME_HEIGHT - 110, `Keyboard: ${keys('B')} cancels · ${keys('A')} skips a button your controller does not have`, 22, { color: CSS.cream, weight: 600, stroke: '#06141a', strokeThickness: 4 });
     this.showPick();
   }
 
@@ -130,7 +130,8 @@ export class PadSetupScene extends Phaser.Scene {
   }
 
   override update(_t: number, dt: number): void {
-    if (this.keys.esc && Phaser.Input.Keyboard.JustDown(this.keys.esc)) {
+    if (isLeaving(this)) return;
+    if (input.keyboard.pressed('B')) {
       audio.play('cancel');
       goTo(this, this.back);
       return;
@@ -168,7 +169,7 @@ export class PadSetupScene extends Phaser.Scene {
       }
       return;
     }
-    const skip = this.keys.space && Phaser.Input.Keyboard.JustDown(this.keys.space);
+    const skip = input.keyboard.pressed('A');
     let captured: PadSource | StickAxis | null = null;
     if (st.kind === 'button') captured = this.captureButton(p, pressedNow);
     else captured = this.captureStick(p);

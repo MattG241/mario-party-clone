@@ -9,6 +9,7 @@ import { centerOrigin, standOrigin } from '../../util/spriteUtil';
 import { BaseMinigame, type MgPlayer } from '../BaseMinigame';
 import { clampRect, dist, drift, separate, steer, type Mover } from '../common';
 import { QuadMap } from '../../util/QuadMap';
+import { addStrip } from '../../ui/Screen';
 
 interface Grabber extends Mover {
   p: MgPlayer;
@@ -99,7 +100,7 @@ export class GleamGrabScene extends BaseMinigame {
       return;
     }
     this.add.image(0, 0, 'bg-sky').setOrigin(0).setDisplaySize(GAME_WIDTH, 1080);
-    this.add.tileSprite(0, 700, GAME_WIDTH, 560, 'bg-clouds-below').setOrigin(0).setAlpha(0.9);
+    addStrip(this, 0, 700, GAME_WIDTH, 560, 'bg-clouds-below').setOrigin(0).setAlpha(0.9);
     this.add.image(960, 620, 'island-wide').setScale(1.7, 1.25).setOrigin(0.5, 0.36);
     this.add.image(960, 610, 'mg-plaza-floor').setDisplaySize(1560, 780);
     this.add.image(400, 200, 'bunting').setScale(1.1).setDepth(1);

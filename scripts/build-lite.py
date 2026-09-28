@@ -3,8 +3,11 @@
     python3 scripts/build-lite.py
 
 Writes public/assets/lite/: the board terrain tiles, landmarks and island shadow at half size with a
-manifest whose render scale is halved (so the board lines up exactly as before), and a 1280x720 sky.
-Re-run after re-rendering the board (scripts/art/board.py --export) or the skies.
+manifest whose render scale is halved (so the board lines up exactly as before), a 1280x720 sky, and
+half-size copies of the character and effect atlases, the title island and the Tumble Tower wall.
+The atlases keep their original JSON: the game stretches each half-size sheet back over full-size
+frame coordinates (inflateTexture in src/game/util/texture.ts), so nothing else changes.
+Re-run after re-rendering the board (scripts/art/board.py --export), the skies or any of those sheets.
 """
 import json
 import os
@@ -46,11 +49,30 @@ def board(name):
     print('board', name, len(man['tiles']), 'tiles', len(man.get('props', [])), 'props')
 
 
+# Keep in step with LITE_HALF_ATLASES in src/game/perf.ts.
+ATLASES = ['hero_kip', 'hero_mossi', 'hero_tumble', 'hero_zippa', 'npcs3d', 'vfx', 'items', 'props']
+
+
+def atlases():
+    src = os.path.join(ROOT, 'public', 'assets', 'atlases')
+    dst = os.path.join(OUT, 'atlases')
+    os.makedirs(dst, exist_ok=True)
+    for key in ATLASES:
+        img = next(os.path.join(src, key + ext) for ext in ('.webp', '.png') if os.path.exists(os.path.join(src, key + ext)))
+        # Frames sit close together: a higher quality keeps their edges from picking up neighbours.
+        half(img, os.path.join(dst, key + '.webp'), quality=90)
+    print('atlases', len(ATLASES))
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     board('suncoil')
     half(os.path.join(SRC, 'sky_day.webp'), os.path.join(OUT, 'sky_day.webp'))
-    print('sky_day')
+    half(os.path.join(SRC, 'scene_title.webp'), os.path.join(OUT, 'scene_title.webp'))
+    os.makedirs(os.path.join(OUT, 'mg'), exist_ok=True)
+    half(os.path.join(SRC, 'mg', 'tower_wall.webp'), os.path.join(OUT, 'mg', 'tower_wall.webp'))
+    print('sky_day, scene_title, tower_wall')
+    atlases()
 
 
 if __name__ == '__main__':

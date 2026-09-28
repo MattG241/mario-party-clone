@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { LITE } from '../perf';
+import { LITE, LITE_HALF_ATLASES, liteSvgDivisor } from '../perf';
 import { audio } from '../audio/AudioManager';
 import { registerCharacterAnimations } from '../characters/Character';
 import { COLORS, CSS, GAME_HEIGHT, GAME_WIDTH, SUBTITLE, TITLE } from '../constants';
@@ -10,6 +10,7 @@ import { generateFxTextures, registerCommonAnimations } from '../effects/animati
 import { drawPanel, drawSpiral } from '../ui/Panel';
 import { addText, addTitle } from '../ui/theme';
 import { goTo } from '../ui/Transition';
+import { inflateTexture } from '../util/texture';
 
 /**
  * Loading screen: logo, animated spiral, percentage and tips. Preloads every common asset
@@ -31,12 +32,17 @@ export class PreloadScene extends Phaser.Scene {
     this.startTime = performance.now();
     this.buildScreen();
     this.load.setPath('');
+    const half = this.halfAtlases();
     for (const key of ATLAS_KEYS) {
       // rendered 3D sheets (heroes, NPCs) are WebP; the processed 2D sheets are PNG
       const ext = key.startsWith('hero_') || key === 'npcs3d' ? 'webp' : 'png';
-      this.load.atlas(key, `assets/atlases/${key}.${ext}`, `assets/atlases/${key}.json`);
+      const image = half.includes(key) ? `assets/lite/atlases/${key}.webp` : `assets/atlases/${key}.${ext}`;
+      this.load.atlas(key, image, `assets/atlases/${key}.json`);
     }
-    for (const s of COMMON_SVGS) this.load.svg(s.key, s.path, { width: s.width, height: s.height });
+    for (const s of COMMON_SVGS) {
+      const d = liteSvgDivisor(s.key);
+      this.load.svg(s.key, s.path, { width: s.width / d, height: s.height / d });
+    }
     // Optional pre-rendered environment art: the manifest lists its tiles.
     for (const board of RENDERED_BOARDS) {
       const key = renderedManifestKey(board);
@@ -61,7 +67,7 @@ export class PreloadScene extends Phaser.Scene {
     }
     if (!LITE) this.load.json('rendered-gleam3d', 'assets/rendered/scene_gleam3d.json');
     const scenes = LITE ? ['title'] : ['title', 'gleam', 'gleam_wall', 'gleam3d', 'gleam3d_wall', 'gleam3d_blur', 'orbit', 'orbit_blur', 'select', 'results'];
-    for (const v of scenes) this.load.image(`rendered-scene-${v}`, `assets/rendered/scene_${v}.webp`);
+    for (const v of scenes) this.load.image(`rendered-scene-${v}`, `assets/${half.length && v === 'title' ? 'lite' : 'rendered'}/scene_${v}.webp`);
     this.load.image('rendered-ui-dial', 'assets/rendered/ui_dial.webp');
     this.load.image('rendered-ui-logo', 'assets/rendered/ui_logo.webp');
     // Arenas and sprites for the later minigames (scripts/art/mg_arenas.py) and the sky islets.
@@ -80,7 +86,8 @@ export class PreloadScene extends Phaser.Scene {
       ['plank', 'plank'],
       ['tower-wall', 'tower_wall'],
     ];
-    for (const [key, file] of mgSprites) this.load.image(`rendered-mg-${key}`, `assets/rendered/mg/${file}.webp`);
+    // Lite's Tumble Tower wall is half size (the minigame scales its tiling to fit).
+    for (const [key, file] of mgSprites) this.load.image(`rendered-mg-${key}`, `assets/${LITE && key === 'tower-wall' ? 'lite' : 'rendered'}/mg/${file}.webp`);
     this.load.spritesheet('rendered-mg-log', 'assets/rendered/mg/log.webp', { frameWidth: 180, frameHeight: 180 });
     if (!LITE) for (let k = 0; k < 3; k++) this.load.image(`rendered-islet-${k}`, `assets/rendered/mg/islet_${k}.webp`);
     this.load.on(Phaser.Loader.Events.PROGRESS, (p: number) => this.setProgress(p));
@@ -132,10 +139,19 @@ export class PreloadScene extends Phaser.Scene {
     this.pctText.setText(`${Math.round(p * 100)}%`);
   }
 
+  /** Lite on WebGL loads the big atlases (and the title island) at half size. */
+  private halfAtlases(): string[] {
+    return LITE && this.game.renderer instanceof Phaser.Renderer.WebGL.WebGLRenderer ? LITE_HALF_ATLASES : [];
+  }
+
   create(): void {
     if (this.failed.length > 0) {
       this.showError();
       return;
+    }
+    const half = this.halfAtlases();
+    for (const key of half.length ? [...half, 'rendered-scene-title'] : []) {
+      if (this.textures.exists(key)) inflateTexture(this.textures.get(key), 2);
     }
     generateFxTextures(this);
     registerCommonAnimations(this.anims);

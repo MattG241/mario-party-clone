@@ -20,3 +20,22 @@ export function clampTexture(scene: Phaser.Scene, key: string): void {
   }
   clamped.add(key);
 }
+
+/**
+ * Make a texture that was loaded at 1/k size behave exactly like the full-size one: every frame
+ * keeps its full-size coordinates (so sprites keep their size, origin and layout) and only the
+ * sampling is coarser. Lite uses it to quarter the memory of the big atlases. WebGL only: the
+ * canvas renderer reads frame rectangles straight from the image.
+ */
+export function inflateTexture(tex: Phaser.Textures.Texture, k: number): void {
+  for (const src of tex.source) {
+    src.width *= k;
+    src.height *= k;
+  }
+  for (const name of tex.getFrameNames(true)) {
+    const f = tex.get(name);
+    if (name === '__BASE') f.setSize(f.source.width, f.source.height);
+    else if (f.rotated) f.updateUVsInverted();
+    else f.updateUVs();
+  }
+}

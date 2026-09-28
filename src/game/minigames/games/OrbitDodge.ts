@@ -8,6 +8,7 @@ import { addText } from '../../ui/theme';
 import { NPC_ATLAS, npcFrame, type NpcId } from '../../data/npcs';
 import { standOrigin } from '../../util/spriteUtil';
 import { BaseMinigame, type MgPlayer } from '../BaseMinigame';
+import { addStrip } from '../../ui/Screen';
 
 interface Dodger {
   p: MgPlayer;
@@ -79,7 +80,7 @@ export class OrbitDodgeScene extends BaseMinigame {
       this.buildSpectators();
     } else {
       this.add.image(0, 0, 'bg-sky').setOrigin(0).setDisplaySize(GAME_WIDTH, 1080).setDepth(-100);
-      this.add.tileSprite(0, 560, GAME_WIDTH, 560, 'bg-clouds-below').setOrigin(0).setDepth(-90);
+      addStrip(this, 0, 560, GAME_WIDTH, 560, 'bg-clouds-below').setOrigin(0).setDepth(-90);
       this.add.image(CX, CY + 30, 'mg-orbit-platform').setDisplaySize(1400, 760).setDepth(-10);
     }
     this.armG = this.add.graphics().setDepth(2);

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../constants';
+import { liteSvgDivisor } from '../perf';
 import { drawSlate } from './Style';
 
 export type SkyVariant = 'day' | 'golden' | 'dusk';
@@ -17,6 +18,14 @@ export function buildBackdrop(scene: Phaser.Scene, sky: SkyVariant = 'golden', v
     g.fillGradientStyle(0x0a2230, 0x0a2230, 0x06141a, 0x06141a, veil * 0.6, veil * 0.6, veil, veil);
     g.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
   }
+}
+
+/** A tiled backdrop strip (clouds, far islands). Lite loads that art at half size, so it tiles at double scale. */
+export function addStrip(scene: Phaser.Scene, x: number, y: number, w: number, h: number, key: string): Phaser.GameObjects.TileSprite {
+  const strip = scene.add.tileSprite(x, y, w, h, key);
+  const d = liteSvgDivisor(key);
+  if (d !== 1) strip.setTileScale(d);
+  return strip;
 }
 
 export interface NavyPanelOpts {

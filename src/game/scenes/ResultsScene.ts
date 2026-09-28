@@ -17,6 +17,7 @@ import { enterScene, goTo } from '../ui/Transition';
 import { randomSeed } from '../util/Random';
 import { applyGrade } from '../effects/GradePipeline';
 import { setDebugInfo } from '../debug/debug';
+import { addStrip } from '../ui/Screen';
 
 /** Podium x and height by finishing place (1st in the centre). Must match scripts/art/scenes.py. */
 const PODIUM_X = [920, 560, 1280, 1640];
@@ -99,7 +100,7 @@ export class ResultsScene extends Phaser.Scene {
       this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, skyKey).setDisplaySize(GAME_WIDTH * 1.05, GAME_HEIGHT * 1.05).setDepth(-10).setFlipX(true);
     } else {
       this.add.image(0, 0, 'bg-sky').setOrigin(0).setDisplaySize(GAME_WIDTH, GAME_HEIGHT).setDepth(-10);
-      this.add.tileSprite(0, 640, GAME_WIDTH, 560, 'bg-clouds-below').setOrigin(0).setDepth(-10);
+      addStrip(this, 0, 640, GAME_WIDTH, 560, 'bg-clouds-below').setOrigin(0).setDepth(-10);
     }
     addTitle(this, GAME_WIDTH / 2, 74, 'RESULTS', 80);
     const board = this.launchData.mode === 'board';

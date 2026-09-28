@@ -26,6 +26,9 @@ export function makeConfig(parent: HTMLElement, scenes: Phaser.Types.Scenes.Scen
       antialiasGL: !LITE,
       powerPreference: 'high-performance',
       batchSize: 4096,
+      // Phaser picks its single-texture shader only for phones; TV browsers (Tizen, webOS) report
+      // Linux and would get the desktop one, which samples every bound texture for every pixel.
+      ...(LITE ? { defaultPipeline: 'MobilePipeline' } : {}),
     },
     // Gleamtrail polls gamepads and keyboard itself (src/game/input); Phaser's own plugins stay off.
     input: { keyboard: false, gamepad: false, mouse: true, touch: false },

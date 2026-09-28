@@ -26,6 +26,7 @@ import { ResultsScene } from './scenes/ResultsScene';
 import { SettingsScene } from './scenes/SettingsScene';
 import { SystemScene } from './scenes/SystemScene';
 import { TitleScene } from './scenes/TitleScene';
+import { guardStaleText } from './util/staleText';
 
 declare global {
   interface Window {
@@ -82,6 +83,11 @@ export function createGame(parent: HTMLElement): Phaser.Game {
   game.events.on(Phaser.Core.Events.HIDDEN, () => audio.stopMusic(0.2));
 
   window.__GLEAMTRAIL__ = { game, ready: false, errors: [], session, debug: debugInfo, audio };
+  guardStaleText((msg) => {
+    console.warn(msg);
+    logError(msg);
+    window.__GLEAMTRAIL__?.errors.push(msg);
+  });
   window.addEventListener('error', (e) => {
     logError(String(e.message));
     window.__GLEAMTRAIL__?.errors.push(String(e.message));

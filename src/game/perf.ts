@@ -25,3 +25,18 @@ export let LITE = false;
 export function setLite(v: boolean): void {
   LITE = v;
 }
+
+/**
+ * Atlases Lite loads at half size (public/assets/lite/atlases, from scripts/build-lite.py). Each is
+ * stretched back over its full-size frame coordinates after loading (see inflateTexture), so every
+ * sprite keeps its size. WebGL only.
+ */
+export const LITE_HALF_ATLASES = ['hero_kip', 'hero_mossi', 'hero_tumble', 'hero_zippa', 'npcs3d', 'vfx', 'items', 'props'];
+
+/** Backdrop art Lite rasterises at half size; tiled strips of it draw at double scale. */
+const LITE_HALF_SVGS = new Set(['bg-sky', 'bg-clouds-far', 'bg-clouds-below', 'bg-islands-far']);
+
+/** How much smaller than normal this texture was loaded (1 = full size). */
+export function liteSvgDivisor(key: string): number {
+  return LITE && LITE_HALF_SVGS.has(key) ? 2 : 1;
+}

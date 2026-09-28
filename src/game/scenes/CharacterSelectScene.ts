@@ -14,6 +14,7 @@ import { addText, addTitle } from '../ui/theme';
 import { enterScene, goTo } from '../ui/Transition';
 import { applyGrade } from '../effects/GradePipeline';
 import { drawCard, UI } from '../ui/Style';
+import { addStrip } from '../ui/Screen';
 
 type SlotPhase = 'empty' | 'choosing' | 'ready';
 
@@ -83,7 +84,7 @@ export class CharacterSelectScene extends Phaser.Scene {
       this.add.image(stageX(0), stageY(0), 'rendered-scene-select').setOrigin(0).setScale(STAGE_K);
     } else {
       this.add.image(0, 0, 'bg-sky').setOrigin(0).setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
-      this.add.tileSprite(0, 520, GAME_WIDTH, 560, 'bg-clouds-below').setOrigin(0).setAlpha(0.95);
+      addStrip(this, 0, 520, GAME_WIDTH, 560, 'bg-clouds-below').setOrigin(0).setAlpha(0.95);
     }
     addTitle(this, GAME_WIDTH / 2, 70, session.mode === 'board' ? 'CHOOSE YOUR ADVENTURERS' : 'MINIGAME MODE · CHOOSE YOUR PLAYERS', 64);
     this.buildPodiums();
