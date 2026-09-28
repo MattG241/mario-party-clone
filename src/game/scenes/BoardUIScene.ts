@@ -4,7 +4,7 @@ import { COLORS, CSS, GAME_HEIGHT, GAME_WIDTH, PLAYER_COLORS } from '../constant
 import { CHARACTER_ANIMATIONS } from '../characters/CharacterAnimations';
 import { CHARACTERS } from '../data/characters';
 import { ITEMS, type ItemId } from '../data/items';
-import { npcFrame, type NpcId } from '../data/npcs';
+import { NPC_ATLAS, npcFrame, type NpcId } from '../data/npcs';
 import { EffectsManager } from '../effects/EffectsManager';
 import type { Button } from '../input/buttons';
 import type { Controls } from '../input/Controls';
@@ -336,8 +336,8 @@ export class BoardUIScene extends Phaser.Scene {
     if (spec.subtitle) root.add(addText(this, 0, -h / 2 + 96, spec.subtitle, 24, { color: CSS.inkSoft, weight: 500, wrap: w - 80 }));
     if (spec.npc) {
       const frame = npcFrame(spec.npc.id, spec.npc.pose);
-      const npc = this.add.sprite(-w / 2 - 110, h / 2 - 10, 'npcs', frame);
-      const o = standOrigin('npcs', frame);
+      const npc = this.add.sprite(-w / 2 - 110, h / 2 - 10, NPC_ATLAS, frame);
+      const o = standOrigin(NPC_ATLAS, frame);
       npc.setOrigin(o.x, o.y).setScale(0.95);
       root.add(npc);
     }

@@ -1,7 +1,12 @@
-import { SPRITE_META } from '../data/spriteMeta';
+import { FIXED_FEET, SPRITE_META } from '../data/spriteMeta';
 
-/** Origin that makes an atlas frame stand on its visible base (bottom of the solid artwork). */
+/**
+ * Origin that makes an atlas frame stand on its feet: the fixed registration point of the rendered
+ * 3D sheets, else the visible base (bottom centre of the solid artwork).
+ */
 export function standOrigin(texture: string, frame: string | number): { x: number; y: number } {
+  const fixed = FIXED_FEET[texture];
+  if (fixed) return fixed;
   const meta = SPRITE_META[texture];
   const fm = meta?.frames[Number(frame)];
   if (!fm) return { x: 0.5, y: 1 };

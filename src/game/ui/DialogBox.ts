@@ -1,9 +1,10 @@
 import Phaser from 'phaser';
 import { audio } from '../audio/AudioManager';
 import { CSS, GAME_HEIGHT, GAME_WIDTH } from '../constants';
-import { NPCS, npcFrame, type NpcId } from '../data/npcs';
+import { NPC_ATLAS, NPCS, npcFrame, type NpcId } from '../data/npcs';
 import type { Controls } from '../input/Controls';
 import { settings } from '../save/SettingsManager';
+import { standOrigin } from '../util/spriteUtil';
 import { PromptBar } from './ControllerPrompt';
 import { drawPanel } from './Panel';
 import { addText } from './theme';
@@ -38,7 +39,7 @@ export class DialogBox extends Phaser.GameObjects.Container {
     const h = 250;
     const bg = scene.add.graphics();
     drawPanel(bg, -w / 2, -h / 2, w, h, { radius: 30 });
-    this.portrait = scene.add.sprite(-w / 2 + 150, h / 2 - 12, 'npcs', '0').setOrigin(0.5, 0.86).setScale(0.95);
+    this.portrait = scene.add.sprite(-w / 2 + 150, h / 2 - 12, NPC_ATLAS, '0').setScale(0.95);
     this.nameG = scene.add.graphics();
     this.nameText = addText(scene, -w / 2 + 300, -h / 2 + 4, '', 32, { color: CSS.white, weight: 700, align: 'left' });
     this.roleText = addText(scene, -w / 2 + 300, -h / 2 + 4, '', 20, { color: 'rgba(255,255,255,0.85)', weight: 600, align: 'left' });
@@ -54,7 +55,9 @@ export class DialogBox extends Phaser.GameObjects.Container {
 
   private setSpeaker(line: DialogLine): void {
     const npc = NPCS[line.npc];
-    this.portrait.setFrame(npcFrame(line.npc, line.pose));
+    const frame = npcFrame(line.npc, line.pose);
+    const o = standOrigin(NPC_ATLAS, frame);
+    this.portrait.setFrame(frame).setOrigin(o.x, o.y);
     this.nameText.setText(npc.name);
     this.roleText.setText(npc.role);
     const w = 1420;

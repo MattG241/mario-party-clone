@@ -4,7 +4,7 @@ import { animHeadTop, Character } from '../../characters/Character';
 import type { AnimName } from '../../characters/CharacterAnimations';
 import { COLORS, CSS, GAME_WIDTH, PLAYER_COLORS } from '../../constants';
 import type { CharacterId } from '../../data/characters';
-import { npcFrame, type NpcId } from '../../data/npcs';
+import { NPC_ATLAS, npcFrame, type NpcId } from '../../data/npcs';
 import type { VirtualControls } from '../../input/PlayerInput';
 import { keyLabel } from '../../input/buttons';
 import { settings } from '../../save/SettingsManager';
@@ -435,8 +435,8 @@ export class TotemTugScene extends BaseMinigame {
       ['mimi', 'laugh', 1730],
     ];
     folk.forEach(([id, pose, x], i) => {
-      const spr = this.add.sprite(x, feetY, 'npcs', npcFrame(id, pose));
-      const o = standOrigin('npcs', npcFrame(id, pose));
+      const spr = this.add.sprite(x, feetY, NPC_ATLAS, npcFrame(id, pose));
+      const o = standOrigin(NPC_ATLAS, npcFrame(id, pose));
       spr.setOrigin(o.x, o.y).setScale(0.34).setDepth(-20 + i * 0.01).setFlipX(x > CENTER_X);
       this.tweens.add({ targets: spr, y: feetY - 6, duration: 360 + (i % 3) * 80, yoyo: true, repeat: -1, ease: 'Sine.InOut', delay: i * 90 });
       this.crowd.push(spr);

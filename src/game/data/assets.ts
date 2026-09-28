@@ -5,6 +5,7 @@
 // public/assets/placeholders/ and can be swapped for final art by replacing the files.
 
 import { HERO_DATA } from './heroSprites.generated';
+import { NPC_ATLAS } from './npcs';
 
 const HEROES = ['kip', 'mossi', 'tumble', 'zippa'];
 const HERO_3D = HEROES.filter((h) => HERO_DATA.meta[`hero_${h}`]);
@@ -18,7 +19,7 @@ export const ATLAS_KEYS: string[] = [
   ...HERO_3D.map((h) => `hero_${h}`),
   ...HERO_2D,
   ...(HERO_2D.length ? ['boardfx', 'actions'] : []),
-  'npcs',
+  NPC_ATLAS,
   'vfx',
   'items',
   'props',

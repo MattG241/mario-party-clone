@@ -3,7 +3,7 @@ import { audio } from '../../audio/AudioManager';
 import { Character } from '../../characters/Character';
 import { COLORS, CSS, GAME_HEIGHT, GAME_WIDTH, PLAYER_COLORS, PLAYER_SHAPES } from '../../constants';
 import { CHARACTERS, type CharacterId } from '../../data/characters';
-import { npcFrame, type NpcId } from '../../data/npcs';
+import { NPC_ATLAS, npcFrame, type NpcId } from '../../data/npcs';
 import type { VirtualControls } from '../../input/PlayerInput';
 import { glyphKindFor, makeGlyph } from '../../ui/ControllerPrompt';
 import { drawPlayerShape } from '../../ui/PlayerBadge';
@@ -698,8 +698,8 @@ export class RelicRelayScene extends BaseMinigame {
       ['packsprout', 'cheer', 1862, 1016, 0.4],
     ];
     folk.forEach(([id, pose, x, y, s], i) => {
-      const spr = this.add.sprite(x, y, 'npcs', npcFrame(id, pose));
-      const o = standOrigin('npcs', npcFrame(id, pose));
+      const spr = this.add.sprite(x, y, NPC_ATLAS, npcFrame(id, pose));
+      const o = standOrigin(NPC_ATLAS, npcFrame(id, pose));
       spr.setOrigin(o.x, o.y).setScale(s).setDepth(y - 2 + i * 0.01).setFlipX(x > 960);
       this.tweens.add({ targets: spr, y: y - 7, duration: 380 + (i % 3) * 90, yoyo: true, repeat: -1, ease: 'Sine.InOut', delay: i * 70 });
       this.crowd.push(spr);

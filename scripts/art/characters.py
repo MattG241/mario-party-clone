@@ -4,7 +4,7 @@
                                                   [--samples 48] [--pack-only]
 
 Each hero (char_models.py) is posed for every animation (char_anims.py), rendered with the board's
-key light and sky fill through a camera 20° above the horizon, and packed into a trimmed atlas
+key light and sky fill through a camera 12° above the horizon, and packed into a trimmed atlas
 (public/assets/atlases/hero_<id>.webp/.json) plus src/game/data/heroSprites.generated.ts with
 per-frame artwork bounds, the frame list of every animation and a few anchor points (hands, face).
 Frames keep a fixed registration: the feet sit at FEET in every frame.
@@ -38,7 +38,8 @@ p.add_argument('--samples', type=int, default=40)
 p.add_argument('--ss', type=float, default=2.0, help='supersampling factor')
 p.add_argument('--pack-only', action='store_true')
 p.add_argument('--out', default='')
-A = p.parse_args(sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else sys.argv[1:])
+# parse_known_args: npcs.py imports this module (its camera, lighting and packing) with its own flags
+A, _ = p.parse_known_args(sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else sys.argv[1:])
 
 FRAME = 389  # output frame size (matches the old sheets' padded cells)
 FEET = (194.5, 304.0)  # where the ground point under the hero lands in every frame

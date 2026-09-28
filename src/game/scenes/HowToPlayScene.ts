@@ -4,7 +4,7 @@ import { Character } from '../characters/Character';
 import { COLORS, CSS, ECONOMY, GAME_HEIGHT, GAME_WIDTH } from '../constants';
 import { CHARACTER_IDS } from '../data/characters';
 import { ITEM_IDS, ITEMS } from '../data/items';
-import { npcFrame } from '../data/npcs';
+import { NPC_ATLAS, npcFrame } from '../data/npcs';
 import { input } from '../input/InputManager';
 import { glyphKindFor, makeGlyph, PromptBar, type PromptButton } from '../ui/ControllerPrompt';
 import { buildBackdrop, drawNavyPanel } from '../ui/Screen';
@@ -75,8 +75,8 @@ export class HowToPlayScene extends Phaser.Scene {
 
     // Ora presents from the left, with a speech bubble.
     const frame = npcFrame('ora', 'welcome');
-    this.ora = this.add.sprite(200, 930, 'npcs', frame);
-    const o = standOrigin('npcs', frame);
+    this.ora = this.add.sprite(200, 930, NPC_ATLAS, frame);
+    const o = standOrigin(NPC_ATLAS, frame);
     this.ora.setOrigin(o.x, o.y).setScale(1.25);
     this.add.image(200, 934, 'fx-shadow').setScale(2.2, 0.6).setAlpha(0.45).setDepth(-1);
     this.children.bringToTop(this.ora);
@@ -127,7 +127,7 @@ export class HowToPlayScene extends Phaser.Scene {
     this.tweens.add({ targets: this.body, alpha: 1, x: 0, duration: 220, ease: 'Quad.Out' });
     const frame = npcFrame('ora', p.ora);
     this.ora.setFrame(frame);
-    const o = standOrigin('npcs', frame);
+    const o = standOrigin(NPC_ATLAS, frame);
     this.ora.setOrigin(o.x, o.y);
     this.bubble.setText(p.line);
     // page dots
@@ -285,8 +285,8 @@ export class HowToPlayScene extends Phaser.Scene {
     this.tweens.add({ targets: beam, alpha: 0.55, duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
     c.add(this.add.image(cx, cy + 8, 'fx-shadow').setScale(2.4, 0.7).setAlpha(0.5));
     const frame = npcFrame('packsprout', 'gift');
-    const keeper = this.add.sprite(cx, cy, 'npcs', frame);
-    const o = standOrigin('npcs', frame);
+    const keeper = this.add.sprite(cx, cy, NPC_ATLAS, frame);
+    const o = standOrigin(NPC_ATLAS, frame);
     keeper.setOrigin(o.x, o.y).setScale(1.3);
     c.add(keeper);
     const relic = this.icon(c, 'prism-relic', undefined, cx + 150, cy - 250, 150);

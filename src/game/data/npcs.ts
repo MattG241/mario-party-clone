@@ -1,4 +1,8 @@
-// Festival NPCs (npcs atlas: one row of six poses per NPC).
+// Festival NPCs (one row of six poses per NPC in the NPC atlas).
+import { NPC_SHEET } from './npcSprites.generated';
+
+/** Texture key of the NPC poses: the rendered 3D sheet (scripts/art/npcs.py) when present, else the 2D sheet. */
+export const NPC_ATLAS = NPC_SHEET ? 'npcs3d' : 'npcs';
 
 export type NpcId = 'ora' | 'wrench' | 'pipper' | 'mimi' | 'packsprout';
 
