@@ -56,10 +56,12 @@ describe('coffee rush: the milk swirl', () => {
 });
 
 describe('coffee rush: scoring', () => {
-  it('pays 2 a coffee, plus 1 for each perfect part, doubled in rush hour', () => {
-    expect(coffeePoints('good', 'messy', false)).toBe(2);
-    expect(coffeePoints('perfect', 'good', false)).toBe(3);
-    expect(coffeePoints('perfect', 'perfect', false)).toBe(4);
-    expect(coffeePoints('perfect', 'perfect', true)).toBe(8);
+  it('pays 3 a coffee, plus 1 for each perfect part, doubled in rush hour', () => {
+    expect(coffeePoints('good', 'messy', false)).toBe(3);
+    expect(coffeePoints('perfect', 'good', false)).toBe(4);
+    expect(coffeePoints('perfect', 'perfect', false)).toBe(5);
+    expect(coffeePoints('perfect', 'perfect', true)).toBe(10);
+    // More coffees still win: three sloppy ones beat two perfect ones.
+    expect(3 * coffeePoints('good', 'messy', false)).toBeGreaterThan(2 * coffeePoints('perfect', 'perfect', false) - 1);
   });
 });

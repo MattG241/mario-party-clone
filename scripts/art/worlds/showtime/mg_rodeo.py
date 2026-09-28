@@ -236,8 +236,26 @@ def scene():
     y0 = row_y(FENCE_ROW)
     lib.mesh_object('sand', [(-1.0, y0 + 0.4, 0.0), (20.2, y0 + 0.4, 0.0), (20.2, row_y(1500), 0.0), (-1.0, row_y(1500), 0.0)], [(3, 2, 1, 0)], smooth=False, material=sand_material())
     # the island top behind the ring
-    lib.mesh_object('lawn', [(-1.0, row_y(200), 0.0), (20.2, row_y(200), 0.0), (20.2, y0 + 0.4, 0.0), (-1.0, y0 + 0.4, 0.0)], [(3, 2, 1, 0)], smooth=False,
-                    material=lib.simple_mat('lawn', '#7fcf6a', rough=0.9))
+    # the lawn behind the ring ends in a wavy edge lined with bushes (no ruler-straight horizon)
+    verts, faces = [], []
+    n = 64
+    for i in range(n + 1):
+        sx = -100 + i * (2120 / n)
+        edge = 210 + 26 * math.sin(sx * 0.006 + 1.3) + 12 * math.sin(sx * 0.017)
+        verts.append((sx / PX, row_y(edge), 0.0))
+        verts.append((sx / PX, y0 + 0.4, 0.0))
+    for i in range(n):
+        a = i * 2
+        faces.append((a + 1, a + 3, a + 2, a))
+    lib.mesh_object('lawn', verts, faces, smooth=False, material=lib.simple_mat('lawn', '#7fcf6a', rough=0.9))
+    import terrain
+    hedge, wood_h, berries = lib.MeshBuilder(), lib.MeshBuilder(), lib.MeshBuilder()
+    for i in range(46):
+        sx = -80 + i * 46 + rnd.uniform(-10, 10)
+        edge = 210 + 26 * math.sin(sx * 0.006 + 1.3) + 12 * math.sin(sx * 0.017)
+        terrain.bush(hedge, sx, edge + 6, rnd, rnd.uniform(0.9, 1.4), berries=berries if i % 3 == 0 else None)
+    hedge.build('hedge', lib.attr_mat('hedge', rough=0.78, ao=0.5))
+    berries.build('hedge_fl', lib.attr_mat('hedge_fl', rough=0.55))
     fence()
     bleachers()
     barn()
@@ -269,10 +287,9 @@ def pony_parts():
     body = Kit('pony')
     front = Kit('ponyfront')
     pink, pinkd, white = '#ff9ccb', '#ff6fae', '#fff8fb'
-    # barrel (also in the front layer, so it covers the rider's legs)
-    for kit in (body, front):
-        v, f = lib.blob((P.x, P.y, P.z + 0.36), 1.0, squash=(1.12, 0.42, 0.44), rough=0.0, subdiv=3)
-        kit['gloss'].add(v, f, col(pink))
+    # barrel: in the front kit (with the saddle), which is also drawn again over the rider's legs
+    v, f = lib.blob((P.x, P.y, P.z + 0.36), 1.0, squash=(1.12, 0.42, 0.44), rough=0.0, subdiv=3)
+    front['gloss'].add(v, f, col(pink))
     # neck, head, ears, muzzle
     v, f = lib.tube([(P.x + 0.8, P.y, P.z + 0.45), (P.x + 1.08, P.y, P.z + 0.9), (P.x + 1.2, P.y, P.z + 1.22)], lambda t: 0.3 - 0.1 * t, 12)
     body['gloss'].add(v, f, col(pink))
@@ -320,25 +337,35 @@ def pony_parts():
         zz = rnd.uniform(-0.25, 0.3)
         v, f = lib.blob((P.x + math.sin(a) * 0.95, P.y - 0.4 - 0.02 * abs(zz), P.z + 0.36 + zz), 0.035, rough=0.0, subdiv=1)
         body['glass'].add(v, f, col(rnd.choice(['#ffffff', '#fff0fa', '#e0f7ff'])))
-    # saddle: blanket, seat, horn; the near-side skirt and stirrup go in the front layer too
+    # saddle (front kit): a hot-pink pad, a dished white seat, a rounded near-side skirt with gold
+    # trim and rhinestones, and a little gold stirrup; the horn stays in the body kit (behind the rider)
     seat = Vector((P.x - 0.05, P.y, P.z + 0.82))
-    for kit in (body, front):
-        v, f = lib.box((seat.x, seat.y, seat.z - 0.06), (0.9, 0.9, 0.05))
-        kit['paint'].add(v, f, col('#ff4f9a'))
-        v, f = lib.blob((seat.x, seat.y, seat.z + 0.02), 0.44, squash=(1.0, 1.0, 0.22), rough=0.0, subdiv=2)
-        kit['gloss'].add(v, f, col(white))
-        # skirt (near side) with gold trim and a stirrup
-        v, f = lib.box((seat.x, seat.y - 0.44, seat.z - 0.3), (0.62, 0.03, 0.5))
-        kit['gloss'].add(v, f, col(white))
-        v, f = lib.box((seat.x, seat.y - 0.46, seat.z - 0.55), (0.64, 0.035, 0.05))
-        kit['metal'].add(v, f, col('#f2c14e'))
-        v, f = lib.tube([(seat.x - 0.02, seat.y - 0.47, seat.z - 0.52), (seat.x, seat.y - 0.49, seat.z - 0.95)], 0.02, 5)
-        kit['metal'].add(v, f, col('#c98a2b'))
-        v, f = lib.lathe([(0.1, 0.0), (0.12, 0.03), (0.1, 0.08)], 10, (seat.x, seat.y - 0.49, seat.z - 1.02), cap_bottom=False, cap_top=False)
-        kit['metal'].add(v, f, col('#f2c14e'))
-        for i in range(5):
-            v, f = lib.blob((seat.x - 0.24 + i * 0.12, seat.y - 0.47, seat.z - 0.3), 0.03, rough=0.0, subdiv=1)
-            kit['glass'].add(v, f, col('#fff0fa'))
+    k = front
+    v, f = lib.blob((seat.x, seat.y, seat.z - 0.07), 0.5, squash=(1.08, 0.96, 0.13), rough=0.0, subdiv=3)
+    k['gloss'].add(v, f, col('#ff4f9a'))
+    v, f = lib.blob((seat.x, seat.y, seat.z + 0.03), 0.42, squash=(1.0, 0.9, 0.2), rough=0.0, subdiv=3)
+    k['gloss'].add(v, f, col(white))
+
+    def rounded_rect(w, h, r, n=5):
+        pts = []
+        for (cx, cz, a0) in [(w / 2 - r, h / 2 - r, 0.0), (-w / 2 + r, h / 2 - r, math.pi / 2), (-w / 2 + r, -h / 2 + r, math.pi), (w / 2 - r, -h / 2 + r, 1.5 * math.pi)]:
+            for i in range(n + 1):
+                a = a0 + i / n * math.pi / 2
+                pts.append((cx + math.cos(a) * r, cz + math.sin(a) * r))
+        return pts
+    sz = seat.z - 0.3
+    K.flat_shape(k['metal'], rounded_rect(0.7, 0.5, 0.14), (seat.x, seat.y - 0.425, sz), '#f2c14e', 0.02)
+    K.flat_shape(k['gloss'], rounded_rect(0.62, 0.42, 0.11), (seat.x, seat.y - 0.44, sz), white, 0.02)
+    K.flat_shape(k['gloss'], rounded_rect(0.4, 0.22, 0.08), (seat.x, seat.y - 0.455, sz), '#ffb3d6', 0.01)
+    for i in range(5):
+        v, f = lib.blob((seat.x - 0.22 + i * 0.11, seat.y - 0.47, sz + 0.17), 0.028, rough=0.0, subdiv=1)
+        k['glass'].add(v, f, col('#fff0fa'))
+    v, f = lib.tube([(seat.x, seat.y - 0.45, sz - 0.2), (seat.x, seat.y - 0.46, sz - 0.34)], 0.018, 5)
+    k['metal'].add(v, f, col('#e0a93f'))
+    ring = [(seat.x + math.cos(a) * 0.075, seat.y - 0.46, sz - 0.41 + math.sin(a) * 0.06) for a in [i / 12 * math.tau for i in range(13)]]
+    v, f = lib.tube(ring, 0.018, 5)
+    k['metal'].add(v, f, col('#f2c14e'))
+    # horn and gems (body kit)
     v, f = lib.cylinder((seat.x + 0.36, seat.y, seat.z), 0.05, 0.06, 0.22, 10)
     body['gloss'].add(v, f, col(white))
     v, f = lib.blob((seat.x + 0.36, seat.y, seat.z + 0.24), 0.08, squash=(1.2, 1.2, 0.6), rough=0.0, subdiv=1)
@@ -401,11 +428,16 @@ def pony():
             dst = os.path.join(K.PUB, 'mg', f'showtime_{name}.webp')
             Image.open(out).convert('RGBA').save(dst, 'WEBP', quality=92, method=6)
             print('wrote', dst)
-    # The body and its front layer cast shadows on nothing (they float); the base shows on its own.
+    # The pony (both kits), then its front layer: the barrel and saddle, with the legs, neck, head
+    # and tail as holdouts so they cut it out wherever they are nearer (the lighting is identical).
     for ob in base_obs:
         ob.visible_shadow = False
-    only(body_obs, 'pony')
-    only(front_obs, 'pony_front')
+    only(body_obs + front_obs, 'pony')
+    for ob in body_obs:
+        ob.is_holdout = True
+    only(body_obs + front_obs, 'pony_front')
+    for ob in body_obs:
+        ob.is_holdout = False
     for ob in base_obs:
         ob.visible_shadow = True
     for ob in body_obs + front_obs:

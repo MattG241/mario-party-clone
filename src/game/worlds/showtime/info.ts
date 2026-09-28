@@ -11,10 +11,10 @@ const HIP_SHAKE: MinigameInfo = {
   tagline: 'Rock the bandshell, right on the beat!',
   description: 'A rock-and-roll dance-off on a 1950s bandshell. Moves fall down your spotlight in time with the band: hit them on the beat, chain streaks and make the crowd swoon.',
   instructions: [
-    'Arrows fall down your spotlight: push that way (stick or D-pad) as one reaches your shape',
+    'Arrows fall to your shape: push the stick that way on the beat',
     'Stars are poses: press A on the beat',
-    'On the beat is PERFECT; every 8 in a row raises your multiplier',
-    'Top score after 45 seconds wins; the final 10 are an encore worth double',
+    'PERFECT on the beat; 8 in a row raises your multiplier',
+    'Top score wins; the final 10 seconds are an encore worth double',
   ],
   controls: [
     { button: 'STICK', label: 'Dance moves' },
@@ -37,10 +37,10 @@ const COFFEE_RUSH: MinigameInfo = {
   tagline: 'Pull the perfect shot, swirl the perfect heart!',
   description: 'Behind the counter of a pastel café: pull espresso shots right to the line, pour latte art and serve every customer before they give up waiting. Perfect pours score more.',
   instructions: [
-    'Hold A to pull a shot and let go on the gold fill line',
+    'Hold A to pull a shot; let go on the gold fill line',
     'Then tap A as the milk swirl passes the pink heart',
-    'Serve before the ring round the order runs out; perfect pours score more',
-    'Most points after 50 seconds wins; the last 10 are rush hour, worth double',
+    'Serve before the order ring runs out; perfect pours score more',
+    'Most points wins; the last 10 seconds are rush hour, worth double',
   ],
   controls: [
     { button: 'A', label: 'Hold: pour / Tap: swirl' },
@@ -62,10 +62,10 @@ const RHINESTONE_RODEO: MinigameInfo = {
   tagline: 'Hold on to your hat, cowgirl!',
   description: 'Ride a sparkly mechanical pony in a pink honky-tonk ring. Every buck is telegraphed: lean the right way to stay in the saddle. The bucks get wilder and wilder!',
   instructions: [
-    'Before each buck your pony winds up, tipping one way: an arrow shows it',
+    'Before each buck your pony tips one way; an arrow shows which',
     'Lean that way with the stick before it bucks to stay on',
-    'Thrown off? You lose 2 seconds and climb back on; the bucks get wilder',
-    'Longest time in the saddle after 45 seconds wins',
+    'Thrown off? You lose 2 seconds and climb back on',
+    'The bucks get wilder: longest time in the saddle wins',
   ],
   controls: [{ button: 'STICK', label: 'Lean' }],
   players: '1–4 players',
