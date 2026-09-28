@@ -24,8 +24,9 @@ sys.path.insert(0, os.path.dirname(__file__))
 import lib  # noqa: E402
 import terrain  # noqa: E402
 from terrain import (  # noqa: E402
-    THEMES, barrel, build_island, bush, crate, crystal_cluster, dist_at, fence_run, flower_bed, grass_tuft, hay_bale, island_material, lamp_post,
-    level_contour, mushroom_cluster, orient, resample, rock, stepping_stone, tree_pine, tree_round, vine,
+    THEMES, barrel, build_island, bush, crate, crystal_cluster, dist_at, fence_run, flower_bed, grass_tuft, hay_bale, island_material_fine, lamp_post,
+    leaf_material, level_contour, mushroom_cluster, orient, paving_material, resample, rock, scatter_mat, shrine_platform, stepping_stone,
+    tree_blossom, tree_maple, tree_pine, tree_round, vine, willow,
 )
 from lib import COSB, PX, Vector, board_to_world, col  # noqa: E402
 
@@ -46,6 +47,8 @@ def args():
     p.add_argument('--export', action='store_true', help='slice into WebP tiles under public/assets/rendered')
     p.add_argument('--props-only', action='store_true', help='only re-render the landmark sprites')
     p.add_argument('--no-lowland', action='store_true', help='skip the valley floor under the plateaus')
+    p.add_argument('--plan', action='store_true', help='draw the valley layout map (plan.png) and exit without rendering')
+    p.add_argument('--bands', type=int, default=1, help='render the terrain in N horizontal bands (saved as they finish), then stitch')
     return p.parse_args(sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else sys.argv[1:])
 
 
@@ -90,13 +93,99 @@ LANDMARKS = [
     dict(id='vane', kind='vane', x=3400, y=1300, s=1.2, r=0, tex=''),
     dict(id='bench', kind='bench', x=900, y=1560, s=1.2, r=0, tex=''),
 ]
-for _g in ['go4', 'c2', 't4', 'd3', 'o2']:
+# Relic shrines: a mosaic platform baked into the terrain behind each relic gate (under the space
+# disc, so it never hides it) and a slim cradle sprite at its back that the floating relic sits over
+# (the game draws the relic at the gate, 170 px up). The cradle stays clear of the space disc, which
+# reaches 44 px behind the space.
+RELIC_GATES = ['go4', 'c2', 't4', 'd3', 'o2']
+SHRINES = []  # (board x, board y) of each platform centre
+for _g in RELIC_GATES:
     _n = next(n for n in DATA['nodes'] if n['id'] == _g)
-    LANDMARKS.append(dict(id=f'pedestal-{_g}', kind='pedestal', x=_n['x'], y=_n['y'] - 40, s=1.5, r=0, tex='relic-pedestal'))
+    SHRINES.append((_n['x'], _n['y'] - 40))
+    LANDMARKS.append(dict(id=f'pedestal-{_g}', kind='pedestal', x=_n['x'], y=_n['y'] - 85, s=1.0, r=0, tex='relic-pedestal'))
+
+# Points along every trail (spaces plus samples along each edge): tall scenery must never hide them.
+PATH_PTS = [(n['x'], n['y']) for n in NODES.values()]
+for _e in EDGES:
+    _a, _b = NODES[_e['from']], NODES[_e['to']]
+    for _t in np.linspace(0, 1, 8):
+        PATH_PTS.append((_a['x'] + (_b['x'] - _a['x']) * _t, _a['y'] + (_b['y'] - _a['y']) * _t))
+PATH_PTS = np.array(PATH_PTS)
+
+
+def canopy_clear(bx, by, width, height):
+    """True if no path/space lies in the screen area a tall object at (bx, by) would cover."""
+    m = (np.abs(PATH_PTS[:, 0] - bx) < width) & (PATH_PTS[:, 1] < by + 20) & (PATH_PTS[:, 1] > by - height)
+    return not m.any()
+
 
 # Rendered area in board px (a margin around the board for hanging island undersides).
 FRAME = (-120, -60, W + 240, H + 200)
 TILE = 1024
+
+
+def crisp(path, radius=1.1, amount=55):
+    """A light unsharp mask on the colour (not the alpha) of a finished render: the denoiser leaves
+    fine texture a little soft, and the board is seen up close next to crisp character sprites.
+    Transparent pixels first take the nearest opaque colour, so silhouettes get no bright rim."""
+    im = Image.open(path).convert('RGBA')
+    a = np.asarray(im)
+    solid = a[..., 3] > 250
+    if not solid.any():
+        return
+    _, (iy, ix) = ndimage.distance_transform_edt(~solid, return_indices=True)
+    filled = Image.fromarray(np.ascontiguousarray(a[..., :3][iy, ix]), 'RGB')
+    del iy, ix
+    rgb = filled.filter(ImageFilter.UnsharpMask(radius=radius, percent=amount, threshold=2))
+    Image.merge('RGBA', (*rgb.split(), im.getchannel('A'))).save(path)
+
+
+def render_bands(frame, n, path, overlap=24):
+    """Render the terrain as n horizontal bands (each saved as soon as it is done, so a long render
+    on the shared machine shows progress and a failure costs one band), then stitch them. Bands
+    overlap a little and are cut in the middle of the overlap, so the denoiser leaves no seam; each
+    band's row offset is checked against its neighbour in case the border rounds by a pixel."""
+    fx, fy, fw, fh = frame
+    rh = int(round(fh * SCALE))
+    cuts = [round(rh * i / n) for i in range(n + 1)]
+    bands = []
+    for i in range(n):
+        y0, y1 = max(0, cuts[i] - overlap), min(rh, cuts[i + 1] + overlap)
+        band = os.path.join(os.path.dirname(path), f'band_{i}.png')
+        if os.path.exists(band) and os.environ.get('BOARD_REUSE_BANDS'):
+            print('band', i, 'reused')
+        else:
+            lib.set_border((fx, fy + y0 / SCALE, fx + fw, fy + y1 / SCALE), frame)
+            lib.render_to(band)
+            print('band', i, 'done', flush=True)
+        im = Image.open(band).convert('RGBA')
+        top = y0
+        if bands:
+            pim, ptop = bands[-1]
+            pa, ca = np.asarray(pim, np.float32), np.asarray(im, np.float32)
+            best = None
+            for d in range(-3, 4):
+                t = y0 + d
+                r0, r1 = max(t, ptop), min(ptop + pim.height, t + im.height)
+                if r1 - r0 < 8:
+                    continue
+                a_, b_ = pa[r0 - ptop:r1 - ptop], ca[r0 - t:r1 - t]
+                mask = (a_[..., 3] > 250) & (b_[..., 3] > 250)
+                if mask.sum() < 100:
+                    continue
+                err = float(np.abs(a_[..., :3] - b_[..., :3])[mask].mean())
+                if best is None or err < best[0]:
+                    best = (err, d)
+            if best:
+                top = y0 + best[1]
+                print('band', i, 'offset', best[1], 'overlap error %.2f' % best[0])
+        bands.append((im, top))
+    full = Image.new('RGBA', (bands[0][0].width, rh), (0, 0, 0, 0))
+    for i, (im, top) in enumerate(bands):
+        a, b = cuts[i], cuts[i + 1]
+        full.paste(im.crop((0, a - top, im.width, b - top)), (0, a))
+    lib.clear_border()
+    full.save(path)
 
 
 def export_tiles(path):
@@ -252,7 +341,7 @@ def path_mask(islands_masks):
     for n in NODES.values():
         r = 72 / s
         dr.ellipse([n['x'] / s - r, n['y'] / s - r * 0.8, n['x'] / s + r, n['y'] / s + r * 0.8], fill=255)
-    img = img.filter(ImageFilter.GaussianBlur(3.2))
+    img = img.filter(ImageFilter.GaussianBlur(2.6))
     path = os.path.join(A.out, 'pathmask.png')
     os.makedirs(A.out, exist_ok=True)
     img.save(path)
@@ -280,7 +369,15 @@ def pmask_at(pm, bx, by):
     return 0.0
 
 
+def near_shrine(bx, by, pad=0.0):
+    rx = terrain.SHRINE_R * PX + 6
+    ry = rx * COSB
+    return any(((bx - sx) / (rx + pad)) ** 2 + ((by - sy) / (ry + pad)) ** 2 < 1.0 for (sx, sy) in SHRINES)
+
+
 def near_landmark(bx, by, pad=0.0):
+    if near_shrine(bx, by, pad):
+        return True
     for lm in LANDMARKS:
         k = lm['kind']
         if k == 'bunting':
@@ -354,6 +451,7 @@ def render_props(built, terrain_objs, frame):
         sc.render.border_min_y, sc.render.border_max_y = 1 - py1 / ry, 1 - py0 / ry
         png = os.path.join(A.out, 'props', f'{pid}.png')
         lib.render_to(png)
+        crisp(png, amount=40)
         im = Image.open(png).convert('RGBA')
         name = f'prop_{pid}.webp'
         im.save(os.path.join(dest, name), 'WEBP', quality=92, method=6)
@@ -399,10 +497,28 @@ def water_material():
 
 
 def pond_material():
+    """Calm stylised water: clear teal-blue with a soft deeper mottle, fine wind ripples (thin pale
+    bands) and a glossy coat that picks up the sky. (Big pale noise blotches read as a pasted-on
+    texture.)"""
     m = lib.NT('pond')
-    nz = m.noise(4.0, 3, 0.5, m.position())
-    c = m.mix(m.maprange(nz.outputs['Fac'], 0.35, 0.7), lib.col('#2f9fd0'), lib.col('#7fdcf4'))
-    m.bsdf(c, 0.08, emission=lib.col('#4fc3e8'), emission_strength=0.15, coat=0.8)
+    pos = m.position()
+    nz = m.noise(1.6, 3, 0.5, pos)
+    c = m.mix(m.maprange(nz.outputs['Fac'], 0.35, 0.65), lib.col('#2a94c8'), lib.col('#49b7e2'))
+    wv = m.node('ShaderNodeTexWave')
+    wv.wave_type = 'BANDS'
+    wv.bands_direction = 'X'
+    wv.inputs['Scale'].default_value = 5.0
+    wv.inputs['Distortion'].default_value = 4.0
+    wv.inputs['Detail'].default_value = 2.0
+    stretch = m.node('ShaderNodeVectorMath', operation='MULTIPLY')
+    m.link(pos, stretch.inputs[0])
+    stretch.inputs[1].default_value = (1.0, 2.2, 1.0)
+    m.link(stretch.outputs['Vector'], wv.inputs['Vector'])
+    ripple = m.maprange(wv.outputs['Fac'], 0.9, 0.985)
+    rn = m.noise(2.4, 2, 0.5, pos)
+    ripple = m.math('MULTIPLY', ripple, m.maprange(rn.outputs['Fac'], 0.5, 0.64))
+    c = m.mix(m.math('MULTIPLY', ripple, 0.4), c, lib.col('#bff0ff'))
+    m.bsdf(c, 0.06, emission=c, emission_strength=0.14, coat=1.0)
     return m.mat
 
 
@@ -543,6 +659,85 @@ FIELD = {  # soil colour under the rows, row spacing / plant step / edge margin 
 }
 FEST = ['#ff6b5e', '#f4b83b', '#1fa5a0', '#fff4dc']  # coral, gold, teal, cream
 
+# The festival district in the two valleys inside the loop (valley board px). West: the Lantern Fair
+# round the pond (a market street on the north shore under strings of lanterns, a pier with a
+# rowboat, the fair with a carousel, a Ferris wheel, a bandstand and flower beds). East: quieter
+# gardens round the orchard pond (a greenhouse, a picnic lawn, a pier, beehives and a camp). Every
+# piece is checked against what the camera sees, the water, the trails above and its neighbours.
+STRIPE = [('#ff6b5e', '#fff4dc'), ('#1fa5a0', '#fff4dc'), ('#f4b83b', '#fff4dc'), ('#8e5cd9', '#fff4dc'), ('#ff8fb1', '#fff4dc'), ('#3f9ee0', '#fff4dc')]
+MIMI = (2020, 1500 - 160)  # the game stands Mimi on the valley floor here (board 2020, 1500 on screen)
+DISTRICT = dict(
+    lanes=[
+        # west: from the pier's foot round the pond's west shore to the market street on the north shore
+        dict(pts=[(1700, 1352), (1545, 1352), (1470, 1345), (1395, 1310), (1345, 1215), (1352, 1100), (1440, 1024), (1560, 1004), (1680, 1012), (1735, 1052)], w=18),
+        dict(pts=[(1395, 1310), (1350, 1355), (1310, 1395)], w=13),
+        dict(pts=[(1352, 1100), (1300, 1050), (1268, 1024)], w=13),
+        # east: along the orchard pond's west shore up to the greenhouse, and along its south shore to the pier
+        dict(pts=[(2800, 1575), (2650, 1578), (2572, 1485), (2556, 1340), (2578, 1200), (2598, 1060), (2590, 925)], w=16),
+        dict(pts=[(2562, 1300), (2680, 1306), (2800, 1308), (2900, 1292)], w=12),
+    ],
+    items=[
+        # --- west: the Lantern Fair
+        dict(kind='ferris', x=1262, y=994, s=1.0),
+        dict(kind='booth', x=1440, y=955, s=1.0, stripe=0, goods='fruit'),
+        dict(kind='booth', x=1552, y=944, s=1.0, stripe=1, goods='toys'),
+        dict(kind='booth', x=1664, y=952, s=1.0, stripe=2, goods='flowers'),
+        dict(kind='booth', x=1250, y=1128, s=0.95, stripe=3, goods='pots'),
+        dict(kind='beds', x=1252, y=1242, cols=2, rows=2),
+        dict(kind='bandstand', x=1292, y=1444, s=1.0),
+        dict(kind='bench', x=1334, y=1516, yaw=0.5),
+        dict(kind='bench', x=1392, y=1488, yaw=0.9),
+        dict(kind='pier', pond=0, x=1545, reach=100, boat=(1602, 1252, 0.35)),
+        dict(kind='carousel', x=1606, y=1532, s=1.0),
+        dict(kind='parasol', x=1440, y=1580, stripe=0),
+        dict(kind='parasol', x=1515, y=1636, stripe=1),
+        dict(kind='cart', x=1772, y=1528, stripe=4),
+        dict(kind='picnic', x=1392, y=1662, yaw=0.3, cloth=0),
+        dict(kind='picnic', x=1700, y=1668, yaw=-0.4, cloth=1),
+        dict(kind='signpost', x=1404, y=1372),
+        dict(kind='blossom', x=1112, y=1085),
+        dict(kind='blossom', x=1242, y=1332),
+        dict(kind='blossom', x=1330, y=1580),
+        dict(kind='blossom', x=1855, y=1228, pal=('#e7e0f4', '#ffffff')),
+        dict(kind='willow', x=1795, y=1300),
+        dict(kind='maple', x=1480, y=1738),
+        dict(kind='blossom', x=1915, y=1120),
+        # --- east: the orchard gardens
+        dict(kind='greenhouse', x=2590, y=880, s=1.0),
+        dict(kind='pier', pond=4, x=2900, reach=95, boat=(2960, 1214, -0.45)),
+        dict(kind='picnic', x=2722, y=968, yaw=0.2, cloth=2),
+        dict(kind='picnic', x=2890, y=948, yaw=-0.3, cloth=0),
+        dict(kind='parasol', x=2806, y=905, stripe=5),
+        dict(kind='beds', x=2980, y=905, cols=2, rows=1),
+        dict(kind='beehives', x=3042, y=1446),
+        dict(kind='scarecrow', x=2880, y=1560),
+        dict(kind='cart', x=2742, y=1624, stripe=2),
+        dict(kind='camp', x=2872, y=1668),
+        dict(kind='willow', x=3048, y=1238),
+        dict(kind='blossom', x=2532, y=1122),
+        dict(kind='blossom', x=3040, y=1378),
+        dict(kind='blossom', x=2698, y=874, pal=('#e7e0f4', '#ffffff')),
+        dict(kind='maple', x=3122, y=884),
+        # --- a few touches round the outer meadows
+        dict(kind='pier', pond=3, x=560, reach=90, boat=(612, 600, 0.5)),
+        dict(kind='camp', x=272, y=1204),
+        dict(kind='blossom', x=240, y=1560),
+        dict(kind='blossom', x=1010, y=236),
+        dict(kind='blossom', x=1570, y=232),
+        dict(kind='picnic', x=1660, y=290, yaw=0.25, cloth=4),
+        dict(kind='maple', x=3870, y=1070),
+        dict(kind='blossom', x=3830, y=1320),
+        dict(kind='maple', x=3790, y=1860),
+    ],
+    # lantern strings between poles along the market street (pole positions, valley board px)
+    poles=[(1392, 1040), (1502, 1030), (1612, 1032), (1716, 1050)],
+)
+# footprint half-sizes (board px across, board px deep) and height (world units) of each kind
+DISTRICT_SIZE = dict(ferris=(66, 24, 2.2), booth=(52, 30, 1.2), beds=(96, 34, 0.2), bandstand=(62, 48, 1.2), bench=(24, 12, 0.3),
+                     carousel=(80, 64, 1.7), parasol=(32, 26, 0.8), cart=(36, 24, 0.9), picnic=(26, 22, 0.2), signpost=(14, 10, 0.5),
+                     blossom=(40, 32, 2.1), willow=(56, 44, 1.6), maple=(46, 36, 2.2), greenhouse=(50, 26, 0.7), beehives=(34, 14, 0.3),
+                     scarecrow=(22, 10, 0.7), camp=(36, 34, 0.35), hay=(40, 20, 0.3))
+
 
 def lowland_mask():
     """A big rounded blob under the whole board (inside the mask canvas, so its rim closes)."""
@@ -593,7 +788,14 @@ def lowland_material(col_path, fac_path):
     grass = m.mix(m.math('MULTIPLY', m.maprange(h1.outputs['Fac'], 0.4, 0.66), 0.24), grass, lib.col('#a9c763'))
     h2 = m.noise(0.8, 2, 0.5, pos)
     grass = m.mix(m.math('MULTIPLY', m.maprange(h2.outputs['Fac'], 0.42, 0.68), 0.2), grass, lib.col('#4e9a7a'))
+    # fine clumps, speckle and tiny wild flowers (as on the plateaus, a little sparser)
+    grass = terrain.grass_detail(m, pos, grass, flowers=0.75, keep_off=m.maprange(cov, 0.35, 0.05))
     zc = m.mult(zcol, m.mix(n2.outputs['Fac'], lib.col('#e2e2e2'), lib.col('#ffffff')))
+    # grain on soils, yards and lanes: pebbles and a fine mottle
+    zv = m.voronoi(26.0, pos)
+    zc = m.mult(zc, m.mix(m.maprange(zv.outputs['Distance'], 0.32, 0.18), lib.col('#ffffff'), lib.col('#fff4e0')))
+    zn = m.noise(30.0, 2, 0.5, pos)
+    zc = m.mult(zc, m.mix(m.maprange(zn.outputs['Fac'], 0.4, 0.64), lib.col('#ffffff'), lib.col('#d8ccb8')))
     ground = m.mix(cov, grass, zc)
     wave = m.node('ShaderNodeTexWave')
     wave.wave_type = 'BANDS'
@@ -607,7 +809,7 @@ def lowland_material(col_path, fac_path):
     top = m.maprange(nz, 0.55, 0.8)
     colr = m.mix(top, rock, ground)
     # soft blue-green occlusion (not near-black) and a little height haze
-    colr = m.mult(colr, m.mix(m.ao(0.7, 8), lib.col('#7f9a94'), lib.col('#ffffff')))
+    colr = m.mult(colr, m.mix(terrain.cam_ao(m, 0.7, 5), lib.col('#7f9a94'), lib.col('#ffffff')))
     colr = m.mix(0.08, colr, lib.col(HAZE))
     m.bsdf(colr, 0.85, normal=m.bump(m.math('ADD', rn.outputs['Fac'], m.math('MULTIPLY', gfac, 0.2)), 0.3, 0.08), sheen=0.2,
            emission=lib.col(HAZE), emission_strength=0.015)
@@ -620,9 +822,28 @@ def low_mat(name, rough=0.75, ao=0.4, haze=0.05, lift=0.012, sheen=0.0, subsurfa
     m = lib.NT(name)
     c = m.attr('col')
     if ao:
-        c = m.mult(c, m.mix(m.ao(ao, 8), lib.col('#8aa29a'), lib.col('#ffffff')))
+        c = m.mult(c, m.mix(terrain.cam_ao(m, ao, 4), lib.col('#8aa29a'), lib.col('#ffffff')))
     c = m.mix(haze, c, lib.col(HAZE))
     m.bsdf(c, rough, sheen=sheen, subsurface=subsurface, emission=lib.col(HAZE), emission_strength=lift)
+    return m.mat
+
+
+def glow_material(strength=2.4):
+    """Warm emissive bulbs and lanterns (vertex colour). Not sampled as lights: there are hundreds of
+    tiny ones, and the baked bloom gives them their halo."""
+    m = lib.NT('low_glow_m')
+    c = m.attr('col')
+    m.bsdf(c, 0.3, emission=c, emission_strength=strength)
+    m.mat.cycles.emission_sampling = 'NONE'
+    return m.mat
+
+
+def glass_material():
+    """Greenhouse glass: pale, glossy and slightly see-through-looking without real refraction."""
+    m = lib.NT('low_glass_m')
+    c = m.attr('col')
+    b = m.bsdf(c, 0.08, coat=0.9, emission=c, emission_strength=0.12)
+    b.inputs['Specular IOR Level'].default_value = 0.8
     return m.mat
 
 
@@ -1144,9 +1365,9 @@ def plan_valley(lm, ldist, island_info, canopy_clear):
     return P
 
 
-def paint_valley(P, out):
-    """Paint the valley zone maps: crop soils, yards, orchard grass, brook banks, footpaths, and a
-    warmth map for large patches of warm yellow-green vs cool deep-green meadow."""
+def paint_valley(P, out, D=None):
+    """Paint the valley zone maps: crop soils, yards, orchard grass, brook banks, footpaths, the
+    festival lanes, and a warmth map for large patches of warm yellow-green vs cool deep-green meadow."""
     tw, th = W // ZRES, H // ZRES
 
     def raster(draw_fn, blur=0.0):
@@ -1191,6 +1412,22 @@ def paint_valley(P, out):
     over(raster(lambda d: d.ellipse([fe['cx'] - fe['rx'], fe['cy'] - fe['ry'], fe['cx'] + fe['rx'], fe['cy'] + fe['ry']], fill=255), 14) * 0.58, '#c2cf80')
     for (_, tx, ty, _, _) in fe['tents']:
         over(raster(lambda d: d.ellipse([tx - 46, ty + 18, tx + 46, ty + 62], fill=255), 8) * 0.45, '#c6b583')
+    # festival lanes: a darker trodden edge under a sandy lane (a crisp outline at any zoom), worn
+    # ground round the busiest pieces and gravel under the flower beds
+    if D:
+        for ln in D['lanes']:
+            pts_ = [tuple(q) for q in ln['line']]
+            w = ln['w']
+            over(raster(lambda d: d.line(pts_, fill=255, width=int(w + 7), joint='curve'), 0.9) * 0.45, '#5f7c3c')
+            over(raster(lambda d: d.line(pts_, fill=255, width=int(w), joint='curve'), 0.7) * 0.88, '#dcc790')
+        for it in D['items']:
+            k = it['kind']
+            if k in ('carousel', 'bandstand', 'booth', 'ferris', 'cart', 'parasol', 'greenhouse', 'camp'):
+                rx, ry = it['rx'] * 1.15, it['ry'] * 1.25
+                over(raster(lambda d: d.ellipse([it['x'] - rx, it['y'] - ry, it['x'] + rx, it['y'] + ry], fill=255), 5) * 0.45, '#cbb887')
+            elif k == 'beds':
+                rx, ry = it['rx'] + 6, it['ry'] + 6
+                over(raster(lambda d: d.rectangle([it['x'] - rx, it['y'] - ry, it['x'] + rx, it['y'] + ry], fill=255), 1.0) * 0.85, '#d9cfb4')
     # mown orchard grass in stripes along the rows
     if P['orchard']:
         xs = [t[0] for t in P['orchard']]
@@ -1247,6 +1484,150 @@ def paint_valley(P, out):
     return col_path, fac_path
 
 
+def shore_y(pd, x):
+    """South shore of a pond polygon at board x (valley px), or None."""
+    pts = pd['pts']
+    ys = []
+    for i in range(len(pts)):
+        (x0, y0), (x1, y1) = pts[i], pts[(i + 1) % len(pts)]
+        if (x0 - x) * (x1 - x) <= 0 and x0 != x1:
+            ys.append(y0 + (y1 - y0) * (x - x0) / (x1 - x0))
+    return max(ys) if ys else None
+
+
+def plan_district(P):
+    """Check every festival piece against the valley (seen, on dry clear ground, never covering a
+    trail above, clear of Mimi and of each other). Returns the pieces that fit and the lanes."""
+    placed, lanes = [], []
+    ok, seen, clear_of_paths = P['ok'], P['seen'], P['clear_of_paths']
+    # what is already down there: the orchard's trees and the fair's tents
+    obstacles = [dict(kind='orchard', x=x, y=y, rx=36, ry=30) for (x, y, _) in P['orchard']]
+    obstacles += [dict(kind='tent', x=tx, y=ty, rx=(58 if kind == 'pavilion' else 60) * (ts / 0.42 if kind == 'pavilion' else 1.0), ry=46)
+                  for (kind, tx, ty, ts, _) in VALLEY['festival']['tents']]
+
+    def overlaps(x, y, rx, ry):
+        for q in placed + obstacles:
+            if q['kind'] == 'pier':
+                continue
+            if ((x - q['x']) / (rx + q['rx'])) ** 2 + ((y - q['y']) / (ry + q['ry'])) ** 2 < 1.0:
+                return q['kind']
+        return None
+
+    for it in DISTRICT['items']:
+        it = dict(it)
+        k = it['kind']
+        if k == 'pier':
+            pd = P['ponds'][it['pond']]
+            sy = shore_y(pd, it['x'])
+            if sy is None:
+                print('district: pier misses its pond', it)
+                continue
+            pts = [(it['x'], sy + 16), (it['x'], sy - it['reach'])]
+            if not all(seen(x, y) for (x, y) in pts):
+                print('district: pier not seen', it)
+                continue
+            it['pts'] = pts
+            it['rx'] = it['ry'] = 0
+            placed.append(it)
+            continue
+        rx, ry, hgt = DISTRICT_SIZE[k]
+        rx, ry = rx * it.get('s', 1.0), ry * it.get('s', 1.0)
+        if k == 'beds':  # 0.62 x 0.38 units per bed (see festival.flower_beds)
+            rx, ry = it['cols'] * 31 + 4, it['rows'] * 0.38 * PX * COSB / 2 + 5
+        x, y = it['x'], it['y']
+        samples = [(x, y)] + [(x + rx * math.cos(a), y + ry * math.sin(a)) for a in np.linspace(0, math.tau, 8, endpoint=False)]
+        why = None
+        bad = [(int(sx), int(sy_), ''.join(c for c, f in (('L', P['on_low'](sx, sy_, 14)), ('S', seen(sx, sy_)), ('C', P['in_clear'](sx, sy_)),
+                                                             ('D', P['dry'](sx, sy_, 12))) if not f)) for (sx, sy_) in samples if not ok(sx, sy_, 14, 12)]
+        if bad:
+            why = 'ground ' + str(bad[:4])
+        elif not clear_of_paths(x, y, rx + 18, hgt):
+            why = 'covers a trail'
+        elif ((x - MIMI[0]) / 110) ** 2 + ((y - MIMI[1]) / 90) ** 2 < 1.0:
+            why = 'Mimi'
+        else:
+            o = overlaps(x, y, rx, ry)
+            if o:
+                why = 'overlaps ' + o
+        if why:
+            print('district: skip', k, (x, y), why)
+            continue
+        it['rx'], it['ry'] = rx, ry
+        placed.append(it)
+    for ln in DISTRICT['lanes']:
+        lanes.append(dict(line=catmull(ln['pts'], 4.0), w=ln['w']))
+    print('district', len(placed), 'of', len(DISTRICT['items']), 'pieces')
+    return dict(items=placed, lanes=lanes, poles=[q for q in DISTRICT['poles'] if ok(q[0], q[1], 10, 10)])
+
+
+def build_district(B, D, P, rnd, tops):
+    """Model the festival pieces that fit (see plan_district); `tops` are the fair's tent tops, for
+    the lantern strings strung from the carousel."""
+    import festival as fv
+    booth_fronts = []
+    carousel_top = None
+    for it in D['items']:
+        k, x, y = it['kind'], it.get('x'), it.get('y')
+        s = it.get('s', 1.0)
+        if k == 'ferris':
+            fv.ferris_wheel(B, x, y, s, rnd)
+        elif k == 'booth':
+            booth_fronts.append(fv.booth(B, x, y, s, STRIPE[it['stripe']], it['goods'], rnd))
+        elif k == 'beds':
+            fv.flower_beds(B, x, y, it['cols'], it['rows'], rnd)
+        elif k == 'bandstand':
+            fv.bandstand(B, x, y, s, rnd)
+        elif k == 'bench':
+            fv.bench(B, x, y, it['yaw'], rnd)
+        elif k == 'pier':
+            fv.pier(B, it['pts'], rnd)
+            bx_, by_, yaw = it['boat']
+            fv.rowboat(B, bx_, by_, yaw, rnd, hull=rnd.choice(['#e8604c', '#3f9ee0', '#f4b83b']))
+        elif k == 'carousel':
+            carousel_top = fv.carousel(B, x, y, s, rnd)
+        elif k == 'parasol':
+            fv.parasol_table(B, x, y, STRIPE[it['stripe']], rnd)
+        elif k == 'cart':
+            fv.food_cart(B, x, y, STRIPE[it['stripe']], rnd)
+        elif k == 'picnic':
+            fv.picnic(B, x, y, it['yaw'], rnd, cloth=STRIPE[it['cloth']])
+        elif k == 'signpost':
+            fv.signpost(B, x, y, rnd)
+        elif k == 'blossom':
+            terrain.tree_blossom(B['flora'], B['wood'], x, y, rnd, rnd.uniform(0.95, 1.1), pal=it.get('pal', ('#d9658f', '#ffe2ee')))
+        elif k == 'willow':
+            terrain.willow(B['leaves'], B['wood'], x, y, rnd, 1.0)
+        elif k == 'maple':
+            terrain.tree_maple(B['flora'], B['wood'], x, y, rnd, 1.0)
+        elif k == 'greenhouse':
+            fv.greenhouse(B, x, y, s, rnd)
+        elif k == 'beehives':
+            fv.beehives(B, x, y, rnd)
+        elif k == 'scarecrow':
+            fv.scarecrow(B, x, y, rnd)
+        elif k == 'camp':
+            fv.campsite(B, x, y, rnd)
+        elif k == 'hay':
+            for (dx, dy) in [(-22, 4), (6, -6), (26, 8)]:
+                hay_bale(B['wood'], x + dx, y + dy, rnd)
+    # lantern strings from the carousel's top to each tent of the fair
+    if carousel_top is not None:
+        for t in tops:
+            if (t - carousel_top).length < 3.2:
+                fv.lantern_string(B, carousel_top, t, rnd, sag=0.3)
+    # lanterns along the market street: pole to pole, and bunting from each pole to the booth awnings
+    poles = [fv.lantern_pole(B, px_, py_) for (px_, py_) in D['poles']]
+    for a, b in zip(poles, poles[1:]):
+        if (b - a).length < 1.6:
+            fv.lantern_string(B, a, b, rnd, sag=0.16)
+    corners = [c for fr in booth_fronts for c in fr]
+    for pl in poles:
+        near = sorted(corners, key=lambda c: (c - pl).length)[:1]
+        for c in near:
+            if (c - pl).length < 1.3:
+                fv.pennant_string(B, pl, c, rnd, sag=0.1)
+
+
 def build_lowland(island_info, canopy_clear, mats):
     """The valley floor: meadows, brooks between the ponds, patchwork farms, an orchard, the fair's
     tents and a few woods, plus rubble at the cliff feet."""
@@ -1255,7 +1636,8 @@ def build_lowland(island_info, canopy_clear, mats):
     lm = lowland_mask()
     ldist = ndimage.gaussian_filter(ndimage.distance_transform_edt(lm) * GRID, 1.2)  # as build_island measures it
     P = plan_valley(lm, ldist, island_info, canopy_clear)
-    col_path, fac_path = paint_valley(P, A.out)
+    D = plan_district(P)
+    col_path, fac_path = paint_valley(P, A.out, D)
     ob, ldist, _under, _lring, _lnrm = build_island(['lowland', 'valley'], lm, 'lowland', lowland_material(col_path, fac_path))
     me = ob.data
     for v in me.vertices:
@@ -1284,6 +1666,13 @@ def build_lowland(island_info, canopy_clear, mats):
         dr.ellipse([(x - 60) / GRID, (y - 50) / GRID, (x + 60) / GRID, (y + 50) / GRID], fill=255)
     cx_, cy_ = VALLEY['cottage']
     dr.rectangle([(cx_ - 150) / GRID, (cy_ - 80) / GRID, (cx_ + 150) / GRID, (cy_ + 120) / GRID], fill=255)
+    for it in D['items']:  # the festival pieces and their lanes
+        if it['kind'] == 'pier':
+            continue
+        rx, ry = it['rx'] + 16, it['ry'] + 14
+        dr.ellipse([(it['x'] - rx) / GRID, (it['y'] - ry) / GRID, (it['x'] + rx) / GRID, (it['y'] + ry) / GRID], fill=255)
+    for ln in D['lanes']:
+        dr.line([(x / GRID, y / GRID) for (x, y) in ln['line']], fill=255, width=max(1, int((ln['w'] + 10) / GRID)))
     claimed = np.asarray(img) > 127
 
     def free(bx, by, margin=16):
@@ -1299,7 +1688,8 @@ def build_lowland(island_info, canopy_clear, mats):
                 return bx, by
         return None
 
-    B = {k: lib.MeshBuilder() for k in ('grass', 'flowers', 'leaves', 'wood', 'rocks', 'reeds', 'water', 'field', 'fruit', 'cloth', 'metal')}
+    B = {k: lib.MeshBuilder() for k in ('grass', 'flowers', 'leaves', 'wood', 'rocks', 'reeds', 'water', 'field', 'fruit', 'cloth', 'metal',
+                                        'glow', 'paint', 'flora', 'glass', 'stone')}
     grass, flowers, leaves, wood, rocks, reeds, water = (B[k] for k in ('grass', 'flowers', 'leaves', 'wood', 'rocks', 'reeds', 'water'))
 
     # --- ponds with lily pads, reeds on the far bank and a few stones (gaps where brooks flow in)
@@ -1418,6 +1808,9 @@ def build_lowland(island_info, canopy_clear, mats):
     for (dx, dy) in [(-150, 40), (-128, 58), (170, 30)]:
         bx, by = fe['cx'] + dx, fe['cy'] + dy
         (barrel if dx < -140 or dx > 0 else crate)(wood, bx, by, rnd)
+    # --- the festival district round the two interior ponds (own random stream: the scatter above
+    # and below keeps its layout)
+    build_district(B, D, P, random.Random(505), [q for t in tops for q in t])
 
     # --- woods: rounded trees, valley pines and poplars in a few groves; birches along the west brook
     low_pals = [('#2f7a3c', '#8cc862'), ('#337a44', '#82c46c'), ('#46803a', '#a8cc5c'), ('#2f703e', '#7cba64')]
@@ -1437,7 +1830,7 @@ def build_lowland(island_info, canopy_clear, mats):
             made += 1
             pick_ = kind if kind != 'mixed' else rnd.choice(['round', 'round', 'pine', 'poplar'])
             if pick_ == 'round':
-                tree_round(leaves, wood, bx, by, rnd, rnd.uniform(0.85, 1.15), palette=rnd.choice(low_pals))
+                tree_round(leaves, wood, bx, by, rnd, rnd.uniform(0.85, 1.15), palette=rnd.choice(low_pals), crown=True)
             elif pick_ == 'pine' and rnd.random() < 0.8:
                 valley_pine(leaves, wood, bx, by, rnd, rnd.uniform(0.9, 1.15))
             else:
@@ -1501,7 +1894,12 @@ def build_lowland(island_info, canopy_clear, mats):
         mb.v = out
     grass.build('low_grass', low_mat('low_grass_m', 0.8, 0.3, sheen=0.15), smooth=False)
     flowers.build('low_flowers', low_mat('low_flower_m', 0.55, 0.0, haze=0.04, subsurface=0.25))
-    leaves.build('low_leaves', low_mat('low_leaf_m', 0.78, 0.5, haze=0.035))
+    leaves.build('low_leaves', leaf_material('low_leaf_m', ao=0.5, haze=0.035, haze_col=HAZE, lift=0.012))
+    B['flora'].build('low_flora', leaf_material('low_flora_m', ao=0.5, sun='#fff6f0', shade='#8a3a5a', gaps='#c298a8', ao_tint='#6d3a52', haze=0.03, haze_col=HAZE, lift=0.01))
+    B['paint'].build('low_paint', low_mat('low_paint_m', 0.55, 0.35, haze=0.025, lift=0.008))
+    B['stone'].build('low_stone', low_mat('low_stone_m', 0.8, 0.4, haze=0.03))
+    B['glass'].build('low_glass', glass_material())
+    B['glow'].build('low_glow', glow_material())
     wood.build('low_wood', low_mat('low_wood_m', 0.8, 0.3))
     rocks.build('low_rocks', low_mat('low_rock_m', 0.85, 0.4))
     reeds.build('low_reeds', low_mat('low_reed_m', 0.78, 0.3))
@@ -1515,6 +1913,21 @@ def build_lowland(island_info, canopy_clear, mats):
 
 def main():
     sc = lib.reset(SAMPLES)
+    # The machine is shared: render on two threads. The board is one huge image, so its light paths
+    # are shorter than the house default (the look barely changes: bright sky fill, one sun), and a
+    # narrower pixel filter keeps the zoomed-in board as crisp as the character sprites over it.
+    sc.render.threads_mode = 'FIXED'
+    sc.render.threads = 2
+    cy = sc.cycles
+    cy.max_bounces = 4
+    cy.diffuse_bounces = 2
+    cy.glossy_bounces = 2
+    cy.transmission_bounces = 3
+    cy.transparent_max_bounces = 4
+    cy.adaptive_threshold = 0.035
+    cy.pixel_filter_width = 1.0
+    import props
+    props.use_board_look()
     # A high, soft key over bright sky fill: short gentle shadows and clean, readable colour.
     lib.world_light(0.82)
     lib.sun(energy=3.6, elevation=50, azimuth=-35, angle=3.5, color='#fff0d8')
@@ -1526,11 +1939,13 @@ def main():
     water = lib.MeshBuilder()
     ponds = lib.MeshBuilder()
     falls_left = {'grove': 1, 'docks': 1, 'windy': 1}
-    grass_m = lib.attr_mat('grass', rough=0.8, sheen=0.15, ao=0.3)
-    flower_m = lib.attr_mat('flower', rough=0.55, subsurface=0.25)
-    leaf_m = lib.attr_mat('leaf', rough=0.78, ao=0.5)
-    wood_m = lib.attr_mat('wood', rough=0.8, ao=0.3)
-    rock_m = lib.attr_mat('rock', rough=0.85, ao=0.4)
+    grass_m = scatter_mat('grass', rough=0.8, sheen=0.15, ao=0.3)
+    flower_m = scatter_mat('flower', rough=0.55, sheen=0.3)
+    leaf_m = leaf_material('leaf', ao=0.5)
+    flora_m = leaf_material('flora', ao=0.5, sun='#fff6f0', shade='#8a3a5a', gaps='#c298a8', ao_tint='#6d3a52')  # blossom and autumn crowns
+    wood_m = scatter_mat('wood', rough=0.8, ao=0.3)
+    rock_m = scatter_mat('rock', rough=0.85, ao=0.4)
+    paving_m = paving_material()
     crys = lib.NT('crystal')
     ccol = crys.attr('col')
     crys.bsdf(ccol, 0.12, emission=ccol, emission_strength=1.8, coat=0.6, transmission=0.2)
@@ -1539,30 +1954,20 @@ def main():
     grass = lib.MeshBuilder()
     flowers = lib.MeshBuilder()
     leaves = lib.MeshBuilder()
+    flora = lib.MeshBuilder()
     wood = lib.MeshBuilder()
     rocks = lib.MeshBuilder()
     crystals = lib.MeshBuilder()
     stones = lib.MeshBuilder()
     vines = lib.MeshBuilder()
+    paving, gold, glass = lib.MeshBuilder(), lib.MeshBuilder(), lib.MeshBuilder()
     island_info = []
-    path_pts = [(n['x'], n['y']) for n in NODES.values()]
-    for e in EDGES:
-        a, b = NODES[e['from']], NODES[e['to']]
-        for t in np.linspace(0, 1, 8):
-            path_pts.append((a['x'] + (b['x'] - a['x']) * t, a['y'] + (b['y'] - a['y']) * t))
-    path_pts = np.array(path_pts)
-
-    def canopy_clear(bx, by, width, height):
-        """True if no path/space lies in the screen area a tall object at (bx, by) would cover."""
-        m = (np.abs(path_pts[:, 0] - bx) < width) & (path_pts[:, 1] < by + 20) & (path_pts[:, 1] > by - height)
-        return not m.any()
-
     for idx, (ids, mask) in enumerate(merged_islands()):
         name = f'island_{idx}_' + ('_'.join(ids[:2]))
         theme = theme_of(ids)
         T = THEMES[theme]
         if theme not in island_mats:
-            island_mats[theme] = island_material(pm_path, theme)
+            island_mats[theme] = island_material_fine(pm_path, theme)
         ob, dist, under, ring, nrm = build_island(ids, mask, name, island_mats[theme])
         island_info.append((ids, mask, dist, under))
         rnd = random.Random(idx * 31 + 5)
@@ -1594,7 +1999,19 @@ def main():
             if not canopy_clear(bx, by, 95, 260):
                 continue
             if rnd.random() >= T['pines']:
-                tree_round(leaves, wood, bx, by, rnd, rnd.uniform(0.85, 1.15))
+                # about one round tree in eight becomes a blossom or an autumn maple on the sunny
+                # regions (picked by position with its own RNG; the round tree still draws from the
+                # scatter RNG into a throwaway builder so every later placement stays put)
+                pick_ = (int(bx) * 7 + int(by) * 13) % 16 if theme in ('plaza', 'terrace', 'obs', 'docks') else 99
+                if pick_ < 2:
+                    tree_round(lib.MeshBuilder(), lib.MeshBuilder(), bx, by, rnd, rnd.uniform(0.85, 1.15))
+                    r2 = random.Random(int(bx) * 31 + int(by))
+                    if pick_ == 0:
+                        tree_blossom(flora, wood, bx, by, r2, r2.uniform(1.0, 1.2))
+                    else:
+                        tree_maple(flora, wood, bx, by, r2, 1.05)
+                else:
+                    tree_round(leaves, wood, bx, by, rnd, rnd.uniform(0.85, 1.15), crown=True)
             else:
                 tree_pine(leaves, wood, bx, by, rnd, rnd.uniform(0.85, 1.1))
             n_trees -= 1
@@ -1604,7 +2021,8 @@ def main():
             by = ys[j] * GRID + rnd.uniform(0, GRID)
             if dist_in(dist, bx, by) < 6 or pmask_at(pm, bx, by) > 0.3:
                 continue
-            grass_tuft(grass, bx, by, rnd, rnd.uniform(0.8, 1.3))
+            # (tufts on a shrine platform go to a throwaway builder, keeping the random sequence)
+            grass_tuft(grass if not near_shrine(bx, by, 4) else lib.MeshBuilder(), bx, by, rnd, rnd.uniform(0.8, 1.3))
         # decoration kept deliberately sparse: a few meaningful clusters instead of noise
         for _ in range(int(area / 20000 * T['flowers'] * 0.65)):
             pt = pick(min_edge=20, path_clear=0.02, node_r=78)
@@ -1718,6 +2136,16 @@ def main():
                 continue
             stepping_stone(stones, grass, bx, by, rnd, r=0.22)
 
+    # relic shrines: a mosaic platform behind each relic gate
+    import props
+    rnd = random.Random(1234)
+    for (sx, sy) in SHRINES:
+        shrine_platform(paving, gold, glass, crystals, sx, sy, rnd)
+    paving.build('shrine_paving', paving_m, smooth=False)
+    gold.build('shrine_gold', props.mats()['metal'])
+    glass.build('shrine_glow', crystal_m, smooth=False)
+    flora.build('flora', flora_m)
+
     grass.build('grass', grass_m, smooth=False)
     water.build('waterfalls', water_material(), smooth=True)
     ponds.build('ponds', pond_material(), smooth=False)
@@ -1784,9 +2212,14 @@ def main():
         x0, y0, x1, y1 = [float(v) for v in A.crop.split(',')]
         lib.set_border((x0, y0, x1, y1), frame)
         lib.render_to(os.path.join(out, 'crop.png'))
+        crisp(os.path.join(out, 'crop.png'))
         return
     if not A.props_only:
-        lib.render_to(os.path.join(out, 'terrain.png'))
+        if A.bands > 1:
+            render_bands(frame, A.bands, os.path.join(out, 'terrain.png'))
+        else:
+            lib.render_to(os.path.join(out, 'terrain.png'))
+        crisp(os.path.join(out, 'terrain.png'))
         if A.export:
             export_tiles(os.path.join(out, 'terrain.png'))
     if A.export or A.props_only:
@@ -1794,4 +2227,121 @@ def main():
     print('islands', len(island_info))
 
 
-main()
+def plan_map():
+    """--plan: a map (valley board px) of where the valley floor is visible and what sits there."""
+    info = [(ids, m, None, None) for ids, m in merged_islands()]
+    if not SPLASH:
+        SPLASH.append((2194.0, 880.0))  # where the docks waterfall lands (recorded by a full build)
+    _, pm_ = path_mask(None)
+    lm = lowland_mask()
+    ldist = ndimage.gaussian_filter(ndimage.distance_transform_edt(lm) * GRID, 1.2)
+    P = plan_valley(lm, ldist, info, canopy_clear)
+    D = plan_district(P)
+    k = 0.25
+    img = Image.new('RGB', (int(W * k), int(H * k)), (60, 60, 60))
+    px = np.asarray(img).copy()
+
+    def grid_img(mask):
+        return np.asarray(Image.fromarray(mask.astype(np.uint8) * 255).resize(img.size, Image.NEAREST)) > 127
+
+    px[grid_img(lm)] = (70, 95, 70)
+    px[grid_img(P['vis'])] = (110, 160, 90)
+    px[grid_img(P['clear'])] = (150, 205, 120)
+    px[grid_img(P['water'])] = (60, 140, 220)
+    img = Image.fromarray(px)
+    d = ImageDraw.Draw(img)
+    for gx in range(0, W + 1, 100):
+        d.line([(gx * k, 0), (gx * k, H * k)], fill=(255, 255, 255) if gx % 500 == 0 else (95, 115, 95), width=1)
+    for gy in range(0, H + 1, 100):
+        d.line([(0, gy * k), (W * k, gy * k)], fill=(255, 255, 255) if gy % 500 == 0 else (95, 115, 95), width=1)
+    for gx in range(0, W + 1, 200):
+        d.text((gx * k + 2, 2), str(gx), fill=(255, 255, 0))
+    for gy in range(0, H + 1, 200):
+        d.text((2, gy * k + 2), str(gy), fill=(255, 255, 0))
+    # plateau outlines where they appear over the valley (shifted up by the valley's screen offset)
+    for (_, m, _, _) in info:
+        c = level_contour(ndimage.distance_transform_edt(m) * GRID, 2.0)
+        if c is not None:
+            d.line([(x * k, (y - LOW_SHIFT) * k) for (x, y) in c] + [(c[0][0] * k, (c[0][1] - LOW_SHIFT) * k)], fill=(255, 255, 255), width=1)
+    for n in NODES.values():
+        x, y = n['x'] * k, (n['y'] - LOW_SHIFT) * k
+        d.ellipse([x - 3, y - 3, x + 3, y + 3], fill=(230, 40, 40))
+    for fld in P['fields']:
+        d.rectangle([v * k for v in fld['box']], outline=(240, 210, 60))
+    for (x, y, _) in P['orchard']:
+        d.ellipse([x * k - 3, y * k - 3, x * k + 3, y * k + 3], outline=(255, 140, 40))
+    fe = VALLEY['festival']
+    d.ellipse([(fe['cx'] - fe['rx']) * k, (fe['cy'] - fe['ry']) * k, (fe['cx'] + fe['rx']) * k, (fe['cy'] + fe['ry']) * k], outline=(255, 90, 90))
+    for (_, tx, ty, _, _) in fe['tents']:
+        d.rectangle([tx * k - 4, ty * k - 4, tx * k + 4, ty * k + 4], fill=(255, 90, 90))
+    for (gx, gy, rx, ry, _, _) in VALLEY['groves']:
+        d.ellipse([(gx - rx) * k, (gy - ry) * k, (gx + rx) * k, (gy + ry) * k], outline=(20, 90, 30))
+    cx, cy = VALLEY['cottage']
+    d.rectangle([(cx - 100) * k, (cy - 60) * k, (cx + 100) * k, (cy + 60) * k], outline=(200, 80, 60))
+    # Mimi (the game draws her at board 2020,1500: on the valley floor)
+    d.ellipse([2020 * k - 5, (1500 - LOW_SHIFT) * k - 5, 2020 * k + 5, (1500 - LOW_SHIFT) * k + 5], outline=(255, 0, 255), width=2)
+    for pd in P['ponds']:
+        d.text((pd['cx'] * k, pd['cy'] * k), f"pond {int(pd['cx'])},{int(pd['cy'])} r{int(pd['pr'])}", fill=(255, 255, 255))
+    for ln in D['lanes']:
+        d.line([(x * k, y * k) for (x, y) in ln['line']], fill=(235, 215, 150), width=max(1, int(ln['w'] * k)))
+    for it in D['items']:
+        if it['kind'] == 'pier':
+            d.line([(x * k, y * k) for (x, y) in it['pts']], fill=(150, 90, 40), width=3)
+            continue
+        c = {'booth': (255, 110, 90), 'ferris': (255, 60, 200), 'carousel': (255, 60, 200), 'bandstand': (60, 200, 200)}.get(it['kind'], (250, 250, 250))
+        d.ellipse([(it['x'] - it['rx']) * k, (it['y'] - it['ry']) * k, (it['x'] + it['rx']) * k, (it['y'] + it['ry']) * k], outline=c, width=2)
+    for (x, y) in D['poles']:
+        d.ellipse([x * k - 2, y * k - 2, x * k + 2, y * k + 2], fill=(255, 220, 90))
+    os.makedirs(A.out, exist_ok=True)
+    img.save(os.path.join(A.out, 'plan.png'))
+    # close-ups of the two interior valleys at 1 px per board px (grid every 50 px), with every
+    # festival piece: placed ones outlined white, skipped ones red
+    big = Image.fromarray(np.asarray(Image.fromarray(px).resize((W, H), Image.NEAREST)))
+    db = ImageDraw.Draw(big)
+    for gx in range(0, W + 1, 50):
+        db.line([(gx, 0), (gx, H)], fill=(80, 100, 80) if gx % 100 else (30, 50, 30), width=1)
+    for gy in range(0, H + 1, 50):
+        db.line([(0, gy), (W, gy)], fill=(80, 100, 80) if gy % 100 else (30, 50, 30), width=1)
+    for gx in range(0, W + 1, 100):
+        for gy in range(0, H + 1, 100):
+            db.text((gx + 2, gy + 1), f'{gx},{gy}', fill=(255, 255, 160))
+    for (_, m, _, _) in info:
+        c = level_contour(ndimage.distance_transform_edt(m) * GRID, 2.0)
+        if c is not None:
+            db.line([(x, y - LOW_SHIFT) for (x, y) in c] + [(c[0][0], c[0][1] - LOW_SHIFT)], fill=(255, 255, 255), width=2)
+    for ln in D['lanes']:
+        db.line([tuple(q) for q in ln['line']], fill=(235, 215, 150), width=int(ln['w']))
+    names = {(it['kind'], it.get('x'), it.get('y')) for it in D['items']}
+    for it in DISTRICT['items']:
+        if it['kind'] == 'pier':
+            continue
+        rx, ry, _ = DISTRICT_SIZE[it['kind']]
+        good = (it['kind'], it['x'], it['y']) in names
+        db.ellipse([it['x'] - rx, it['y'] - ry, it['x'] + rx, it['y'] + ry], outline=(255, 255, 255) if good else (255, 40, 40), width=2)
+        db.text((it['x'] - rx, it['y'] - 6), it['kind'], fill=(20, 20, 20))
+    for it in D['items']:
+        if it['kind'] == 'pier':
+            db.line([tuple(q) for q in it['pts']], fill=(150, 90, 40), width=8)
+    for pd in P['ponds']:
+        db.polygon([tuple(q) for q in pd['pts']], outline=(20, 60, 160))
+    db.ellipse([MIMI[0] - 110, MIMI[1] - 90, MIMI[0] + 110, MIMI[1] + 90], outline=(255, 0, 255), width=2)
+    for n in NODES.values():
+        db.ellipse([n['x'] - 8, n['y'] - LOW_SHIFT - 8, n['x'] + 8, n['y'] - LOW_SHIFT + 8], fill=(230, 40, 40))
+    for name, (x0, y0, x1, y1) in {'west': (1000, 750, 2050, 1850), 'east': (2400, 700, 3300, 1800)}.items():
+        big.crop((x0, y0, x1, y1)).save(os.path.join(A.out, f'plan_{name}.png'))
+    print('ponds', [(int(pd['cx']), int(pd['cy']), int(pd['pr'])) for pd in P['ponds']])
+    print('plan written', os.path.join(A.out, 'plan.png'))
+    # room for the relic shrines behind each gate (island depth at the shrine centre and its back edge)
+    for g in ['go4', 'c2', 't4', 'd3', 'o2']:
+        n = NODES[g]
+        for (_, m, _, _) in info:
+            if inside(m, n['x'], n['y']):
+                dd = ndimage.distance_transform_edt(m) * GRID
+                print('shrine', g, [(off, int(dist_at(dd, n['x'], n['y'] - off)), int(dist_at(dd, n['x'], n['y'] - off - 60))) for off in (70, 90, 110)],
+                      'path', [round(float(pmask_at(pm_, n['x'] + dx, n['y'] - 90 + dy)), 2) for dx, dy in ((0, 0), (-50, 0), (50, 0), (0, -45))])
+
+
+if A.plan:
+    plan_map()
+else:
+    main()

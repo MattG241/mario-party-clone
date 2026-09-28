@@ -13,8 +13,17 @@ from mathutils import Vector
 
 import lib
 from lib import MeshBuilder, board_to_world, col
+from terrain import cam_ao, leaf_material, scatter_mat
 
 _MATS: dict = {}
+_BOARD_LOOK = False
+
+
+def use_board_look() -> None:
+    """For the board render (call before the first mats()): occlusion traced for camera rays only,
+    which is far cheaper on the huge board image, and leafy foliage like the board's trees."""
+    global _BOARD_LOOK
+    _BOARD_LOOK = True
 
 
 def mats() -> dict:
@@ -44,7 +53,7 @@ def stone_material(name: str, brick_scale: float):
     n = m.noise(4.0, 4, 0.6, pos)
     c = m.mult(m.attr('col'), br.outputs['Color'])
     c = m.mult(c, m.mix(n.outputs['Fac'], col('#d9d0c4'), col('#ffffff')))
-    ao = m.ao(0.5, 8)
+    ao = cam_ao(m, 0.5, 6) if _BOARD_LOOK else m.ao(0.5, 8)
     c = m.mult(c, m.mix(ao, col('#6d6272'), col('#ffffff')))
     m.bsdf(c, 0.82, normal=m.bump(br.outputs['Fac'], 0.25, 0.02))
     return m.mat
@@ -57,7 +66,7 @@ def _finish_mats() -> dict:
     b.inputs['Metallic'].default_value = 1.0
     _MATS['metal'] = m.mat
     # Painted / plastered / cloth / wood surfaces.
-    _MATS['paint'] = lib.attr_mat('paint', rough=0.62, ao=0.45)
+    _MATS['paint'] = scatter_mat('paint', rough=0.62, ao=0.45, samples=6) if _BOARD_LOOK else lib.attr_mat('paint', rough=0.62, ao=0.45)
     m = lib.NT('wood')
     pos = m.position()
     wv = m.node('ShaderNodeTexWave')
@@ -66,10 +75,10 @@ def _finish_mats() -> dict:
     wv.inputs['Distortion'].default_value = 8.0
     m.link(pos, wv.inputs['Vector'])
     c = m.mult(m.attr('col'), m.mix(wv.outputs['Fac'], col('#c9b39a'), col('#ffffff')))
-    c = m.mult(c, m.mix(m.ao(0.4, 8), col('#5a4a50'), col('#ffffff')))
+    c = m.mult(c, m.mix(cam_ao(m, 0.4, 6) if _BOARD_LOOK else m.ao(0.4, 8), col('#5a4a50'), col('#ffffff')))
     m.bsdf(c, 0.72)
     _MATS['wood'] = m.mat
-    _MATS['leaf'] = lib.attr_mat('leaf2', rough=0.78, ao=0.5)
+    _MATS['leaf'] = leaf_material('leaf2', ao=0.5) if _BOARD_LOOK else lib.attr_mat('leaf2', rough=0.78, ao=0.5)
     # Glowing surfaces (crystals, lanterns, windows).
     m = lib.NT('glow')
     cc = m.attr('col')
@@ -358,10 +367,7 @@ def workshop(bx, by, s=1.0) -> list:
     v, f = lib.cylinder((0, 0, 0), R * 0.3, R * 0.3, 0.1 * s, 12)
     v = lib.transform(v, (gx - 0.06 * s, gy, gz), rot=(0, math.radians(90), 0))
     P.b['metal'].add(v, f, IRON)
-    # crates outside
-    for (dx, dy, sz) in [(0.9, -0.55, 0.3), (1.05, -0.2, 0.24)]:
-        v, f = lib.box((x + dx * s, y + dy * s, sz / 2 * s), (sz * s, sz * s, sz * s), rot_z=0.2)
-        P.b['wood'].add(v, f, col('#b07a45'))
+    # (no crates out front: on the terrace the relic shrine stands just right of the door)
     return P.build()
 
 
@@ -583,12 +589,43 @@ def gate(bx, by, s=1.0) -> list:
 
 
 def pedestal(bx, by, s=1.0) -> list:
+    """Relic cradle at the back of a shrine platform: a slim fluted column with a gold collar and
+    three golden prongs round a glowing crystal seat. The game floats the Prism Relic just above
+    it, so its top sits 0.6 units up (about 37 px on screen)."""
     p = _at(bx, by)
     P = Prop('pedestal')
-    v, f = lib.lathe([(0.34 * s, 0.0), (0.34 * s, 0.08 * s), (0.22 * s, 0.14 * s), (0.18 * s, 0.5 * s), (0.28 * s, 0.56 * s), (0.28 * s, 0.62 * s), (0.0, 0.62 * s)], 16, (p.x, p.y, 0))
-    P.b['stone'].add(v, f, col('#f1e8da'))
-    v, f = lib.lathe([(0.29 * s, 0.6 * s), (0.29 * s, 0.64 * s)], 16, (p.x, p.y, 0), cap_bottom=False)
+    x, y = p.x, p.y
+    # stepped round plinth
+    v, f = lib.lathe([(0.21 * s, 0.0), (0.21 * s, 0.05 * s), (0.17 * s, 0.07 * s), (0.17 * s, 0.1 * s), (0.12 * s, 0.12 * s), (0.0, 0.12 * s)], 24, (x, y, 0))
+    P.b['stone'].add(v, f, col('#f4ecdf'))
+    v, f = lib.lathe([(0.215 * s, 0.045 * s), (0.215 * s, 0.06 * s)], 24, (x, y, 0), cap_bottom=False, cap_top=False)
     P.b['metal'].add(v, f, GOLD)
+    # fluted shaft: twelve shallow ribs catch the key light
+    prof = [(0.085 * s, 0.12 * s), (0.078 * s, 0.4 * s)]
+    v, f = lib.lathe(prof, 24, (x, y, 0), cap_bottom=False, cap_top=False)
+    P.b['stone'].add(v, f, col('#fbf5ea'))
+    for k in range(12):
+        a = k / 12 * math.tau
+        pts = [(x + math.cos(a) * 0.084 * s, y + math.sin(a) * 0.084 * s, 0.13 * s), (x + math.cos(a) * 0.077 * s, y + math.sin(a) * 0.077 * s, 0.39 * s)]
+        v, f = lib.tube(pts, 0.012 * s, 5)
+        P.b['stone'].add(v, f, col('#fffaf2'))
+    # gold collar and a shallow dish holding the glowing seat
+    v, f = lib.lathe([(0.1 * s, 0.39 * s), (0.115 * s, 0.41 * s), (0.115 * s, 0.44 * s), (0.09 * s, 0.46 * s), (0.13 * s, 0.5 * s), (0.0, 0.5 * s)], 24, (x, y, 0))
+    P.b['metal'].add(v, f, GOLD)
+    v, f = lib.lathe([(0.0, 0.505 * s), (0.08 * s, 0.505 * s), (0.05 * s, 0.53 * s), (0.0, 0.535 * s)], 16, (x, y, 0))
+    P.b['glow'].add(v, f, col('#7ff0ff'))
+    # three prongs curling up round the seat
+    for k in range(3):
+        a = k / 3 * math.tau + math.pi / 2
+        pts = []
+        for t in [i / 7 for i in range(8)]:
+            r = (0.12 + 0.06 * math.sin(t * math.pi * 0.9)) * s
+            pts.append((x + math.cos(a) * r, y + math.sin(a) * r, (0.48 + 0.14 * t) * s))
+        v, f = lib.tube(pts, lambda t: (0.022 - 0.012 * t) * s, 6)
+        P.b['metal'].add(v, f, GOLD)
+        tip = pts[-1]
+        v, f = lib.blob(tip, 0.02 * s, rough=0.0, subdiv=1)
+        P.b['crystal'].add(v, f, col('#8ff0ff'))
     return P.build()
 
 
