@@ -97,7 +97,7 @@ export const SHOWTIME_BOARD: BoardDef = {
   name: 'Showtime Strip',
   subtitle: 'Neon boulevard where every block is a stage',
   description:
-    "A rock'n'roll diner, a pastel café concert, a pink rodeo saloon, a comedy club by the ice rink and the grand marquee theatre glitter around Fountain Circle. Pick a loop, take an encore and chase the Star Coin down the strip.",
+    "A rock'n'roll diner, a pastel café concert, a pink rodeo saloon, a rinkside comedy club and a grand marquee theatre glitter round Fountain Circle. Pick a loop and chase the Star Coin!",
   width: 3600,
   height: 2400,
   nodes,

@@ -95,7 +95,7 @@ export const HEROES_BOARD: BoardDef = {
   name: 'Hero Heights',
   subtitle: 'Rooftop skyline of the night heroes',
   description:
-    'Skybridges, fire escapes and web lines link a gothic clock tower, a gleaming tech spire and a friendly water tower high over the night city. Ride the subway portals and chase the Star Coin from roof to roof.',
+    'Skybridges, fire escapes and web lines link a gothic clock tower, a gleaming tech spire and a web-strung water tower. Ride the subway portals and chase the Star Coin from roof to roof.',
   width: 3600,
   height: 2400,
   nodes,
