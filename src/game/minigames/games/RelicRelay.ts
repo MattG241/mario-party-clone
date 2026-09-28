@@ -10,7 +10,10 @@ import { drawPlayerShape } from '../../ui/PlayerBadge';
 import { addText } from '../../ui/theme';
 import { standOrigin } from '../../util/spriteUtil';
 import { BaseMinigame, type MgPlayer } from '../BaseMinigame';
+import { kick, punch } from '../juice';
 import { HERO_DATA } from '../../data/heroSprites.generated';
+import { LITE } from '../../perf';
+import { bakeWord, calmMotion, liteCount, RingBursts, WordPops } from './stageKit';
 import {
   BODY_DEPTH,
   BODY_HALF,
@@ -29,6 +32,7 @@ import {
   MACE_PIVOT_H,
   MACE_ROPE,
   MACE_STRIP,
+  maceAngle,
   maceBall,
   maceHits,
   ordinal,
@@ -112,6 +116,28 @@ const LOG_SPEED = 240;
 const LOG_HIT_H = 44;
 const LOG_HIT_HALF = 20;
 const SPRING_VZ = 1120;
+
+// --- Feel --------------------------------------------------------------------------------------
+/**
+ * Speed lines start above this running speed (px/s): an empty-handed sprint shows light ones, a
+ * spring flight full ones (SPEED_FULL). Carrying the parcel (about 125 px/s) never does.
+ */
+const SPEED_MIN = 145;
+const SPEED_FULL = 360;
+/** A bonk freezes the frame this long. */
+const BONK_STOP_MS = 85;
+/** Finish tape: height above the lane (px) and its two posts at the lane edges. */
+const TAPE_LIFT = 58;
+/** Pop-up words, baked once (stageKit.bakeWord). */
+const WORDS = {
+  dropped: { key: 'rr-w-dropped', text: 'DROPPED!', size: 40, fill: ['#ffe1da', '#ff6b5e'] },
+  nice: { key: 'rr-w-nice', text: 'NICE!', size: 34, fill: ['#ffffff', '#aef0ff'] },
+  p1: { key: 'rr-w-1st', text: '1ST!', size: 86, fill: ['#fff6c4', '#ffbf2a'] },
+  p2: { key: 'rr-w-2nd', text: '2ND!', size: 76, fill: ['#ffffff', '#c3cfdc'] },
+  p3: { key: 'rr-w-3rd', text: '3RD!', size: 72, fill: ['#ffe6cc', '#e0965a'] },
+  p4: { key: 'rr-w-4th', text: '4TH!', size: 68, fill: ['#ffffff', '#d6dde8'] },
+} as const;
+const PLACE_WORDS = [WORDS.p1, WORDS.p2, WORDS.p3, WORDS.p4] as const;
 
 // --- Procedural fallback art -------------------------------------------------------------------
 
@@ -506,6 +532,12 @@ interface Runner {
   markerY: number;
   parcel: Parcel;
   prompt?: Phaser.GameObjects.Container;
+  /** Speed lines behind a fast runner, and dizzy stars over a stunned one. */
+  streaks: Phaser.GameObjects.Graphics;
+  stars: Phaser.GameObjects.Image;
+  /** Timers: footstep dust, the sparkle trail of a parcel in flight. */
+  stepT: number;
+  trailT: number;
   /** Last mace/log decision the CPU made (so it commits once per hazard). */
   cpu: { logId: number; logJump: number; logDone: boolean; maceX: number; maceDir: number; go: boolean; clearT: number; err: number; throwAt: number; wait: number };
 }
@@ -521,6 +553,9 @@ interface Log {
   dying: number;
   dust: number;
   img?: Phaser.GameObjects.Sprite;
+  /** Rolled past its lane's runner (a clean jump gets a whoosh), and glinted a warning at them. */
+  passed: boolean;
+  glinted: boolean;
 }
 
 interface LaneKit {
@@ -528,9 +563,11 @@ interface LaneKit {
   y: number;
   ground: Phaser.GameObjects.Graphics;
   logs: Phaser.GameObjects.Graphics;
-  maces: { m: CourseObstacle; ball: Phaser.GameObjects.Image; shadow: Phaser.GameObjects.Image; rope: Phaser.GameObjects.Graphics }[];
-  springs: { s: CourseObstacle; sprite: Phaser.GameObjects.Sprite | Phaser.GameObjects.Image; cool: number }[];
+  maces: { m: CourseObstacle; ball: Phaser.GameObjects.Image; shadow: Phaser.GameObjects.Image; rope: Phaser.GameObjects.Graphics; prevW: number; prevTh: number; prevDth: number }[];
+  springs: { s: CourseObstacle; sprite: Phaser.GameObjects.Sprite | Phaser.GameObjects.Image; cool: number; sx: number; sy: number }[];
   crates: { zone: CourseObstacle; g: Phaser.GameObjects.Graphics; warn: Phaser.GameObjects.Text }[];
+  /** Finish tape across the lane: two halves that snap apart when the runner breaks it. */
+  tape: [Phaser.GameObjects.Graphics, Phaser.GameObjects.Graphics] | null;
 }
 
 /**
@@ -555,6 +592,10 @@ export class RelicRelayScene extends BaseMinigame {
   private maceBase = 1;
   /** Roll frames in the rendered log strip. */
   private logFrames = 8;
+  private pops!: WordPops;
+  private rings!: RingBursts;
+  /** Whooshes are rationed (every lane's maces swing together). */
+  private whooshAt = -9999;
 
   constructor() {
     super('mg-relic-relay');
@@ -578,6 +619,8 @@ export class RelicRelayScene extends BaseMinigame {
     this.logFrames = logMeta?.frames ?? (this.textures.exists(ART.log.key) ? Math.max(1, this.textures.get(ART.log.key).frameTotal - 1) : 8);
     this.course = buildCourse(this.rng);
     for (const o of this.course) if (o.kind === 'log') this.nextRelease.set(o, o.phase);
+    this.whooshAt = -9999;
+    for (const w of Object.values(WORDS)) bakeWord(this, w.key, w.text, { size: w.size, fill: w.fill });
     if (this.textures.exists(ART.scene)) {
       // The rendered island is cut out, so the sky shows through above it.
       if (this.textures.exists(SKY_KEY)) this.add.image(GAME_WIDTH / 2, 540, SKY_KEY).setDisplaySize(GAME_WIDTH * 1.04, 1124).setDepth(-100);
@@ -593,6 +636,8 @@ export class RelicRelayScene extends BaseMinigame {
     for (const lane of this.usedLanes) this.buildLane(lane);
     this.buildGantries();
     this.buildTrackBar();
+    this.pops = new WordPops(this, 8600, 14);
+    this.rings = new RingBursts(this, 10);
   }
 
   private ensureCourseTexture(): void {
@@ -726,18 +771,19 @@ export class RelicRelayScene extends BaseMinigame {
       maces: [],
       springs: [],
       crates: [],
+      tape: null,
     };
     for (const o of this.course) {
       if (o.kind === 'spring') {
         const sprite: Phaser.GameObjects.Sprite | Phaser.GameObjects.Image =
           this.artImage(ART.spring, o.x, y) ?? this.add.sprite(o.x, y + 4, 'props', SPRING_FRAME).setOrigin(SPRING_ORIGIN.x, SPRING_ORIGIN.y).setScale(0.5);
         sprite.setDepth(y - 6);
-        kit.springs.push({ s: o, sprite, cool: 0 });
+        kit.springs.push({ s: o, sprite, cool: 0, sx: sprite.scaleX, sy: sprite.scaleY });
       } else if (o.kind === 'mace') {
         const ball = this.artImage(ART.mace, o.x, y) ?? this.add.image(o.x, y, TEX_MACE).setOrigin(0.5, 52 / 100);
         const shadow = this.add.image(o.x, y, 'fx-contact').setDepth(y - 7).setAlpha(0.5);
         const rope = this.add.graphics();
-        kit.maces.push({ m: o, ball, shadow, rope });
+        kit.maces.push({ m: o, ball, shadow, rope, prevW: 0, prevTh: 0, prevDth: 0 });
       } else {
         // Log crate on the back hedge at the top of the run.
         const g = this.add.graphics({ x: o.x1 + 10, y: y - 70 }).setDepth(y - 70 + 2);
@@ -748,7 +794,60 @@ export class RelicRelayScene extends BaseMinigame {
         kit.crates.push({ zone: o, g, warn });
       }
     }
+    kit.tape = this.buildTape(y);
     this.kits.push(kit);
+  }
+
+  /**
+   * Finish tape across a lane at the goal line, chest high: two halves hung from posts at the lane
+   * edges (the far half sorts behind the runner, the near half in front), so it can snap apart.
+   */
+  private buildTape(y: number): [Phaser.GameObjects.Graphics, Phaser.GameObjects.Graphics] {
+    const x = GOAL_X;
+    const half = LANE_HALF - 6;
+    const posts = this.add.graphics().setDepth(y - LANE_HALF);
+    const front = this.add.graphics().setDepth(y + LANE_HALF);
+    const post = (g: Phaser.GameObjects.Graphics, py: number) => {
+      g.fillStyle(0x0b1a24, 0.25);
+      g.fillEllipse(x + 4, py + 3, 20, 8);
+      g.fillStyle(0xe8e2d4, 1);
+      g.fillRoundedRect(x - 4, py - TAPE_LIFT - 8, 8, TAPE_LIFT + 8, 3);
+      g.fillStyle(0xffffff, 1);
+      g.fillRect(x - 3, py - TAPE_LIFT - 6, 2, TAPE_LIFT + 4);
+      g.fillStyle(COLORS.gold, 1);
+      g.fillCircle(x, py - TAPE_LIFT - 9, 6);
+    };
+    post(posts, y - half);
+    post(front, y + half);
+    // Each half runs from its post to the middle of the lane, with a slight sag.
+    const len = half;
+    const drawHalf = (g: Phaser.GameObjects.Graphics, sign: number) => {
+      g.lineStyle(12, 0x7a1a14, 1);
+      g.lineBetween(0, 0, 3, sign * len);
+      g.lineStyle(8, 0xff5a4a, 1);
+      g.lineBetween(0, 0, 3, sign * len);
+      g.fillStyle(0xffffff, 1);
+      for (let d = 6; d < len; d += 14) g.fillRect(-2.5 + (3 * d) / len, sign * d - 2.5, 5, 5);
+    };
+    const top = this.add.graphics({ x, y: y - half - TAPE_LIFT }).setDepth(y - 1);
+    drawHalf(top, 1);
+    const bottom = this.add.graphics({ x, y: y + half - TAPE_LIFT }).setDepth(y + 1);
+    drawHalf(bottom, -1);
+    return [top, bottom];
+  }
+
+  /** The runner breaks the tape: both halves whip away past the line and flutter down. */
+  private snapTape(k: LaneKit): void {
+    const tape = k.tape;
+    if (!tape) return;
+    k.tape = null;
+    const [top, bottom] = tape;
+    this.tweens.add({ targets: top, angle: -78, duration: 260, ease: 'Back.Out' });
+    this.tweens.add({ targets: bottom, angle: 78, duration: 260, ease: 'Back.Out' });
+    for (const g of tape) {
+      this.tweens.add({ targets: g, scaleY: 0.82, duration: 180, yoyo: true, repeat: 2, delay: 260, ease: 'Sine.InOut' });
+      this.tweens.add({ targets: g, alpha: 0, delay: 1100, duration: 500, onComplete: () => g.setVisible(false) });
+    }
   }
 
   /** Wooden log crate with an open chute facing down the lane. */
@@ -829,6 +928,8 @@ export class RelicRelayScene extends BaseMinigame {
     pimg.setDepth(y + 3);
     const glow = this.add.image(x, y, 'fx-dot').setScale(3.2).setTint(0xffd86a).setAlpha(0.5).setBlendMode(Phaser.BlendModes.ADD).setDepth(y + 2.9);
     const shadow = this.add.image(x, y, 'fx-contact').setScale(0.42, 0.13).setAlpha(0.55).setDepth(y - 2).setVisible(false);
+    const streaks = this.add.graphics().setDepth(y - 0.5);
+    const stars = this.add.image(x, y, 'vfx', 6).setScale(0.3).setDepth(y + 5).setVisible(false);
     const r: Runner = {
       p,
       c,
@@ -850,6 +951,10 @@ export class RelicRelayScene extends BaseMinigame {
       markerY: c.marker?.y ?? 0,
       parcel: { state: 'held', x, z: 0, vx: 0, vz: 0, bounces: 0, spin: 0, img: pimg, glow, shadow },
       cpu: { logId: -1, logJump: 0, logDone: false, maceX: -1, maceDir: 0, go: false, clearT: 0, err: 0, throwAt: -1, wait: 0 },
+      streaks,
+      stars,
+      stepT: 0,
+      trailT: 0,
     };
     if (!p.isCpu) {
       const glyph = makeGlyph(this, 'B', 44, glyphKindFor(p.slot));
@@ -950,13 +1055,22 @@ export class RelicRelayScene extends BaseMinigame {
     r.launched = false;
     r.vx = from === 'log' ? -230 : -170;
     if (r.z > 0) r.vz = Math.min(r.vz, 0);
+    // BONK: a freeze-frame, a white flash on the runner, the camera knocked the way the blow went
+    // and dizzy stars for as long as they're stunned.
     audio.play('hit', { volume: 0.7 });
-    this.fx.vfx('impact', r.x + 10, r.y - 70 - r.z, { scale: 0.5, blend: 'add', depth: r.y + 10 });
-    this.fx.shake(0.004, 140);
+    audio.play('land', { volume: 0.45 });
+    this.hitStop(BONK_STOP_MS);
+    this.fx.vfx('impact', r.x + 10, r.y - 70 - r.z, { scale: 0.55, blend: 'add', depth: r.y + 10 });
+    this.fx.sparks(r.x + 6, r.y - 64 - r.z, liteCount(10));
+    if (from === 'log') kick(this, -9, 2, 160);
+    else kick(this, -6, 5, 160);
     this.rumble(r.p, 0.7, 0.5, 220);
     r.c.play('stunned', { force: true });
     r.c.sprite.setTintFill(0xffffff);
     this.time.delayedCall(70, () => r.c.sprite.clearTint());
+    this.tweens.killTweensOf(r.stars);
+    r.stars.setVisible(true).setAlpha(0).setScale(0.12);
+    this.tweens.add({ targets: r.stars, alpha: 1, scale: 0.3, duration: 180, ease: 'Back.Out' });
     if (r.carrying) this.dropParcel(r);
   }
 
@@ -972,7 +1086,8 @@ export class RelicRelayScene extends BaseMinigame {
     pc.bounces = 0;
     pc.spin = this.rng.chance(0.5) ? -540 : 540;
     audio.play('pop', { volume: 0.6, rate: 0.8 });
-    this.fx.floatText(r.x, r.y - 170, 'DROPPED!', '#ff8a7a', { size: 40, stroke: '#4a1010', rise: 60, duration: 900, depth: 8600 });
+    r.trailT = 0;
+    this.pops.pop(WORDS.dropped.key, r.x, r.y - 175, { rise: 46, hold: 620, tilt: -6 });
   }
 
   private throwParcel(r: Runner): void {
@@ -1019,12 +1134,18 @@ export class RelicRelayScene extends BaseMinigame {
     r.vz = SPRING_VZ;
     r.vx = (k.s.period || SPRING_DIST) / ((2 * SPRING_VZ) / GRAVITY);
     k.cool = 700;
-    if (k.sprite instanceof Phaser.GameObjects.Sprite) k.sprite.play('spring-launch');
-    else this.tweens.add({ targets: k.sprite, scaleY: { from: 0.7, to: 1 }, duration: 260, ease: 'Back.Out' });
+    if (k.sprite instanceof Phaser.GameObjects.Sprite && this.anims.exists('spring-launch')) k.sprite.play('spring-launch');
+    // The pad stretches up as it fires and wobbles back; a ring of dust rolls out over the lane.
+    this.tweens.killTweensOf(k.sprite);
+    k.sprite.setScale(k.sx * 0.78, k.sy * 1.45);
+    this.tweens.add({ targets: k.sprite, scaleX: k.sx, scaleY: k.sy, duration: 520, ease: 'Elastic.Out', easeParams: [1.1, 0.4] });
     audio.play('bounce', { volume: 0.7 });
-    this.fx.vfx('dust', k.s.x, r.y + 4, { scale: 0.3, duration: 360, alpha: 0.7, depth: r.y - 1 });
+    audio.play('jump', { volume: 0.3, rate: 1.35 });
+    this.rings.burst(k.s.x, r.y + 4, { tint: 0xf3e0bb, from: 30, to: 190, squash: 0.36, duration: 440, alpha: 0.9, depth: r.y - 2 });
+    this.fx.vfx('dust', k.s.x - 22, r.y + 4, { scale: 0.26, duration: 360, alpha: 0.7, depth: r.y - 1, dx: -34, flipX: true });
+    this.fx.vfx('dust', k.s.x + 22, r.y + 4, { scale: 0.26, duration: 360, alpha: 0.7, depth: r.y - 1, dx: 34 });
     if (!r.carrying) r.c.play('jump', { force: true });
-    r.c.squash(-0.18, 160);
+    r.c.squash(-0.26, 200);
     this.rumble(r.p, 0.3, 0.4, 120);
   }
 
@@ -1036,9 +1157,21 @@ export class RelicRelayScene extends BaseMinigame {
     r.p.score = r.place;
     r.act = 'none';
     audio.play(r.place === 1 ? 'fanfare' : 'chipGain', { volume: 0.7 });
-    this.fx.confetti(GOAL_X, r.y - 120, r.place === 1 ? 70 : 36);
-    this.fx.sparks(GOAL_X, r.y - 60, 20);
-    this.fx.floatText(GOAL_X - 110, r.y - 50, `${ordinal(r.place)}!`, r.place === 1 ? '#ffe08a' : '#ffffff', { size: 70, stroke: '#3a2208', rise: 40, duration: 1500, depth: 8600 });
+    // Breaking the tape: it whips apart, confetti bursts over the line and the place is stamped.
+    const kit = this.kits.find((k) => k.lane === r.lane);
+    if (kit) this.snapTape(kit);
+    audio.play('whoosh', { volume: 0.35 });
+    this.fx.confetti(GOAL_X, r.y - 120, liteCount(r.place === 1 ? 80 : 40));
+    this.fx.sparks(GOAL_X, r.y - 60, liteCount(20));
+    this.rings.burst(GOAL_X, r.y + 2, { tint: r.place === 1 ? COLORS.goldLight : 0xffffff, from: 40, to: 260, squash: 0.4, duration: 520, alpha: 0.9, add: true, depth: r.y - 2 });
+    const word = PLACE_WORDS[Math.min(3, r.place - 1)];
+    // Stamped inside the runner's own lane, clear of call-outs over the lane above.
+    this.pops.pop(word.key, GOAL_X - 150, r.y - 40, { rise: 14, hold: 1250, tilt: -10, scale: 1 });
+    this.time.delayedCall(1500, () => this.bumpHud(r.p.slot));
+    if (r.place === 1) {
+      this.hitStop(70);
+      punch(this, 0.03, 360);
+    }
     r.c.play('victory', { force: true, returnTo: 'idle' });
     r.c.marker?.setVisible(false);
     // Keep celebrating at the finish until the round wraps up.
@@ -1079,6 +1212,12 @@ export class RelicRelayScene extends BaseMinigame {
       const air = grounded ? 1 : 0.35;
       r.vx += (target - r.vx) * (1 - Math.exp(-rate * air * s));
       r.x += r.vx * s;
+      // Heels kick up little puffs at a full sprint.
+      r.stepT -= dt;
+      if (grounded && Math.abs(r.vx) > SPEED_MIN && r.stepT <= 0 && !LITE) {
+        r.stepT = 230;
+        this.fx.vfx('dust', r.x - Math.sign(r.vx) * 14, r.y + 2, { scale: 0.12, duration: 260, alpha: 0.45, depth: r.y - 1, dx: -Math.sign(r.vx) * 16, flipX: r.vx < 0 });
+      }
       if (grounded && c.pressed('A')) this.jump(r);
       else if (c.pressed('X') && r.carrying) this.throwParcel(r);
       else if (c.pressed('B') && !r.carrying && grounded && r.parcel.state === 'ground' && Math.abs(r.parcel.x - r.x) < PICK_RANGE) this.pickUp(r);
@@ -1115,6 +1254,12 @@ export class RelicRelayScene extends BaseMinigame {
       pc.vz -= GRAVITY * s;
       pc.x += pc.vx * s;
       pc.z += pc.vz * s;
+      // A glittering trail follows the relic through the air (easy to track where it lands).
+      r.trailT -= dt;
+      if (r.trailT <= 0 && dt > 0) {
+        r.trailT = LITE ? 90 : 45;
+        this.fx.vfx('sparkle', pc.x + (Math.random() - 0.5) * 16, r.y - pc.z - PARCEL_HALF_H + (Math.random() - 0.5) * 16, { scale: 0.2, duration: 320, blend: 'add', alpha: 0.9, depth: r.y + 4, tint: 0xffe7a0 });
+      }
       if (pc.z <= 0) {
         pc.z = 0;
         pc.bounces++;
@@ -1123,6 +1268,7 @@ export class RelicRelayScene extends BaseMinigame {
           pc.vx = 0;
           pc.vz = 0;
           this.fx.vfx('dust', pc.x, r.y, { scale: 0.2, duration: 280, alpha: 0.5, depth: r.y - 1 });
+          this.fx.vfx('sparkle', pc.x, r.y - PARCEL_HALF_H, { scale: 0.42, duration: 380, blend: 'add', depth: r.y + 4 });
         } else {
           pc.vz = -pc.vz * 0.35;
           pc.vx *= 0.45;
@@ -1130,6 +1276,33 @@ export class RelicRelayScene extends BaseMinigame {
         }
       }
       pc.x = Phaser.Math.Clamp(pc.x, START_X - 40, GOAL_X + 110);
+    }
+  }
+
+  /**
+   * Speed lines streaming off a runner at a sprint or flying off a spring: a few wind streaks at
+   * body height behind them, longer and brighter the faster they go.
+   */
+  private drawStreaks(r: Runner): void {
+    const g = r.streaks;
+    g.clear();
+    const speed = Math.abs(r.vx);
+    if (speed < SPEED_MIN || r.finished || r.stunT > 0 || calmMotion()) return;
+    const k = Phaser.Math.Clamp((speed - SPEED_MIN) / (SPEED_FULL - SPEED_MIN), 0.35, 1);
+    const dir = Math.sign(r.vx);
+    const now = this.elapsed;
+    g.setDepth(r.y - 0.5);
+    const lines = LITE ? 2 : 3;
+    for (let i = 0; i < lines; i++) {
+      const ph = (now / 240 + i * 0.37) % 1;
+      const y = r.y - r.z - 24 - i * 22;
+      const x0 = r.x - dir * (20 + ph * 50);
+      const len = (30 + 80 * k) * (1 - ph * 0.5);
+      // A dark under-stroke so the white streak reads on the pale dirt.
+      g.lineStyle(i === 1 ? 7 : 5, 0x5a3c1c, 0.22 * k * (1 - ph));
+      g.lineBetween(x0, y + 1.5, x0 - dir * len, y + 1.5);
+      g.lineStyle(i === 1 ? 4 : 3, 0xffffff, 0.85 * k * (1 - ph));
+      g.lineBetween(x0, y, x0 - dir * len, y);
     }
   }
 
@@ -1148,6 +1321,16 @@ export class RelicRelayScene extends BaseMinigame {
     c.shadow?.setScale(1 - Math.min(0.55, r.z / 320));
     c.sprite.setAlpha(r.invuln > 0 && r.stunT <= 0 ? (Math.floor(now / 80) % 2 ? 0.5 : 1) : 1);
     if (Math.abs(r.vx) > 25 && r.act === 'none' && !r.launched) c.face(r.vx < 0);
+    this.drawStreaks(r);
+    // Dizzy stars circle the head while stunned.
+    if (r.stars.visible) {
+      const headY = r.y - r.z + c.headY * c.scaleY - 14;
+      r.stars.setPosition(r.x, headY).setDepth(r.y + 5);
+      r.stars.setAngle((this.elapsed * 0.35) % 360);
+      if (r.stunT <= 0 && !this.tweens.isTweening(r.stars)) {
+        this.tweens.add({ targets: r.stars, alpha: 0, scale: 0.15, duration: 200, onComplete: () => r.stars.setVisible(false) });
+      }
+    }
     if (this.phase !== 'finished') {
       if (!r.carrying && r.stunT <= 0 && r.act === 'none' && r.z <= 0 && !r.finished) {
         if (moving && c.current !== 'run') c.play('run');
@@ -1213,7 +1396,9 @@ export class RelicRelayScene extends BaseMinigame {
       if (soon <= 0) {
         this.nextRelease.set(o, due + o.period);
         for (const k of this.kits) {
-          const log: Log = { id: ++this.logSeq, lane: k.lane, zone: o, x: o.x1 - 8, z: 34, vz: 120, roll: 0, dying: 0, dust: 0 };
+          const runner = this.runners.find((rr) => rr.lane === k.lane);
+          const log: Log = { id: ++this.logSeq, lane: k.lane, zone: o, x: o.x1 - 8, z: 34, vz: 120, roll: 0, dying: 0, dust: 0, passed: !runner || runner.x >= o.x1 - 8, glinted: false };
+          this.fx.vfx('dust', o.x1 - 4, k.y - 20, { scale: 0.22, duration: 300, alpha: 0.6, depth: k.y + 1, dx: -20 });
           if (this.textures.exists(ART.log.key)) {
             const m = this.artMeta(ART.log);
             log.img = this.add.sprite(log.x, k.y, ART.log.key, 0).setOrigin(m.ox, m.oy).setScale(m.k).setDepth(k.y + 2);
@@ -1362,7 +1547,9 @@ export class RelicRelayScene extends BaseMinigame {
         const grounded = r.z <= 0 && r.vz <= 0;
         if (grounded && r.stunT <= 0 && Math.abs(r.x - sp.s.x) < SPRING_HALF && r.vx > 20) this.springLaunch(r, sp);
       }
-      if (!r || r.finished || r.invuln > 0) continue;
+      if (!r || r.finished) continue;
+      this.logTells(k, r);
+      if (r.invuln > 0) continue;
       for (const log of this.logs) {
         if (log.lane !== k.lane || log.dying > 0) continue;
         if (log.z <= 0 && Math.abs(log.x - r.x) < LOG_HIT_HALF + BODY_HALF && r.z < LOG_HIT_H) {
@@ -1378,6 +1565,35 @@ export class RelicRelayScene extends BaseMinigame {
         }
       }
     }
+  }
+
+  /**
+   * Log tells for a lane's runner: a glint on the spikes as a log rolls into range, and a whoosh
+   * (plus a "NICE!" for people) when one passes clean under a jump.
+   */
+  private logTells(k: LaneKit, r: Runner): void {
+    for (const log of this.logs) {
+      if (log.lane !== k.lane || log.dying > 0) continue;
+      const rel = log.x - r.x;
+      if (!log.glinted && rel > 0 && rel < 330 && log.z <= 0) {
+        log.glinted = true;
+        // A cold glint off the spikes, for people only (a CPU needs no warning, and the lanes roll together).
+        if (!r.p.isCpu) this.fx.vfx('sparkle', log.x - 10, k.y - LOG_R * 2 - 4, { scale: 0.24, duration: 260, blend: 'add', tint: 0xf2f8ff, depth: k.y + 3 });
+      }
+      if (!log.passed && rel <= 0) {
+        log.passed = true;
+        if (r.z > 8 && r.stunT <= 0) {
+          audio.play('whoosh', { volume: 0.3, throttleMs: 120 });
+          if (!r.p.isCpu) this.pops.pop(WORDS.nice.key, r.x, r.y - r.z - 150, { rise: 30, hold: 360, owner: r.p.slot });
+        }
+      }
+    }
+  }
+
+  /** The runner in a lane (a plain loop: this runs for every lane every frame). */
+  private runnerIn(lane: number): Runner | null {
+    for (const r of this.runners) if (r.lane === lane) return r;
+    return null;
   }
 
   /** Mace balls, ropes, ground shadows and the pulsing danger strip across each lane. */
@@ -1415,12 +1631,60 @@ export class RelicRelayScene extends BaseMinigame {
         const py = k.y - MACE_PIVOT_H;
         const rope = mk.rope;
         rope.clear().setDepth(depth - 0.05);
+        this.maceSmear(rope, m, k.y, t);
         rope.lineStyle(5, 0x3a2a14, 1);
         rope.lineBetween(px, py, bx, by - MACE_BALL_R);
         rope.lineStyle(2.5, 0xc9a45c, 1);
         rope.lineBetween(px, py, bx, by - MACE_BALL_R);
+        this.maceTells(this.runnerIn(k.lane), mk, b.w, bx, by, depth);
       }
     }
+  }
+
+  /** Motion smear behind a fast-swinging ball: fading ghosts along its recent arc. */
+  private maceSmear(g: Phaser.GameObjects.Graphics, m: CourseObstacle, laneY: number, t: number): void {
+    if (calmMotion()) return;
+    // Swing speed: 1 at the bottom of the arc, 0 at the turn.
+    const speed = Math.abs(Math.cos(((t + m.phase) / m.period) * Math.PI * 2));
+    if (speed < 0.35) return;
+    const ghosts = LITE ? 3 : 5;
+    let lx = 0;
+    let ly = 0;
+    for (let j = 0; j <= ghosts; j++) {
+      // maceBall() inlined (it returns a fresh object, and this runs for every lane every frame).
+      const th = maceAngle(m, t - j * 26);
+      const sw = Math.sin(th) * MACE_ROPE;
+      const x = m.x + sw * MACE_ALONG;
+      const y = laneY + sw * MACE_ACROSS * DEPTH_K - (MACE_PIVOT_H - Math.cos(th) * MACE_ROPE);
+      if (j > 0) {
+        const f = 1 - j / (ghosts + 1);
+        g.lineStyle(MACE_BALL_R * 1.5 * f, 0xe8eef6, 0.22 * f * (speed - 0.35) * 1.6);
+        g.lineBetween(lx, ly, x, y);
+      }
+      lx = x;
+      ly = y;
+    }
+  }
+
+  /**
+   * Mace tells: a glint as the ball turns at the top of its swing, about to come back through the
+   * lane (only when a runner is heading for it), and a whoosh as it sweeps through near someone.
+   */
+  private maceTells(r: Runner | null, mk: LaneKit['maces'][number], w: number, bx: number, by: number, depth: number): void {
+    const th = maceAngle(mk.m, this.elapsed);
+    const dth = th - mk.prevTh;
+    if (this.phase === 'playing' && r && !r.finished && r.x > mk.m.x - 420 && r.x < mk.m.x + MACE_STRIP + 20) {
+      if (dth * mk.prevDth < 0 && Math.abs(th) > MACE_AMP * 0.8 && !r.p.isCpu) {
+        this.fx.vfx('sparkle', bx + 12, by - 14, { scale: 0.28, duration: 280, blend: 'add', tint: 0xf2f8ff, depth: depth + 1 });
+      }
+      if (w * mk.prevW < 0 && Math.abs(r.x - mk.m.x) < 300 && this.elapsed - this.whooshAt > 260) {
+        this.whooshAt = this.elapsed;
+        audio.play('whoosh', { volume: 0.22 + 0.2 * (1 - Math.abs(r.x - mk.m.x) / 300) });
+      }
+    }
+    if (dth !== 0) mk.prevDth = dth;
+    mk.prevTh = th;
+    mk.prevW = w;
   }
 
   // --- Frame ------------------------------------------------------------------------------------
@@ -1453,6 +1717,7 @@ export class RelicRelayScene extends BaseMinigame {
     if (!first) return;
     for (const r of this.runners) {
       r.prompt?.setVisible(false);
+      r.stars.setVisible(false);
       r.vx = 0;
       if (r.finished) {
         if (r.c.current !== 'victory') r.c.play('victory', { force: true, returnTo: 'celebrate' });
