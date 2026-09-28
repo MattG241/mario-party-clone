@@ -71,6 +71,13 @@ describe('readGeneric', () => {
     expect(f.rx).toBe(0);
     expect(f.ry).toBe(0);
   });
+
+  it('ignores axes that did not rest near centre (arcade encoders, adapters)', () => {
+    const f = readGeneric(pad(idle(), [1, 0, -1, 0.5]), new Set(), false, [0, 0, -1, 0.02]);
+    expect(f.lx).toBe(1); // a digital stick pushed right
+    expect(f.rx).toBe(0); // axis 2 rested at -1: not a stick
+    expect(f.ry).toBeCloseTo(0.5);
+  });
 });
 
 describe('readMapped', () => {

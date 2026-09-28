@@ -389,7 +389,7 @@ export class CharacterSelectScene extends Phaser.Scene {
     if (this.leaving) return;
     // New players joining with A (that same press must not also pick a character).
     const joinedNow = new Set<number>();
-    for (const ref of input.devicesPressing('A')) {
+    for (const ref of input.joinPresses('A')) {
       if (input.slotOf(ref) !== null) continue;
       const slot = this.preferredSlot(ref);
       if (slot >= 0) {

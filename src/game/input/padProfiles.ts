@@ -188,8 +188,15 @@ export function findHatAxis(pad: RawPad, known: Set<number>): number | null {
  * order (0–3 face, 4/5 bumpers, 6/7 triggers, 8/9 select/start, 10/11 stick clicks), sticks on
  * axes 0/1 and 2/3, and the D-pad from a hat switch, buttons 12–15 or axes 6/7.
  */
-export function readGeneric(pad: RawPad, hatAxes: Set<number>, swapFace: boolean): LogicalFrame {
+export function readGeneric(pad: RawPad, hatAxes: Set<number>, swapFace: boolean, axisRest?: readonly number[]): LogicalFrame {
   const f = readStandard(pad, swapFace);
+  // An axis that didn't rest near centre when the pad appeared (a trigger at -1, a slider…)
+  // isn't a stick: arcade encoders and adapters report all sorts on the spare axes.
+  const stick = (i: number) => (axisRest && Math.abs(axisRest[i] ?? 0) > 0.3 ? 0 : (pad.axes[i] ?? 0));
+  f.lx = stick(0);
+  f.ly = stick(1);
+  f.rx = stick(2);
+  f.ry = stick(3);
   const hat = findHatAxis(pad, hatAxes);
   if (hat !== null) {
     const d = decodeHat(pad.axes[hat]);

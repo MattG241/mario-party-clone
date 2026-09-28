@@ -175,7 +175,7 @@ export class BoardScene extends Phaser.Scene {
     });
     let idx = 0;
     await this.ui.poll(() => {
-      for (const ref of input.devicesPressing('A')) {
+      for (const ref of input.joinPresses('A')) {
         if (input.slotOf(ref) !== null) continue;
         const p = need[idx];
         input.assign(p.slot, ref as DeviceRef);

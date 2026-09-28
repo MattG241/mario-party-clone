@@ -1,5 +1,6 @@
 // Pre-rendered environment art (produced by scripts/art/*.py with Blender). Everything here is
 // optional: when a manifest or tile is missing the game falls back to the vector placeholder art.
+import { LITE } from '../perf';
 
 export interface RenderedTile {
   file: string;
@@ -48,7 +49,8 @@ export const RENDERED_BOARDS = ['suncoil'] as const;
 
 export const renderedManifestKey = (board: string): string => `rendered-${board}`;
 export const renderedTileKey = (board: string, file: string): string => `rendered-${board}-${file}`;
-export const renderedPath = (board: string, file: string): string => `assets/rendered/${board}/${file}`;
+/** Lite graphics load the half-resolution board (public/assets/lite, same manifest format). */
+export const renderedPath = (board: string, file: string): string => `assets/${LITE ? 'lite' : 'rendered'}/${board}/${file}`;
 
 /** True for loader keys whose failure must not block the game. */
 export const isOptionalAsset = (key: string): boolean => key.startsWith('rendered-');

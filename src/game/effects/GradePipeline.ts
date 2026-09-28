@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { LITE } from '../perf';
 
 const FRAG = `
 #define SHADER_NAME GLEAMTRAIL_GRADE_FS
@@ -142,7 +143,8 @@ export class GradePipeline extends Phaser.Renderer.WebGL.Pipelines.PostFXPipelin
 
 /** Grade a scene's main camera (no-op on the canvas renderer). */
 export function applyGrade(scene: Phaser.Scene, overrides: Partial<GradeSettings> = {}, camera: Phaser.Cameras.Scene2D.Camera = scene.cameras.main): void {
-  if (scene.renderer.type !== Phaser.WEBGL) return;
+  // Lite graphics skip the full-screen pass (a big share of the frame on TV-class GPUs).
+  if (scene.renderer.type !== Phaser.WEBGL || LITE) return;
   camera.setPostPipeline(GradePipeline);
   const p = camera.getPostPipeline(GradePipeline);
   const pipe = (Array.isArray(p) ? p[0] : p) as GradePipeline | undefined;

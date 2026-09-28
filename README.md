@@ -17,6 +17,12 @@ It is published from `main` by GitHub Actions (`.github/workflows/pages.yml`; on
 repository Settings → Pages → Source: *GitHub Actions*). Or run it yourself (below):
 `npm install && npm run build && npm run preview`, then open <http://localhost:4173>.
 
+**TVs and low-power devices.** Graphics switch to **Lite** automatically on TV browsers, low-memory
+devices and anything that runs the title screen very slowly: half-resolution board art, one small
+sky, simpler minigame arenas, no colour grade and a steady 30 fps (about a third of the memory).
+Force it with <https://mattg241.github.io/mario-party-clone/?lite> or **Settings → Graphics**. A
+computer plugged into the TV still gives the best experience.
+
 **Controllers.** Up to four at once, plus the keyboard:
 
 - Xbox (One, Series, 360), PlayStation (DualShock 4, DualSense), Nintendo Switch Pro Controller
@@ -29,6 +35,11 @@ repository Settings → Pages → Source: *GitHub Actions*). Or run it yourself 
 - If a controller's buttons do the wrong thing (usually a generic pad, or some pads in Firefox),
   open **Settings → Controller Button Setup** and press each button when asked. The layout is
   remembered for that controller; **Settings → Test Controllers** shows everything live.
+- Adapters and arcade sticks work too — wireless receivers (Xbox Wireless Adapter, 8BitDo,
+  Mayflash, Brook…) and zero-delay USB encoders show up as an Xbox, Switch or generic controller.
+  If an adapter presents itself as a Switch controller while you hold an Xbox or PlayStation pad,
+  set **Settings → Nintendo Controllers** to *Bottom confirms*.
+- A controller that shows up twice (some adapters, DS4Windows, Steam) still takes only one seat.
 - If Steam is running it may remap controllers (Steam Input); close Steam if a pad behaves oddly.
 
 ## Quick start

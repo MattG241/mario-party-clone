@@ -46,6 +46,8 @@ export class GamepadDevice extends InputDevice {
   private triggerAxisSeen = [false, false];
   /** Axes seen resting outside [-1, 1]: hat-switch D-pads on non-standard pads. */
   private hatAxes = new Set<number>();
+  /** Axis values when the pad first appeared (where a non-standard pad's axes rest). */
+  private axisRest: number[] | null = null;
   private ident: PadIdentity = identifyPad('');
 
   constructor(readonly index: number) {
@@ -59,6 +61,11 @@ export class GamepadDevice extends InputDevice {
   /** Xbox, PlayStation, Nintendo or generic (drives prompt glyphs and the Nintendo layout). */
   get family(): PadFamily {
     return this.ident.family;
+  }
+
+  /** Logical buttons held right now, as a comparable signature (spotting a mirrored device). */
+  heldSignature(): string {
+    return BUTTONS.filter((b) => this.cur[b]).join(',');
   }
 
   /** True when the pad needs (or has) a recorded layout: its browser mapping isn't standard. */
@@ -94,6 +101,7 @@ export class GamepadDevice extends InputDevice {
     if (gp.id !== this.id) {
       this.ident = identifyPad(gp.id);
       this.hatAxes.clear();
+      this.axisRest = Array.from(gp.axes);
     }
     this.id = gp.id;
     this.mapping = gp.mapping;
@@ -115,7 +123,7 @@ export class GamepadDevice extends InputDevice {
       f = this.readXinputAxes(gp);
     } else {
       this.layout = 'generic';
-      f = readGeneric(raw, this.hatAxes, swap);
+      f = readGeneric(raw, this.hatAxes, swap, this.axisRest ?? undefined);
     }
     const c = this.cur;
     for (const b of BUTTONS) c[b] = f.buttons[b];

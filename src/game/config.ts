@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from './constants';
 import { REALTIME_CLOCK } from './debug/debug';
 import { GradePipeline } from './effects/GradePipeline';
+import { LITE } from './perf';
 
 export function makeConfig(parent: HTMLElement, scenes: Phaser.Types.Scenes.SceneType[]): Phaser.Types.Core.GameConfig {
   return {
@@ -18,8 +19,11 @@ export function makeConfig(parent: HTMLElement, scenes: Phaser.Types.Scenes.Scen
       antialias: true,
       pixelArt: false,
       roundPixels: false,
-      // Atlases are power-of-two, so mipmaps keep down-scaled sprites smooth without blurring.
-      mipmapFilter: 'LINEAR_MIPMAP_LINEAR',
+      // Atlases are power-of-two, so mipmaps keep down-scaled sprites smooth without blurring
+      // (Lite skips them: a third more texture memory, and slow to build on TV chips).
+      mipmapFilter: LITE ? '' : 'LINEAR_MIPMAP_LINEAR',
+      // Multisampled canvas edges cost a lot of fill rate and memory on weak GPUs.
+      antialiasGL: !LITE,
       powerPreference: 'high-performance',
       batchSize: 4096,
     },
@@ -31,7 +35,8 @@ export function makeConfig(parent: HTMLElement, scenes: Phaser.Types.Scenes.Scen
     },
     // ?realtime (testing on software-rendered browsers) keeps game time locked to wall time even
     // at very low frame rates instead of Phaser's hitch smoothing.
-    fps: { target: 60, smoothStep: !REALTIME_CLOCK },
+    // Lite holds a steady 30 fps rather than stuttering between rates.
+    fps: { target: 60, smoothStep: !REALTIME_CLOCK, ...(LITE ? { limit: 30 } : {}) },
     pipeline: { Grade: GradePipeline } as unknown as Phaser.Types.Core.PipelineConfig,
     audio: { noAudio: true },
     disableContextMenu: true,

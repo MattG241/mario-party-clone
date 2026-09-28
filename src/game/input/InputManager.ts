@@ -175,6 +175,30 @@ export class InputManager implements SlotResolver {
     return out;
   }
 
+  /**
+   * Devices that pressed `b` this frame to join a game, minus echoes of one physical press: some
+   * setups show a controller twice (adapters with two interfaces, DS4Windows, Steam) or also type
+   * keys (Steam's desktop mode). When a controller pressed, a same-frame key press is dropped, and
+   * of several controllers pressing with identical buttons held only the first counts (including
+   * against a controller that already has a seat). A second player who really pressed at that
+   * very instant just presses again.
+   */
+  joinPresses(b: Button): DeviceRef[] {
+    const pads = this.connectedPads().filter((p) => p.pressed(b));
+    if (pads.length === 0) return this.keyboard.pressed(b) ? [{ kind: 'keyboard' }] : [];
+    const seen = new Set<string>();
+    // Seated controllers first, so a mirror of a seated one is recognised as such.
+    const order = [...pads].sort((a, c) => Number(this.slotOf({ kind: 'gamepad', index: c.index }) !== null) - Number(this.slotOf({ kind: 'gamepad', index: a.index }) !== null) || a.index - c.index);
+    const out: DeviceRef[] = [];
+    for (const p of order) {
+      const sig = p.heldSignature();
+      if (seen.has(sig)) continue;
+      seen.add(sig);
+      out.push({ kind: 'gamepad', index: p.index });
+    }
+    return out;
+  }
+
   allDevices(): InputDevice[] {
     return [this.keyboard, ...this.connectedPads()];
   }

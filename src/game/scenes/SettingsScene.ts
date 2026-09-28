@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { LITE, type GraphicsMode } from '../perf';
 import { audio } from '../audio/AudioManager';
 import { COLORS, CSS, GAME_HEIGHT, GAME_WIDTH, type GameSpeed, type InstructionMode } from '../constants';
 import { KEY_ACTION_LABELS, KEY_ACTIONS, keyLabel, type KeyAction } from '../input/buttons';
@@ -68,6 +69,18 @@ export class SettingsScene extends Phaser.Scene {
       { label: 'Reduced Motion', value: () => onOff(s().reducedMotion), onChange: () => settings.set({ reducedMotion: !s().reducedMotion }), hint: 'Shorter camera moves and fewer pulsing effects.' },
       { label: 'Large Text', value: () => onOff(s().largeText), onChange: () => settings.set({ largeText: !s().largeText }), hint: 'Bigger text across menus and the board (applies on the next screen).' },
       { label: 'Game Speed', value: () => cap(s().gameSpeed), onChange: () => settings.set({ gameSpeed: (s().gameSpeed === 'normal' ? 'fast' : 'normal') as GameSpeed }), hint: 'Fast shortens board animations and CPU thinking time.' },
+      {
+        label: 'Graphics',
+        value: () => ({ auto: LITE ? 'Auto (Lite)' : 'Auto (Full)', full: 'Full detail', lite: 'Lite' })[s().graphics],
+        onChange: (d) => {
+          const order: GraphicsMode[] = ['auto', 'lite', 'full'];
+          const next = order[(order.indexOf(s().graphics) + (d < 0 ? order.length - 1 : 1)) % order.length];
+          settings.set({ graphics: next });
+          // Textures are chosen when the game loads, so apply it with a quick restart.
+          this.time.delayedCall(350, () => window.location.reload());
+        },
+        hint: 'Lite loads smaller art and turns off heavy effects, for TV browsers and other low-power devices. Auto picks Lite on TVs and slow devices. Changing it restarts the game (a board game in progress can be continued).',
+      },
       {
         label: 'Minigame Instructions',
         value: () => cap(s().instructions),

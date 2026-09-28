@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { slotForDevice } from '../../src/game/input/assignment';
 import { applyRadialDeadzone, MENU_REPEAT_DELAY, MENU_REPEAT_INTERVAL, NavRepeater, stickToNav } from '../../src/game/input/Controls';
+import { GamepadDevice } from '../../src/game/input/GamepadManager';
 import { deviceLabel, InputManager, sameDevice } from '../../src/game/input/InputManager';
 import { KeyboardDevice } from '../../src/game/input/KeyboardManager';
 import { VirtualControls } from '../../src/game/input/PlayerInput';
@@ -174,5 +175,41 @@ describe('CPU virtual controls', () => {
     v.hold('X');
     v.step();
     expect(v.held('X')).toBe(true);
+  });
+});
+
+describe('joining without echoes', () => {
+  const gp = (index: number, id: string, down: number[]) =>
+    ({
+      id,
+      index,
+      mapping: 'standard',
+      connected: true,
+      timestamp: 0,
+      axes: [0, 0, 0, 0],
+      buttons: Array.from({ length: 17 }, (_, i) => ({ pressed: down.includes(i), touched: false, value: down.includes(i) ? 1 : 0 })),
+    }) as unknown as Gamepad;
+  const pressing = (index: number, id: string, down: number[]) => {
+    const d = new GamepadDevice(index);
+    d.update(gp(index, id, []), 16, 0);
+    d.update(gp(index, id, down), 16, 16);
+    return d;
+  };
+
+  it('counts one physical press once when a controller shows up twice', () => {
+    const m = new InputManager();
+    m.pads.set(0, pressing(0, 'Wireless Controller (STANDARD GAMEPAD Vendor: 054c Product: 09cc)', [0]));
+    m.pads.set(1, pressing(1, 'Xbox 360 Controller (XInput STANDARD GAMEPAD)', [0]));
+    expect(m.joinPresses('A')).toEqual([{ kind: 'gamepad', index: 0 }]);
+    // the mirror of a seated controller doesn't take a second seat
+    m.assign(0, { kind: 'gamepad', index: 0 });
+    expect(m.joinPresses('A').filter((r) => m.slotOf(r) === null)).toEqual([]);
+  });
+
+  it('still lets different controllers join together', () => {
+    const m = new InputManager();
+    m.pads.set(0, pressing(0, 'pad one', [0]));
+    m.pads.set(1, pressing(1, 'pad two', [0, 4]));
+    expect(m.joinPresses('A')).toHaveLength(2);
   });
 });

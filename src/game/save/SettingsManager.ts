@@ -9,6 +9,7 @@ import {
 import { DEFAULT_KEY_BINDINGS, KEY_ACTIONS, type KeyAction } from '../input/buttons';
 import type { CharacterId } from '../data/characters';
 import { sanitizeMappings, type PadMapping } from '../input/padProfiles';
+import type { GraphicsMode } from '../perf';
 
 export interface Settings {
   masterVolume: number;
@@ -28,6 +29,8 @@ export interface Settings {
   padMappings: Record<string, PadMapping>;
   /** Nintendo controllers: the button labelled A confirms (true) or the bottom button does (false). */
   nintendoByLabel: boolean;
+  /** Graphics level: automatic, full detail, or Lite for TVs and low-memory devices (see perf.ts). */
+  graphics: GraphicsMode;
   /** Last character chosen by each player slot (pre-highlighted on the select screen). */
   lastCharacters: (CharacterId | null)[];
   /** Match defaults remembered from the previous setup. */
@@ -52,6 +55,7 @@ export const DEFAULT_SETTINGS: Settings = {
   keyBindings: cloneBindings(DEFAULT_KEY_BINDINGS),
   padMappings: {},
   nintendoByLabel: true,
+  graphics: 'auto',
   lastCharacters: [null, null, null, null],
   rounds: 10,
   cpuPlayers: true,
@@ -158,6 +162,7 @@ function sanitize(p: Partial<Settings>): Partial<Settings> {
   if (p.sfxVolume !== undefined) out.sfxVolume = clamp01(p.sfxVolume, DEFAULT_SETTINGS.sfxVolume);
   if (typeof p.deadzone === 'number' && Number.isFinite(p.deadzone)) out.deadzone = Math.min(0.3, Math.max(0.1, p.deadzone));
   if (p.padMappings !== undefined) out.padMappings = sanitizeMappings(p.padMappings);
+  if (p.graphics === 'auto' || p.graphics === 'full' || p.graphics === 'lite') out.graphics = p.graphics;
   for (const k of ['vibration', 'screenShake', 'reducedMotion', 'largeText', 'subtitles', 'cpuPlayers', 'nintendoByLabel'] as const) {
     if (typeof p[k] === 'boolean') out[k] = p[k];
   }
