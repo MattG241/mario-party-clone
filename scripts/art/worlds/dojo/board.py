@@ -729,6 +729,63 @@ def falls(G, BP, zf, rnd, islands):
         a = k / 7 * math.tau
         v, f = lib.blob((c.x + math.cos(a) * 0.14, c.y + 0.05 + math.sin(a) * 0.08, 0.05), rnd.uniform(0.06, 0.1), squash=(1.2, 1, 0.5), rough=0.3, subdiv=1, seed=k)
         L['water'].add(v, f, (1, 1, 1, 1))
+    # the overflow: a brook from the pool to the nearest camera-facing rim, and a fall into the clouds
+    isl = next(i for i in islands if i['theme'] == 'falls')
+    ring, nrm = isl['ring'], isl['nrm']
+    cands = [k for k in range(len(ring)) if nrm[k][1] > 0.55 and ring[k][1] > py + 40 and abs(ring[k][0] - px) < 130
+             and not near_node(ring[k][0], ring[k][1], 90)]
+    if cands:
+        k = min(cands, key=lambda k: math.hypot(ring[k][0] - px, ring[k][1] - py))
+        rx, ry = ring[k]
+        nx, ny = nrm[k]
+        # brook: a narrow ribbon of water from the pool's edge to the rim
+        steps = 10
+        verts, faces = [], []
+        for j in range(steps + 1):
+            t = j / steps
+            bx = px + (rx - px) * t + math.sin(t * 3.0) * 6
+            by = py + 22 + (ry - py - 22) * t
+            q = lib.board_to_world(bx, by, 0.014)
+            w = 0.09 + 0.03 * math.sin(t * 5)
+            verts += [(q.x - w, q.y, q.z), (q.x + w, q.y, q.z)]
+        for j in range(steps):
+            faces.append((2 * j, 2 * j + 1, 2 * j + 3, 2 * j + 2))
+        L2 = G.local()
+        L2['ponds'].add(verts, faces, (1, 1, 1, 1))
+        for j in range(1, steps, 2):
+            t = j / steps
+            terrain.rock(L2['rocks'], px + (rx - px) * t + 16, py + 22 + (ry - py - 22) * t, rnd, 0.35, moss=True)
+        G.merge(L2, zf)
+        # the fall off the rim: arcs out a little, then drops into the cloud bank below
+        lip2 = lib.board_to_world(rx, ry, 0.0)
+        ox, oy = nx, -ny
+        Ln = math.hypot(ox, oy) or 1.0
+        ox, oy = ox / Ln, oy / Ln
+        pxv, pyv = -oy, ox
+        cols2, rows2, width2, drop = 6, 18, 0.26, 3.2
+        verts, faces = [], []
+        for j in range(rows2 + 1):
+            t = j / rows2
+            out = 0.05 + 0.3 * min(1.0, t * 3.0) ** 0.5
+            zz = -0.02 - drop * t ** 1.15
+            for i in range(cols2 + 1):
+                uu = i / cols2 * 2 - 1
+                u = uu * 0.5 * width2 * (1 + 0.4 * t)
+                verts.append((lip2.x + ox * out + pxv * u, lip2.y + oy * out + pyv * u, zz))
+        for j in range(rows2):
+            for i in range(cols2):
+                a = j * (cols2 + 1) + i
+                faces.append((a, a + 1, a + cols2 + 2, a + cols2 + 1))
+        mb = lib.MeshBuilder()
+        mb.add(verts, faces, (1, 1, 1, 1))
+        ob2 = mb.build('overflow_fall', lib.falls_material('overflow', zf, zf - drop), smooth=True)
+        if ob2 is not None:
+            t3 = K.lift(zf)
+            ob2.location = (t3.x, t3.y, t3.z)
+        L3 = G.local()
+        K.cloud_puffs(L3['clouds'], rx + ox * 20, ry + 150, -2.4, rnd, r=0.4, count=6, spread=(0.6, 0.25))
+        G.merge(L3, zf)
+        print('overflow fall at', int(rx), int(ry), flush=True)
     G.merge(L, zf)
 
 
