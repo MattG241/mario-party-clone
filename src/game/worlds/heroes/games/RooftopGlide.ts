@@ -739,12 +739,22 @@ export class RooftopGlideScene extends BaseMinigame {
       stepFlyer(g.f, g.input, dt, g.ev);
       this.flightFx(g, was);
       this.searchlights(g, dt);
-      if (g.f.mode !== 'stun' && !(g.f.mode === 'roof' && g.f.stunT > 0)) {
-        for (const c of this.clues) {
-          if (c.state === 'gone' || c.wait > 0 || (c.owner === g.p.slot && c.age < 800)) continue;
-          if (Math.hypot(c.x - g.f.x, c.y - g.f.y) < GLIDE.REACH + (c.gold ? 10 : 0)) this.collect(g, c);
+    }
+    // Pick-ups: each clue goes to the nearest glider in reach (not a dazed one; a dropped clue's
+    // owner waits a moment before they can snatch it back).
+    for (const c of this.clues) {
+      if (c.state === 'gone' || c.wait > 0) continue;
+      let best: Glider | null = null;
+      let bestD = GLIDE.REACH + (c.gold ? 10 : 0);
+      for (const g of this.gliders) {
+        if (g.f.mode === 'stun' || (g.f.mode === 'roof' && g.f.stunT > 0) || (c.owner === g.p.slot && c.age < 800)) continue;
+        const d = Math.hypot(c.x - g.f.x, c.y - g.f.y);
+        if (d < bestD) {
+          bestD = d;
+          best = g;
         }
       }
+      if (best) this.collect(best, c);
     }
   }
 

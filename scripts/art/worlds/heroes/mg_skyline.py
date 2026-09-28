@@ -25,6 +25,19 @@ import mg_city as C  # noqa: E402
 WHAT = next((a for a in sys.argv[1:] if not a.startswith('-')), 'backdrop')
 PREVIEW = '--preview' in sys.argv
 MG = os.path.join(C.PUB, 'mg')
+LITE = os.path.join(C.ROOT, 'public', 'assets', 'lite')
+
+
+def save_pair(im, rel: str, quality: int = 90):
+    """Save a sprite under public/assets/rendered/<rel> and its half-size Lite copy under lite/<rel>."""
+    from PIL import Image
+    full = os.path.join(C.PUB, rel)
+    os.makedirs(os.path.dirname(full), exist_ok=True)
+    im.save(full, 'WEBP', quality=quality, method=6)
+    half = os.path.join(LITE, rel)
+    os.makedirs(os.path.dirname(half), exist_ok=True)
+    im.resize((max(1, im.width // 2), max(1, im.height // 2)), Image.LANCZOS).save(half, 'WEBP', quality=quality, method=6)
+    print('wrote', rel, '(+ lite)')
 PERIOD = 19.2  # 1920 px: the backdrop and street repeat every screen width
 TOWER_H = 820  # px: frame height of a building sprite
 
@@ -165,8 +178,7 @@ def street():
     C.render(path)
     if not PREVIEW:
         from PIL import Image
-        Image.open(path).convert('RGB').save(os.path.join(MG, 'heroes_street.webp'), 'WEBP', quality=90, method=6)
-        print('wrote mg/heroes_street.webp')
+        save_pair(Image.open(path).convert('RGB'), 'mg/heroes_street.webp')
     del bpy
 
 
@@ -281,7 +293,7 @@ def pack_towers(path: str, anchors: dict):
             table[name] = {'anchor': [round(ax - l), round(ay)], 'kind': kind}
             x += img.width + 4
         y += TOWER_H + 4
-    atlas.save(os.path.join(MG, 'heroes_towers.webp'), 'WEBP', quality=90, method=6)
+    save_pair(atlas, 'mg/heroes_towers.webp', quality=92)
     meta = {'frames': frames, 'anchors': table, 'meta': {'image': 'heroes_towers.webp', 'size': {'w': aw, 'h': ah}, 'scale': '1'}}
     with open(os.path.join(MG, 'heroes_towers.json'), 'w') as fh:
         json.dump(meta, fh)

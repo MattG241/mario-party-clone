@@ -102,7 +102,7 @@ export const GLIDE = {
 /** Searchlight cone: half-angle and reach. */
 export const BEAM_HALF = 0.085;
 /** Held in a beam this long (ms) and you're caught: brushing its edge only sets off the alarm. */
-export const CATCH_MS = 260;
+export const CATCH_MS = 300;
 export const BEAM_LEN = 1300;
 /** A body this wide still counts as caught at the cone's edge. */
 export const BODY_R = 26;
@@ -627,7 +627,7 @@ function steerTo(b: GlideBrain, f: Flyer, hasTarget: boolean, sk: GlideSkill, in
   const run = Math.max(40, Math.abs(dx));
   const need = dy / run;
   const slope = GLIDE.SINK / Math.max(120, Math.abs(f.vx));
-  const nerve = 0.72 + Math.max(0, 0.8 - sk.accuracy) * 4;
+  const nerve = 0.8 + Math.max(0, 0.78 - sk.accuracy) * 4;
   if (b.diving) {
     if (need < slope + 0.12 || (dy < 40 && f.vy > GLIDE.SWOOP_MIN)) b.diving = false;
   } else if (need > slope + nerve && dy > 90) b.diving = true;
