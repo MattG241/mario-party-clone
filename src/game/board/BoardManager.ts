@@ -7,7 +7,15 @@ import type { MatchState } from '../state/MatchState';
 import { addText } from '../ui/theme';
 import { centerOrigin, standOrigin } from '../util/spriteUtil';
 import { BoardGraph } from './BoardGraph';
+import { GROUND_SQUASH } from './boardStyle';
+import { mulColor } from './DayCycle';
+import { RelicBeacon } from './RelicBeacon';
 import type { BoardDef, BoardNodeDef } from './types';
+
+export { GROUND_SQUASH, SPACE_COLORS } from './boardStyle';
+
+/** Anything the time of day can tint (images and sprites). */
+type Lit = Phaser.GameObjects.Image | Phaser.GameObjects.Sprite;
 
 const NODE_SCALE = 0.92;
 /** Display scale of the 3D space renders (rendered at 2x; a touch smaller than 1:1 to keep paths airy). */
@@ -31,9 +39,6 @@ function hash(s: string): number {
 }
 
 /** Renders a board and keeps its dynamic visuals in sync with the match state. */
-/** Vertical squash of the ground plane in the board renders (camera 52° above the horizon). */
-export const GROUND_SQUASH = Math.cos((38 * Math.PI) / 180);
-
 export class BoardManager {
   readonly graph: BoardGraph;
   readonly nodes = new Map<string, NodeView>();
@@ -43,9 +48,17 @@ export class BoardManager {
   private npcPlates: Phaser.GameObjects.Container[] = [];
   private bridgeLayer!: Phaser.GameObjects.Container;
   private detourLayer!: Phaser.GameObjects.Container;
-  private relic!: Phaser.GameObjects.Container;
-  private relicGlow!: Phaser.GameObjects.Image;
+  /** The goal: light pillar, floating relic and ground glow at the Relic Keeper's gate. */
+  beacon!: RelicBeacon;
   private keeper!: Phaser.GameObjects.Sprite;
+  /** Scenery the time of day tints (terrain, landmarks, NPCs) and the current tints. */
+  private lit: Lit[] = [];
+  private litRopes: Phaser.GameObjects.Rope[] = [];
+  private arrows: Phaser.GameObjects.Image[] = [];
+  private landTint = 0xffffff;
+  private spaceTint = 0xffffff;
+  /** Spaces that are enterable right now (closed bridge/detour spaces sit dormant). */
+  private openNodes = new Set<string>();
   private portalBadges = new Map<string, Phaser.GameObjects.Container>();
   private portalSprites = new Map<string, Phaser.GameObjects.Sprite>();
   private gate?: Phaser.GameObjects.Image;
@@ -70,7 +83,7 @@ export class BoardManager {
   }
 
   /** Pre-rendered terrain for this board, if every tile loaded. */
-  private rendered(): RenderedBoard | null {
+  renderedArt(): RenderedBoard | null {
     const man = this.scene.cache.json.get(renderedManifestKey(this.def.id)) as RenderedBoard | undefined;
     if (!man?.tiles?.length) return null;
     return man.tiles.every((t) => this.scene.textures.exists(renderedTileKey(this.def.id, t.file))) ? man : null;
@@ -79,23 +92,25 @@ export class BoardManager {
   build(state: MatchState): void {
     this.makeTextures();
     const s = this.scene;
-    const baked = this.rendered();
+    const baked = this.renderedArt();
     if (baked) {
       // Pre-rendered 3D terrain: islands, trails, stepping stones and scenery in one lit diorama.
       const k = 1 / baked.scale;
       // The islands' soft shadow on the cloud sea far below grounds the whole board.
       const sh = baked.shadow;
       if (sh && s.textures.exists(renderedTileKey(this.def.id, sh.file))) {
-        s.add.image(sh.x, sh.y, renderedTileKey(this.def.id, sh.file)).setOrigin(0).setDisplaySize(sh.w, sh.h).setDepth(DEPTH.islands - 5).setAlpha(0.55);
+        this.lit.push(s.add.image(sh.x, sh.y, renderedTileKey(this.def.id, sh.file)).setOrigin(0).setDisplaySize(sh.w, sh.h).setDepth(DEPTH.islands - 5).setAlpha(0.55));
       }
       for (const t of baked.tiles) {
         const key = renderedTileKey(this.def.id, t.file);
         clampTexture(s, key);
-        s.add
-          .image(baked.origin[0] + t.x * k, baked.origin[1] + t.y * k, key)
-          .setOrigin(0)
-          .setScale(k)
-          .setDepth(DEPTH.islands);
+        this.lit.push(
+          s.add
+            .image(baked.origin[0] + t.x * k, baked.origin[1] + t.y * k, key)
+            .setOrigin(0)
+            .setScale(k)
+            .setDepth(DEPTH.islands),
+        );
       }
     } else {
       // Vector placeholder islands (drawn back to front).
@@ -104,6 +119,7 @@ export class BoardManager {
         .forEach((isl, i) => {
           const img = s.add.image(isl.x, isl.y, isl.texture).setOrigin(0.5, 0).setScale(isl.scale ?? 1).setFlipX(!!isl.flipX);
           img.setDepth(DEPTH.islands + i * 0.01);
+          this.lit.push(img);
           if (isl.bob) s.tweens.add({ targets: img, y: isl.y - isl.bob, duration: 2400 + i * 170, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
         });
     }
@@ -122,6 +138,7 @@ export class BoardManager {
       }
       if (p.tex) replaced.add(p.tex);
       this.decorations.set(p.id, img);
+      this.lit.push(img);
       if (p.kind === 'gate') this.gate = img;
     }
     this.replacedDecor = replaced;
@@ -145,12 +162,13 @@ export class BoardManager {
       if (d.tint !== undefined) obj.setTint(d.tint);
       if (d.bob) s.tweens.add({ targets: obj, y: d.y - d.bob, duration: 1800, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
       if (d.id) this.decorations.set(d.id, obj);
+      if (d.tint === undefined) this.lit.push(obj);
     }
     // Relic pedestals at every gate.
     if (!this.replacedDecor.has('relic-pedestal')) {
       for (const g of this.def.relicGates) {
         const p = this.pos(g);
-        s.add.image(p.x, p.y - 34, 'relic-pedestal').setOrigin(0.5, 1).setScale(0.5).setDepth(p.y - 34);
+        this.lit.push(s.add.image(p.x, p.y - 34, 'relic-pedestal').setOrigin(0.5, 1).setScale(0.5).setDepth(p.y - 34));
       }
     }
     // Portals
@@ -172,7 +190,9 @@ export class BoardManager {
         const ang = Math.atan2(b.y - n.y, b.x - n.x);
         const ground = Math.atan2((b.y - n.y) / GROUND_SQUASH, b.x - n.x);
         const holder = s.add.container(n.x + Math.cos(ang) * 100, n.y + Math.sin(ang) * 78).setDepth(DEPTH.spaces - 1);
-        holder.add(s.add.image(0, 0, 'fork-arrow').setRotation(ground));
+        const arrow = s.add.image(0, 0, 'fork-arrow').setRotation(ground);
+        holder.add(arrow);
+        this.arrows.push(arrow);
         holder.setScale(1.3, 1.3 * GROUND_SQUASH);
         s.tweens.add({ targets: holder, alpha: { from: 1, to: 0.82 }, duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
         this.chevrons.push(holder);
@@ -180,7 +200,10 @@ export class BoardManager {
     }
     // Prism gate
     for (const gd of this.def.gates) {
-      if (!this.replacedDecor.has('prism-gate')) this.gate = s.add.image(gd.prop.x, gd.prop.y, 'prism-gate').setOrigin(0.5, 1).setScale(gd.prop.scale).setDepth(gd.prop.y);
+      if (!this.replacedDecor.has('prism-gate')) {
+        this.gate = s.add.image(gd.prop.x, gd.prop.y, 'prism-gate').setOrigin(0.5, 1).setScale(gd.prop.scale).setDepth(gd.prop.y);
+        this.lit.push(this.gate);
+      }
       this.gateBars = s.add.graphics().setDepth(gd.prop.y + 1);
     }
     // Spaces
@@ -206,20 +229,12 @@ export class BoardManager {
     const pipperNode = this.def.nodes.find((n) => n.metadata?.shop === 'pipper');
     if (pipperNode) this.placeNpc('pipper', pipperNode.x + 78, pipperNode.y - 52, 'wave');
     this.placeNpc('mimi', 2020, 1500, 'happy');
-    // Relic Keeper + relic
-    this.relic = s.add.container(0, 0);
-    // A shaft of crystal light rising from the relic: the goal reads from anywhere on the board.
-    const beam = s.add.image(0, -120, 'fx-beam').setOrigin(0.5, 1).setDisplaySize(170, 1500).setTint(COLORS.crystal).setAlpha(0.42).setBlendMode(Phaser.BlendModes.ADD);
-    const core = s.add.image(0, -120, 'fx-beam').setOrigin(0.5, 1).setDisplaySize(56, 1300).setTint(0xffffff).setAlpha(0.35).setBlendMode(Phaser.BlendModes.ADD);
-    s.tweens.add({ targets: [beam, core], alpha: { from: 0.28, to: 0.5 }, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
-    this.relicGlow = s.add.image(0, -150, 'fx-dot').setScale(9).setTint(COLORS.crystal).setAlpha(0.55).setBlendMode(Phaser.BlendModes.ADD);
-    const relicImg = s.add.image(0, -150, 'prism-relic').setScale(0.36);
-    this.relic.add([beam, core, this.relicGlow, relicImg]);
-    s.tweens.add({ targets: relicImg, y: -166, duration: 1300, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
-    s.tweens.add({ targets: this.relicGlow, alpha: { from: 0.35, to: 0.7 }, scale: { from: 8, to: 10 }, duration: 1100, yoyo: true, repeat: -1 });
+    // Relic Keeper + the goal beacon: a pillar of crystal light that reads from anywhere on the board.
+    this.beacon = new RelicBeacon(s);
     this.keeper = s.add.sprite(0, 0, NPC_ATLAS, npcFrame('packsprout', 'gift'));
     const ko = standOrigin(NPC_ATLAS, npcFrame('packsprout'));
     this.keeper.setOrigin(ko.x, ko.y).setScale(0.52);
+    this.lit.push(this.keeper);
     this.placeRelic(state.board.relicGate);
     this.refresh(state);
   }
@@ -231,6 +246,7 @@ export class BoardManager {
     // A little smaller than the players (so she never reads as a fifth player), with a name plate.
     spr.setOrigin(o.x, o.y).setScale(0.42).setDepth(y);
     this.npcs.set(id, spr);
+    this.lit.push(spr);
     const def = NPCS[id];
     const plate = this.scene.add.container(x, y + 16).setDepth(y + 1);
     const label = addText(this.scene, 0, 0, def.name.toUpperCase(), 17, { color: '#ffffff', weight: 700, fixed: true });
@@ -263,30 +279,105 @@ export class BoardManager {
     spr.setFrame(npcFrame(id, pose));
   }
 
+  /** The relic's current gate (while it travels between gates, refresh leaves it alone). */
+  private relicGate = '';
+  private relicMoving = false;
+
   private placeRelic(gate: string): void {
+    if (this.relicMoving || gate === this.relicGate) return;
+    this.relicGate = gate;
     const p = this.pos(gate);
-    this.relic.setPosition(p.x, p.y - 20).setDepth(p.y - 20);
+    this.beacon.place(p.x, p.y);
     this.keeper.setPosition(p.x + 70, p.y - 30).setDepth(p.y - 30);
   }
 
-  /** Relic Keeper walks off and reappears at the new gate. */
-  async moveRelic(from: string, to: string): Promise<void> {
-    const s = this.scene;
-    const a = this.pos(from);
-    await new Promise<void>((resolve) => {
-      s.tweens.add({ targets: [this.relic, this.keeper], alpha: 0, y: '-=60', duration: 380, ease: 'Quad.In', onComplete: () => resolve() });
-    });
-    void a;
+  /** The relic shoots up into the sky from its gate while the keeper hops away. */
+  async relicDepart(): Promise<void> {
+    this.relicMoving = true;
+    this.scene.tweens.add({ targets: this.keeper, alpha: 0, y: '-=60', duration: 380, ease: 'Quad.In' });
+    await this.beacon.depart();
+  }
+
+  /**
+   * A pillar of light slams down on the new gate and the relic drops into it; the keeper pops up
+   * beside it. `onImpact` fires at touchdown.
+   */
+  async relicArrive(to: string, onImpact?: () => void): Promise<void> {
+    this.relicMoving = false;
     this.placeRelic(to);
-    this.relic.y -= 60;
-    this.keeper.y -= 60;
-    await new Promise<void>((resolve) => {
-      s.tweens.add({ targets: [this.relic, this.keeper], alpha: 1, y: '+=60', duration: 420, ease: 'Bounce.Out', onComplete: () => resolve() });
+    this.keeper.setAlpha(0);
+    const ky = this.keeper.y;
+    await this.beacon.arrive(() => {
+      this.keeper.setY(ky - 60);
+      this.scene.tweens.add({ targets: this.keeper, alpha: 1, y: ky, duration: 420, ease: 'Bounce.Out' });
+      onImpact?.();
     });
   }
 
   relicPos(): { x: number; y: number } {
-    return { x: this.relic.x, y: this.relic.y - 150 };
+    return { x: this.beacon.x, y: this.beacon.y + this.beacon.iconY() };
+  }
+
+  /** Per frame: the beacon's idle animation and overview sizing. */
+  tick(dt: number, zoom: number): void {
+    this.beacon.update(dt, zoom);
+  }
+
+  // --- Light (time of day) -------------------------------------------------------------------
+  /** Register something created elsewhere (the ambient bunting ropes) for the time-of-day tint. */
+  adoptLit(o: Lit | Phaser.GameObjects.Rope): void {
+    if (o instanceof Phaser.GameObjects.Rope) {
+      this.litRopes.push(o);
+      o.setColors(this.landTint);
+    } else {
+      this.lit.push(o);
+      o.setTint(this.landTint);
+    }
+  }
+
+  /** Tint the scenery for the time of day; spaces and trail arrows get their own lighter tint. */
+  setLight(land: number, spaces: number, glow: number): void {
+    this.beacon?.setGlow(glow);
+    if (land === this.landTint && spaces === this.spaceTint) return;
+    this.landTint = land;
+    this.spaceTint = spaces;
+    for (const o of this.lit) o.setTint(land);
+    for (const r of this.litRopes) r.setColors(land);
+    for (const a of this.arrows) a.setTint(spaces);
+    for (const [id, v] of this.nodes) v.tile.setTint(this.openNodes.has(id) ? spaces : mulColor(0x9fb0b8, spaces));
+    this.tintBridge();
+    this.tintMarkers();
+    this.tintPortals();
+  }
+
+  /** Whether a space is enterable at the moment (dormant ones get no night halo). */
+  nodeOpen(id: string): boolean {
+    return this.openNodes.has(id);
+  }
+
+  private tintBridge(): void {
+    for (const o of this.bridgeLayer.list) if (o instanceof Phaser.GameObjects.Image) o.setTint(this.landTint);
+  }
+
+  /** Springs and the Prism Gate carry an event tint of their own on top of the light. */
+  private bouncyOn = false;
+  private gateOpen = false;
+  /** Colour of each portal's pair (a gradient at its foot). */
+  private portalColors = new Map<string, number>();
+
+  private tintMarkers(): void {
+    for (const id of ['spring-gi0', 'spring-gi1', 'spring-gi2']) {
+      const d = this.decorations.get(id) as Phaser.GameObjects.Sprite | undefined;
+      d?.setTint(this.bouncyOn ? mulColor(0xfff0a0, this.landTint) : this.landTint);
+    }
+    this.gate?.setTint(this.gateOpen ? mulColor(0xbfffe0, this.landTint) : this.landTint);
+  }
+
+  private tintPortals(): void {
+    for (const [id, spr] of this.portalSprites) {
+      const lit = mulColor(this.portalColors.get(id) ?? 0xffffff, this.landTint);
+      spr.setTint(this.landTint, this.landTint, lit, lit);
+    }
   }
 
   keeperSprite(): Phaser.GameObjects.Sprite {
@@ -458,7 +549,7 @@ export class BoardManager {
         if (brokenHere) continue;
         const tan = curve.getTangent(t);
         const plank = s.add.image(pt.x, pt.y, 'bridge-plank').setDepth(DEPTH.paths + 1);
-        plank.setRotation(Math.atan2(tan.y, tan.x)).setScale(0.9, 0.95);
+        plank.setRotation(Math.atan2(tan.y, tan.x)).setScale(0.9, 0.95).setTint(this.landTint);
         this.bridgeLayer.add(plank);
       }
       ropes.lineStyle(5, 0x5f3b1c, 1);
@@ -499,8 +590,9 @@ export class BoardManager {
       // Closed spaces (the Cloud Steps while the bridge stands) sit dormant: solid but stone-grey.
       const g = this.graph.isOpen(id, b);
       v.tile.setAlpha(1);
-      if (g) v.tile.clearTint();
-      else v.tile.setTint(0x9fb0b8);
+      if (g) this.openNodes.add(id);
+      else this.openNodes.delete(id);
+      v.tile.setTint(g ? this.spaceTint : mulColor(0x9fb0b8, this.spaceTint));
       // Surge glow
       const surged = !!b.surge && b.surge.nodes.includes(id);
       if (surged && !v.surge) {
@@ -531,13 +623,10 @@ export class BoardManager {
         v.trap = undefined;
       }
     }
-    // Bouncy springs glow while active
-    for (const id of ['spring-gi0', 'spring-gi1', 'spring-gi2']) {
-      const d = this.decorations.get(id) as Phaser.GameObjects.Sprite | undefined;
-      if (!d) continue;
-      if (b.bouncy) d.setTint(0xfff0a0);
-      else d.clearTint();
-    }
+    // Bouncy springs glow while active (and the open Prism Gate shimmers mint).
+    this.bouncyOn = !!b.bouncy;
+    this.gateOpen = b.gatesOpen !== null;
+    this.tintMarkers();
     // Portal pair badges
     const pairs = new Map<string, number>();
     let k = 0;
@@ -562,14 +651,11 @@ export class BoardManager {
       g.strokeCircle(0, -4, 14);
       const t = addText(this.scene, 0, -5, symbols[idx % symbols.length], 16, { color: '#1b1530', weight: 700, fixed: true });
       badge.add([g, t]);
-      this.portalSprites.get(id)?.setTint(0xffffff, 0xffffff, color, color);
+      this.portalColors.set(id, color);
     }
+    this.tintPortals();
     // Gate
-    if (this.gate && this.gateBars) {
-      const open = b.gatesOpen !== null;
-      this.gate.setTint(open ? 0xbfffe0 : 0xffffff);
-      this.gateBars.clear();
-    }
+    this.gateBars?.clear();
     // Relic
     this.placeRelic(b.relicGate);
   }

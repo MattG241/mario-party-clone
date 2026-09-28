@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { audio } from '../audio/AudioManager';
 import { animHeadTop, Character } from '../characters/Character';
+import { CHARACTER_ANIMATIONS } from '../characters/CharacterAnimations';
 import { COLORS, CSS, DEPTH, PLAYER_COLORS } from '../constants';
 import { CHARACTERS } from '../data/characters';
 import type { EffectsManager } from '../effects/EffectsManager';
@@ -12,6 +13,8 @@ import type { JumpKind } from './flowTypes';
 import { setDebugInfo } from '../debug/debug';
 
 export const TOKEN_SCALE = 0.6;
+/** The steps-left medallion is drawn a size up from the name badge it replaces: the count must read at a glance. */
+const COUNTER_SCALE = 1.2;
 
 /** Where players stand when sharing a space: a shallow arc facing the camera (active player first). */
 const LAYOUTS: [number, number][][] = [
@@ -94,9 +97,9 @@ export class MovementController {
     this.arrange(state, true);
   }
 
-  /** Tint every token to sit in the scene's light (warm by day, rosy-violet at the dusk finale). */
-  setLightTint(dusk: boolean): void {
-    for (const c of this.tokens.values()) c.sprite.setTint(dusk ? 0xf2dcf0 : 0xfff5e8);
+  /** Tint every token to sit in the scene's light (it follows the time of day, see DayCycle). */
+  setLightTint(color: number): void {
+    for (const c of this.tokens.values()) c.sprite.setTint(color);
   }
 
   token(slot: number): Character {
@@ -150,9 +153,15 @@ export class MovementController {
     // The step counter takes the marker's place while moving (no stacked badges).
     tag.counter.setVisible(true);
     tag.badge.setVisible(false);
+    if (tag.counterText.text === String(n) && was) return;
     tag.counterText.setText(String(n));
-    if (was) this.scene.tweens.add({ targets: tag.counter, scale: { from: 1.25, to: 1 }, duration: 150, ease: 'Back.Out' });
-    else this.scene.tweens.add({ targets: tag.counter, scale: { from: 0.2, to: 1 }, duration: 240, ease: 'Back.Out' });
+    this.scene.tweens.killTweensOf([tag.counter, tag.counterText]);
+    if (was) {
+      // Each step lands with the count punching out of the medallion.
+      tag.counter.setScale(COUNTER_SCALE);
+      this.scene.tweens.add({ targets: tag.counterText, scale: { from: 1.7, to: 1 }, duration: 260, ease: 'Back.Out' });
+      this.scene.tweens.add({ targets: tag.counter, scale: { from: COUNTER_SCALE * 1.22, to: COUNTER_SCALE }, duration: 200, ease: 'Quad.Out' });
+    } else this.scene.tweens.add({ targets: tag.counter, scale: { from: 0.2, to: COUNTER_SCALE }, duration: 240, ease: 'Back.Out' });
   }
 
   private route: Phaser.GameObjects.Graphics[] = [];
@@ -220,11 +229,23 @@ export class MovementController {
     }
   }
 
-  private hopTo(c: Character, x: number, y: number, ms: number, height: number, ease = 'Linear'): Promise<void> {
+  /** Resting sprite scale of a character's current animation (squash and stretch scale around it). */
+  private baseScale(c: Character): number {
+    return CHARACTER_ANIMATIONS[c.charId][c.current]?.scale ?? 1;
+  }
+
+  /**
+   * Hop along an arc. `stretch` > 0 adds squash and stretch: tall and thin while rising and
+   * falling fast, round at the top of the arc.
+   */
+  private hopTo(c: Character, x: number, y: number, ms: number, height: number, ease = 'Linear', stretch = 0): Promise<void> {
     return new Promise((resolve) => {
       const x0 = c.x;
       const y0 = c.y;
       const hold = { t: 0 };
+      // A landing squash still playing from the last hop would fight the stretch.
+      if (stretch > 0) this.scene.tweens.killTweensOf(c.sprite);
+      const base = this.baseScale(c);
       this.scene.tweens.add({
         targets: hold,
         t: 1,
@@ -233,16 +254,28 @@ export class MovementController {
         onUpdate: () => {
           c.x = x0 + (x - x0) * hold.t;
           c.y = y0 + (y - y0) * hold.t;
-          c.sprite.y = -Math.sin(hold.t * Math.PI) * height;
-          c.shadow?.setScale(1 - Math.sin(hold.t * Math.PI) * 0.3);
+          const arc = Math.sin(hold.t * Math.PI);
+          c.sprite.y = -arc * height;
+          c.shadow?.setScale(1 - arc * 0.3);
+          if (stretch > 0) {
+            const v = Math.abs(Math.cos(hold.t * Math.PI)) * stretch;
+            c.sprite.setScale(base * (1 - v * 0.55), base * (1 + v));
+          }
         },
         onComplete: () => {
           c.sprite.y = 0;
+          if (stretch > 0) c.sprite.setScale(base);
           c.shadow?.setScale(1);
           resolve();
         },
       });
     });
+  }
+
+  /** Two puffs of dust kicked out either side of the feet. */
+  private dust(x: number, y: number, scale: number): void {
+    this.fx.vfx('dust', x - 34, y - 6, { scale: scale * 0.85, duration: 420, alpha: 0.85, dx: -40, dy: -6, flipX: true });
+    this.fx.vfx('dust', x + 34, y - 6, { scale: scale * 0.85, duration: 420, alpha: 0.85, dx: 40, dy: -6 });
   }
 
   async step(state: MatchState, p: PlayerState, _from: string, to: string, remaining: number): Promise<void> {
@@ -253,12 +286,14 @@ export class MovementController {
     c.faceToward(target.x);
     if (c.current !== 'run') c.play('run');
     this.setCounter(p.slot, remaining + 1);
-    await this.hopTo(c, target.x, target.y, this.dur(300), 30);
+    await this.hopTo(c, target.x, target.y, this.dur(300), 38, 'Linear', 0.14);
     this.setCounter(p.slot, remaining);
     this.shiftRoute();
-    audio.play('step', { rate: CHARACTERS[p.characterId].pitch * (0.95 + Math.random() * 0.1), volume: 0.7 });
-    this.fx.vfx('dust', target.x - (c.isFacingLeft ? -30 : 30), target.y - 6, { scale: 0.34, duration: 420, alpha: 0.8 });
-    c.squash(0.1, 120);
+    // The last few steps tick up in pitch: the count-down to where the hero will stop.
+    const lift = remaining < 3 ? (3 - remaining) * 0.06 : 0;
+    audio.play('step', { rate: CHARACTERS[p.characterId].pitch * (0.97 + Math.random() * 0.06 + lift), volume: 0.7 });
+    this.dust(target.x, target.y, 0.36);
+    c.squash(0.16, 140);
     this.board.pulseNode(to, COLORS.cream);
     // The heavyweights (Tumble, Iron Man) make the ground thump.
     if (CHARACTERS[p.characterId].handling.weight >= 1.1) this.fx.shake(0.0012, 80);
@@ -267,7 +302,7 @@ export class MovementController {
   settle(state: MatchState, p: PlayerState): void {
     const c = this.token(p.slot);
     c.play('idle');
-    c.squash(0.12, 160);
+    c.squash(0.2, 200);
     this.setCounter(p.slot, null);
     this.arrange(state);
   }

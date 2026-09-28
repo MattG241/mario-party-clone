@@ -5,15 +5,19 @@ import { CHARACTERS } from '../data/characters';
 import { ITEMS, type ItemId } from '../data/items';
 import type { Controls } from '../input/Controls';
 import { input } from '../input/InputManager';
+import { banner, punch } from '../minigames/juice';
 import { pickMinigame, availableMinigames, type MinigameResult } from '../minigames/MinigameManager';
+import { LITE } from '../perf';
 import { saves } from '../save/SaveManager';
 import { settings } from '../save/SettingsManager';
-import type { MatchState, PlayerState } from '../state/MatchState';
+import { isFinalRound, type MatchState, type PlayerState } from '../state/MatchState';
 import type { BonusAward, Placement } from '../state/scoring';
 import { session } from '../state/Session';
 import type { BoardScene } from '../scenes/BoardScene';
 import { addText } from '../ui/theme';
 import { centerOrigin } from '../util/spriteUtil';
+import { SPACE_COLORS } from './boardStyle';
+import { dayName, dayTime } from './DayCycle';
 import type { DialogLineSpec, EventPresentation, FlowIO, JumpKind, MinigameRewardView, PathOption, PreRollDecision, ShopOffer, TargetOption } from './flowTypes';
 import type { BoardNodeDef } from './types';
 import { registeredMinigames } from '../minigames/registry';
@@ -75,14 +79,21 @@ export class BoardPresenter implements FlowIO {
   async roundStart(round: number, total: number, final: boolean): Promise<void> {
     this.ui.refresh(this.state);
     this.scene.board.refresh(this.state);
+    // Time moves on: the sky and the light ease towards this round's hour while the banner is up.
+    void this.scene.lighting.follow(final ? 2200 : 2800);
     if (final) return;
-    await this.ui.banner({ title: `ROUND ${round} OF ${total}`, subtitle: round === 1 ? 'LET THE FESTIVAL BEGIN!' : `${total - round + 1} ROUNDS TO PLAY`, color: COLORS.teal, sound: 'fanfare', hold: this.dur(900) });
+    // When the light turns a corner (golden hour, sunset) the banner says so.
+    const n = this.state.players.length;
+    const now = dayName(dayTime(round, total, { kind: 'roundStart' }, n));
+    const turned = round > 1 && dayName(dayTime(round - 1, total, { kind: 'roundStart' }, n)) !== now;
+    const left = `${total - round + 1} ROUNDS TO PLAY`;
+    await this.ui.banner({ title: `ROUND ${round} OF ${total}`, subtitle: round === 1 ? 'LET THE FESTIVAL BEGIN!' : turned ? `${now} · ${left}` : left, color: COLORS.teal, sound: 'fanfare', hold: this.dur(900) });
   }
 
   async finalRoundIntro(): Promise<void> {
     audio.playMusic('boardFinal');
-    this.scene.bg.setIntensity(1);
-    this.moves.setLightTint(true);
+    // Dusk falls for the finale: lanterns and spaces light up, fireflies come out.
+    void this.scene.lighting.follow(2200);
     await this.ui.banner({ title: 'FINAL ROUND', subtitle: 'THE FESTIVAL LIGHTS BLAZE!', color: COLORS.coral, sound: 'fanfare', hold: 1400, size: 110 });
     // Camera sweep across the board while everyone reacts.
     await this.scene.overview(this.dur(1400));
@@ -105,6 +116,17 @@ export class BoardPresenter implements FlowIO {
     this.ui.refresh(this.state);
     this.ui.setPrompts([]);
     const t = this.moves.token(p.slot);
+    // In the final round every turn brings the night a little closer; the very last turn of the
+    // festival gets a call-out of its own as full night falls.
+    if (isFinalRound(this.state)) {
+      void this.scene.lighting.follow(1600);
+      const ph = this.state.phase;
+      if (ph.kind === 'turn' && ph.index === this.state.players.length - 1) {
+        audio.play('drumroll', { volume: 0.6 });
+        banner(this.ui, 'LAST TURN!', { size: 118, color: CSS.coral, hold: 850, y: 420 });
+        await this.ui.wait(1200);
+      }
+    }
     await this.scene.focus(t.x, t.y - 160, CAMERA_ZOOM.turn, this.dur(650));
     t.play('wave');
     await this.ui.turnBanner(p);
@@ -307,9 +329,13 @@ export class BoardPresenter implements FlowIO {
 
   async landed(p: PlayerState, node: BoardNodeDef): Promise<void> {
     this.moves.settle(this.state, p);
-    const colors: Record<string, number> = { gleam: 0x5ce1ff, festival: 0xffb050, mischief: 0xc49bff, event: 0xff8fa3, market: 0xffe08a, portal: 0x9bf2e8, relic: 0xffffff, start: 0x79dcd5 };
-    this.scene.board.pulseNode(node.id, colors[node.type] ?? 0xffffff);
+    // The space answers the landing: a column of light and a shockwave in its own colour.
+    const color = SPACE_COLORS[node.type] ?? 0xffffff;
+    this.scene.board.pulseNode(node.id, color);
+    const big = node.type === 'event' || node.type === 'festival' || node.type === 'mischief';
+    this.scene.juice.landBurst(node.x, node.y, color, big);
     audio.play('land', { volume: 0.7 });
+    if (big) this.fx.shake(0.003, 120);
     const c = this.controls(p);
     if (c) c.rumble(0.15, 0.25, 70);
     await this.ui.wait(this.dur(250));
@@ -319,36 +345,62 @@ export class BoardPresenter implements FlowIO {
     const t = this.moves.token(p.slot);
     const head = { x: t.x, y: t.y - 190 };
     if (delta > 0) {
-      this.fx.floatText(head.x, head.y, `+${delta}`, CSS.goldLight, { size: 58 });
+      this.fx.floatText(head.x, head.y, `+${delta}`, CSS.goldLight, { size: 64 });
       audio.play('chipGain', { rate: reason === 'surge' ? 1.2 : 1 });
       if (reason !== 'parade' && reason !== 'minigame') t.play('coins');
-      const s = this.toScreen(t.x, t.y - 90);
+      const n = Math.min(delta, 10);
+      // Chips spring out of the ground with some weight, hang at the top of their arcs, and then
+      // the HUD pulls them in.
+      const pts = await this.scene.juice.fountain(t.x, t.y - 10, n);
+      let cx = t.x;
+      let cy = t.y - 120;
+      if (pts.length) {
+        cx = pts.reduce((a, q) => a + q.x, 0) / pts.length;
+        cy = pts.reduce((a, q) => a + q.y, 0) / pts.length;
+      }
+      const s = this.toScreen(cx, cy);
       const anchor = this.ui.hud.chipAnchor(p.slot);
-      await this.scene.uiFx.chipsTo(s.x, s.y, anchor.x, anchor.y, Math.min(delta, 10), { scale: 0.22, onEach: () => audio.play('chipGain', { volume: 0.4, rate: 1.3, throttleMs: 40 }) });
+      await this.scene.uiFx.chipsTo(s.x, s.y, anchor.x, anchor.y, n, { scale: 0.22, spread: 70, onEach: () => audio.play('chipGain', { volume: 0.4, rate: 1.3, throttleMs: 40 }) });
     } else {
-      this.fx.floatText(head.x, head.y, `${delta}`, '#ff8a80', { size: 58 });
-      this.fx.scatterChips(t.x, t.y - 90, Math.min(-delta, 10));
+      this.fx.floatText(head.x, head.y, `${delta}`, '#ff8a80', { size: 64 });
+      // Knocked loose: the chips fly out, hit the ground, bounce and lie there a moment.
+      this.scene.juice.spill(t.x, t.y - 100, t.y + 8, Math.min(-delta, 10));
       audio.play('chipLose');
       t.play('loseCoins');
+      t.squash(0.18, 180);
+      this.fx.shake(0.003, 140);
       const c = this.controls(p);
       if (c) c.rumble(0.5, 0.3, 160);
-      await this.ui.wait(this.dur(450));
+      await this.ui.wait(this.dur(520));
     }
     this.ui.refresh(this.state);
   }
 
   async relicGained(p: PlayerState, source: 'purchase' | 'bonus'): Promise<void> {
     const t = this.moves.token(p.slot);
-    const rp = this.scene.board.relicPos();
+    const board = this.scene.board;
+    const rp = board.relicPos();
+    // Push in on the moment.
+    this.scene.cameras.main.stopFollow();
+    await this.scene.focus((t.x + rp.x) / 2, t.y - 170, 1.28, this.dur(380));
+    board.beacon.flash();
     const relic = this.scene.add.image(rp.x, rp.y, 'prism-relic').setScale(0.4).setDepth(9000);
     audio.play('relic');
+    // It floats over to the hero trailing sparkles.
+    const trail = this.scene.time.addEvent({ delay: 60, loop: true, callback: () => this.fx.sparks(relic.x, relic.y + 20, 2) });
     await new Promise<void>((r) =>
-      this.scene.tweens.add({ targets: relic, x: t.x, y: t.y - 260, scale: 0.55, duration: 700, ease: 'Sine.InOut', onComplete: () => r() }),
+      this.scene.tweens.add({ targets: relic, x: t.x, y: t.y - 260, scale: 0.6, duration: 700, ease: 'Sine.InOut', onComplete: () => r() }),
     );
+    trail.remove();
+    // The decisive beat plays in slow motion: a pillar of light on the hero, confetti, a punch-in.
+    this.scene.slowMo(0.35, 700);
+    void this.scene.juice.pillar(t.x, t.y, PLAYER_COLORS[p.slot]);
     t.play('victory');
-    this.fx.confetti(t.x, t.y - 300, 120);
+    this.fx.confetti(t.x, t.y - 300, LITE ? 80 : 140);
     this.fx.vfx('rainbowSwirl', t.x, t.y - 120, { scale: 1, blend: 'add', duration: 900 });
+    this.fx.sparks(t.x, t.y - 260, LITE ? 20 : 36);
     this.fx.shake(0.004, 220);
+    punch(this.scene, 0.07, 320);
     audio.play('fanfare');
     const c = this.controls(p);
     if (c) {
@@ -370,11 +422,22 @@ export class BoardPresenter implements FlowIO {
     const a = this.scene.board.pos(from);
     const b = this.scene.board.pos(to);
     this.scene.cameras.main.stopFollow();
-    await this.scene.focus(a.x, a.y - 100, 0.9, this.dur(450));
-    await this.scene.board.moveRelic(from, to).then(() => undefined);
-    await this.scene.focus(b.x, b.y - 100, 0.9, this.dur(700));
+    await this.scene.focus(a.x, a.y - 140, 0.9, this.dur(450));
+    audio.play('whoosh');
+    await this.scene.board.relicDepart();
+    // Chase it across the sky to its next gate.
+    await this.scene.focus(b.x, b.y - 180, 0.9, this.dur(800));
+    await this.scene.board.relicArrive(to, () => {
+      // The touchdown hangs in slow motion for a heartbeat.
+      this.scene.slowMo(0.4, 380);
+      audio.play('relic');
+      audio.play('cymbal', { volume: 0.45 });
+      this.fx.shake(0.008, 260);
+      punch(this.scene, 0.05, 300);
+      this.fx.sparks(b.x, b.y - 150, LITE ? 24 : 40);
+      this.fx.confetti(b.x, b.y - 380, LITE ? 40 : 80);
+    });
     this.scene.board.keeperSprite().setFrame('27');
-    this.fx.sparks(b.x, b.y - 150, 26);
     const region = this.scene.board.graph.node(to).metadata?.region ?? 'a new gate';
     await this.ui.dialogLines([{ npc: 'packsprout', pose: 'cheer', text: `I've carried the next Prism Relic to ${region}. Come and find me!` }], this.humanControls(), true);
     this.scene.board.keeperSprite().setFrame('26');
@@ -466,16 +529,25 @@ export class BoardPresenter implements FlowIO {
 
   async event(e: EventPresentation): Promise<void> {
     const focusNode = e.focus ?? e.player?.nodeId;
+    // A player's own event pushes right in on them; board-wide events frame the landmark.
+    const personal = !e.focus && !!e.player;
+    const color = EVENT_COLORS[e.kind];
+    this.scene.cinematic(true);
     if (focusNode) {
       const pos = this.scene.board.pos(focusNode);
       this.scene.cameras.main.stopFollow();
-      await this.scene.focus(pos.x, pos.y - 80, 0.85, this.dur(450));
+      await this.scene.focus(pos.x, pos.y - (personal ? 130 : 80), personal ? 1.34 : 0.9, this.dur(personal ? 520 : 450));
+      this.scene.juice.eventFlare(pos.x, pos.y - (personal ? 120 : 60), color);
     }
     audio.play('eventAlert');
     const sub = e.kind === 'festival' ? 'FESTIVAL SPACE' : e.kind === 'mischief' ? 'MISCHIEF SPACE' : e.kind === 'board' ? 'BOARD EVENT' : 'SURPRISE!';
-    await this.ui.banner({ title: e.title, subtitle: sub, color: EVENT_COLORS[e.kind], sound: null, hold: this.dur(800), size: 88 });
-    await this.scene.playEventFx(e.fx);
-    if (e.lines.length) await this.ui.dialogLines(e.lines, this.humanControls(), true);
+    try {
+      await this.ui.banner({ title: e.title, subtitle: sub, color, sound: null, hold: this.dur(800), size: 88 });
+      await this.scene.playEventFx(e.fx);
+      if (e.lines.length) await this.ui.dialogLines(e.lines, this.humanControls(), true);
+    } finally {
+      this.scene.cinematic(false);
+    }
   }
 
   async say(lines: DialogLineSpec[]): Promise<void> {
@@ -495,6 +567,7 @@ export class BoardPresenter implements FlowIO {
     this.state.minigameHistory.push(info.id);
     this.moves.activeSlot = null;
     this.ui.hud.setActive(null);
+    void this.scene.lighting.follow(1500);
     await this.scene.overview(this.dur(700));
     this.state.players.forEach((p) => this.moves.token(p.slot).play('celebrate'));
     await this.ui.banner({ title: 'MINIGAME TIME!', subtitle: 'EVERYONE GET READY', color: COLORS.purple, sound: 'fanfare', hold: 900 });

@@ -1,13 +1,17 @@
 import Phaser from 'phaser';
 import { audio } from '../audio/AudioManager';
+import { Ambient, ensureAmbientTextures } from '../board/Ambient';
+import { BoardJuice } from '../board/BoardJuice';
 import { BoardManager } from '../board/BoardManager';
 import { BoardPresenter } from '../board/BoardPresenter';
 import { freshTurn, type FlowContext } from '../board/flowTypes';
+import { Lighting } from '../board/Lighting';
 import { MovementController } from '../board/MovementController';
 import { OrbitDial } from '../board/OrbitDial';
 import { PathChooser } from '../board/PathChooser';
 import { runMatch } from '../board/TurnManager';
-import { CAMERA_ZOOM, COLORS, CSS, GAME_HEIGHT, GAME_WIDTH } from '../constants';
+import type { Character } from '../characters/Character';
+import { CAMERA_ZOOM, COLORS, CSS, DEPTH, GAME_HEIGHT, GAME_WIDTH } from '../constants';
 import { findBoard } from '../data/boards';
 import { ITEM_IDS } from '../data/items';
 import { clearDebugInfo, DEBUG_ENABLED, logError, setDebugInfo, URL_PARAMS } from '../debug/debug';
@@ -16,6 +20,7 @@ import { applyGrade } from '../effects/GradePipeline';
 import { input, type DeviceRef } from '../input/InputManager';
 import { ItemManager } from '../items/ItemManager';
 import { minigameInfo, type MinigameLaunch, type MinigameResult } from '../minigames/MinigameManager';
+import { LITE } from '../perf';
 import { saves } from '../save/SaveManager';
 import { settings } from '../save/SettingsManager';
 import { isFinalRound, type MatchState } from '../state/MatchState';
@@ -35,6 +40,9 @@ export interface BoardSceneData {
   continue?: boolean;
 }
 
+/** How far ahead of a moving hero the follow camera looks (board px), in the direction of travel. */
+const CAMERA_LEAD = 150;
+
 /** The board game: world, camera, and the running match flow. */
 export class BoardScene extends Phaser.Scene {
   state!: MatchState;
@@ -46,11 +54,25 @@ export class BoardScene extends Phaser.Scene {
   dial!: OrbitDial;
   paths!: PathChooser;
   presenter!: BoardPresenter;
+  /** Time of day, ambient life and the big-beat effects of a turn. */
+  lighting!: Lighting;
+  ambient!: Ambient;
+  juice!: BoardJuice;
   ctx!: FlowContext;
   private data0: BoardSceneData = {};
   private offDebug: (() => void) | null = null;
   private running = false;
   private pauseOpen = false;
+  /** Follow-camera lead: the hero being followed, their last heading and the eased offset. */
+  private following: Character | null = null;
+  private lastX = 0;
+  private lastY = 0;
+  private headX = 0;
+  private headY = 0;
+  private leadX = 0;
+  private leadY = 0;
+  private slowTimer: Phaser.Time.TimerEvent | null = null;
+  private vignette: Phaser.GameObjects.Image | null = null;
 
   constructor() {
     super('Board');
@@ -65,6 +87,10 @@ export class BoardScene extends Phaser.Scene {
     this.data0 = data ?? {};
     this.running = false;
     this.pauseOpen = false;
+    this.following = null;
+    this.leadX = this.leadY = 0;
+    this.slowTimer = null;
+    this.vignette = null;
   }
 
   create(): void {
@@ -93,6 +119,7 @@ export class BoardScene extends Phaser.Scene {
     this.bg = this.scene.get('BoardBg') as BoardBgScene;
     this.ui = this.scene.get('BoardUI') as BoardUIScene;
     this.fx = new EffectsManager(this);
+    ensureAmbientTextures(this);
     this.board = new BoardManager(this, def);
     this.board.build(state);
     const dur = (ms: number) => Math.round(ms * (state.config.speed === 'fast' || settings.get().gameSpeed === 'fast' ? 0.6 : 1));
@@ -102,6 +129,10 @@ export class BoardScene extends Phaser.Scene {
     this.dial = new OrbitDial(this, this.fx);
     this.paths = new PathChooser(this, this.board);
     this.presenter = new BoardPresenter(this);
+    this.juice = new BoardJuice(this);
+    this.ambient = new Ambient(this, this.board);
+    this.ambient.build();
+    this.lighting = new Lighting(this);
     this.ctx = { state, board: state.board, graph: this.board.graph, rng: new Random(state.rng), io: this.presenter, turn: freshTurn(), interrupt: null };
     const cam = this.cameras.main;
     cam.setBounds(-400, -300, def.width + 800, def.height + 600);
@@ -111,8 +142,8 @@ export class BoardScene extends Phaser.Scene {
     // Lifted mid-tones on the board: the valley greens read fresh and sunny rather than murky.
     applyGrade(this, { gamma: 0.95, saturation: 1.1, lift: [0.022, 0.032, 0.044] });
     audio.playMusic(isFinalRound(state) ? 'boardFinal' : 'board');
-    this.bg.setIntensity(isFinalRound(state) ? 1 : 0);
-    this.moves.setLightTint(isFinalRound(state));
+    // The festival day: the light matches the round (morning … sunset, dusk for the finale).
+    this.lighting.init();
     if (DEBUG_ENABLED) this.offDebug = input.keyboard.onRawKey((e) => this.debugKey(e));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.cleanup());
     // UI scene needs a frame to build before the flow starts.
@@ -134,6 +165,7 @@ export class BoardScene extends Phaser.Scene {
   }
 
   private cleanup(): void {
+    this.endSlowMo();
     this.offDebug?.();
     this.offDebug = null;
     clearDebugInfo('board.');
@@ -268,7 +300,79 @@ export class BoardScene extends Phaser.Scene {
     const cam = this.cameras.main;
     const t = this.moves.token(slot);
     if (Math.abs(cam.zoom - CAMERA_ZOOM.follow) > 0.02) cam.zoomTo(CAMERA_ZOOM.follow, 350, 'Sine.easeInOut', true);
-    cam.startFollow(t, false, 0.1, 0.1, 0, 150);
+    if (this.following !== t) {
+      this.leadX = this.leadY = 0;
+      this.lastX = t.x;
+      this.lastY = t.y;
+    }
+    this.following = t;
+    cam.startFollow(t, false, 0.1, 0.1, -this.leadX, 150 - this.leadY);
+  }
+
+  /**
+   * Ease the follow camera a little ahead of a hero on the move (in the direction of travel) and
+   * back to centre when they stop. The follow smoothing is scaled by the frame time so the camera
+   * glides the same at Lite's 30 fps as at 60.
+   */
+  private updateCameraLead(dt: number): void {
+    const t = this.following;
+    if (!t || !t.active) return;
+    const cam = this.cameras.main;
+    const dx = t.x - this.lastX;
+    const dy = t.y - this.lastY;
+    this.lastX = t.x;
+    this.lastY = t.y;
+    const d = Math.hypot(dx, dy);
+    if (d > 0.4) {
+      this.headX = dx / d;
+      this.headY = dy / d;
+    }
+    const moving = t.current === 'run' && !settings.get().reducedMotion;
+    const tx = moving ? this.headX * CAMERA_LEAD : 0;
+    const ty = moving ? this.headY * CAMERA_LEAD * 0.7 : 0;
+    const a = Math.min(1, dt * 0.0035);
+    this.leadX += (tx - this.leadX) * a;
+    this.leadY += (ty - this.leadY) * a;
+    cam.setFollowOffset(-this.leadX, 150 - this.leadY);
+    const lerp = 1 - Math.pow(0.9, dt / 16.7);
+    cam.setLerp(lerp, lerp);
+  }
+
+  /**
+   * Slow the board to `factor` speed for `ms` real milliseconds (decisive moments). Board tweens,
+   * timers and character flipbooks slow together; the turn flow runs on the UI scene's clock.
+   */
+  slowMo(factor: number, ms: number): void {
+    const k = Phaser.Math.Clamp(factor, 0.1, 1);
+    this.tweens.timeScale = k;
+    this.time.timeScale = k;
+    for (const c of this.moves.tokens.values()) c.sprite.anims.timeScale = k;
+    this.slowTimer?.remove();
+    this.slowTimer = this.ui.time.delayedCall(ms, () => this.endSlowMo());
+  }
+
+  endSlowMo(): void {
+    this.slowTimer?.remove();
+    this.slowTimer = null;
+    if (this.tweens.timeScale === 1 && this.time.timeScale === 1) return;
+    this.tweens.timeScale = 1;
+    this.time.timeScale = 1;
+    for (const c of this.moves?.tokens.values() ?? []) c.sprite.anims.timeScale = 1;
+  }
+
+  /**
+   * Cinematic framing for event spaces: the edges of the world darken like a vignette (Full
+   * graphics only: a full-screen layer is too costly for Lite). HUD and effects stay bright.
+   */
+  cinematic(on: boolean): void {
+    if (LITE) return;
+    if (!this.vignette) {
+      if (!on) return;
+      this.vignette = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'fx-spot').setScrollFactor(0).setDisplaySize(GAME_WIDTH * 1.2, GAME_HEIGHT * 1.2).setDepth(DEPTH.worldFx - 5).setAlpha(0);
+    }
+    const v = this.vignette;
+    this.tweens.killTweensOf(v);
+    this.tweens.add({ targets: v, alpha: on ? 0.9 : 0, duration: on ? 380 : 450, ease: 'Sine.InOut' });
   }
 
   flowInterrupted(): boolean {
@@ -402,6 +506,8 @@ export class BoardScene extends Phaser.Scene {
       instructions: this.state.config.instructions,
     };
     return new Promise((resolve) => {
+      this.endSlowMo();
+      this.cinematic(false);
       this.game.events.once('minigame:complete', (result: MinigameResult) => {
         this.scene.wake('BoardBg');
         this.scene.wake('BoardUI');
@@ -432,10 +538,17 @@ export class BoardScene extends Phaser.Scene {
   }
 
   // --- Frame --------------------------------------------------------------------------------------------
-  override update(_t: number, _delta: number): void {
+  override update(_t: number, delta: number): void {
     if (!this.moves) return;
-    this.board.scaleForZoom(this.cameras.main.zoom);
+    const zoom = this.cameras.main.zoom;
+    // Slow motion reaches the ambient life and the juice too.
+    const dt = delta * this.time.timeScale;
+    this.board.scaleForZoom(zoom);
+    this.board.tick(dt, zoom);
     this.moves.update();
+    this.ambient.update(dt);
+    this.juice.update(dt);
+    this.updateCameraLead(delta);
     if (!this.running || this.pauseOpen) return;
     // Scoreboard while VIEW is held (any human).
     const humans = this.state.players.filter((p) => !p.isCpu).map((p) => input.controls(p.slot));
