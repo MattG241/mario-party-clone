@@ -253,6 +253,19 @@ export abstract class BaseMinigame extends Phaser.Scene {
     }
   }
 
+  /** Screen point of a player's HUD score: where score pop-ups (juice.popToHud) should land. */
+  hudPoint(slot: number): { x: number; y: number } {
+    const tag = this.hudTags.get(slot);
+    if (!tag) return { x: GAME_WIDTH / 2, y: 60 };
+    return { x: tag.root.x + tag.pipX + (tag.flip ? -24 : 24), y: tag.root.y + 52 };
+  }
+
+  /** Bump a player's HUD capsule (a pop-up landing on it). */
+  bumpHud(slot: number): void {
+    const tag = this.hudTags.get(slot);
+    if (tag) this.tweens.add({ targets: tag.root, scale: { from: 1.07, to: 1 }, duration: 200, ease: 'Back.Out' });
+  }
+
   /** Row of hearts: filled ones in coral, lost ones as rimmed hollows. */
   private drawPips(g: Phaser.GameObjects.Graphics, x0: number, y: number, pips: { filled: number; total: number }, flip: boolean): void {
     g.clear();
