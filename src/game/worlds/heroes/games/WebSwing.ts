@@ -99,6 +99,8 @@ interface Racer {
   aim: number;
   trailT: number;
   landed: boolean;
+  /** Put back on their feet for the finish poses (on the start roof when time ran out). */
+  standing: boolean;
 }
 
 /**
@@ -290,8 +292,28 @@ export class WebSwingScene extends BaseMinigame {
     return (['cornice', 'mast', 'tank', 'crane'] as const).map((kind) => ({ key: `hws-fb-${kind}`, w: kind === 'crane' ? 380 : 320, h: 900, ax: anchors[kind][0], ay: anchors[kind][1], kind }));
   }
 
+  /**
+   * A row of flat-roofed (cornice) buildings whose roof line sits at `roofY` from x0 to x1: the
+   * start rooftop and the finish tower are made of the same rendered blocks as the course.
+   * Returns false when the rendered buildings aren't loaded (the painted versions are used then).
+   */
+  private roofRow(x0: number, x1: number, roofY: number, depth: number): boolean {
+    const flat = this.arts.filter((a) => a.kind === 'cornice' && a.frame);
+    if (!flat.length) return false;
+    let x = x0;
+    let k = 0;
+    while (x < x1) {
+      const art = flat[k % flat.length];
+      this.add.image(x, roofY - art.ay, art.key, art.frame).setOrigin(0).setDepth(depth + k * 0.01);
+      x += art.w - 14;
+      k++;
+    }
+    return true;
+  }
+
   private buildStart(): void {
-    // The start rooftop: a wide building with a water tank, its roof deck at SWING.ROOF_Y.
+    // The start rooftop: its roof line at SWING.ROOF_Y, running a little past the start line.
+    if (this.roofRow(-700, SWING.ROOF_END - 40, SWING.ROOF_Y, DEPTH.tower + 1)) return;
     const g = this.add.graphics().setDepth(DEPTH.tower + 1);
     g.fillStyle(0x7d6f92, 1);
     g.fillRect(-700, SWING.ROOF_Y, 700 + SWING.ROOF_END, 400);
@@ -306,12 +328,14 @@ export class WebSwingScene extends BaseMinigame {
     const x0 = COURSE_LEN;
     const top = SWING.FINISH_ROOF_Y;
     const g = this.add.graphics().setDepth(DEPTH.tower + 2);
-    g.fillStyle(0x5f6f9e, 1);
-    g.fillRect(x0, top, 900, 700);
-    g.fillStyle(0xc9d2ec, 1);
-    g.fillRect(x0 - 10, top - 16, 920, 18);
-    g.fillStyle(0xffd98a, 0.85);
-    for (let y = top + 50; y < 1000; y += 60) for (let x = x0 + 30; x < x0 + 880; x += 62) if ((x + y) % 4) g.fillRect(x, y, 26, 32);
+    if (!this.roofRow(x0 - 6, x0 + 1100, top, DEPTH.tower + 1.5)) {
+      g.fillStyle(0x5f6f9e, 1);
+      g.fillRect(x0, top, 900, 700);
+      g.fillStyle(0xc9d2ec, 1);
+      g.fillRect(x0 - 10, top - 16, 920, 18);
+      g.fillStyle(0xffd98a, 0.85);
+      for (let y = top + 50; y < 1000; y += 60) for (let x = x0 + 30; x < x0 + 880; x += 62) if ((x + y) % 4) g.fillRect(x, y, 26, 32);
+    }
     // chequered finish banner hanging down the front
     for (let r = 0; r < 10; r++)
       for (let c = 0; c < 2; c++) {
@@ -374,7 +398,7 @@ export class WebSwingScene extends BaseMinigame {
     playerRing(c)?.setVisible(false);
     c.setDepth(DEPTH.swinger + index);
     p.character = c;
-    const r: Racer = { p, c, s, ev: newEvents(), brain: newBrain(), input: { stickX: 0, holdA: false, pressA: false }, pose: '', tilt: 0, flip: 0, place: 0, finishedAt: 0, shoot: 1, aim: -1, trailT: 0, landed: false };
+    const r: Racer = { p, c, s, ev: newEvents(), brain: newBrain(), input: { stickX: 0, holdA: false, pressA: false }, pose: '', tilt: 0, flip: 0, place: 0, finishedAt: 0, shoot: 1, aim: -1, trailT: 0, landed: false, standing: false };
     this.racers.push(r);
     this.setPose(r, 'idle');
     this.syncRacer(r, 0);
@@ -453,7 +477,7 @@ export class WebSwingScene extends BaseMinigame {
     // Stragglers who fall behind the picture are zipped back into it.
     for (const r of this.racers) {
       const m = r.s.mode;
-      if (m !== 'done' && m !== 'zip' && m !== 'roof' && r.s.x < this.camX + CATCH_X) {
+      if (m !== 'done' && m !== 'zip' && r.s.x < this.camX + CATCH_X) {
         catchUp(r.s, this.camX + 300);
         audio.play('whoosh', { volume: 0.4, rate: 1.4 });
         r.shoot = 0;
@@ -528,6 +552,11 @@ export class WebSwingScene extends BaseMinigame {
   private finish(r: Racer): void {
     this.finished++;
     r.place = this.finished;
+    // A last fling carries them up onto the tower roof, wherever they crossed the line.
+    const floor = SWING.FINISH_ROOF_Y - SWING.BODY;
+    const rise = Math.max(90, r.s.y - floor + 90);
+    r.s.vy = Math.min(r.s.vy, -Math.sqrt(2 * SWING.GRAV * 0.8 * rise));
+    r.s.vx = Math.max(260, r.s.vx * 0.6);
     r.finishedAt = this.elapsed;
     r.p.doneAt = this.elapsed;
     const w = PLACE_WORDS[Math.min(3, r.place - 1)];
@@ -634,7 +663,7 @@ export class WebSwingScene extends BaseMinigame {
   private syncRacer(r: Racer, sec: number): void {
     const s = r.s;
     const c = r.c;
-    if (r.landed) return;
+    if (r.landed || r.standing) return;
     const A = this.course.anchors;
     let pose = 'idle';
     let tilt = 0;
@@ -774,6 +803,7 @@ export class WebSwingScene extends BaseMinigame {
         // Racers on the start roof stand for the finish poses (everyone else is caught mid-swing).
         if (r.s.mode === 'roof') {
           r.tilt = 0;
+          r.standing = true;
           standOnFeet(r.c, r.s.x, SWING.ROOF_Y);
           r.pose = 'idle';
         }

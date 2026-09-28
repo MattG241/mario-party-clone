@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { audio } from '../../../audio/AudioManager';
-import { animBaseline, Character } from '../../../characters/Character';
+import { Character } from '../../../characters/Character';
 import { CSS, GAME_WIDTH, PLAYER_COLORS } from '../../../constants';
 import type { VirtualControls } from '../../../input/PlayerInput';
 import { BaseMinigame, type MgPlayer } from '../../../minigames/BaseMinigame';
@@ -37,14 +37,12 @@ import {
   type GlideClue,
   type GlideView,
 } from '../glideRules';
-import { canvasTex, fallbackSky, finishHeroSprites, glowTex, playerRing, queueHeroSprites, streakTex } from '../heroesKit';
+import { canvasTex, centreOnBody, fallbackSky, finishHeroSprites, glowTex, heroTex, playerRing, queueHeroSprites, standOnFeet, streakTex } from '../heroesKit';
 
 /** The rendered night skyline (scripts/art/worlds/heroes/mg_rooftop.py). */
 const ARENA = 'rendered-scene-heroes_rooftops';
-const SPRITES: readonly string[] = [];
+const SPRITES: readonly string[] = ['lamp_head'];
 const CHAR_SCALE = 0.55;
-/** Local (unscaled) offset of the feet below the body centre. */
-const FEET_LOCAL = GLIDE.BODY / CHAR_SCALE;
 /** Where the cape sits, in screen px from the body centre (open canopy above the raised hands). */
 const CANOPY_Y = -104;
 const CANOPY_W = 210;
@@ -94,6 +92,8 @@ interface Glider {
   lastCatch: number;
   pop?: { h: HudPop; value: number; gold: boolean };
   trailT: number;
+  /** Put back on their feet for the finish poses: the flight visuals leave them be. */
+  standing: boolean;
 }
 
 interface Clue extends GlideClue {
@@ -426,7 +426,8 @@ export class RooftopGlideScene extends BaseMinigame {
     for (const b of beams) {
       const cone = this.add.image(b.lamp.x, b.lamp.y, 'hhg-beam').setOrigin(0.5, 1).setDisplaySize(w, BEAM_LEN).setBlendMode(Phaser.BlendModes.ADD).setTint(0xfff1c4).setAlpha(0.3).setDepth(DEPTH.beam);
       const core = this.add.image(b.lamp.x, b.lamp.y, 'hhg-beam').setOrigin(0.5, 1).setDisplaySize(w * 0.42, BEAM_LEN * 0.96).setBlendMode(Phaser.BlendModes.ADD).setTint(0xffffff).setAlpha(0.2).setDepth(DEPTH.beam);
-      const head = this.add.image(b.lamp.x, b.lamp.y + 18, 'hhg-lamphead').setOrigin(0.5, 44 / 60).setDepth(DEPTH.lamp);
+      const headKey = this.textures.exists(heroTex('lamp_head')) ? heroTex('lamp_head') : 'hhg-lamphead';
+      const head = this.add.image(b.lamp.x, b.lamp.y + 18, headKey).setOrigin(0.5, 44 / 60).setDepth(DEPTH.lamp);
       const lens = this.add.image(b.lamp.x, b.lamp.y, 'hh-glow').setBlendMode(Phaser.BlendModes.ADD).setTint(0xfff3c8).setScale(1.1).setDepth(DEPTH.lamp + 0.1);
       this.beams.push({ b, cone, core, head, lens, heat: 0, flash: 0 });
     }
@@ -478,6 +479,7 @@ export class RooftopGlideScene extends BaseMinigame {
       streak: 0,
       lastCatch: -1e9,
       trailT: 0,
+      standing: false,
     };
     this.gliders.push(g);
     this.setPose(g, 'idle');
@@ -516,9 +518,7 @@ export class RooftopGlideScene extends BaseMinigame {
   }
 
   private centreSprite(g: Glider): void {
-    const c = g.c;
-    const h = c.sprite.frame.realHeight || 389;
-    c.sprite.setOrigin(0.5, animBaseline(c.charId, c.current) - FEET_LOCAL / h);
+    centreOnBody(g.c, GLIDE.BODY, CHAR_SCALE);
   }
 
   protected override onStart(): void {
@@ -885,6 +885,7 @@ export class RooftopGlideScene extends BaseMinigame {
   }
 
   private syncGlider(g: Glider, s: number): void {
+    if (g.standing) return;
     const f = g.f;
     const c = g.c;
     const air = f.mode === 'glide' || f.mode === 'dive' || f.mode === 'stun';
@@ -981,11 +982,9 @@ export class RooftopGlideScene extends BaseMinigame {
         // Anyone standing on a roof goes back to standing on their feet for the finish poses.
         if (g.f.mode === 'roof') {
           g.tilt = 0;
-          g.c.setRotation(0).setPosition(g.f.x, g.f.y + GLIDE.BODY);
-          g.c.play('idle', { force: true });
+          g.standing = true;
+          standOnFeet(g.c, g.f.x, g.f.y + GLIDE.BODY);
           g.pose = 'idle';
-          g.c.sprite.setOrigin(0.5, animBaseline(g.c.charId, 'idle'));
-          g.c.marker?.setPosition(0, g.c.headY - 46).setRotation(0);
           g.canopy.setAlpha(0);
           g.streamer.setAlpha(0);
         }

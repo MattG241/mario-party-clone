@@ -39,7 +39,8 @@ import {
 
 /** The rendered test deck (scripts/art/worlds/heroes/mg_range.py) and the drone sprites (mg_sprites.py). */
 const ARENA = 'rendered-scene-heroes_range';
-const SPRITES: readonly string[] = ['drone', 'zip', 'heavy', 'disc', 'gold', 'balloon', 'pad'];
+const SPRITES: readonly string[] = ['drone', 'zip', 'heavy', 'disc', 'gold', 'balloon', 'balloon_b', 'balloon_c', 'pad'];
+const BALLOON_ART = ['balloon', 'balloon_b', 'balloon_c'] as const;
 const CHAR_SCALE = 0.6;
 const DEPTH = { sky: -100, arena: -50, balloon: 20, target: 30, pad: 80, player: 100, beam: 5100, reticle: 6500, words: 7000 } as const;
 /** Where the beam leaves the hand (from the feet, facing right; x flips with facing). */
@@ -396,7 +397,8 @@ export class RepulsorRangeScene extends BaseMinigame {
     const t = makeTarget(kind, () => this.rng.next());
     this.targets.push(t);
     let v = this.free.pop();
-    const key = this.tex(kind);
+    const rendered = this.textures.exists(heroTex('balloon'));
+    const key = kind === 'balloon' && rendered ? heroTex(BALLOON_ART[Math.floor(this.rng.next() * BALLOON_ART.length)]) : this.tex(kind);
     if (!v) v = { t, img: this.add.image(0, 0, key), flash: 0, tint: 0xffffff };
     v.t = t;
     v.flash = 0;
@@ -404,7 +406,7 @@ export class RepulsorRangeScene extends BaseMinigame {
     v.img.setDepth(kind === 'balloon' ? DEPTH.balloon : DEPTH.target).clearTint();
     if (kind === 'balloon') {
       v.tint = BALLOON_COLS[Math.floor(this.rng.next() * BALLOON_COLS.length)];
-      if (!this.textures.exists(heroTex('balloon'))) v.img.setTint(v.tint);
+      if (!rendered) v.img.setTint(v.tint);
       v.img.setOrigin(0.5, 62 / 200);
       v.riderId = PASSENGERS[Math.floor(this.rng.next() * PASSENGERS.length)];
       const frame = npcFrame(v.riderId, v.riderId === 'wrench' ? 'laugh' : v.riderId === 'mimi' ? 'happy' : 'wave');
