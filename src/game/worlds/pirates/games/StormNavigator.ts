@@ -30,10 +30,10 @@ import {
 /** Depth squash of the water (sin 55) and how tall one world unit stands on screen (cos 55 x 100). */
 const K = 0.819;
 const UP = 57.4;
-const MAST_TOP = 1.45 * UP;
+const MAST_TOP = 1.95 * UP;
 const MAST_FOOT = 0.32 * UP;
 const MAST_FWD = 12;
-const BOOM = 64;
+const BOOM = 78;
 
 // --- Tuning --------------------------------------------------------------------------------------------
 const BASE_SPEED = 330;
@@ -48,10 +48,16 @@ const RAM_SPEED = 330;
 const STRIKE_WARN = 1400;
 const STRIKE_R = 115;
 const STRIKE_STUN = 1100;
-const WHIRL_R = 200;
+const WHIRL_R = 180;
+/** How opaque the whirlpool's swirl is drawn. */
+const WHIRL_ALPHA = 0.82;
 const WHIRL_CORE = 46;
 const CHAR_SCALE = 0.42;
 const POP_SIZE = 54;
+/** Treasure widths on screen (px). */
+const LOOT_W: Record<TreasureKind, number> = { pouch: 62, chest: 80, goldchest: 86 };
+/** The middle of the open water (screen px). */
+const BAY_MID = { x: (BAY.x0 + BAY.x1) / 2, y: (BAY.y0 + BAY.y1) / 2 };
 
 // --- Depths --------------------------------------------------------------------------------------------
 const D_WATER = 10;
@@ -79,6 +85,9 @@ interface Boat {
   sail: Phaser.GameObjects.Graphics;
   wakeT: number;
   tack: number;
+  /** How fast the boat really moves (px/s, smoothed), and how long a CPU has been stuck (ms). */
+  spd: number;
+  stuckT: number;
   pop?: { value: number };
 }
 
@@ -150,6 +159,7 @@ export class StormNavigatorScene extends BaseMinigame {
   private sailShadow: Phaser.Types.Math.Vector2Like[] = Array.from({ length: 8 }, () => ({ x: 0, y: 0 }));
   private boltPts: { x: number; y: number }[] = Array.from({ length: 12 }, () => ({ x: 0, y: 0 }));
   private tmp = { x: 0, y: 0 };
+  private look = { x: 0, y: 0 };
 
   constructor() {
     super('mg-storm-navigator');
@@ -203,7 +213,8 @@ export class StormNavigatorScene extends BaseMinigame {
     this.boltG = this.add.graphics().setDepth(D_BOLT).setBlendMode(Phaser.BlendModes.ADD);
     // the roaming whirlpool (hidden until it forms) and the lighthouse's weather vane
     if (this.hasAtlas) {
-      this.whirlImg = this.add.image(0, 0, 'pirates-storm', 'whirl').setScale((WHIRL_R * 2) / 384);
+      this.whirlImg = this.add.image(0, 0, 'pirates-storm', 'whirl');
+      this.whirlImg.setScale((WHIRL_R * 2) / Math.max(1, this.whirlImg.frame.realWidth));
       this.whirl = this.add.container(0, 0, [this.whirlImg]).setScale(1, K).setDepth(D_WATER + 1).setAlpha(0).setVisible(false);
       this.vane = this.add.image(0, 0, 'pirates-storm', 'vane').setScale(0.8);
       this.add.container(LIGHT.x, LIGHT.y, [this.vane]).setScale(1, K).setDepth(D_OBJ + 5);
@@ -271,7 +282,7 @@ export class StormNavigatorScene extends BaseMinigame {
     const sail = this.add.graphics();
     const c = new Character(this, sx, sy, p.characterId, { scale: CHAR_SCALE, slot: p.slot, marker: true, shadow: false });
     p.character = c;
-    this.boats.push({ p, c, x: sx, y: sy / K, h, v: 0, kx: 0, ky: 0, boostT: 0, boostCd: 0, stunT: 0, spin: 0, flutter: 0, eff: 1, hull, sail, wakeT: 0, tack: 0 });
+    this.boats.push({ p, c, x: sx, y: sy / K, h, v: 0, kx: 0, ky: 0, boostT: 0, boostCd: 0, stunT: 0, spin: 0, flutter: 0, eff: 1, hull, sail, wakeT: 0, tack: 0, spd: 0, stuckT: 0 });
   }
 
   protected override onStart(): void {
@@ -311,7 +322,10 @@ export class StormNavigatorScene extends BaseMinigame {
     l.vy = vy;
     l.bob = this.rng.next() * 6;
     l.rise = rise;
-    if (this.hasAtlas) l.spr.setTexture('pirates-storm', kind).setScale(kind === 'pouch' ? 0.62 : 0.72);
+    if (this.hasAtlas) {
+      l.spr.setTexture('pirates-storm', kind);
+      l.spr.setScale(LOOT_W[kind] / Math.max(1, l.spr.frame.cutWidth));
+    }
     else l.spr.setTexture('fx-dot').setScale(2.6).setTint(kind === 'goldchest' ? 0xffd23a : kind === 'chest' ? 0xa0602a : 0xd9a468);
     l.spr.setVisible(true).setAlpha(1);
     l.ring.setVisible(true);
@@ -372,8 +386,9 @@ export class StormNavigatorScene extends BaseMinigame {
       const risen = l.rise > 0 ? 1 - l.rise / 600 : 1;
       const bob = Math.sin(l.bob) * 3;
       l.spr.setPosition(sx, sy - 6 + bob + (1 - risen) * 18).setAlpha(risen).setDepth(D_OBJ + sy * 0.01);
-      l.ring.setPosition(sx, sy + 2).setScale(0.5 + 0.06 * Math.sin(l.bob), (0.5 + 0.06 * Math.sin(l.bob)) * K * 0.5);
-      if (l.glint.visible) l.glint.setPosition(sx, sy - 26 + bob).setScale(0.3).setAngle(this.elapsed * 0.06).setDepth(l.spr.depth - 0.1);
+      const rs = (l.kind === 'pouch' ? 0.62 : 0.78) + 0.06 * Math.sin(l.bob);
+      l.ring.setPosition(sx, sy + 2).setScale(rs, rs * K * 0.5);
+      if (l.glint.visible) l.glint.setPosition(sx, sy - 34 + bob).setScale(0.42).setAngle(this.elapsed * 0.06).setDepth(l.spr.depth - 0.1);
     }
   }
 
@@ -527,6 +542,8 @@ export class StormNavigatorScene extends BaseMinigame {
       vx += f.x;
       vy += f.y;
     }
+    const px = b.x;
+    const py = b.y;
     b.x += vx * s;
     b.y += vy * s;
     this.tmp.x = b.x;
@@ -542,6 +559,7 @@ export class StormNavigatorScene extends BaseMinigame {
         this.spray?.fire(b.x, b.y * K, burst(5), -90, 60, 80, 180);
       }
     }
+    if (s > 0) b.spd += (Math.hypot(b.x - px, b.y - py) / s - b.spd) * (1 - Math.exp(-4 * s));
     // wake
     b.wakeT -= dt;
     const speed = Math.hypot(vx, vy);
@@ -665,7 +683,7 @@ export class StormNavigatorScene extends BaseMinigame {
       const u = i / (n - 1);
       const lx = topX + (ex - topX) * u;
       const ly = topY + (ey - topY) * u;
-      const belly = Math.sin(u * Math.PI) * 26 * full + (irons ? Math.sin(b.flutter * 2 + u * 6) * 5 : 0);
+      const belly = Math.sin(u * Math.PI) * 30 * full + (irons ? Math.sin(b.flutter * 2 + u * 6) * 5 : 0);
       pts[i].x = lx + nx * belly;
       pts[i].y = ly + ny * belly;
     }
@@ -875,7 +893,7 @@ export class StormNavigatorScene extends BaseMinigame {
         this.whirlOn = true;
         this.whirlT = 0;
         this.whirl?.setVisible(true);
-        if (this.whirl) this.tweens.add({ targets: this.whirl, alpha: 0.92, duration: 900 });
+        if (this.whirl) this.tweens.add({ targets: this.whirl, alpha: WHIRL_ALPHA, duration: 900 });
         banner(this, 'WHIRLPOOL!', { y: this.bannerY(), size: 76, color: '#bff0ff', hold: 600 });
         audio.play('portal', { volume: 0.5, rate: 0.7 });
       }
@@ -1004,7 +1022,28 @@ export class StormNavigatorScene extends BaseMinigame {
         fleeing = true;
       }
     }
-    const tk = tackHeading(bearing, this.wind, b.tack);
+    // stuck (pinned on the rocks, or in irons): head for open water on the other tack for a moment
+    if (b.stunT <= 0 && this.phase === 'playing' && b.spd < 55) b.stuckT += dt;
+    else b.stuckT = Math.max(0, b.stuckT - dt * 2);
+    if (b.stuckT > 1300) {
+      b.stuckT = 0;
+      b.tack = b.tack ? -b.tack : Math.random() < 0.5 ? -1 : 1;
+      br.mode = 'unstick';
+      br.wait = 1100;
+    }
+    if (br.mode === 'unstick') {
+      br.wait = (br.wait ?? 0) - dt;
+      if (br.wait <= 0) {
+        br.mode = 'seek';
+        br.timer = 0;
+      } else if (!fleeing) bearing = Math.atan2(BAY_MID.y / K - b.y, BAY_MID.x - b.x);
+    }
+    let tk = tackHeading(bearing, this.wind, b.tack);
+    // beating upwind: come about before the leg runs onto the rocks
+    if (tk.tack !== 0 && this.shoreAhead(b, tk.heading)) {
+      const other = tackHeading(bearing, this.wind, -tk.tack);
+      if (!this.shoreAhead(b, other.heading)) tk = other;
+    }
     b.tack = tk.tack;
     const noise = (Math.sin(this.elapsed / 700 + p.slot * 2) * 0.5 + (Math.random() - 0.5)) * sk.aimNoise * 0.35;
     const h = tk.heading + noise;
@@ -1012,6 +1051,13 @@ export class StormNavigatorScene extends BaseMinigame {
     vc.setMove(Math.cos(h), Math.sin(h) * K);
     const dist = Math.hypot(t.x - b.x, t.y - b.y);
     if (b.boostCd <= 0 && (fleeing || (dist > 260 && b.eff > 0.75)) && Math.random() < sk.accuracy * 0.08) vc.tap('A');
+  }
+
+  /** Whether sailing on `heading` runs onto the shore within a couple of boat lengths. */
+  private shoreAhead(b: Boat, heading: number): boolean {
+    this.look.x = b.x + Math.cos(heading) * 170;
+    this.look.y = (b.y + Math.sin(heading) * 170) * K;
+    return keepInBay(this.look, 55);
   }
 
   /** CPU target: the best treasure for the time it takes to sail there (wind included), clear of storms. */

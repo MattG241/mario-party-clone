@@ -8,7 +8,7 @@ import { LITE } from '../../../perf';
 import { glyphKindFor, makeGlyph } from '../../../ui/ControllerPrompt';
 import { addText } from '../../../ui/theme';
 import { BaseMinigame, type MgPlayer } from '../../../minigames/BaseMinigame';
-import { kick, popToHud, punch, shockwave, titleTexture } from '../../../minigames/juice';
+import { kick, popToHud, punch, shockwave, titleTexture, type HudPop } from '../../../minigames/juice';
 import { AFX, burst, ensureArenaFxTextures, Spray } from '../../../minigames/games/arenaFx';
 import { bakeWord, WordPops } from '../../../minigames/games/stageKit';
 import { calm, Crowd, finishAtlas, hasFrame, queueAtlas, startHint } from '../piratesKit';
@@ -41,6 +41,8 @@ const LEAD_START = 1750;
 const LEAD_END = 1380;
 /** Sprite render scale (px per metre) of the slash atlas, and each kind's size on the chute. */
 const SPRITE_PPM = 300;
+/** Everything on the chutes is drawn a little larger than life, to read from the sofa. */
+const OBJ_SIZE = 1.25;
 const PLAYER_SCALE = 0.8;
 /** Screen height of the players' feet. */
 const FEET_Y = 1005;
@@ -112,6 +114,8 @@ interface Slasher {
   poseT: number;
   /** CPU: note index -> planned slash time (or -1 to let it pass). */
   plan: Map<Note, number>;
+  /** The score pop-up still gathering over the cut line. */
+  pop?: { h: HudPop; value: number };
 }
 
 /**
@@ -390,7 +394,7 @@ export class TripleSlashScene extends BaseMinigame {
     o.lane = lane;
     o.roll = HARBOUR.yFar - Y;
     let z = 0;
-    let size = 1;
+    let size = OBJ_SIZE;
     if (n.kind === 'fish') {
       // leaps out of the water beside the chute, glides down the lane, hops across if it switches
       const leap = Math.min(1, u / 0.18);
@@ -398,9 +402,9 @@ export class TripleSlashScene extends BaseMinigame {
       if (n.from !== n.lane) z += 0.35 * Math.sin(Math.min(1, Math.max(0, (u - 0.45) / 0.2)) * Math.PI);
     } else if (n.kind === 'crate') {
       z = Math.abs(Math.sin(o.roll * 1.9)) * 0.12;
-      size = 1.05;
+      size = OBJ_SIZE * 1.05;
     } else if (n.kind === 'bomb') {
-      size = 0.92;
+      size = OBJ_SIZE * 0.92;
     }
     const fx = n.kind === 'fish' && u < 0.18 ? laneX(s.chute, lane < 1 ? -0.8 : 2.8, Y) * (1 - u / 0.18) + laneX(s.chute, lane, Y) * (u / 0.18) : laneX(s.chute, lane, Y);
     const q = project(fx, Y, HARBOUR.floorZ + z, this.tmp);
@@ -562,27 +566,41 @@ export class TripleSlashScene extends BaseMinigame {
     this.tweens.add({ targets: img, alpha: 0, delay: 60, duration: 150, ease: 'Quad.In', onComplete: () => img.setVisible(false) });
   }
 
+  /**
+   * The points pop off the cut line and fly to the player's capsule. Slices in quick succession add to
+   * the pop-up still gathering ("+6" -> "+12") rather than each throwing its own, so a busy stretch
+   * doesn't fill the screen with numbers.
+   */
   private popScore(s: Slasher, value: number, x: number, y: number): void {
     const slot = s.p.slot;
     this.holdHud(slot, value);
+    const open = s.pop;
+    if (open && open.h.gathering && open.h.image.active) {
+      open.value += value;
+      open.h.retitle(`+${open.value}`, open.value >= 9 ? CSS.goldLight : '#ffffff');
+      return;
+    }
     const h = this.hudPoint(slot);
-    popToHud(this, x, y, `+${Math.min(24, value)}`, h.x, h.y, {
+    const entry: { h?: HudPop; value: number } = { value };
+    entry.h = popToHud(this, x, y, `+${value}`, h.x, h.y, {
       color: value >= 9 ? CSS.goldLight : '#ffffff',
       size: POP_SIZE,
       onArrive: () => {
-        this.releaseHud(slot, value);
+        this.releaseHud(slot, entry.value);
         this.bumpHud(slot);
+        if (s.pop === entry) s.pop = undefined;
       },
     });
+    s.pop = entry as { h: HudPop; value: number };
   }
 
   private comboUp(s: Slasher): void {
     const m = comboMult(s.combo);
     const key = titleTexture(this, `x${m} COMBO!`, 46, PLAYER_COLORS_CSS[s.p.slot]);
-    const img = this.add.image(s.x, 640, key).setDepth(D_UI).setScale(0.3);
+    const img = this.add.image(s.x, 590, key).setDepth(D_UI).setScale(0.3);
     this.tweens.add({ targets: img, scale: 1, duration: 220, ease: 'Back.Out' });
-    this.tweens.add({ targets: img, y: 600, alpha: 0, delay: 700, duration: 300, onComplete: () => img.destroy() });
-    shockwave(this, s.x, 640, { radius: 130, ratio: 0.5, color: PLAYER_COLORS[s.p.slot], alpha: 0.8, duration: 380, depth: D_UI - 1 });
+    this.tweens.add({ targets: img, y: 550, alpha: 0, delay: 700, duration: 300, onComplete: () => img.destroy() });
+    shockwave(this, s.x, 590, { radius: 130, ratio: 0.5, color: PLAYER_COLORS[s.p.slot], alpha: 0.8, duration: 380, depth: D_UI - 1 });
     audio.play('streak', { volume: 0.6, rate: 0.9 + m * 0.1 });
     s.c.play('celebrate');
     if (m >= 3) this.crowd?.cheer(m >= 4);
@@ -808,10 +826,7 @@ export class TripleSlashScene extends BaseMinigame {
   }
 
   protected finalScores(): { slot: number; score: number; label: string }[] {
-    return this.players.map((p) => {
-      const s = this.slashers.find((q) => q.p === p);
-      return { slot: p.slot, score: p.score, label: `${p.score} pts · best combo ${s?.best ?? 0}` };
-    });
+    return this.players.map((p) => ({ slot: p.slot, score: p.score, label: `${p.score} pts` }));
   }
 }
 

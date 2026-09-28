@@ -207,7 +207,7 @@ export class FeastTable {
     f.z = 0;
     f.vz = 0;
     f.bob = this.rand() * 6;
-    if (this.hasAtlas) f.spr.setTexture('pirates-snatch', kind).setScale(FOOD_SCALE).clearTint();
+    if (this.hasAtlas) f.spr.setTexture('pirates-snatch', this.frameFor(kind)).setScale(FOOD_SCALE).clearTint();
     else f.spr.setTexture('fx-dot').setScale(kind === 'roast' ? 3.4 : 2.4).setTint(kind === 'roast' ? 0xffc83a : kind === 'meat' ? 0xb5602a : 0xe84b3c);
     f.spr.setVisible(true).setAlpha(1).setAngle(0);
     f.shadow.setVisible(true).setAlpha(0.45).setScale(kind === 'roast' ? 0.75 : 0.5, kind === 'roast' ? 0.24 : 0.16);
@@ -216,6 +216,16 @@ export class FeastTable {
       f.glint.setVisible(true).setAlpha(0.7).setScale(0.36);
     } else f.glint?.setVisible(false);
     return f;
+  }
+
+  /**
+   * The atlas frame for a kind of food. A stale atlas without that frame would otherwise hand back its
+   * first frame (the whole table top!), so fall back to a plain apple or drumstick instead.
+   */
+  private frameFor(kind: FoodKind): string {
+    const tex = this.scene.textures.get('pirates-snatch');
+    if (tex.has(kind)) return kind;
+    return (kind === 'roast' || kind === 'meat') && tex.has('meat') ? 'meat' : 'apple';
   }
 
   /** A toss arcs from the cook's tentacle to its (turning) landing spot. */
