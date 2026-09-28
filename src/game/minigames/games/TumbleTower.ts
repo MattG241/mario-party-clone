@@ -1625,6 +1625,11 @@ export class TumbleTowerScene extends BaseMinigame {
   }
 
   // --- Scores ----------------------------------------------------------------------------------
+  /** Call-outs sit just under the HUD: the climbers fill the middle of the tower view. */
+  protected override bannerY(): number {
+    return 214;
+  }
+
   protected override hudLabel(p: MgPlayer): string {
     const cl = this.climbers.find((x) => x.p === p);
     return `${Math.floor((cl?.best ?? 0) / PX_PER_M)} m`;
