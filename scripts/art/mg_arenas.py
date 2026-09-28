@@ -1,6 +1,7 @@
 """Arenas and gameplay sprites for the six later minigames (screen-space, 1920x1080).
 
     .artenv/bin/python scripts/art/mg_arenas.py yard|pond|relay|totem|tower|sprites [--preview] [--only a,b]
+    python3 scripts/art/bloom.py public/assets/rendered/scene_{crate,pond,relay,totem}.webp
 
 Same conventions as scenes.py: an orthographic camera per scene whose ground plane maps 1:1 onto
 the game's screen coordinates, so each minigame's layout constants line up with the art:
@@ -9,6 +10,11 @@ the game's screen coordinates, so each minigame's layout constants line up with 
   relay  Relic Relay     lanes y 430/570/710/850, x 170..1750 (45 deg)
   totem  Totem Tug       side view, ground line y 820 (12 deg)
   tower  Tumble Tower    vertically tileable tower wall (level camera)
+Around each play area the arenas are dressed for the festival (props, dense grass, contact shading,
+a warm key over a cool fill and a touch of atmospheric haze: see mg_dress.py); the play areas stay
+clean, and their bounds, the cameras and the sun directions (which the baked sprite shadows follow)
+must not move. The game also stands spectators and signs on these images at fixed points (see each
+minigame's layout constants), so keep those spots clear.
 Outputs public/assets/rendered/scene_<name>.webp and public/assets/rendered/mg/<sprite>.webp
 (+ mg/sprites.json with each sprite's anchor inside its image).
 """
@@ -26,6 +32,7 @@ from PIL import Image, ImageDraw, ImageFilter
 
 sys.path.insert(0, os.path.dirname(__file__))
 import lib  # noqa: E402
+import mg_dress as dress  # noqa: E402
 import props  # noqa: E402
 import terrain  # noqa: E402
 from lib import PX, board_to_world, col  # noqa: E402
@@ -52,13 +59,13 @@ def set_view(elevation_deg: float) -> None:
     lib.COSB, lib.SINB = math.cos(lib.BETA), math.sin(lib.BETA)
 
 
-def start(elev: float, samples: int = 36, sun_elev: float = 50, sun_az: float = -35) -> None:
+def start(elev: float, samples: int = 28, sun_elev: float = 50, sun_az: float = -35, key: float = 3.5, fill: float = 0.8):
     set_view(elev)
     lib.reset(12 if A.preview else samples)
-    props._MATS.clear()  # the factory reset removed any cached prop materials
-    lib.world_light(0.85)
-    lib.sun(energy=3.4, elevation=sun_elev, azimuth=sun_az, angle=3.0)
-    lib.camera_for_region(0, 0, SW, SH, scale=0.5 if A.preview else 1.0)
+    dress.threads()
+    dress.reset_mats()  # the factory reset removed any cached prop materials
+    dress.festival_light(key=key, elev=sun_elev, az=sun_az, fill=fill, angle=3.0)
+    return lib.camera_for_region(0, 0, SW, SH, scale=0.5 if A.preview else 1.0)
 
 
 def ground_image_material(name: str, img_path: str, region, rough: float = 0.6, bump: float = 0.25):
@@ -78,8 +85,9 @@ def ground_image_material(name: str, img_path: str, region, rough: float = 0.6, 
     c = img.outputs['Color']
     lum = m.node('ShaderNodeRGBToBW')
     m.link(c, lum.inputs['Color'])
-    ao = m.ao(0.5, 8)
-    c = m.mult(c, m.mix(ao, col('#6a6070'), col('#ffffff')))
+    # contact AO plus a broad, cool sky occlusion under fences and hedges
+    c = m.mult(c, m.mix(m.ao(0.5, 8), col('#6a6070'), col('#ffffff')))
+    c = m.mult(c, m.mix(m.ao(1.2, 12), col('#8f8a9c'), col('#ffffff')))
     m.bsdf(c, rough, normal=m.bump(lum.outputs['Val'], bump, 0.02))
     return m.mat
 
@@ -105,9 +113,7 @@ def island(outline, name='arena_island', depth=1.0, extra_h=600, theme='plaza'):
     img = img.filter(ImageFilter.GaussianBlur(3))
     mask = np.asarray(img, np.float32) / 255.0 > 0.5
     terrain.set_canvas(SW, SH + extra_h, 4)
-    empty = os.path.join(OUT, 'empty_mask.png')
-    Image.new('L', (64, 64), 0).save(empty)
-    mat = terrain.island_material(empty, theme)
+    mat = dress.island_material(dress.empty_mask(OUT), name=f'{name}_ground')
     return terrain.build_island(['a', 'b'] if depth >= 1 else ['a'], mask, name, mat)
 
 
@@ -135,18 +141,33 @@ def noise_img(w, h, cell, amp=60):
     return np.asarray(Image.effect_noise((w // cell + 1, h // cell + 1), amp).resize((w, h), Image.BICUBIC), np.float32) / 255.0
 
 
-def greenery(spots_trees, spots_bushes, seed=5, pine=()):
+def greenery(spots_trees, spots_bushes, seed=5, pine=(), willows=()):
     rnd = random.Random(seed)
     leaves, wood, flowers = lib.MeshBuilder(), lib.MeshBuilder(), lib.MeshBuilder()
     for (x, y, s) in spots_trees:
         terrain.tree_round(leaves, wood, x, y, rnd, s)
     for (x, y, s) in pine:
         terrain.tree_pine(leaves, wood, x, y, rnd, s)
+    for (x, y, s) in willows:
+        dress.willow(leaves, wood, x, y, rnd, s)
     for (x, y, s) in spots_bushes:
         terrain.bush(leaves, x, y, rnd, s, berries=flowers)
     leaves.build('leaves', lib.attr_mat('leaf', rough=0.78, ao=0.5))
     wood.build('wood', lib.attr_mat('wood', rough=0.8, ao=0.3))
     flowers.build('flowers', lib.attr_mat('flower', rough=0.55))
+
+
+def haze(cam, near_y, far_y=40.0, amount=0.2, color='#d9e8f7', skip=()):
+    """Atmospheric perspective between two screen rows of the ground (near_y: the play area's back
+    edge, which stays clean) - the far island, trees and the underside soften towards the sky."""
+    near = dress.view_depth(cam, board_to_world(960, near_y, 0.0))
+    far = dress.view_depth(cam, board_to_world(960, far_y, 0.0))
+    dress.depth_haze(near, far, amount, color=color, skip=skip)
+
+
+def scatter(outline, keep, rnd, tufts=2400, flowers=40, pebbles=30, shrink=24, region=(0, 0, SW, SH)):
+    """Dense grass, flower beds and pebbles over the island top, clear of the play area and props."""
+    dress.scatter_grass(dress.poly_mask(outline, SW, SH, shrink), keep, region, rnd, tufts=tufts, flowers=flowers, pebbles=pebbles)
 
 
 # ------------------------------------------------------------------------------------------
@@ -155,13 +176,22 @@ YARD = (240, 330, 1680, 1000)
 
 
 def yard_texture(path, region, squash):
-    """Packed-earth yard with flagstone patches, straw, cart ruts and a paved border."""
+    """Packed-earth yard: damp and dusty patches, a lighter traffic-worn middle, cart ruts, crate drag
+    marks and scuffs, half-buried flagstones, straw and pebbles, darker edges where the fences stand,
+    and a paved border."""
     x0, y0, x1, y1 = region
     w, h = int(x1 - x0), int(y1 - y0)
     rnd = random.Random(12)
     base = np.array([176, 138, 96], np.float32)
-    n1, n2 = noise_img(w, h, 30, 70), noise_img(w, h, 7, 50)
+    n1, n2, n3 = noise_img(w, h, 30, 70), noise_img(w, h, 7, 50), noise_img(w, h, 90, 80)
     arr = base[None, None, :] * (0.82 + 0.26 * n1[..., None]) * (0.93 + 0.1 * n2[..., None])
+    damp = np.clip((n3 - 0.58) * 4, 0, 1)[..., None]
+    arr = arr * (1 - 0.18 * damp) + np.array([120, 92, 66], np.float32) * 0.18 * damp
+    dusty = np.clip((0.42 - n3) * 4, 0, 1)[..., None]
+    arr = arr * (1 - 0.2 * dusty) + np.array([214, 184, 140], np.float32) * 0.2 * dusty
+    yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+    worn = np.exp(-(((xx - w / 2) / (w * 0.34)) ** 2 + ((yy - h / 2) / (h * 0.32)) ** 2))[..., None]
+    arr = arr * (1 - 0.1 * worn) + np.array([206, 170, 124], np.float32) * 0.1 * worn
     im = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
     d = ImageDraw.Draw(im)
     # cart ruts
@@ -171,9 +201,22 @@ def yard_texture(path, region, squash):
         for pts in (pts_a, pts_b):
             d.line(pts, fill=(140, 104, 70), width=9, joint='curve')
             d.line([(x, y - 3) for (x, y) in pts], fill=(196, 160, 116), width=2)
+    # drag marks where crates have been shoved about (short parallel pairs) and boot scuffs
+    for _ in range(46):
+        cx, cy = rnd.uniform(40, w - 40), rnd.uniform(30, h - 30)
+        a = rnd.uniform(0, math.tau)
+        L = rnd.uniform(40, 110)
+        for off in (-20, 20):
+            ox, oy = -math.sin(a) * off, math.cos(a) * off * squash
+            d.line([(cx + ox, cy + oy), (cx + ox + math.cos(a) * L, cy + oy + math.sin(a) * L * squash)], fill=(150, 114, 80), width=3)
+    for _ in range(160):
+        cx, cy = rnd.uniform(0, w), rnd.uniform(0, h)
+        r = rnd.uniform(6, 14)
+        a0 = rnd.uniform(0, 360)
+        d.arc([cx - r, cy - r * squash, cx + r, cy + r * squash], a0, a0 + rnd.uniform(60, 140), fill=(154, 118, 84), width=2)
     # worn flagstones half-buried in the earth (irregular, earthy tones)
     pal = [(170, 150, 122), (160, 140, 114), (178, 158, 130), (150, 132, 108)]
-    for _ in range(18):
+    for _ in range(14):
         cx, cy = rnd.uniform(60, w - 60), rnd.uniform(40, h - 40)
         for _k in range(rnd.randint(2, 5)):
             sx, sy = cx + rnd.uniform(-70, 70), cy + rnd.uniform(-45, 45) * squash
@@ -182,26 +225,40 @@ def yard_texture(path, region, squash):
             c = rnd.choice(pal)
             d.polygon([(x, y + 2) for (x, y) in pts], fill=tuple(int(v * 0.72) for v in c))
             d.polygon(pts, fill=c)
-    # straw wisps and pebbles
-    for _ in range(900):
+            d.line(pts[:3], fill=tuple(min(255, v + 18) for v in c), width=2)
+    # straw wisps (thicker near the edges and corners, where it drifts) and pebbles
+    for _ in range(1300):
         sx, sy = rnd.uniform(0, w), rnd.uniform(0, h)
+        e = min(sx, w - sx, sy / squash, (h - sy) / squash)
+        if e > 140 and rnd.random() < 0.45:
+            continue
         a = rnd.uniform(0, math.tau)
         L = rnd.uniform(6, 16)
         d.line([(sx, sy), (sx + math.cos(a) * L, sy + math.sin(a) * L * squash)], fill=rnd.choice([(232, 200, 120), (214, 178, 96), (240, 214, 140)]), width=2)
-    for _ in range(500):
+    for _ in range(600):
         sx, sy = rnd.uniform(0, w), rnd.uniform(0, h)
         r = rnd.uniform(1.5, 3.5)
         d.ellipse([sx - r, sy - r * squash, sx + r, sy + r * squash], fill=rnd.choice([(150, 128, 104), (200, 186, 164), (120, 100, 80)]))
+    # darker, damper earth along the fences (they shade it and nobody walks there)
+    arr = np.asarray(im).astype(np.float32)
+    e = np.minimum(np.minimum(xx, w - 1 - xx), np.minimum(yy, h - 1 - yy) / squash)
+    arr *= (0.8 + 0.2 * np.clip(e / 80.0, 0, 1) ** 0.7)[..., None]
+    arr *= (0.9 + 0.1 * np.clip(yy / 120.0, 0, 1))[..., None]  # the back fence's shade
+    im = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
+    d = ImageDraw.Draw(im)
     # paved border
     bw = 34
     for (bx0, by0, bx1, by1) in [(0, 0, w, int(bw * squash)), (0, h - int(bw * squash), w, h), (0, 0, bw, h), (w - bw, 0, w, h)]:
-        d.rectangle([bx0, by0, bx1, by1], fill=(150, 132, 112))
+        d.rectangle([bx0, by0, bx1, by1], fill=(146, 128, 108))
     for k in range(0, w, 44):
         for (ya, yb) in [(0, int(bw * squash)), (h - int(bw * squash), h)]:
-            d.rounded_rectangle([k + 2, ya + 2, k + 42, yb - 2], radius=4, fill=(198, 184, 160))
+            c = rnd.choice([(198, 184, 160), (190, 176, 152), (206, 192, 168)])
+            d.rounded_rectangle([k + 2, ya + 2, k + 42, yb - 2], radius=4, fill=c)
+            d.line([(k + 5, ya + 4), (k + 38, ya + 4)], fill=tuple(min(255, v + 16) for v in c), width=2)
     for k in range(0, h, int(40 * squash)):
         for (xa, xb) in [(0, bw), (w - bw, w)]:
-            d.rounded_rectangle([xa + 2, k + 2, xb - 2, k + int(40 * squash) - 2], radius=4, fill=(198, 184, 160))
+            c = rnd.choice([(198, 184, 160), (190, 176, 152), (206, 192, 168)])
+            d.rounded_rectangle([xa + 2, k + 2, xb - 2, k + int(40 * squash) - 2], radius=4, fill=c)
     im.save(path)
 
 
@@ -258,7 +315,7 @@ def supply_pile(x, y, rnd, mb_wood, mb_paint, n=5):
 
 
 def yard():
-    start(48, sun_elev=52, sun_az=-35)
+    cam = start(48, sun_elev=52, sun_az=-35)
     squash = lib.COSB
     tex = os.path.join(OUT, 'yard_floor.png')
     yard_texture(tex, YARD, squash)
@@ -274,37 +331,63 @@ def yard():
     rails.build('fence_rails', props.mats()['wood'])
     posts_b.build('fence_back_posts', props.mats()['wood'])
     rails_b.build('fence_back_rails', props.mats()['wood'])
-    island(blob_outline(960, 640, 960, 460, seed=31, lobes=8, wobble=0.05))
+    outline = blob_outline(960, 640, 960, 460, seed=31, lobes=8, wobble=0.05)
+    island(outline)
     rnd = random.Random(9)
     wood, paint = lib.MeshBuilder(), lib.MeshBuilder()
-    # supplies stacked behind the back fence and in the corners outside the yard
+    # supplies stacked behind the back fence (the spectators stand in the gaps: CrateCraze CROWD_X)
+    # and beside the yard
     for (x, y) in [(330, 262), (600, 250), (1320, 250), (1590, 262)]:
         supply_pile(x, y, rnd, wood, paint, 5)
-    for (x, y) in [(150, 470), (1770, 470), (150, 820), (1770, 820)]:
+    for (x, y) in [(150, 470), (1770, 470)]:
         supply_pile(x, y, rnd, wood, paint, 3)
     hay = lib.MeshBuilder()
-    for (x, y) in [(860, 262), (1060, 262), (190, 650), (1730, 650)]:
+    for (x, y) in [(860, 262), (1060, 262), (190, 650), (1730, 650), (205, 890), (1715, 890)]:
         terrain.hay_bale(hay, x, y, rnd)
     wood.build('supplies', props.mats()['wood'])
     paint.build('sacks', lib.attr_mat('cloth', rough=0.9, sheen=0.3))
     hay.build('hay', lib.attr_mat('hay', rough=0.9))
     greenery([(70, 330, 1.1), (1850, 330, 1.1), (60, 980, 1.0), (1860, 980, 1.0)],
-             [(300, 1040, 1.1), (960, 1050, 1.0), (1620, 1040, 1.1), (110, 700, 0.9), (1810, 700, 0.9)])
+             [(300, 1040, 1.1), (960, 1050, 1.0), (1620, 1040, 1.1), (110, 700, 0.9), (1810, 700, 0.9), (640, 1045, 0.8), (1280, 1045, 0.8)],
+             pine=[(210, 190, 0.9), (1710, 190, 0.9)])
     for x in (420, 960, 1500):
         props.lantern(x, 236, 1.2)
     props.bunting(690, 226, 520, 1.0)
     props.bunting(1230, 226, 520, 1.0)
     props.stall(110, 560, 0.95, stripe=('#ff6b5e', '#fff4dc'))
     props.stall(1810, 560, 0.95, stripe=('#8e5cd9', '#fff4dc'))
+    # festival dressing around the yard: carts, fruit, balloons, flags and flower boxes
+    dress.cart(92, 792, 0.85, load='barrels', name='cart_l')
+    dress.cart(1782, 792, 0.85, load='crates', name='cart_r')
+    for i, (x, y) in enumerate([(205, 610), (1715, 610), (470, 205), (1450, 205), (760, 212), (1160, 212)]):
+        dress.fruit_crate(x, y, 0.9, name=f'fruit{i}')
+    dress.balloons(40, 615, 1.1, name='balloons_l')
+    dress.balloons(1880, 615, 1.1, name='balloons_r')
+    for i, x in enumerate((228, 1692)):
+        dress.flag_pole(x, 312, ['#8e5cd9', '#f4b83b'][i], s=1.0, height=1.9, side=1, name=f'flag{i}')
+    for i, x in enumerate((470, 800, 1120, 1450)):
+        dress.planter(x, 1036, w=1.3, s=0.9, name=f'planter{i}')
+    keep = dress.Keep().rect(x0 - 16, y0 - 14, x1 + 16, y1 + 14)
+    for (x, y) in [(330, 262), (600, 250), (1320, 250), (1590, 262), (150, 470), (1770, 470)]:
+        keep.ell(x, y, 110, 40)
+    for (x, y) in [(110, 560), (1810, 560), (92, 792), (1782, 792), (70, 330), (1850, 330), (60, 980), (1860, 980)]:
+        keep.ell(x, y, 80, 36)
+    scatter(outline, keep, random.Random(91), tufts=2600, flowers=34, pebbles=40)
+    haze(cam, y0, 90, amount=0.18, skip=('yard',))
     path = os.path.join(OUT, 'yard.png')
     lib.render_to(path)
     publish(path, 'crate')
-    # front layer: the back fence only (spectators stand behind it in-game)
+    # front layer: the back fence only (spectators stand behind it in-game). Only the fence's band of
+    # the frame is rendered (the rest of the layer is empty anyway), which saves a second full render.
     for ob in bpy.context.scene.objects:
         if ob.type == 'MESH' and not ob.name.startswith('fence_back'):
             ob.is_holdout = True
     wall = os.path.join(OUT, 'yard_wall.png')
+    lib.set_border((0, y0 - 100, SW, y0 + 30), (0, 0, SW, SH))
+    bpy.context.scene.render.use_crop_to_border = False  # keep the full frame: the fence stays in place
     lib.render_to(wall)
+    lib.clear_border()
+    print('yard wall layer', Image.open(wall).size)
     publish(wall, 'crate_wall')
 
 
@@ -315,6 +398,7 @@ POND_R = (760, 360)
 
 
 def pond_water_material():
+    """Simple stream water (the Totem Tug creek)."""
     m = lib.NT('pondwater')
     pos = m.position()
     nz = m.noise(1.6, 3, 0.55, pos)
@@ -325,50 +409,122 @@ def pond_water_material():
     return m.mat
 
 
+def pond_water_rich(cx, cy, wrx, wry):
+    """Lily-pond water: turquoise shallows with sunlit caustics along the bank, deepening to a rich
+    blue in the middle (which the game's animated current swirls read clearly against)."""
+    m = lib.NT('pondwater_rich')
+    pos = m.position()
+    X, Y, _ = m.sep(pos)
+    dx = m.math('DIVIDE', m.math('SUBTRACT', X, cx), wrx)
+    dy = m.math('DIVIDE', m.math('SUBTRACT', Y, cy), wry)
+    r = m.math('SQRT', m.math('ADD', m.math('MULTIPLY', dx, dx), m.math('MULTIPLY', dy, dy)))
+    shallow = m.maprange(r, 0.74, 0.99)
+    nz = m.noise(1.6, 3, 0.55, pos)
+    nz2 = m.noise(7.0, 2, 0.5, pos)
+    deep = m.mix(m.maprange(nz.outputs['Fac'], 0.3, 0.75), col('#1680aa'), col('#2ea4cc'))
+    deep = m.mix(m.maprange(r, 0.0, 0.6), m.mix(0.35, deep, col('#0f6a94')), deep)
+    c = m.mix(m.maprange(nz2.outputs['Fac'], 0.64, 0.86), deep, col('#7fd6ee'))
+    c = m.mix(m.math('MULTIPLY', shallow, 0.8), c, col('#56cfcf'))
+    # faint caustics only in the shallows along the bank (the open water stays calm and readable)
+    vor = m.node('ShaderNodeTexVoronoi', feature='DISTANCE_TO_EDGE')
+    vor.inputs['Scale'].default_value = 2.2
+    m.link(pos, vor.inputs['Vector'])
+    caus = m.math('MULTIPLY', m.maprange(vor.outputs['Distance'], 0.028, 0.0), m.math('MULTIPLY', m.maprange(r, 0.84, 0.99), 0.45))
+    c = m.mix(caus, c, col('#c9f6ff'))
+    m.bsdf(c, 0.06, normal=m.bump(nz2.outputs['Fac'], 0.25, 0.03), emission=col('#2aa6d0'), emission_strength=0.16, coat=0.9)
+    return m.mat
+
+
+def waterfall_outcrop(rocks_mb, foam_mb, lip, foot, rnd):
+    """A mossy boulder mound with a little cascade spilling into the pond (screen px lip/foot)."""
+    (lx, ly), (fx, fy) = lip, foot
+    for (dx, dy, r, z) in [(-40, -14, 0.46, 0.18), (40, -10, 0.42, 0.14), (-5, -34, 0.5, 0.42), (-62, 10, 0.34, 0.05), (58, 14, 0.3, 0.02),
+                           (-28, -46, 0.36, 0.78), (26, -44, 0.33, 0.74), (0, 6, 0.24, 0.0)]:
+        w = board_to_world(lx + dx, ly + dy, 0.0)
+        v, f = lib.blob((w.x, w.y, z + r * 0.6), r, squash=(1.2, 1.0, 0.82), rough=0.24, freq=1.7, subdiv=3, seed=rnd.random() * 90)
+        base = col(rnd.choice(['#a39a92', '#978d86', '#b4aca2']))
+        rocks_mb.add(v, f, lambda q, base=base, zc=z + r * 0.6, r=r: lib.lerp_col(base, col('#5aa83a'), 0.8) if q[2] > zc + r * 0.45 else base)
+    top = board_to_world(lx, ly, 0.0)
+    bot = board_to_world(fx, fy, 0.0)
+    z_lip = 1.02
+    mat = lib.falls_material('pond_fall', z_lip, 0.02)
+    verts, faces = [], []
+    rows, cols = 16, 6
+    for rr in range(rows + 1):
+        t = rr / rows
+        out = math.sqrt(t)
+        px = top.x + (bot.x - top.x) * out
+        py = top.y + (bot.y - top.y) * out
+        pz = z_lip - (z_lip - 0.02) * t * t
+        wd = 0.2 + 0.12 * t
+        for i in range(cols + 1):
+            u = i / cols * 2 - 1
+            verts.append((px + u * wd, py - 0.05 * (1 - u * u), pz))
+    for rr in range(rows):
+        for i in range(cols):
+            a = rr * (cols + 1) + i
+            faces.append((a, a + 1, a + cols + 2, a + cols + 1))
+    lib.mesh_object('pond_waterfall', verts, faces, smooth=True, material=mat)
+    for k in range(9):
+        a = k / 9 * math.tau
+        w = board_to_world(fx + math.cos(a) * rnd.uniform(14, 34), fy + 10 + math.sin(a) * rnd.uniform(6, 14), 0.0)
+        v, f = lib.blob((w.x, w.y, 0.05), rnd.uniform(0.08, 0.14), squash=(1.4, 1.0, 0.35), rough=0.3, subdiv=1, seed=k * 3.1)
+        foam_mb.add(v, f, col('#f4fbff'))
+
+
 def pond():
-    start(40, sun_elev=50, sun_az=-30)
+    cam = start(40, sun_elev=50, sun_az=-30)
     cx, cy = POND_C
     rx, ry = POND_R
-    island(blob_outline(960, 620, 960, 470, seed=41, lobes=9, wobble=0.05))
+    outline = blob_outline(960, 620, 960, 470, seed=41, lobes=9, wobble=0.05)
+    island(outline)
     c = board_to_world(cx, cy, 0.0)
     wrx, wry = rx / PX, ry / (PX * lib.COSB)
     # water surface (slightly above the grass so it covers it) and a sunken bank ring
     ring = [(1.0, 0.03), (0.0, 0.03)]
     v, f = lib.lathe([(r, z) for (r, z) in ring], 96, (c.x, c.y, 0.0), cap_bottom=False, cap_top=False)
     v = [(c.x + (vx - c.x) * wrx, c.y + (vy - c.y) * wry, vz) for (vx, vy, vz) in v]
-    lib.mesh_object('water', v, f, smooth=False, material=pond_water_material())
+    lib.mesh_object('water', v, f, smooth=False, material=pond_water_rich(c.x, c.y, wrx, wry))
     bank = lib.MeshBuilder()
     v, f = lib.lathe([(1.07, 0.04), (1.02, 0.05), (1.0, 0.035)], 96, (c.x, c.y, 0.0), cap_bottom=False, cap_top=False)
     v = [(c.x + (vx - c.x) * wrx, c.y + (vy - c.y) * wry, vz) for (vx, vy, vz) in v]
     bank.add(v, f, col('#b49a78'))
     bank.build('bank', props.mats()['stone'])
     rnd = random.Random(14)
-    rocks, reeds, leaves = lib.MeshBuilder(), lib.MeshBuilder(), lib.MeshBuilder()
+    rocks, reeds = lib.MeshBuilder(), lib.MeshBuilder()
     for k in range(70):
         a = k / 70 * math.tau + rnd.uniform(-0.03, 0.03)
         bx, by = cx + math.cos(a) * rx * rnd.uniform(1.0, 1.06), cy + math.sin(a) * ry * rnd.uniform(1.0, 1.08)
         if math.sin(a) > 0.5 and k % 3:  # keep the near shore open
             continue
         terrain.rock(rocks, bx, by, rnd, rnd.uniform(0.35, 0.8))
+    # pebble beaches just outside the bank, in a few coves
+    for a0 in (0.3, 2.6, 3.9, 5.5):
+        for _ in range(26):
+            a = a0 + rnd.uniform(-0.2, 0.2)
+            k = rnd.uniform(1.06, 1.14)
+            terrain.rock(rocks, cx + math.cos(a) * rx * k, cy + math.sin(a) * ry * k, rnd, rnd.uniform(0.15, 0.3), moss=False)
     # reeds and cattails in clumps on the far and side shores
-    for k in range(22):
-        a = rnd.uniform(math.pi * 1.05, math.pi * 1.95) if k < 16 else rnd.choice([rnd.uniform(-0.3, 0.3), rnd.uniform(math.pi - 0.3, math.pi + 0.3)])
+    for k in range(34):
+        a = rnd.uniform(math.pi * 1.05, math.pi * 1.95) if k < 24 else rnd.choice([rnd.uniform(-0.35, 0.35), rnd.uniform(math.pi - 0.35, math.pi + 0.35)])
         bx, by = cx + math.cos(a) * rx * 1.03, cy + math.sin(a) * ry * 1.05
+        if abs(bx - 610) < 70 and by < 360:  # leave the cascade clear
+            continue
         w = board_to_world(bx, by, 0.02)
-        for _j in range(rnd.randint(5, 9)):
+        for _j in range(rnd.randint(5, 10)):
             ox, oy = rnd.uniform(-0.25, 0.25), rnd.uniform(-0.15, 0.15)
             hgt = rnd.uniform(0.45, 0.95)
             lean = (rnd.uniform(-0.12, 0.12), rnd.uniform(-0.08, 0.08))
             v, f = lib.tube([(w.x + ox, w.y + oy, 0.0), (w.x + ox + lean[0], w.y + oy + lean[1], hgt)], 0.018, 5)
-            reeds.add(v, f, col(rnd.choice(['#5f9e3a', '#6fb04a', '#4f8a30'])))
+            reeds.add(v, f, col(rnd.choice(['#5f9e3a', '#6fb04a', '#4f8a30', '#7cbc52'])))
             if rnd.random() < 0.4:
                 v, f = lib.cylinder((w.x + ox + lean[0], w.y + oy + lean[1], hgt - 0.12), 0.035, 0.035, 0.16, 8)
                 reeds.add(v, f, col('#7a4a26'))
     # lotus flowers on the water near the shore (decor only, outside the play pads)
     petals = lib.MeshBuilder()
-    for k in range(9):
+    for k in range(12):
         a = rnd.uniform(0, math.tau)
-        bx, by = cx + math.cos(a) * rx * 0.93, cy + math.sin(a) * ry * 0.9
+        bx, by = cx + math.cos(a) * rx * 0.94, cy + math.sin(a) * ry * 0.91
         w = board_to_world(bx, by, 0.04)
         for j in range(8):
             pa = j / 8 * math.tau
@@ -376,10 +532,14 @@ def pond():
             petals.add(v, f, col('#ffc2dd' if j % 2 else '#ff9ecb'))
         v, f = lib.blob((w.x, w.y, 0.1), 0.04, rough=0.0, subdiv=1)
         petals.add(v, f, col('#ffd166'))
+    foam = lib.MeshBuilder()
+    # a mossy outcrop on the far-left shore with a cascade tumbling into the pond
+    waterfall_outcrop(rocks, foam, (575, 262), (606, 326), rnd)
     rocks.build('rocks', props.mats()['stone'])
     reeds.build('reeds', lib.attr_mat('reed', rough=0.7))
     petals.build('lotus', lib.attr_mat('petal', rough=0.5, sheen=0.3))
-    # a little jetty on the far shore and lanterns on posts
+    foam.build('foam', lib.attr_mat('foam', rough=0.6))
+    # a little jetty on the far shore
     wood = lib.MeshBuilder()
     jx, jy = 960, cy - ry - 30
     for k in range(7):
@@ -391,10 +551,20 @@ def pond():
         v, f = lib.cylinder((w.x, w.y, -0.2), 0.06, 0.06, 0.45, 8)
         wood.add(v, f, col('#6e4a2c'))
     wood.build('jetty', props.mats()['wood'])
-    for (x, y) in [(360, 300), (700, 262), (1220, 262), (1560, 300), (170, 640), (1750, 640)]:
+    for (x, y) in [(360, 300), (1220, 262), (1560, 300)]:
         props.lantern(x, y, 1.15)
-    greenery([(90, 300, 1.15), (1830, 300, 1.15), (80, 960, 1.05), (1840, 960, 1.05), (520, 230, 0.9), (1400, 230, 0.9)],
-             [(300, 1030, 1.1), (1620, 1030, 1.1), (960, 1060, 1.0), (140, 520, 0.9), (1780, 520, 0.9), (700, 1050, 0.9), (1220, 1050, 0.9)])
+    for (x, y) in [(170, 640), (1750, 640), (820, 250), (1100, 250)]:
+        dress.stone_lantern(x, y, 1.0, name=f'stone_lantern_{x}')
+    greenery([(80, 960, 1.05), (1840, 960, 1.05), (1400, 230, 0.9)],
+             [(300, 1030, 1.1), (1620, 1030, 1.1), (960, 1060, 1.0), (140, 520, 0.9), (1780, 520, 0.9), (700, 1050, 0.9), (1220, 1050, 0.9), (440, 250, 0.8)],
+             willows=[(90, 300, 1.15), (1830, 300, 1.15)])
+    dress.string_lights([(360 / PX + 0.26, -300 / (PX * lib.COSB), 1.47), (5.75, -242 / (PX * lib.COSB), 1.5)], sag=0.25, bulbs=8, name='lights_l')
+    dress.string_lights([(12.46, -262 / (PX * lib.COSB), 1.47), (15.86, -300 / (PX * lib.COSB), 1.47)], sag=0.25, bulbs=8, name='lights_r')
+    keep = dress.Keep().ell(cx, cy, rx * 1.1, ry * 1.12).ell(575, 250, 110, 60).ell(960, 250, 150, 40)
+    for (x, y) in [(90, 300), (1830, 300), (80, 960), (1840, 960), (1400, 230), (170, 640), (1750, 640)]:
+        keep.ell(x, y, 70, 32)
+    scatter(outline, keep, random.Random(141), tufts=2600, flowers=40, pebbles=20)
+    haze(cam, 230, 60, amount=0.16, skip=('pondwater_rich',))
     path = os.path.join(OUT, 'pond.png')
     lib.render_to(path)
     publish(path, 'pond')
@@ -415,9 +585,13 @@ def relay_texture(path, region, squash):
     dirt = np.array([196, 156, 108], np.float32)[None, None, :] * (0.86 + 0.2 * n1[..., None]) * (0.94 + 0.08 * n2[..., None])
     yy = np.arange(h, dtype=np.float32)[:, None] + y0
     lane_mask = np.zeros((h, w), np.float32)
+    centre = np.zeros((h, w), np.float32)
     for ly in LANES:
         d = np.abs(yy - ly)
         lane_mask = np.maximum(lane_mask, np.clip((58 - d) / 6, 0, 1).repeat(w, axis=1))
+        centre = np.maximum(centre, np.clip(1 - d / 34, 0, 1).repeat(w, axis=1))
+    # the racing line down the middle of each lane is packed lighter by feet
+    dirt = dirt * (1 - 0.1 * centre[..., None]) + np.array([220, 186, 140], np.float32) * 0.1 * centre[..., None]
     arr = grass * (1 - lane_mask[..., None]) + dirt * lane_mask[..., None]
     im = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
     d = ImageDraw.Draw(im)
@@ -429,6 +603,14 @@ def relay_texture(path, region, squash):
             sy = cy + rnd.uniform(-44, 44)
             r = rnd.uniform(1.5, 3.2)
             d.ellipse([sx - r, sy - r * squash, sx + r, sy + r * squash], fill=rnd.choice([(160, 124, 86), (214, 184, 140), (140, 110, 80)]))
+        for _ in range(70):  # little boot prints along the racing line
+            sx = rnd.uniform(0, w)
+            sy = cy + rnd.gauss(0, 12)
+            d.ellipse([sx - 5, sy - 2.2, sx + 5, sy + 2.2], fill=(170, 132, 94))
+        # faded painted chevrons pointing down the course, just after the start and before the goal
+        for gx in (LANE_X[0] - x0 + 110, LANE_X[0] - x0 + 160, LANE_X[1] - x0 - 160, LANE_X[1] - x0 - 110):
+            pts = [(gx - 14, cy - 26), (gx + 12, cy), (gx - 14, cy + 26), (gx - 26, cy + 26), (gx, cy), (gx - 26, cy - 26)]
+            d.polygon(pts, fill=(216, 190, 150))
         # lane edge stones
         for sx in range(0, w, 34):
             for sgn in (-1, 1):
@@ -446,16 +628,41 @@ def relay_texture(path, region, squash):
     im.save(path)
 
 
+def relic_shrine(bx, by, s=1.0):
+    """The goal's relic shrine: stepped stone plinth, a column and a big glowing crystal in a gold crown."""
+    P = props.Prop('shrine')
+    p = board_to_world(bx, by, 0.0)
+    x, y = p.x, p.y
+    v, f = lib.lathe([(0.62 * s, 0.0), (0.62 * s, 0.14 * s), (0.5 * s, 0.14 * s), (0.5 * s, 0.26 * s), (0.36 * s, 0.26 * s), (0.28 * s, 0.34 * s),
+                      (0.26 * s, 0.98 * s), (0.34 * s, 1.06 * s), (0.34 * s, 1.14 * s), (0.0, 1.14 * s)], 16, (x, y, 0))
+    P.b['stone'].add(v, f, col('#efe5d8'))
+    for k in range(6):
+        a = k / 6 * math.tau
+        v, f = lib.box((x + math.cos(a) * 0.27 * s, y + math.sin(a) * 0.27 * s, 0.66 * s), (0.05 * s, 0.05 * s, 0.5 * s), rot_z=a)
+        P.b['glow'].add(v, f, col('#5ce1ff'))
+    for k in range(8):
+        a = k / 8 * math.tau
+        v, f = lib.prism((x + math.cos(a) * 0.3 * s, y + math.sin(a) * 0.3 * s, 1.12 * s), 0.05 * s, 0.22 * s, tilt=(math.sin(a) * 0.5, math.cos(a) * 0.5))
+        P.b['metal'].add(v, f, col('#f2c14e'))
+    v, f = lib.prism((x, y, 1.12 * s), 0.2 * s, 0.95 * s, sides=6, tip=0.35, twist=0.3)
+    P.b['crystal'].add(v, f, col('#8ff0ff'))
+    for k in range(3):
+        a = k / 3 * math.tau + 0.4
+        v, f = lib.prism((x + math.cos(a) * 0.14 * s, y + math.sin(a) * 0.14 * s, 1.1 * s), 0.08 * s, 0.45 * s, tilt=(math.sin(a) * 0.4, math.cos(a) * 0.4))
+        P.b['crystal'].add(v, f, col('#5ce1ff'))
+    return P.build()
+
+
 def relay():
-    start(45, sun_elev=50, sun_az=-35)
+    cam = start(45, sun_elev=50, sun_az=-35)
     squash = lib.COSB
     region = (60, 350, 1860, 930)
     tex = os.path.join(OUT, 'relay_floor.png')
     relay_texture(tex, region, squash)
     slab(region, 'course', ground_image_material('course', tex, region, rough=0.8, bump=0.25), z=0.06, side='#c9bba5')
     rnd = random.Random(22)
-    leaves = lib.MeshBuilder()
-    # low clipped hedges between lanes (kept low so they never hide runners)
+    leaves, blossoms = lib.MeshBuilder(), lib.MeshBuilder()
+    # low clipped hedges between lanes (kept low so they never hide runners), dotted with blossom
     for hy in [(LANES[i] + LANES[i + 1]) / 2 for i in range(3)]:
         a = board_to_world(region[0] + 30, hy, 0.0)
         b = board_to_world(region[2] - 30, hy, 0.0)
@@ -465,7 +672,12 @@ def relay():
             wp = a + (b - a) * t
             v, f = lib.blob((wp.x, wp.y, 0.16), 0.2, squash=(1.3, 0.8, 0.7), rough=0.3, subdiv=2, seed=k)
             leaves.add(v, f, col(rnd.choice(['#4f9a3a', '#5aa944', '#468c33'])))
+            for _ in range(3):
+                q = (wp.x + rnd.uniform(-0.2, 0.2), wp.y + rnd.uniform(-0.1, 0.1), 0.27 + rnd.uniform(-0.02, 0.03))
+                bv, bf = lib.blob(q, 0.03, rough=0.0, subdiv=1)
+                blossoms.add(bv, bf, col(rnd.choice(['#ffffff', '#ffd6e8', '#fff3a8'])))
     leaves.build('hedges', lib.attr_mat('leaf', rough=0.8, ao=0.5))
+    blossoms.build('hedge_blossom', lib.attr_mat('blossom', rough=0.55))
     posts, rails = lib.MeshBuilder(), lib.MeshBuilder()
     fence_run(posts, rails, region[0], region[1], region[2], region[1], 0.45, z0=0.06)
     fence_run(posts, rails, region[0], region[3], region[2], region[3], 0.12, z0=0.06)
@@ -485,13 +697,31 @@ def relay():
         metal.add(v, f, col('#e0a93f'))
     metal.build('pylons', props.mats()['metal'])
     cloth.build('flags', lib.attr_mat('cloth', rough=0.8, sheen=0.4))
-    island(blob_outline(960, 640, 980, 440, seed=51, lobes=8, wobble=0.05))
+    outline = blob_outline(960, 640, 980, 440, seed=51, lobes=8, wobble=0.05)
+    island(outline)
     for x in (380, 760, 1160, 1540):
         props.lantern(x, 300, 1.15)
     props.bunting(570, 292, 360, 1.0)
     props.bunting(1350, 292, 360, 1.0)
     greenery([(60, 600, 1.0), (1860, 600, 1.0), (70, 990, 1.0), (1850, 990, 1.0), (300, 250, 1.0), (1620, 250, 1.0), (960, 240, 0.9)],
-             [(320, 1030, 1.0), (960, 1040, 1.0), (1600, 1030, 1.0), (40, 400, 0.9), (1880, 400, 0.9)])
+             [(320, 1030, 1.0), (960, 1040, 1.0), (1600, 1030, 1.0), (40, 400, 0.9), (1880, 400, 0.9), (640, 1040, 0.8), (1280, 1040, 0.8)],
+             pine=[(470, 205, 0.85), (1450, 205, 0.85)])
+    # the start tent, the goal's relic shrine, flags in the crowd's gaps, balloons and flower boxes
+    dress.tent(100, 250, s=0.85, c1='#1fa5a0', c2='#fff4dc', name='start_tent')
+    relic_shrine(1808, 300, 1.0)
+    dress.banner_post(1748, 272, '#ff6b5e', s=0.9, shape=None, name='goal_banner_a')
+    dress.banner_post(1868, 272, '#f4b83b', s=0.9, shape=None, name='goal_banner_b')
+    for i, x in enumerate((555, 960, 1372)):
+        dress.flag_pole(x, 330, ['#8e5cd9', '#f4b83b', '#5ce1ff'][i], s=1.0, height=1.8, side=1, name=f'crowd_flag{i}')
+    dress.balloons(212, 318, 1.0, name='balloons_start')
+    dress.balloons(1690, 318, 1.0, colors=['#ff6b5e', '#f4b83b', '#ffffff', '#ff9ecb'], name='balloons_goal')
+    for i, x in enumerate((250, 1670)):
+        dress.planter(x, 962, w=1.4, s=0.9, name=f'planter{i}')
+    keep = dress.Keep().rect(region[0] - 12, region[1] - 14, region[2] + 12, region[3] + 16)
+    for (x, y) in [(112, 262), (1808, 300), (300, 250), (1620, 250), (960, 240), (60, 600), (1860, 600), (70, 990), (1850, 990)]:
+        keep.ell(x, y, 80, 34)
+    scatter(outline, keep, random.Random(221), tufts=2400, flowers=36, pebbles=30)
+    haze(cam, region[1], 80, amount=0.16, skip=('course',))
     path = os.path.join(OUT, 'relay.png')
     lib.render_to(path)
     publish(path, 'relay')
@@ -500,10 +730,11 @@ def relay():
 # ------------------------------------------------------------------------------------------
 # Totem Tug: side-view festival clearing
 def totem():
-    start(12, sun_elev=38, sun_az=-40)
+    cam = start(12, sun_elev=38, sun_az=-40)
     rnd = random.Random(31)
     # ground: a wide island whose far edge sits well above the players' line (y 820)
-    island(blob_outline(960, 800, 1150, 250, seed=61, lobes=7, wobble=0.04), extra_h=900)
+    outline = blob_outline(960, 800, 1150, 250, seed=61, lobes=7, wobble=0.04)
+    island(outline, extra_h=900)
     # a creek running away from the camera under the middle of the rope
     water = lib.MeshBuilder()
     pts = []
@@ -529,22 +760,36 @@ def totem():
             w = board_to_world(bx + sgn * (hw - 6), by, 0.035)
             v, f = lib.blob((w.x, w.y, 0.035), 0.12, squash=(1.4, 1.0, 0.25), rough=0.3, subdiv=1, seed=by)
             foam.add(v, f, col('#f4fbff'))
+    for _ in range(40):  # more pebbles along both banks
+        (bx, by, hw) = pts[rnd.randint(0, len(pts) - 1)]
+        sgn = rnd.choice((-1, 1))
+        terrain.rock(rocks, bx + sgn * (hw + rnd.uniform(10, 40)), by + rnd.uniform(-8, 8), rnd, rnd.uniform(0.15, 0.32), moss=False)
     rocks.build('rocks', props.mats()['stone'])
     foam.build('foam', lib.attr_mat('foam', rough=0.6))
-    flowers, fl_leaves, tufts = lib.MeshBuilder(), lib.MeshBuilder(), lib.MeshBuilder()
-    for _ in range(60):
-        fx, fy = rnd.uniform(80, 1840), rnd.uniform(860, 1060)
+    flowers, fl_leaves, tufts, shrooms = lib.MeshBuilder(), lib.MeshBuilder(), lib.MeshBuilder(), lib.MeshBuilder()
+    for _ in range(170):
+        fx, fy = rnd.uniform(80, 1840), rnd.uniform(860, 1070)
         if abs(fx - 960) < 110:
             continue
         terrain.flower_bed(flowers, fl_leaves, fx, fy, rnd) if rnd.random() < 0.35 else terrain.grass_tuft(tufts, fx, fy, rnd, rnd.uniform(1.0, 1.6))
-    for _ in range(40):
-        fx, fy = rnd.uniform(80, 1840), rnd.uniform(620, 790)
+    for _ in range(2000):
+        fx, fy = rnd.uniform(60, 1860), rnd.uniform(826, 1075)
+        if abs(fx - 960) < 95:
+            continue
+        terrain.grass_tuft(tufts, fx, fy, rnd, rnd.uniform(0.9, 1.6))
+    for (fx, fy, s_) in [(150, 905, 0.9), (330, 960, 0.8), (1590, 960, 0.8), (1770, 905, 0.9), (480, 1010, 0.7), (1440, 1010, 0.7)]:
+        terrain.bush(fl_leaves, fx, fy, rnd, s_, berries=flowers)
+    for _ in range(420):
+        fx, fy = rnd.uniform(80, 1840), rnd.uniform(600, 815)
         if abs(fx - 960) < 90:
             continue
-        terrain.grass_tuft(tufts, fx, fy, rnd, rnd.uniform(0.9, 1.3))
+        terrain.grass_tuft(tufts, fx, fy, rnd, rnd.uniform(0.8, 1.3))
+    for (fx, fy) in [(240, 1000), (640, 1040), (1290, 1030), (1700, 990), (470, 930), (1480, 940)]:
+        terrain.mushroom_cluster(shrooms, fx, fy, rnd)
     flowers.build('field_flowers', lib.attr_mat('flower', rough=0.55, subsurface=0.25))
     fl_leaves.build('field_leaves', lib.attr_mat('leaf', rough=0.78, ao=0.5))
     tufts.build('field_grass', lib.attr_mat('grass', rough=0.8, sheen=0.15, ao=0.3))
+    shrooms.build('shrooms', lib.attr_mat('shroom', rough=0.6))
     # team posts with banners at the win lines (a little behind the players' line)
     metal, cloth = lib.MeshBuilder(), lib.MeshBuilder()
     for gx, colr in [(540, '#22c3d6'), (1380, '#ff6b5e')]:
@@ -581,13 +826,25 @@ def totem():
         props.lantern(x, 680, 1.2)
     props.bunting(600, 640, 420, 1.0)
     props.bunting(1320, 640, 420, 1.0)
-    greenery([(90, 600, 1.2), (480, 585, 1.0), (1440, 585, 1.0), (1830, 600, 1.2)],
+    greenery([(90, 600, 1.2), (1830, 600, 1.2), (640, 575, 0.95), (1280, 575, 0.95), (230, 570, 0.9), (1690, 570, 0.9)],
              [(60, 1000, 1.2), (400, 1050, 1.1), (1520, 1050, 1.1), (1860, 1000, 1.2), (700, 1060, 0.9), (1220, 1060, 0.9)],
-             pine=[(820, 580, 1.0), (1100, 580, 1.0)])
+             pine=[(820, 580, 1.0), (1100, 580, 1.0), (380, 565, 0.85), (1540, 565, 0.85)])
+    # each team's end of the clearing: a tent and flags in its colour (TIDE cyan left, EMBER coral right)
+    dress.tent(470, 600, s=1.05, c1='#22c3d6', c2='#fff4dc', name='tent_tide')
+    dress.tent(1450, 600, s=1.05, c1='#ff6b5e', c2='#fff4dc', name='tent_ember')
+    for i, (x, colr) in enumerate([(128, '#22c3d6'), (402, '#22c3d6'), (1518, '#ff6b5e'), (1792, '#ff6b5e')]):
+        dress.flag_pole(x, 712, colr, s=1.0, height=2.1, side=1, name=f'team_flag{i}')
+    # (the centre stays clear: the game draws the beat ring round the totem's head there)
+    dress.balloons(388, 668, 1.0, colors=['#22c3d6', '#fff4dc', '#5ce1ff'], name='balloons_tide')
+    dress.balloons(1532, 668, 1.0, colors=['#ff6b5e', '#fff4dc', '#f4b83b'], name='balloons_ember')
+    dress.string_lights([(1.7 + 0.31, -680 / (PX * lib.COSB), 1.78), (6.9, -640 / (PX * lib.COSB), 2.2)], sag=0.35, bulbs=9, name='lights_l')
+    dress.string_lights([(13.3, -640 / (PX * lib.COSB), 2.2), (17.5 + 0.31, -680 / (PX * lib.COSB), 1.78)], sag=0.35, bulbs=9, name='lights_r')
+    # a little plank footbridge over the creek in the foreground
+    dress.footbridge(893, 965, 1060, 965, width=0.9, rise=0.3)
+    haze(cam, 700, 560, amount=0.22, skip=('pondwater',))
     path = os.path.join(OUT, 'totem.png')
     lib.render_to(path)
     publish(path, 'totem')
-
 
 # ------------------------------------------------------------------------------------------
 # Tumble Tower: vertically tileable tower wall (level camera)
@@ -610,11 +867,61 @@ def level_camera(cx, cz, w_units, h_px, scale):
     return ob
 
 
+def tower_stone_material(period: float):
+    """Tower masonry: two-tone bricks with random darker ones, rain streaks, moss creeping up from
+    each ledge and mortar shading. Every pattern repeats exactly every `period` units up the wall
+    (noise is sampled on a loop), so the tile stays seamless."""
+    m = lib.NT('tower_stone2')
+    pos = m.position()
+    sx, sy, sz = m.sep(pos)
+    u = m.math('ADD', sx, m.math('MULTIPLY', sy, 0.8))  # across the wall, as props.stone_material
+    comb = m.node('ShaderNodeCombineXYZ')
+    m.link(u, comb.inputs['X'])
+    m.link(sz, comb.inputs['Y'])
+    br = m.node('ShaderNodeTexBrick')
+    br.inputs['Scale'].default_value = 1.25  # courses 0.2 units apart: 54 to the period
+    br.inputs['Mortar Size'].default_value = 0.025
+    br.inputs['Color1'].default_value = col('#fff6ea')
+    br.inputs['Color2'].default_value = col('#e4d8c4')
+    br.inputs['Mortar'].default_value = col('#958676')
+    m.link(comb.outputs['Vector'], br.inputs['Vector'])
+    br2 = m.node('ShaderNodeTexBrick')  # a second pass picks out random darker, older bricks
+    br2.inputs['Scale'].default_value = 1.25
+    br2.inputs['Mortar Size'].default_value = 0.0
+    br2.inputs['Bias'].default_value = 0.72
+    br2.inputs['Color1'].default_value = col('#ffffff')
+    br2.inputs['Color2'].default_value = col('#d6c6b2')  # subtle: brick hashes don't repeat, the seam blend softens them
+    m.link(comb.outputs['Vector'], br2.inputs['Vector'])
+    # looped coordinates for seamless noise: (u, cos, sin) of the height around the period
+    th = m.math('MULTIPLY', sz, math.tau / period)
+    rr = period / math.tau
+    loop = m.node('ShaderNodeCombineXYZ')
+    m.link(u, loop.inputs['X'])
+    m.link(m.math('MULTIPLY', m.math('COSINE', th), rr), loop.inputs['Y'])
+    m.link(m.math('MULTIPLY', m.math('SINE', th), rr), loop.inputs['Z'])
+    lv = loop.outputs['Vector']
+    c = m.mult(br.outputs['Color'], br2.outputs['Color'])
+    n = m.noise(3.0, 4, 0.6, lv)
+    c = m.mult(c, m.mix(n.outputs['Fac'], col('#d6cbbd'), col('#ffffff')))
+    streak_v = m.node('ShaderNodeMapping')
+    streak_v.inputs['Scale'].default_value = (9.0, 0.7, 0.7)
+    m.link(lv, streak_v.inputs['Vector'])
+    st = m.noise(1.0, 3, 0.55, streak_v.outputs['Vector'])
+    c = m.mult(c, m.mix(m.maprange(st.outputs['Fac'], 0.6, 0.78), col('#ffffff'), col('#cdc3b6')))
+    # moss just above each ledge band (bands every half period)
+    frac = m.math('FRACT', m.math('DIVIDE', sz, period / 2))
+    moss = m.math('MULTIPLY', m.maprange(frac, 0.14, 0.02), m.maprange(m.noise(1.6, 3, 0.6, lv).outputs['Fac'], 0.42, 0.6))
+    c = m.mix(m.math('MULTIPLY', moss, 0.75), c, col('#6f9b45'))
+    c = m.mult(c, m.mix(m.ao(0.5, 8), col('#6d6272'), col('#ffffff')))
+    m.bsdf(c, 0.82, normal=m.bump(br.outputs['Fac'], 0.3, 0.02))
+    return m.mat
+
+
 def tower():
-    lib.reset(12 if A.preview else 36)
-    props._MATS.clear()
-    lib.world_light(0.9)
-    lib.sun(energy=3.2, elevation=35, azimuth=-50, angle=3.0)
+    lib.reset(12 if A.preview else 28)
+    dress.threads()
+    dress.reset_mats()
+    dress.festival_light(key=3.2, elev=35, az=-50, fill=0.9, angle=3.0)
     scale = 0.5 if A.preview else 1.0
     M = 140  # seam blend margin (px)
     H = SH + 2 * M
@@ -625,46 +932,143 @@ def tower():
     stone = lib.MeshBuilder()
     v, f = lib.cylinder((9.6, 0.0, bot), R, R, top - bot, 96, cap=False)
     stone.add(v, f, col('#e8dcc8'))
-    stone.build('tower', props.stone_material('tower_stone', 1.25))
+    stone.build('tower', tower_stone_material(SH / PX))
     # ledge bands every half period
     trim = lib.MeshBuilder()
     for zb in [-SH / 2 / PX, 0.0, SH / 2 / PX]:
         v, f = lib.lathe([(R + 0.02, zb - 0.1), (R + 0.16, zb - 0.06), (R + 0.16, zb + 0.06), (R + 0.02, zb + 0.1)], 96, (9.6, 0.0, 0.0), cap_bottom=False, cap_top=False)
         trim.add(v, f, col('#d4c4aa'))
     trim.build('trim', props.mats()['stone_big'])
-    # windows (arched, glowing) and ivy, kept away from the seam band so tiling stays clean
-    glow, wood, leaves = lib.MeshBuilder(), lib.MeshBuilder(), lib.MeshBuilder()
+    # Decoration stays within z -5.4..4.0 (the tile below the seam band) or repeats exactly one period
+    # apart, so tiling stays clean; nothing sticks out like a ledge a climber might try to land on.
+    glow, wood, leaves, paint, metal, blossom = (lib.MeshBuilder() for _ in range(6))
     rnd = random.Random(71)
-    wins = [(-3.2, 2.7), (2.4, 2.9), (-0.4, 0.9 - 0.2), (3.9, -1.3), (-3.9, -1.6), (0.9, -3.1)]
-    for (ax, az) in wins:
+
+    def on_wall(ax, out=0.0):
+        """World (x, y) on the drum's face at `ax` across from the centre (plus `out` in front)."""
         ang = math.asin(max(-0.95, min(0.95, ax / R)))
-        yy = -math.cos(ang) * R
-        wx = 9.6 + ax
-        for (hw, hh, cc, dy) in [(0.46, 1.25, '#4a3326', 0.0), (0.36, 1.05, '#ffd27a', -0.02)]:
-            pts = [(wx - hw, az - hh / 2), (wx + hw, az - hh / 2), (wx + hw, az + hh / 2 - hw)]
-            for k in range(1, 9):
-                t = k / 9 * math.pi
-                pts.append((wx + math.cos(t) * hw, az + hh / 2 - hw + math.sin(t) * hw))
-            pts.append((wx - hw, az + hh / 2 - hw))
-            v = [(px, yy - 0.05 + dy, pz) for (px, pz) in pts]
-            (glow if cc == '#ffd27a' else wood).add(v, [tuple(range(len(v) - 1, -1, -1))], col(cc))
+        return 9.6 + ax, -math.cos(ang) * (R + out)
+
+    def arch(wx, yy, az, hw, hh):
+        pts = [(wx - hw, az - hh / 2), (wx + hw, az - hh / 2), (wx + hw, az + hh / 2 - hw)]
+        for k in range(1, 9):
+            t = k / 9 * math.pi
+            pts.append((wx + math.cos(t) * hw, az + hh / 2 - hw + math.sin(t) * hw))
+        pts.append((wx - hw, az + hh / 2 - hw))
+        return [(px, yy, pz) for (px, pz) in pts]
+    wins = [(-3.2, 2.7), (2.4, 2.9), (-0.4, 0.9 - 0.2), (3.9, -1.3), (-3.9, -1.6), (0.9, -3.1)]
+    for i, (ax, az) in enumerate(wins):
+        wx, yy = on_wall(ax)
+        v = arch(wx, yy - 0.05, az, 0.46, 1.25)
+        wood.add(v, [tuple(range(len(v) - 1, -1, -1))], col('#4a3326'))
+        v = arch(wx, yy - 0.07, az, 0.36, 1.05)
+        glow.add(v, [tuple(range(len(v) - 1, -1, -1))], col('#ffcf72'))
+        # leaded glazing bars, a keystone and open shutters flat against the wall
+        v, f = lib.box((wx, yy - 0.085, az - 0.05), (0.035, 0.02, 0.98))
+        wood.add(v, f, col('#3a2a20'))
+        v, f = lib.box((wx, yy - 0.085, az - 0.02), (0.72, 0.02, 0.035))
+        wood.add(v, f, col('#3a2a20'))
+        v, f = lib.box((wx, yy - 0.08, az + 0.64), (0.2, 0.06, 0.18))
+        paint.add(v, f, col('#efe2cc'))
+        sh = ['#1fa5a0', '#e8604f', '#8e5cd9'][i % 3]
+        for sgn in (-1, 1):
+            # each shutter sits on the curve of the drum, turned to its tangent
+            axs = ax + sgn * 0.66
+            sxw, syw = on_wall(axs, 0.03)
+            rz = math.asin(max(-0.95, min(0.95, axs / R)))
+            v, f = lib.box((sxw, syw, az - 0.08), (0.34, 0.03, 1.0), rot_z=rz)
+            paint.add(v, f, col(sh))
+            for zz in (-0.35, 0.2):
+                v, f = lib.box((sxw, syw - 0.02, az + zz), (0.3, 0.02, 0.03), rot_z=rz)
+                paint.add(v, f, lib.lerp_col(col(sh), col('#1a1a1a'), 0.35))
         v, f = lib.box((wx, yy - 0.12, az - 0.66), (1.1, 0.25, 0.1))
         wood.add(v, f, col('#8a5a34'))
-    for k in range(9):
-        ax = rnd.uniform(-5.2, 5.2)
-        ang = math.asin(ax / R)
-        yy = -math.cos(ang) * R - 0.04
-        z0 = rnd.uniform(-2.9, 2.6)
-        L = rnd.uniform(1.0, 2.4)
-        z1 = max(-SH / 2 / PX + 0.3, z0 - L)
-        for j in range(int((z0 - z1) / 0.12)):
-            z = z0 - j * 0.12
-            xx = 9.6 + ax + math.sin(z * 3 + k) * 0.12
-            v, f = lib.blob((xx, yy, z), rnd.uniform(0.07, 0.12), squash=(1.0, 0.4, 1.0), rough=0.2, subdiv=1, seed=k * 31 + j)
-            leaves.add(v, f, col(rnd.choice(['#5aa944', '#4f9a3a', '#6fbf52'])))
+    # a round stained-glass window high in the middle of each tile
+    rwx, ryy = on_wall(-0.4)
+    rz = 2.9
+    segs = 12
+    for k in range(segs):
+        a0, a1 = k / segs * math.tau, (k + 1) / segs * math.tau
+        v = [(rwx, ryy - 0.07, rz)] + [(rwx + math.cos(a) * 0.5, ryy - 0.07, rz + math.sin(a) * 0.5) for a in np.linspace(a0, a1, 4)]
+        glow.add(v, [(0, 3, 2, 1), (0, 4, 3)], col(['#5ce1ff', '#ffd27a', '#ff8f7a', '#9f7cf0'][k % 4]))
+    ring = [(rwx + math.cos(t / 40 * math.tau) * 0.55, ryy - 0.09, rz + math.sin(t / 40 * math.tau) * 0.55) for t in range(41)]
+    v, f = lib.tube(ring, 0.07, 8)
+    paint.add(v, f, col('#efe2cc'))
+    for k in range(segs):
+        a = k / segs * math.tau
+        v, f = lib.tube([(rwx + math.cos(a) * 0.1, ryy - 0.09, rz + math.sin(a) * 0.1), (rwx + math.cos(a) * 0.5, ryy - 0.09, rz + math.sin(a) * 0.5)], 0.018, 4)
+        wood.add(v, f, col('#3a2a20'))
+    v, f = lib.blob((rwx, ryy - 0.1, rz), 0.1, squash=(1, 0.4, 1), rough=0.0, subdiv=2)
+    metal.add(v, f, col('#f2c14e'))
+    # long festival banners hanging from the middle ledge band
+    for (ax, c1, c2) in [(-2.1, '#1fa5a0', '#f2c14e'), (2.6, '#e8604f', '#fff4dc')]:
+        wx, yy = on_wall(ax, 0.02)
+        W, top, bot_ = 0.62, -0.14, -2.45
+        dress.cloth_panel(paint, [(-W / 2, top), (W / 2, top), (W / 2, bot_), (0.0, bot_ + 0.3), (-W / 2, bot_)], (wx, yy - 0.03, 0.0), c1, 0.01)
+        dress.cloth_panel(paint, [(-W / 2 + 0.06, top - 0.3), (W / 2 - 0.06, top - 0.3), (W / 2 - 0.06, top - 0.38), (-W / 2 + 0.06, top - 0.38)], (wx, yy - 0.045, 0.0), c2, 0.004)
+        dress.flat_poly(paint, dress.shape_pts('diamond', 0.16), (wx, yy - 0.05, -1.2), c2)
+        v, f = lib.cylinder((0, 0, 0), 0.03, 0.03, W + 0.16, 8)
+        v = lib.transform(v, loc=(wx - W / 2 - 0.08, yy - 0.05, top), rot=(0.0, math.pi / 2, 0.0))
+        metal.add(v, f, col('#e0a93f'))
+    # pennant strings swagged between the windows
+    for (a0, a1, zt, sag) in [(-5.8, -1.0, 1.6, 0.38), (1.2, 5.8, -0.25, 0.3)]:
+        n = 10
+        pts = []
+        for i in range(2 * n + 1):
+            t = i / (2 * n)
+            ax = a0 + (a1 - a0) * t
+            wx, yy = on_wall(ax, 0.05)
+            pts.append((wx, yy, zt - math.sin(t * math.pi) * sag))
+        v, f = lib.tube(pts, 0.01, 4)
+        wood.add(v, f, col('#5e3b22'))
+        for j in range(n):
+            p0, p1 = Vector(pts[2 * j]), Vector(pts[2 * j + 2])
+            mid = (p0 + p1) / 2
+            tri = [tuple(p0), tuple(p1), (mid.x, mid.y - 0.01, mid.z - 0.26)]
+            paint.add(tri, [(0, 1, 2), (2, 1, 0)], col(dress.FESTIVE[j % len(dress.FESTIVE)]))
+    # lanterns on iron brackets under the ledge bands (the top band's pair repeats one period down)
+    for zb, xs in [(0.0, (-4.9, 0.6, 5.2)), (SH / 2 / PX, (-1.9, 3.4)), (-SH / 2 / PX, (-1.9, 3.4))]:
+        for ax in xs:
+            wx, yy = on_wall(ax, 0.1)
+            v, f = lib.box((wx, yy - 0.12, zb - 0.16), (0.04, 0.3, 0.04))
+            metal.add(v, f, col('#3a3a44'))
+            v, f = lib.tube([(wx, yy - 0.26, zb - 0.16), (wx, yy - 0.26, zb - 0.3)], 0.01, 4)
+            metal.add(v, f, col('#3a3a44'))
+            v, f = lib.lathe([(0.03, 0.0), (0.1, 0.06), (0.11, 0.18), (0.08, 0.25), (0.03, 0.28)], 12, (wx, yy - 0.26, zb - 0.6))
+            glow.add(v, f, col('#ffb347'))
+            v, f = lib.lathe([(0.12, 0.27), (0.02, 0.36)], 12, (wx, yy - 0.26, zb - 0.6), cap_bottom=True, cap_top=False)
+            metal.add(v, f, col('#c98a1b'))
+    # ivy (leafier, a few in flower), trailing down from under the bands - never across a window,
+    # the rose window or a banner (x across the wall, z from, z to, half width)
+    clear = [(ax, az - 0.75, az + 0.75, 1.0) for (ax, az) in wins] + [(-0.4, 2.3, 3.5, 0.75), (-2.1, -2.5, -0.1, 0.5), (2.6, -2.5, -0.1, 0.5)]
+
+    def blocked(ax, za, zb):
+        return any(abs(ax - cx) < hw and za < z1_ and zb > z0_ for (cx, z0_, z1_, hw) in clear)
+    for k in range(13):
+        for _try in range(30):
+            ax = rnd.uniform(-5.4, 5.4)
+            z0 = rnd.uniform(-2.9, 2.6) if k < 9 else rnd.choice([-0.15, 3.85])
+            L = rnd.uniform(1.0, 2.6)
+            z1 = max(-SH / 2 / PX + 0.3, z0 - L)
+            if not blocked(ax, z1, z0):
+                break
+        wx, yy = on_wall(ax, 0.0)
+        yy -= 0.04
+        for j in range(int((z0 - z1) / 0.11)):
+            z = z0 - j * 0.11
+            xx = wx + math.sin(z * 3 + k) * 0.12
+            for s_ in (-1, 1):
+                v, f = lib.blob((xx + s_ * rnd.uniform(0.02, 0.09), yy, z + rnd.uniform(-0.03, 0.03)), rnd.uniform(0.06, 0.11), squash=(1.0, 0.4, 1.0), rough=0.2, subdiv=1, seed=k * 31 + j * 2 + s_)
+                leaves.add(v, f, col(rnd.choice(['#5aa944', '#4f9a3a', '#6fbf52', '#3f8a34'])))
+            if rnd.random() < 0.18:
+                v, f = lib.blob((xx, yy - 0.04, z), 0.035, rough=0.0, subdiv=1)
+                blossom.add(v, f, col(rnd.choice(['#ffffff', '#ffd6e8', '#fff3a8'])))
     glow.build('windows', props.mats()['glow'])
     wood.build('frames', props.mats()['wood'])
+    paint.build('tower_paint', props.mats()['paint'])
+    metal.build('tower_metal', props.mats()['metal'])
     leaves.build('ivy', lib.attr_mat('leaf', rough=0.8, ao=0.5))
+    blossom.build('ivy_flowers', lib.attr_mat('ivy_flower', rough=0.55))
     path = os.path.join(OUT, 'tower_raw.png')
     lib.render_to(path)
     im = np.asarray(Image.open(path).convert('RGBA'), np.float32)

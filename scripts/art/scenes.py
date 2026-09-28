@@ -4,7 +4,11 @@
 
 Each scene uses the orthographic projection from lib with a scene-specific camera elevation, so
 its ground plane maps 1:1 onto the game's screen coordinates (layouts line up with gameplay).
-Outputs public/assets/rendered/scene_<name>.webp (transparent; the sky is drawn separately).
+Outputs public/assets/rendered/scene_<name>.webp (transparent; the sky is drawn separately),
+except orbit, which is opaque: its own golden-hour sky (render `sky.py --variant orbit` first) and a
+soft foreground cloud bank are composited around the observatory, whose bloom is baked in here (do not
+run bloom.py on scene_orbit.webp: it would wash out the sun). Then, for orbit:
+    python3 scripts/art/blur_backdrops.py
 """
 from __future__ import annotations
 
@@ -19,6 +23,7 @@ from PIL import Image, ImageDraw, ImageFilter
 
 sys.path.insert(0, os.path.dirname(__file__))
 import lib  # noqa: E402
+import mg_dress as dress  # noqa: E402
 import props  # noqa: E402
 import terrain  # noqa: E402
 from lib import PX, board_to_world, col  # noqa: E402
@@ -533,8 +538,12 @@ def astro_texture(path, size=1400):
 
 def orbit():
     set_view(25)
-    lib.reset(12 if A.preview else 36)
-    lights(48, -30)
+    lib.reset(12 if A.preview else 28)
+    dress.threads()
+    dress.reset_mats()
+    # warm late-afternoon key from the front-left (the direction orbit_arms.py lights the arms with, so
+    # their baked shadows agree) over a cool sky fill
+    dress.festival_light(key=3.4, elev=48, az=-30, fill=0.78, angle=3.0, key_col='#ffe3ba')
     lib.camera_for_region(0, 0, SW, SH, scale=0.5 if A.preview else 1.0)
     tex = os.path.join(OUT, 'astro.png')
     astro_texture(tex)
@@ -586,8 +595,143 @@ def orbit():
         glow.add(gv, gf, col('#5ce1ff'))
     glow.build('platform_lights', props.mats()['glow'])
     orbit_ambience(c)
+    orbit_dressing(c)
+    fg = orbit_foreground()
+    # the observatory itself (the foreground clouds neither show in it nor shadow it)
+    for ob in fg:
+        ob.hide_render = True
+    main = os.path.join(OUT, 'orbit_main.png')
+    lib.render_to(main)
+    # the foreground cloud bank alone, rendered only over the bottom of the frame
+    for ob in bpy.context.scene.objects:
+        if ob.type == 'MESH':
+            ob.hide_render = ob not in fg
+    lib.set_border((0, 800, SW, SH), (0, 0, SW, SH))
+    fgp = os.path.join(OUT, 'orbit_fg.png')
+    lib.render_to(fgp)
+    lib.clear_border()
+    return orbit_compose(main, fgp)
+
+
+def orbit_drum_r(z):
+    """Radius of the drum's outer surface at height z (the platform_rim lathe profile below the band)."""
+    prof = [(ORBIT_R + 0.25, -0.35), (ORBIT_R + 0.1, -0.6), (ORBIT_R - 0.6, -1.4), (ORBIT_R - 1.4, -2.6)]
+    for (r0, z0), (r1, z1) in zip(prof, prof[1:]):
+        if z1 <= z <= z0:
+            return r0 + (r1 - r0) * (z - z0) / (z1 - z0)
+    return prof[-1][0]
+
+
+def orbit_dressing(c):
+    """Richer observatory: warm portholes, a brass steam pipe and a riveted lower ring on the drum;
+    player-colour flags, flower boxes and pennant swags on the spectator balconies, with an armillary
+    sphere and a telescope standing behind the crowd. Nothing touches the platform top or rim, where
+    the arms sweep."""
+    mats = props.mats()
+    metal, glow = lib.MeshBuilder(), lib.MeshBuilder()
+    zp = -1.62
+    for k in range(9):
+        a = math.radians(203 + k * 16.8)
+        r = orbit_drum_r(zp) + 0.04
+        ox, oy = c.x + math.cos(a) * r, c.y + math.sin(a) * r
+        rot = (0.52, 0.0, a + math.pi / 2)  # facing out of the drum, tilted back with its taper
+        v, f = lib.lathe([(0.19, 0.0), (0.0, 0.0)], 18, (0, 0, 0), cap_bottom=False, cap_top=False)
+        v = lib.transform(v, loc=(0.0, 0.0, 0.0), rot=(math.pi / 2, 0.0, 0.0))
+        v = lib.transform(v, loc=(ox, oy, zp), rot=rot)
+        glow.add(v, f, col('#ffc56e'))
+        ring = [(math.cos(t / 18 * math.tau) * 0.22, 0.0, math.sin(t / 18 * math.tau) * 0.22) for t in range(19)]
+        ring = lib.transform(ring, loc=(ox, oy, zp), rot=rot)
+        v, f = lib.tube(ring, 0.045, 6)
+        metal.add(v, f, col('#e0a93f'))
+    zq = -0.98
+    pts = [(c.x + math.cos(math.radians(a)) * (orbit_drum_r(zq) + 0.08), c.y + math.sin(math.radians(a)) * (orbit_drum_r(zq) + 0.08), zq) for a in range(192, 349, 3)]
+    v, f = lib.tube(pts, 0.06, 8)
+    metal.add(v, f, col('#c98a1b'))
+    for q in pts[::7]:
+        v, f = lib.blob(q, 0.1, rough=0.0, subdiv=1)
+        metal.add(v, f, col('#e0a93f'))
+    zr = -2.12
+    rr = orbit_drum_r(zr)
+    v, f = lib.lathe([(rr + 0.02, zr + 0.07), (rr + 0.08, zr + 0.05), (rr + 0.08, zr - 0.05), (rr + 0.02, zr - 0.07)], 96, (c.x, c.y, 0.0), cap_bottom=False, cap_top=False)
+    metal.add(v, f, col('#e0a93f'))
+    for k in range(40):
+        a = k / 40 * math.tau
+        v, f = lib.blob((c.x + math.cos(a) * (rr + 0.1), c.y + math.sin(a) * (rr + 0.1), zr), 0.04, rough=0.0, subdiv=1)
+        metal.add(v, f, col('#f2c14e'))
+    metal.build('drum_metal', mats['metal'])
+    glow.build('drum_glow', mats['glow'])
+    for i, (bx, by) in enumerate(ORBIT_BALCONIES):
+        w = board_to_world(bx, by, 0.0)
+        R = 1.45
+        for j, a in enumerate((math.pi * 0.05, math.pi * 0.95)):
+            fx, fy = w.x + math.cos(a) * R, w.y + math.sin(a) * R
+            k = [0, 2, 1, 3][i * 2 + j]
+            dress.flag_pole(fx * PX, -fy * lib.COSB * PX, dress.PLAYER[k], s=0.8, height=1.5, side=1, shape=dress.SHAPES[k], name=f'balcony_flag{i}{j}', z0=BALCONY_Z + 0.42)
+        for j, a in enumerate((math.pi * 1.22, math.pi * 1.78)):
+            fx, fy = w.x + math.cos(a) * (R - 0.22), w.y + math.sin(a) * (R - 0.22)
+            dress.planter(fx * PX, -fy * lib.COSB * PX, w=0.55, s=0.8, rot=a + math.pi / 2, name=f'balcony_box{i}{j}', z0=BALCONY_Z)
+        la = board_to_world(bx - 105 + 26, by - 40, 1.45)
+        lb = board_to_world(bx + 105 + 26, by - 40, 1.45)
+        dress.pennant_swag(tuple(la), tuple(lb), sag=0.3, n=7, size=0.22, name=f'balcony_swag{i}', offset=i * 2)
+    P = props.Prop('orbit_instruments')
+    wl = board_to_world(ORBIT_BALCONIES[0][0] - 20, ORBIT_BALCONIES[0][1] - 55, 0.0)
+    v, f = lib.cylinder((wl.x, wl.y, BALCONY_Z), 0.05, 0.04, 1.05, 8)
+    P.b['metal'].add(v, f, col('#c98a1b'))
+    ctr = (wl.x, wl.y, BALCONY_Z + 1.4)
+    for rot in [(0.0, 0.0, 0.0), (math.pi / 2, 0.0, 0.0), (0.4, 0.9, 0.0)]:
+        ring = [(math.cos(t / 40 * math.tau) * 0.42, math.sin(t / 40 * math.tau) * 0.42, 0.0) for t in range(41)]
+        v, f = lib.tube(lib.transform(ring, loc=ctr, rot=rot), 0.03, 6)
+        P.b['metal'].add(v, f, col('#e0a93f'))
+    v, f = lib.blob(ctr, 0.14, rough=0.0, subdiv=2)
+    P.b['crystal'].add(v, f, col('#5ce1ff'))
+    wr = board_to_world(ORBIT_BALCONIES[1][0] + 30, ORBIT_BALCONIES[1][1] - 55, 0.0)
+    for (dx, dy) in [(-0.25, 0.1), (0.25, 0.1), (0.0, -0.2)]:
+        v, f = lib.tube([(wr.x + dx, wr.y + dy, BALCONY_Z), (wr.x, wr.y, BALCONY_Z + 0.95)], 0.025, 6)
+        P.b['wood'].add(v, f, col('#5e3b22'))
+    tel_rot = (math.radians(-8), math.radians(58), 0.0)
+    v, f = lib.tube([(0.0, 0.0, 0.0), (0.0, 0.0, 1.35)], lambda t: 0.13 - 0.05 * t, 14)
+    P.b['metal'].add(lib.transform(v, (wr.x - 0.35, wr.y, BALCONY_Z + 0.85), rot=tel_rot), f, col('#e0a93f'))
+    v, f = lib.lathe([(0.15, 0.0), (0.15, 0.1)], 14)
+    P.b['metal'].add(lib.transform(v, (wr.x - 0.35, wr.y, BALCONY_Z + 0.85), rot=tel_rot), f, col('#6b6f7a'))
+    P.build()
+
+
+def orbit_foreground():
+    """A bank of soft clouds across the bottom corners, in front of the drum (world units; about
+    y 900..1080 on screen at this 25 degree view)."""
+    mb = lib.MeshBuilder()
+    for (X, Y, Z, size, seed) in [(0.6, -24.4, 0.25, 1.5, 3), (2.9, -25.3, -0.35, 1.15, 5), (5.3, -26.6, -0.95, 1.0, 7), (18.6, -24.3, 0.3, 1.5, 11),
+                                  (16.3, -25.2, -0.3, 1.2, 13), (13.9, -26.5, -0.9, 1.0, 17), (9.6, -27.8, -1.3, 1.05, 19), (7.4, -27.2, -1.2, 0.8, 23),
+                                  (11.8, -27.3, -1.2, 0.85, 29)]:
+        dress.cloud_puffs(mb, (X, Y, Z), size, puffs=9, flat=0.55, seed=seed)
+    # the same warm-lit, lilac-shadowed look as the sky's cloud sea (sky.py 'orbit')
+    return [mb.build('fg_clouds', dress.cloud_material(shadow='#b4aede', glow='#ffd4ae', warm='#fff1e2', name='fg_cloud'))]
+
+
+def orbit_compose(main_path, fg_path):
+    """Sky (sky.py --variant orbit) + observatory + softly blurred foreground clouds -> one opaque image.
+    The observatory layer gets its baked bloom here, before the sky goes under it (the glow stays on
+    the crystals and lamps as before): blooming the finished image would wash the sun's disc out."""
+    import bloom as bloom_mod  # scripts/art/bloom.py
+    main = bloom_mod.bake_bloom(Image.open(main_path).convert('RGBA'))
+    size = main.size
+    sky_path = os.path.join(lib.ROOT, 'art-out', 'sky', 'sky_orbit.png')
+    if not os.path.exists(sky_path):
+        raise SystemExit('render the sky first: scripts/art/sky.py --variant orbit')
+    out = Image.open(sky_path).convert('RGBA').resize(size, Image.LANCZOS)
+    out.alpha_composite(main)
+    fg = Image.open(fg_path).convert('RGBA')
+    if fg.size != size:  # the border render is cropped to the bottom band
+        full = Image.new('RGBA', size, (0, 0, 0, 0))
+        full.paste(fg, (0, size[1] - fg.size[1]))
+        fg = full
+    # out of focus: a soft blur and a slightly lifted, hazier tone (they sit close to the camera)
+    fg = fg.filter(ImageFilter.GaussianBlur(5.0 * size[0] / SW))
+    a = np.asarray(fg, np.float32)
+    a[..., :3] = a[..., :3] * 0.94 + np.array([255, 248, 238], np.float32) * 0.06
+    out.alpha_composite(Image.fromarray(np.clip(a, 0, 255).astype(np.uint8)))
     path = os.path.join(OUT, 'orbit.png')
-    lib.render_to(path)
+    out.convert('RGB').save(path)
     return path
 
 
@@ -679,7 +823,9 @@ def publish(path, name):
         return
     pub = os.path.join(lib.ROOT, 'public', 'assets', 'rendered')
     os.makedirs(pub, exist_ok=True)
-    Image.open(path).convert('RGBA').save(os.path.join(pub, f'scene_{name}.webp'), 'WEBP', quality=90, method=6)
+    im = Image.open(path)
+    im = im.convert('RGBA') if 'A' in im.getbands() else im.convert('RGB')  # opaque renders (orbit) stay opaque
+    im.save(os.path.join(pub, f'scene_{name}.webp'), 'WEBP', quality=90, method=6)
     print('wrote', os.path.join(pub, f'scene_{name}.webp'))
 
 
