@@ -122,7 +122,9 @@ src/game/
 scripts/
   art/           Blender (bpy) scripts that render the environment art
   build-sprites.mjs, build-placeholders.mjs   sprite atlas / placeholder generation
-  dev/           capture.mjs and drive.mjs: headless screenshot helpers used during development
+  dev/           capture.mjs and drive.mjs: headless screenshot helpers used during development;
+                 record.mjs: frame-stepped gameplay recorder; trailer/: the promo trailer's shot
+                 list, score (music.py), sound-effect renderer and edit (edit.py + edl.json)
 tests/unit, tests/e2e
 public/assets/   atlases, audio, rendered art (WebP) and manifests
 ```
@@ -133,10 +135,10 @@ they are unit-tested directly; scenes only present them.
 ## Art pipeline
 
 All environment art — the board terrain and landmarks, board spaces, skies, minigame arenas,
-title/select/results stages and gameplay sprites — and the four playable heroes are modelled and lit
-in code and rendered with Blender's Cycles renderer, then saved under `public/assets/`. The heroes
-are posed on a small skeleton for every animation and rendered with the board's key light, so they
-share the world's lighting and materials. Nothing needs to be
+title/select/results stages and gameplay sprites — the four playable heroes and the five festival
+NPCs are modelled and lit in code and rendered with Blender's Cycles renderer, then saved under
+`public/assets/`. The characters are posed on a small skeleton for every animation and rendered with
+the board's key light, so they share the world's lighting and materials. Nothing needs to be
 re-rendered to run or build the game; the scripts are only needed to change the art.
 
 Setup (Python 3.11 and the `bpy` wheel, no Blender install needed):

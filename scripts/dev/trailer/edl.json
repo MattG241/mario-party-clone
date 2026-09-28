@@ -654,6 +654,20 @@
   },
   {
    "start": [
+    27,
+    0.25
+   ],
+   "end": [
+    28,
+    0
+   ],
+   "kind": "callout",
+   "text": "WHO WILL SHINE BRIGHTEST?",
+   "cy": 150,
+   "size": 92
+  },
+  {
+   "start": [
     28,
     0
    ],
