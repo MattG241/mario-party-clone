@@ -53,6 +53,8 @@ const BELT_LEN = BELT_END_Y - BELT_TOP_Y;
 const DASH_MS = 190;
 const DASH_CD = 1000;
 const PILE = 4;
+/** After a hit, how long (game ms, beyond the stun) before the player can be hit again. */
+const GUARD_MS = 600;
 const POP_SIZE = 56;
 const WORDS = {
   bleh: { key: 'dd-w-bleh', text: 'BLEH!', size: 44, fill: ['#eaffdc', '#6cc24a'] },
@@ -89,6 +91,8 @@ interface Catcher extends Mover {
   dashT: number;
   dashCd: number;
   stun: number;
+  /** Game ms before this player can be hit again (no chain-stuns: a hit gives a short grace). */
+  guard: number;
   step: number;
   pop?: { h: HudPop; value: number };
   boxDown: boolean;
@@ -276,7 +280,7 @@ export class DonutDashScene extends BaseMinigame {
       pile.push(img);
     }
     const pt = HERO_DATA.points[p.characterId]?.carry;
-    this.catchers.push({ p, c, x, y, vx: 0, vy: 0, colour: p.slot, box, pile, carry: pt ? [pt[0], pt[1]] : [36, -100], dashT: 0, dashCd: 0, stun: 0, step: 0, boxDown: false });
+    this.catchers.push({ p, c, x, y, vx: 0, vy: 0, colour: p.slot, box, pile, carry: pt ? [pt[0], pt[1]] : [36, -100], dashT: 0, dashCd: 0, stun: 0, guard: 0, step: 0, boxDown: false });
   }
 
   protected override bannerY(): number {
@@ -428,6 +432,8 @@ export class DonutDashScene extends BaseMinigame {
     let bestD = Infinity;
     for (const c of this.catchers) {
       if (c.stun > 0 || c.boxDown || !catches(it.pick, c.colour) || !inCatch(c.x, c.y, it.landX, it.landY)) continue;
+      // just hit: a bad one drops past them (they still catch good ones once they're steady)
+      if (c.guard > 0 && isBad(it.pick)) continue;
       const d = dist(c.x, c.y, it.landX, it.landY);
       if (d < bestD) {
         bestD = d;
@@ -492,6 +498,7 @@ export class DonutDashScene extends BaseMinigame {
     c.pop = undefined;
     this.releaseHud(c.p.slot, 9999);
     c.stun = STUN_MS[it.pick.kind];
+    c.guard = c.stun + GUARD_MS;
     c.dashT = 0;
     c.vx *= 0.2;
     c.vy *= 0.2;
@@ -600,6 +607,7 @@ export class DonutDashScene extends BaseMinigame {
     const ctl = c.p.controls;
     const hand = CHARACTERS[c.p.characterId].handling;
     c.dashCd = Math.max(0, c.dashCd - dt);
+    c.guard = Math.max(0, c.guard - dt);
     if (c.stun > 0) {
       c.stun -= dt;
       drift(c, dt, 6);
@@ -635,11 +643,12 @@ export class DonutDashScene extends BaseMinigame {
   }
 
   private shoveOne(hitter: Catcher, other: Catcher): void {
-    if (hitter.dashT <= 0 || other.stun > 0 || other.dashT > 0) return;
+    if (hitter.dashT <= 0 || other.stun > 0 || other.guard > 0 || other.dashT > 0) return;
     const ang = Math.atan2(other.y - hitter.y, other.x - hitter.x);
     other.vx = Math.cos(ang) * 720;
     other.vy = Math.sin(ang) * 520;
     other.stun = 240;
+    other.guard = other.stun + GUARD_MS;
     hitter.dashT = 0;
     hitter.vx *= 0.3;
     hitter.vy *= 0.3;
@@ -659,6 +668,8 @@ export class DonutDashScene extends BaseMinigame {
       c.c.setPosition(c.x, c.y).setDepth(c.y);
       c.c.sprite.y = -bob;
       c.c.sprite.angle = calm || !moving ? 0 : Math.sin(c.step) * 3;
+      // a blink while the post-hit grace lasts
+      c.c.sprite.setAlpha(c.guard > 0 && c.stun <= 0 && !c.boxDown && Math.floor(c.guard / 80) % 2 ? 0.5 : 1);
       if (!c.boxDown) {
         const left = c.c.isFacingLeft;
         const bx = c.x + (left ? -1 : 1) * c.carry[0] * CHAR_SCALE * 0.7;
