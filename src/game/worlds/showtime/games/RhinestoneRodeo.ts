@@ -134,6 +134,7 @@ export class RhinestoneRodeoScene extends BaseMinigame {
   private pops!: WordPops;
   private wild = false;
   private visT = 0;
+  private seatPt = { x: 0, y: 0 };
 
   constructor() {
     super('mg-rhinestone-rodeo');
@@ -326,8 +327,10 @@ export class RhinestoneRodeoScene extends BaseMinigame {
     // Thrown the way the buck went (the opposite of its wind-up).
     const side = -dir;
     const seat = this.seatPoint(r);
-    r.fallFrom = { x: seat.x, y: seat.y + r.hip };
-    r.fallTo = { x: r.x + side * 175, y: PONY_Y + 44 };
+    r.fallFrom.x = seat.x;
+    r.fallFrom.y = seat.y + r.hip;
+    r.fallTo.x = r.x + side * 175;
+    r.fallTo.y = PONY_Y + 44;
     r.c.play('fall', { force: true });
     r.c.face(side < 0);
     r.c.setDepth(705 + r.x * 0.0001);
@@ -426,11 +429,15 @@ export class RhinestoneRodeoScene extends BaseMinigame {
     r.bounce = bounce;
   }
 
+  /** Where a rider's saddle seat is this frame (written into a reused point: called every frame). */
   private seatPoint(r: Rider): { x: number; y: number } {
     const a = Phaser.Math.DegToRad(r.tilt);
     const px = r.x;
     const py = PONY_Y + PIVOT_DY + r.bounce;
-    return { x: px + SEAT.dx * Math.cos(a) - SEAT.dy * Math.sin(a), y: py + SEAT.dx * Math.sin(a) + SEAT.dy * Math.cos(a) };
+    const out = this.seatPt;
+    out.x = px + SEAT.dx * Math.cos(a) - SEAT.dy * Math.sin(a);
+    out.y = py + SEAT.dx * Math.sin(a) + SEAT.dy * Math.cos(a);
+    return out;
   }
 
   /** Keep the player badge over the head whatever the lean. */

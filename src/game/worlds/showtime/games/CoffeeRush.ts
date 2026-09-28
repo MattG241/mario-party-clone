@@ -52,12 +52,14 @@ const BUBBLE_DY = -178;
 /** The espresso machine sprite (mg_cafe.py `machine`): anchored at its base; spout and drip tray from there. */
 const MACHINE_KEY = 'st-espresso';
 const MACHINE_ANCHOR = { x: 0.5, y: 0.9 };
-const SPOUT = { dx: -5, dy: -34 };
+const SPOUT = { dx: -5, dy: -21 };
 const TRAY = { dx: -5, dy: 3 };
 /** The shot glass on the panel: its cavity (from the panel centre). */
 const MUG = { x0: -40, x1: 40, top: -66, bottom: 70 };
 /** The milk swirl: the orbit's radius on the panel. */
 const ORBIT_R = 42;
+/** Corner radii of the shot glass (made once: drawing runs every frame). */
+const GLASS_CORNERS = { tl: 4, tr: 4, bl: 16, br: 16 };
 
 const SPRITES: readonly SpriteFile[] = [[MACHINE_KEY, 'showtime_espresso']];
 
@@ -159,6 +161,8 @@ export class CoffeeRushScene extends BaseMinigame {
   private scratch: Phaser.Types.Math.Vector2Like[] = HEART_PTS.map(() => ({ x: 0, y: 0 }));
   private hearts: Phaser.GameObjects.Image[] = [];
   private visT = 0;
+  /** Reused corner radii for the coffee inside the glass. */
+  private coffeeCorners = { tl: 0, tr: 0, bl: 12, br: 12 };
 
   constructor() {
     super('mg-coffee-rush');
@@ -696,7 +700,7 @@ export class CoffeeRushScene extends BaseMinigame {
     const levelY = (v: number) => y + MUG.bottom - H * v;
     // glass body
     g.fillStyle(0xffffff, 0.08);
-    g.fillRoundedRect(x + MUG.x0 - 6, y + MUG.top - 4, MUG.x1 - MUG.x0 + 12, H + 10, { tl: 4, tr: 4, bl: 16, br: 16 });
+    g.fillRoundedRect(x + MUG.x0 - 6, y + MUG.top - 4, MUG.x1 - MUG.x0 + 12, H + 10, GLASS_CORNERS);
     // the fill line: a gold band (GOOD), its brighter middle (PERFECT) and the line itself
     const t = st.target;
     const pulse = st.state === 'pouring' && st.band > 0 ? 0.5 + 0.5 * Math.sin(this.visT / 60) : 0;
@@ -709,7 +713,9 @@ export class CoffeeRushScene extends BaseMinigame {
     if (lv > 0) {
       const top = levelY(lv);
       g.fillStyle(0x5a3521, 1);
-      g.fillRoundedRect(x + MUG.x0, top, MUG.x1 - MUG.x0, y + MUG.bottom - top, { tl: 0, tr: 0, bl: Math.min(12, (y + MUG.bottom - top) / 2), br: Math.min(12, (y + MUG.bottom - top) / 2) });
+      const r = this.coffeeCorners;
+      r.bl = r.br = Math.min(12, (y + MUG.bottom - top) / 2);
+      g.fillRoundedRect(x + MUG.x0, top, MUG.x1 - MUG.x0, y + MUG.bottom - top, r);
       g.fillStyle(0xc98a4a, 1);
       g.fillRect(x + MUG.x0, top, MUG.x1 - MUG.x0, Math.min(9, y + MUG.bottom - top));
       g.fillStyle(0xe8b87a, 0.9);
@@ -733,7 +739,7 @@ export class CoffeeRushScene extends BaseMinigame {
     }
     // glass outline and handle
     g.lineStyle(5, 0xffffff, 0.92);
-    g.strokeRoundedRect(x + MUG.x0 - 6, y + MUG.top - 4, MUG.x1 - MUG.x0 + 12, H + 10, { tl: 4, tr: 4, bl: 16, br: 16 });
+    g.strokeRoundedRect(x + MUG.x0 - 6, y + MUG.top - 4, MUG.x1 - MUG.x0 + 12, H + 10, GLASS_CORNERS);
     g.lineStyle(7, 0xffffff, 0.85);
     g.beginPath();
     g.arc(x + MUG.x1 + 8, y + 4, 24, -Math.PI / 2.4, Math.PI / 2.4, false);
