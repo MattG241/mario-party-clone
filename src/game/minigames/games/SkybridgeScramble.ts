@@ -4,9 +4,10 @@ import { Character } from '../../characters/Character';
 import { CSS, GAME_WIDTH } from '../../constants';
 import { CHARACTER_ANIMATIONS } from '../../characters/CharacterAnimations';
 import { CHARACTERS } from '../../data/characters';
+import { NPC_ATLAS, npcFrame, type NpcId } from '../../data/npcs';
 import type { VirtualControls } from '../../input/PlayerInput';
 import { addText } from '../../ui/theme';
-import { centerOrigin } from '../../util/spriteUtil';
+import { centerOrigin, standOrigin } from '../../util/spriteUtil';
 import { BaseMinigame, type MgPlayer } from '../BaseMinigame';
 import { drift, separate, steer, type Mover } from '../common';
 import {
@@ -553,6 +554,7 @@ export class SkybridgeScrambleScene extends BaseMinigame {
     if (this.textures.exists(SKY_KEY)) this.add.image(GAME_WIDTH / 2, 540, SKY_KEY).setDisplaySize(GAME_WIDTH * 1.04, 1124).setDepth(-100);
     else this.add.image(0, 0, 'bg-sky').setOrigin(0).setDisplaySize(GAME_WIDTH, 1080).setDepth(-100);
     this.buildClouds();
+    this.buildGrandstands();
     // Soft shadow of the whole platform field on the cloud sea (key light from the front-left).
     this.add.image(GRID_CX + 40, GRID_Y0 + GRID_H + 150, 'fx-shadow').setDisplaySize(GRID_W * 1.15, 300).setAlpha(0.28).setDepth(DEPTH_CLOUD_BELOW + 5);
     const rendered = this.textures.exists(TILE_ART.key);
@@ -592,6 +594,36 @@ export class SkybridgeScrambleScene extends BaseMinigame {
   }
 
   /** Far clouds high in the sky, cloud banks under the platforms, and a front bank at the bottom. */
+  /**
+   * A little flower islet either side of the bridge with festival folk cheering on the players
+   * (behind the platforms, in front of the cloud sea). The islet's grass top is centred at
+   * (135, 191) in the 275x421 render.
+   */
+  private buildGrandstands(): void {
+    const key = 'rendered-islet-2';
+    if (!this.textures.exists(key)) return;
+    const k = 1.1;
+    const cy = 560;
+    const crowds: [NpcId, string][][] = [
+      [['mimi', 'laugh'], ['packsprout', 'cheer'], ['pipper', 'wave']],
+      [['ora', 'cheer'], ['wrench', 'laugh'], ['mimi', 'happy']],
+    ];
+    const depth = DEPTH_CLOUD_BELOW + 12;
+    [150, GAME_WIDTH - 150].forEach((cx, side) => {
+      const flip = side === 1;
+      this.add.image(cx, cy, key).setOrigin(135 / 275, 191 / 421).setScale(k).setFlipX(flip).setDepth(depth);
+      crowds[side].forEach(([id, pose], i) => {
+        const x = cx + (i - 1) * 56;
+        const y = cy + [14, -12, 20][i];
+        const frame = npcFrame(id, pose);
+        const o = standOrigin(NPC_ATLAS, frame);
+        this.add.image(x, y + 2, 'fx-contact').setScale(0.42, 0.13).setAlpha(0.45).setDepth(depth + 0.5);
+        const spr = this.add.sprite(x, y, NPC_ATLAS, frame).setOrigin(o.x, o.y).setScale(0.31).setFlipX(flip).setDepth(depth + 1 + y * 0.001);
+        this.tweens.add({ targets: spr, y: y - 7, duration: 380 + (i % 3) * 90, yoyo: true, repeat: -1, ease: 'Sine.InOut', delay: i * 80 + side * 150 });
+      });
+    });
+  }
+
   private buildClouds(): void {
     const layer = (count: number, depth: number, y0: number, y1: number, scale: [number, number], speed: number, alpha: number, tint: number) => {
       for (let k = 0; k < count; k++) {
