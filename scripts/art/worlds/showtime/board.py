@@ -593,11 +593,20 @@ def wheel_stand(bx, by, s=1.0):
     _box(P, 'paint', (x, y + 0.1 * s, 0.25 * s), (1.2 * s, 0.4 * s, 0.5 * s), '#f2c14e')
     _bulbs_line(P, (x - 0.6 * s, y - 0.12 * s, 0.45 * s), (x + 0.6 * s, y - 0.12 * s, 0.45 * s), 8, colors=('#fff1b8', '#ff5ab4'), r=0.03 * s)
     cp.neon_text(P, 'SPIN!', (x, y - 0.13 * s, 0.24 * s), 0.2 * s, cp.NEON['red'])
-    # pointer at the top of the wheel
-    top = hub + Vector((0.0, 0.0, 0.0)) + wheel_up() * (0.92 * s)
-    tri = [(top.x - 0.1 * s, top.y - 0.08, top.z + 0.2 * s), (top.x + 0.1 * s, top.y - 0.08, top.z + 0.2 * s), (top.x, top.y - 0.08, top.z - 0.08 * s)]
-    P['metal'].add(tri, [(0, 1, 2), (2, 1, 0)], col('#f2c14e'))
-    v, f = lib.blob((top.x, top.y - 0.07, top.z + 0.24 * s), 0.06 * s, rough=0.0, subdiv=1)
+    return P.build()
+
+
+def wheel_pointer(bx, by, s=1.0):
+    """The pointer at the top of the wheel (its own sprite, drawn over the spinning face)."""
+    P = Parts('wheelpointer')
+    c = board_to_world(bx, by, 0.0)
+    x, y = c.x, c.y - 0.3 * s
+    hub = wheel_hub(x, y, s)
+    top = hub + wheel_up() * (0.92 * s)
+    tri = [(top.x - 0.1 * s, top.y - 0.12, top.z + 0.2 * s), (top.x + 0.1 * s, top.y - 0.12, top.z + 0.2 * s), (top.x, top.y - 0.12, top.z - 0.1 * s)]
+    v = tri + [(px_, py_ + 0.04, pz_) for (px_, py_, pz_) in tri]
+    P['metal'].add(v, [(0, 1, 2), (5, 4, 3), (0, 3, 4, 1), (1, 4, 5, 2), (2, 5, 3, 0)], col('#f2c14e'))
+    v, f = lib.blob((top.x, top.y - 0.1, top.z + 0.24 * s), 0.06 * s, rough=0.0, subdiv=1)
     P['neon'].add(v, f, col('#fff1b8'))
     return P.build()
 
@@ -755,6 +764,8 @@ def build_landmarks(b):
             wid = lid.replace('stand', 'face')
             hb = lib.world_to_board(hub)
             built[wid] = (dict(id=wid, kind='sails', x=x, y=y, tex='', hub=[hb[0], hb[1]]), face)
+            pid = lid.replace('stand', 'pointer')
+            built[pid] = (dict(id=pid, kind='pointer', x=x, y=y, tex='', depth_y=y + 8), wheel_pointer(x, y, s))
         elif k == 'gate':
             obs = vip_gate(x, y, s)
         elif k == 'stall':

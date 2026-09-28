@@ -22,10 +22,10 @@ def W(bx, by, z=0.0):
 # Crossings
 DECK_STYLES = {
     'foot': dict(deck='#8d8f9c', rail='#c9ced8', girder='#5a5d6a', lamp='#ffd9a0', glass=True),
-    'iron': dict(deck='#4f4a56', rail='#2e2b33', girder='#39353f', lamp='#ffc27a'),
+    'iron': dict(deck='#7a7384', rail='#3e3a46', girder='#4a4652', lamp='#ffc27a'),
     'girder': dict(deck='#7e7f8c', rail='#b8434a', girder='#b8434a', lamp='#fff0c8', truss=True),
     'web': dict(deck='#9a7a5a', rail='#f4f6ff', girder='#6b5a4a', lamp='#cfe6ff', web=True),
-    'rail': dict(deck='#b8b4ae', rail='#8f96a3', girder='#8a8680', lamp='#9fe8ff', rails=True),
+    'rail': dict(deck='#d6d0c6', rail='#8f96a3', girder='#a09a90', lamp='#9fe8ff', rails=True),
     'neon': dict(deck='#6d5a78', rail='#f4d7ff', girder='#4a3b56', lamp='#ff7ad9', bulbs=True),
     'carpet': dict(deck='#c8243e', rail='#f2c14e', girder='#3b2233', lamp='#fff1b8', carpet=True),
     'boards': dict(deck='#dfe7ee', rail='#f7fbff', girder='#9aa8b8', lamp='#cfe6ff', boards=True),
@@ -191,6 +191,12 @@ def landing(P: Parts, bx, by, style='foot', hw_px=86, hh_px=62, pylon=True):
     ring = [(x, y, ztop + 0.005) for (x, y) in poly] + [poly[0] + (ztop + 0.005,)]
     v, f = lib.tube(ring, 0.025, 5)
     P['metal'].add(v, f, col(S['rail']))
+    lp = (c.x + hw * 0.62, c.y + hh * 0.5)
+    v, f = lib.cylinder((lp[0], lp[1], ztop), 0.02, 0.018, 0.62, 6)
+    P['metal'].add(v, f, col(S['rail']))
+    v, f = lib.blob((lp[0], lp[1], ztop + 0.68), 0.05, rough=0.0, subdiv=1)
+    P['neon'].add(v, f, col(S['lamp']))
+    point_light(lp[0], lp[1] - 0.05, ztop + 0.66, color=S['lamp'], energy=40.0, radius=0.08)
     if pylon:
         if S.get('web'):
             # an old wooden water-tank top: staves round the platform's rim
@@ -703,10 +709,10 @@ def beam_object(name, origin, direction, length, r0, r1, color):
     vm = m.node('ShaderNodeVectorMath', operation='DISTANCE')
     m.link(pos, vm.inputs[0])
     vm.inputs[1].default_value = tuple(origin)
-    fade = m.maprange(vm.outputs['Value'], 0.0, length, 0.55, 0.0)
+    fade = m.maprange(vm.outputs['Value'], 0.0, length, 0.28, 0.0)
     em = m.node('ShaderNodeEmission')
     em.inputs['Color'].default_value = col(color)
-    em.inputs['Strength'].default_value = 1.6
+    em.inputs['Strength'].default_value = 1.2
     tr_ = m.node('ShaderNodeBsdfTransparent')
     mix = m.node('ShaderNodeMixShader')
     m.link(fade, mix.inputs['Fac'])

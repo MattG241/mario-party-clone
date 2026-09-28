@@ -117,7 +117,7 @@ const stampede: BoardEventDef = {
   title: 'RODEO STAMPEDE',
   kind: 'board',
   boards: [BOARD],
-  summary: "The saloon's sparkly rodeo ponies break out of the corral and scatter everyone nearby 1-3 spaces.",
+  summary: "The saloon's sparkly toy rodeo bulls break out of the corral and scatter everyone nearby 1-3 spaces.",
   async run(ctx, p) {
     if (!p) return;
     const { pushBackward, shieldBlocks, teleport } = await flow();
@@ -125,7 +125,7 @@ const stampede: BoardEventDef = {
       ctx,
       this,
       [
-        { npc: 'pipper', pose: 'point', text: "Yee-haw! The saloon's rhinestone rodeo ponies just burst out of the corral!" },
+        { npc: 'pipper', pose: 'point', text: "Yee-haw! The saloon's rhinestone toy bulls just busted out of the rodeo corral!" },
         { npc: 'mimi', pose: 'alert', text: 'Hold onto your hats, everybody nearby is getting scattered!' },
       ],
       { fx: 'wind', focus: p.nodeId },

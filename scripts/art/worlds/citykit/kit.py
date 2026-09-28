@@ -163,20 +163,20 @@ def _tiles(m, pos, scale, c1, c2, mortar, mortar_size=0.03, ratio=1.0):
 # Rooftop / street looks: ground (away from the walkway) and walkway (the route). Colours are sRGB.
 SURFACES = {
     # Hero Heights
-    'roof': dict(ground=('#6a6e7c', '#7c808e'), walk=('#d6cfc1', '#c8c0b1'), walk_mortar='#8e8577', walk_scale=6.0, edge='#454854'),
-    'gothic': dict(ground=('#5c5866', '#6d6876'), walk=('#c4b9ab', '#b2a698'), walk_mortar='#6e6358', walk_scale=4.2, edge='#3c3842', cobble=True),
-    'garden': dict(ground=('#3d7a39', '#58963f'), walk=('#b88a5a', '#a4774b'), walk_mortar='#6b4a2d', walk_scale=7.5, edge='#2f4f2c', grass=True, planks=True),
+    'roof': dict(ground=('#7e8292', '#9296a4'), walk=('#eee4d2', '#e2d6c2'), walk_mortar='#8e8577', walk_scale=6.0, edge='#454854'),
+    'gothic': dict(ground=('#716c7c', '#837d8c'), walk=('#e2d6c4', '#d2c4b0'), walk_mortar='#6e6358', walk_scale=4.2, edge='#3c3842', cobble=True),
+    'garden': dict(ground=('#4a8a42', '#66a64a'), walk=('#d6a672', '#c4955f'), walk_mortar='#6b4a2d', walk_scale=7.5, edge='#2f4f2c', grass=True, planks=True),
     'tech': dict(ground=('#aab5c6', '#c3ccda'), walk=('#eef2f7', '#dfe6ee'), walk_mortar='#8fa0b6', walk_scale=3.0, edge='#6f7d92', seams='#7fe3ff'),
-    'block': dict(ground=('#5d5860', '#6d676f'), walk=('#d9c9b4', '#cbb9a2'), walk_mortar='#8a6f58', walk_scale=6.5, edge='#403a42'),
-    'plaza': dict(ground=('#8d8390', '#a0949f'), walk=('#e6d9c2', '#d8c9ae'), walk_mortar='#9b8a74', walk_scale=5.0, edge='#5d5360'),
-    'neonrow': dict(ground=('#3f3d4c', '#4a4758'), walk=('#dccdbc', '#cdbca8'), walk_mortar='#85766a', walk_scale=6.0, edge='#2c2a36', puddles=True),
+    'block': dict(ground=('#736d76', '#847d86'), walk=('#eddcc4', '#e0cdb2'), walk_mortar='#8a6f58', walk_scale=6.5, edge='#403a42'),
+    'plaza': dict(ground=('#a69aa6', '#b8acb6'), walk=('#f6ead4', '#ecdcc0'), walk_mortar='#9b8a74', walk_scale=5.0, edge='#5d5360'),
+    'neonrow': dict(ground=('#57546a', '#63607a'), walk=('#efdfcc', '#e2d0b8'), walk_mortar='#85766a', walk_scale=6.0, edge='#2c2a36', puddles=True),
     # Showtime Strip
-    'boulevard': dict(ground=('#43404f', '#4f4b5d'), walk=('#ecd9cd', '#e0c9bb'), walk_mortar='#a08578', walk_scale=5.0, edge='#6a4e6a', puddles=True, stars=True),
+    'boulevard': dict(ground=('#5d5870', '#6a6480'), walk=('#fbeade', '#f0dccd'), walk_mortar='#a08578', walk_scale=5.0, edge='#6a4e6a', puddles=True, stars=True),
     'pastel': dict(ground=('#b9a2b5', '#c9b3c4'), walk=('#fbe3ea', '#f3d3de'), walk_mortar='#c49aa9', walk_scale=5.5, edge='#8c6f86'),
-    'checker': dict(ground=('#4a4656', '#565163'), walk=('#f4efe6', '#27242c'), walk_mortar='#8b8589', walk_scale=4.0, edge='#b3363f', checker=True),
+    'checker': dict(ground=('#625d72', '#6e6880'), walk=('#fbf6ec', '#2c2934'), walk_mortar='#8b8589', walk_scale=4.0, edge='#b3363f', checker=True),
     'western': dict(ground=('#b98f80', '#c99f8d'), walk=('#b9824f', '#a67244'), walk_mortar='#6a4526', walk_scale=7.0, edge='#7a4f3f', planks=True),
     'ice': dict(ground=('#dff3ff', '#eef9ff'), walk=('#f5fbff', '#e4f3fc'), walk_mortar='#b9d6e6', walk_scale=2.0, edge='#8fb9d6', ice=True),
-    'marquee': dict(ground=('#5a2a40', '#6b3450'), walk=('#c8243e', '#b01f38'), walk_mortar='#7a1428', walk_scale=3.0, edge='#f2c14e', carpet=True),
+    'marquee': dict(ground=('#7a3a58', '#8a4466'), walk=('#dc2f4a', '#c42843'), walk_mortar='#7a1428', walk_scale=3.0, edge='#f2c14e', carpet=True),
 }
 
 
@@ -370,10 +370,10 @@ def parapet_material(name: str, color: str):
 
 # ------------------------------------------------------------------------------------------
 # Lighting
-def night_lights(sky_strength: float = 0.42, moon: float = 1.35):
+def night_lights(sky_strength: float = 0.8, moon: float = 2.1):
     """Blue-hour night: a violet sky fill, a cool moon key from the upper left (the festival's usual
     light direction, so the characters' shading agrees) and warm city bounce from below."""
-    lib.world_light(sky_strength, zenith='#5a67a8', horizon='#9b7fb6', ground='#4b3a58')
+    lib.world_light(sky_strength, zenith='#6a78bc', horizon='#b894c8', ground='#6a5070')
     lib.sun(energy=moon, elevation=52, azimuth=-35, angle=3.0, color='#c9d4ff')
 
 
@@ -1068,7 +1068,7 @@ def setup_render(samples: int):
         cy.use_light_tree = True
     except Exception:
         pass
-    sc.view_settings.exposure = 0.0
+    sc.view_settings.exposure = 0.35
     return sc
 
 
@@ -1089,6 +1089,7 @@ def add_args(p):
     p.add_argument('--crop', default='')
     p.add_argument('--dry', action='store_true', help='build the whole scene, report, and stop before rendering')
     p.add_argument('--show-props', action='store_true', help='preview: draw the landmarks in the terrain render too')
+    p.add_argument('--skip-props', action='store_true', help='with --export: terrain and tiles only (props in a later --props-only run)')
     return p
 
 
@@ -1110,7 +1111,7 @@ def crossing_openings(b, masks):
     return out
 
 
-def walkway_lamps(P, b, masks, rnd, energy=45.0, every=2, styles=('classic', 'hook'), glow='#ffd08a'):
+def walkway_lamps(P, b, masks, rnd, energy=85.0, every=1, styles=('classic', 'hook'), glow='#ffd08a'):
     """Little street lamps beside the walkways (behind them, never in front)."""
     import cityprops as cp
     for ei, e in enumerate(b.edges):
@@ -1217,7 +1218,7 @@ def city_main(A, b, out_dir, scale, samples, *, deck_style, scatter_block, block
         crisp(terrain_png)
         if A.export:
             export_tiles(terrain_png, b.id, frame[:2], scale)
-    if A.export or A.props_only:
+    if (A.export and not A.skip_props) or A.props_only:
         # props get a taller frame (towers rise above the terrain's top edge)
         pframe = (-120, -760, b.W + 240, b.H + 900)
         lib.camera_for_region(*pframe, scale=scale)

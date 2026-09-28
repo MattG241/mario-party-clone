@@ -40,7 +40,7 @@ DATA = os.path.join(HERE, 'board.json')
 LANDMARKS = [
     dict(id='clocktower', kind='clocktower', x=380, y=1330, s=1.0, fw=118, fd=70, h=700, tex='observatory'),
     dict(id='techspire', kind='crystal_gen', x=2600, y=690, s=1.0, fw=130, fd=70, h=740, tex='crystal-generator'),
-    dict(id='watertower', kind='watertower', x=3470, y=1250, s=1.0, fw=100, fd=62, h=330, tex='windmill'),
+    dict(id='watertower', kind='watertower', x=3470, y=1250, s=1.3, fw=118, fd=70, h=420, tex='windmill'),
     dict(id='billboard', kind='billboard', x=1640, y=1985, s=1.0, fw=160, fd=24, h=260, tex=''),
     dict(id='bandstand', kind='bandstand', x=2080, y=1980, s=1.0, fw=92, fd=56, h=190, tex='', depth_y=1880),
     dict(id='lab', kind='lab', x=2372, y=708, s=1.0, fw=70, fd=44, h=170, tex=''),
@@ -277,24 +277,27 @@ def tech_spire(bx, by, s=1.0):
     P['paint'].add(v, f, WHITE)
     v, f = lib.cylinder((x, y, H + 0.24 * s), 0.34 * s, 0.26 * s, 0.9 * s, 16)
     P['glass'].add(v, f, col('#9fc4e6'))
-    v, f = lib.blob((x, y, H + 0.72 * s), 0.3 * s, rough=0.0, subdiv=3)
-    P['neon'].add(v, f, col('#aef6ff'))
+    v, f = lib.blob((x, y - 0.12 * s, H + 0.72 * s), 0.4 * s, rough=0.0, subdiv=3)
+    P['neon'].add(v, f, col('#b8f8ff'))
     torus = []
     for k in range(33):
         a = k / 32 * math.tau
         torus.append((math.cos(a) * 0.46 * s, math.sin(a) * 0.46 * s, 0.0))
     v, f = lib.tube(facing(torus, (x, y - 0.1 * s, H + 0.72 * s)), 0.05 * s, 8)
     P['metal'].add(v, f, GOLD)
-    v, f = lib.lathe([(0.3 * s, 0.0), (0.12 * s, 0.4 * s), (0.02 * s, 1.6 * s)], 12, (x, y, H + 1.14 * s))
+    v, f = lib.lathe([(0.3 * s, 0.0), (0.12 * s, 0.3 * s), (0.02 * s, 1.0 * s)], 12, (x, y, H + 1.14 * s))
     P['paint'].add(v, f, WHITE)
-    v, f = lib.blob((x, y, H + 2.78 * s), 0.05 * s, rough=0.0, subdiv=1)
+    v, f = lib.blob((x, y, H + 2.18 * s), 0.05 * s, rough=0.0, subdiv=1)
     P['neon'].add(v, f, col('#ff3a3a'))
     # landing pad cantilevered to the right
-    px_, pz_ = x + w1 / 2 + 0.55 * s, H - 0.9 * s
-    v, f = lib.cylinder((px_, y - 0.1 * s, pz_), 0.52 * s, 0.52 * s, 0.1 * s, 24)
-    P['paint'].add(v, f, col('#4a5264'))
-    v, f = lib.box((px_ - 0.45 * s, y - 0.1 * s, pz_ - 0.06 * s), (0.5 * s, 0.3 * s, 0.1 * s))
+    px_, pz_ = x + w1 / 2 + 0.42 * s, H - 0.9 * s
+    v, f = lib.cylinder((px_, y - 0.1 * s, pz_ - 0.12 * s), 0.52 * s, 0.56 * s, 0.22 * s, 24)
+    P['paint'].add(v, f, col('#5a6478'))
+    v, f = lib.box((px_ - 0.42 * s, y - 0.1 * s, pz_ - 0.02 * s), (0.5 * s, 0.4 * s, 0.2 * s))
     P['paint'].add(v, f, WHITE)
+    for dy in (-0.25, 0.1):
+        v, f = lib.tube([(px_ - 0.1 * s, y + dy * s, pz_ - 0.12 * s), (x + w1 / 2 - 0.05 * s, y + dy * s, pz_ - 0.9 * s)], 0.035 * s, 6)
+        P['paint'].add(v, f, WHITE)
     ring = [(px_ + math.cos(k / 24 * math.tau) * 0.44 * s, y - 0.1 * s + math.sin(k / 24 * math.tau) * 0.44 * s, pz_ + 0.105 * s) for k in range(25)]
     v, f = lib.tube(ring, 0.018 * s, 4)
     P['neon'].add(v, f, col('#ffcf4a'))
@@ -436,6 +439,7 @@ def bandstand(bx, by, s=1.0):
         v, f = lib.blob((x + math.cos(a) * 0.9 * s, y + math.sin(a) * 0.9 * s, 1.58 * s), 0.035 * s, rough=0.0, subdiv=1)
         P['neon'].add(v, f, col(['#fff1b8', '#ff9ad2', '#9fe8ff'][k % 3]))
     cp.neon_shape(P, cp.star_pts(0.16 * s, 0.07 * s), (x, y, 2.28 * s), cp.NEON['gold'], r=0.02 * s)
+    kit.point_light(x, y - 0.1 * s, 1.4 * s, color='#ffd9a0', energy=60.0, radius=0.2)
     return P.build()
 
 
