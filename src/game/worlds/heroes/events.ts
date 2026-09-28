@@ -52,7 +52,7 @@ const blackout: BoardEventDef = {
         { npc: 'wrench', pose: 'surprised', text: 'Uh-oh! The Tech Spire core just flickered out. The whole skyline has gone dark!' },
         { npc: 'packsprout', pose: 'surprised', text: "I can't see a thing! I'll wait for you somewhere else. Follow the lights when they come back on!" },
       ],
-      { focus: 'ht2' },
+      { fx: 'drop', focus: 'ht2' },
     );
     // Favours gates far from whoever tripped the breaker.
     const { relocateRelic } = await flow();
