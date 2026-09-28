@@ -418,7 +418,7 @@ def scatter(mask, sd, raise_z, sand, paving, trail, checker, mats):
         if not B.near_node(bx, by, 70):
             festival.bench(Bf, bx, by, yaw, rnd)
     festival.flower_beds(Bf, 2500, 960, 3, 1, rnd)
-    festival.food_cart(Bf, 2560, 2020, ('#ff6f91', '#fff4dc'), rnd)
+    festival.food_cart(Bf, 2120, 2135, ('#ff6f91', '#fff4dc'), rnd)
     fmat = dict(cloth=mats['cloth'], paint=mats['cloth'], wood=mats['wood'], metal=props.mats()['metal'], glow=props.mats()['glow'], flowers=mats['flower'])
     for k, mb in Bf.items():
         mb.build(f'fest_{k}', fmat.get(k, mats['leaf']))
@@ -507,7 +507,21 @@ def boardwalk(mats):
             wood.add(v, f, col('#fbf8f0'))
         v, f = lib.tube([(pa.x, pa.y, 0.28), (pb.x, pb.y, 0.28)], 0.02, 6)
         wood.add(v, f, col('#fbf8f0'))
+    # the Seaside Pier: planks on posts out into the sea, a wider landing and two lamps at its end
+    glow = lib.MeshBuilder()
+    for a, b in [((2545, 2000), (2580, 2140)), ((2580, 2140), (2605, 2255))]:
+        K.jetty(wood, a, b, rnd, width=0.62, z=0.0)
+    end = board_to_world(2608, 2262, 0.0)
+    for k in range(9):
+        v, f = lib.box((end.x - 0.4 + k * 0.1, end.y, -0.02), (0.09, 0.9, 0.05))
+        wood.add(v, f, col(rnd.choice(['#b98a55', '#a87a48', '#c49660'])))
+    for (dx, dy) in [(-0.42, -0.42), (0.42, -0.42), (-0.42, 0.42), (0.42, 0.42)]:
+        v, f = lib.cylinder((end.x + dx, end.y + dy, K.WATER_Z - 0.6), 0.045, 0.045, 0.72, 8)
+        wood.add(v, f, col('#6e4a2c'))
+    for dx in (-80, 80):
+        terrain.lamp_post(wood, glow, 2608 + dx * 0.5, 2240, rnd)
     wood.build('boardwalk', mats['wood'])
+    glow.build('pier_lamps', props.mats()['glow'])
 
 
 def shrines(mats):
