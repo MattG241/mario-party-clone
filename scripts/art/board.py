@@ -51,6 +51,7 @@ def args():
     p.add_argument('--bands', type=int, default=1, help='render the terrain in N horizontal bands (saved as they finish), then stitch')
     p.add_argument('--band', type=int, default=-1, help='with --bands: render only this band (band_<i>.png) and exit')
     p.add_argument('--build-only', action='store_true', help='build the scene (and the lawn cover map) without rendering')
+    p.add_argument('--no-props', action='store_true', help='with --export: export the terrain tiles only, keep the landmark sprites')
     return p.parse_args(sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else sys.argv[1:])
 
 
@@ -724,7 +725,6 @@ DISTRICT = dict(
         dict(kind='willow', x=3048, y=1238),
         dict(kind='blossom', x=2532, y=1122),
         dict(kind='blossom', x=3040, y=1378),
-        dict(kind='blossom', x=2698, y=874, pal=('#e7e0f4', '#ffffff')),
         dict(kind='maple', x=3122, y=884),
         # --- a few touches round the outer meadows
         dict(kind='pier', pond=3, x=560, reach=90, boat=(612, 600, 0.5)),
@@ -851,7 +851,7 @@ def glass_material():
     a bright mirror of the sky (which read as a flat white slab from the board camera)."""
     m = lib.NT('low_glass_m')
     c = m.attr('col')
-    b = m.bsdf(c, 0.18, coat=0.15, alpha=0.5)
+    b = m.bsdf(c, 0.18, coat=0.15, alpha=0.42)
     b.inputs['Specular IOR Level'].default_value = 0.3
     return m.mat
 
@@ -1440,10 +1440,12 @@ def paint_valley(P, out, D=None):
                 over(raster(lambda d: d.ellipse([it['x'] - rx, it['y'] - ry, it['x'] + rx, it['y'] + ry], fill=255), 5) * 0.45, '#cbb887')
             elif k == 'beds':
                 # dark garden soil between the raised beds (a pale gravel patch read as a blank slab
-                # wherever a bed was hidden), with a trodden edge
-                rx, ry = it['rx'] + 5, it['ry'] + 5
-                over(raster(lambda d: d.rectangle([it['x'] - rx - 5, it['y'] - ry - 4, it['x'] + rx + 5, it['y'] + ry + 4], fill=255), 1.4) * 0.35, '#7c6a3e')
-                over(raster(lambda d: d.rectangle([it['x'] - rx, it['y'] - ry, it['x'] + rx, it['y'] + ry], fill=255), 1.0) * 0.8, '#6f4f33')
+                # wherever a bed was hidden), with a trodden edge; sized to the bed grid (0.5 x 0.26
+                # units a bed, 0.12 apart: see festival.flower_beds)
+                rx = ((it['cols'] * 0.62 - 0.12) / 2 + 0.02) * PX + 7
+                ry = ((it['rows'] * 0.38 - 0.12) / 2 + 0.02) * PX * COSB + 6
+                over(raster(lambda d: d.rectangle([it['x'] - rx - 4, it['y'] - ry - 3, it['x'] + rx + 4, it['y'] + ry + 3], fill=255), 1.4) * 0.3, '#8c7a48')
+                over(raster(lambda d: d.rectangle([it['x'] - rx, it['y'] - ry, it['x'] + rx, it['y'] + ry], fill=255), 1.0) * 0.75, '#8a6a46')
     # mown orchard grass in stripes along the rows
     if P['orchard']:
         xs = [t[0] for t in P['orchard']]
@@ -1644,7 +1646,7 @@ def build_district(B, D, P, rnd, tops):
                 fv.pennant_string(B, pl, c, rnd, sag=0.1)
 
 
-LAWN_GAP = 140  # px: fill until no visible bare meadow is wider than about twice this
+LAWN_GAP = 110  # px: fill until no visible bare meadow is wider than about twice this
 # lawn fillers: footprint half-size (px across, px deep) and height (world units, for the trail check)
 FILLER = dict(drift=(70, 44, 0.2), rocks=(42, 30, 0.35), fence=(82, 26, 0.3), lamp=(34, 24, 1.1), picnic=(40, 30, 0.35),
               hay=(44, 26, 0.3), trees=(70, 52, 2.4), bushes=(52, 34, 0.45), sheep=(64, 40, 0.3), angler=(30, 24, 0.55),
@@ -1699,10 +1701,12 @@ def fill_lawns(B, P, D, groves, spots, claimed, rnd):
         ell(x, y, 50, 42)
     # birches and flower meadows (lone bushes, rocks and tufts do not fill a lawn, so they are not listed)
     for (x, y, r) in spots:
-        ell(x, y, r, r * 0.7)
+        ell(x, y, r * 0.8, r * 0.56)
     ell(MIMI[0], MIMI[1], 110, 90)  # Mimi's spot stays open (the game stands her there)
     water = P['water']
-    region = P['clear'] & (ndimage.distance_transform_edt(P['clear']) * GRID > 16)
+    region = P['vis'] & (ndimage.distance_transform_edt(P['vis']) * GRID > 16)
+    seen, on_low, dry = P['seen'], P['on_low'], P['dry']
+    tall = {'trees', 'lamp', 'cart'}
     inner = ndimage.distance_transform_edt(region) * GRID  # room from the edge of the visible meadow
 
     def cover():
@@ -1717,7 +1721,7 @@ def fill_lawns(B, P, D, groves, spots, claimed, rnd):
         return d
 
     d0 = dist_map()
-    counts, fails, anglers = {}, 0, []
+    counts, fails, anglers, log = {}, 0, [], []
     placed_n = 0
 
     def fits(kind, x, y):
@@ -1726,7 +1730,11 @@ def fill_lawns(B, P, D, groves, spots, claimed, rnd):
             pts = [(x, y)]
         else:
             pts = [(x, y)] + [(x + rx * math.cos(a), y + ry * math.sin(a)) for a in np.linspace(0, math.tau, 8, endpoint=False)]
-        if not all(ok(px, py, 12, 14 if kind != 'angler' else 8) for (px, py) in pts):
+        if kind in tall:  # tall things also keep clear of cliff faces they could poke through
+            good = all(ok(px, py, 12, 14) for (px, py) in pts)
+        else:  # low things only need to be seen, on dry valley floor
+            good = all(on_low(px, py, 12) and seen(px, py) and dry(px, py, 14 if kind != 'angler' else 8) for (px, py) in pts)
+        if not good:
             return False
         if ((x - MIMI[0]) / 120) ** 2 + ((y - MIMI[1]) / 100) ** 2 < 1.0:
             return False
@@ -1747,16 +1755,20 @@ def fill_lawns(B, P, D, groves, spots, claimed, rnd):
     def build(kind, x, y):
         """Model one filler at (x, y); returns False if it could not be made."""
         if kind == 'drift':
-            for _ in range(rnd.randint(5, 8)):
+            for _ in range(rnd.randint(8, 12)):
                 a, r = rnd.uniform(0, math.tau), math.sqrt(rnd.random())
-                qx, qy = x + math.cos(a) * r * 60, y + math.sin(a) * r * 36
-                terrain.flower_bed(B['flowers'], B['leaves'], qx, qy, random.Random(rnd.random()), rnd.randint(8, 14))
+                qx, qy = x + math.cos(a) * r * 62, y + math.sin(a) * r * 38
+                terrain.flower_bed(B['flowers'], B['leaves'], qx, qy, random.Random(rnd.random()), rnd.randint(9, 15))
             for _ in range(rnd.randint(1, 2)):
                 bush(B['leaves'], x + rnd.uniform(-55, 55), y + rnd.uniform(-30, 30), rnd, rnd.uniform(0.6, 0.85), berries=B['flowers'])
+            for _ in range(4):
+                grass_tuft(B['grass'], x + rnd.uniform(-60, 60), y + rnd.uniform(-36, 36), rnd, 1.2)
         elif kind == 'rocks':
-            for k in range(rnd.randint(3, 5)):
-                rock(B['rocks'], x + rnd.uniform(-34, 34), y + rnd.uniform(-22, 22), rnd, rnd.uniform(0.7, 1.6) if k else 1.9, moss=rnd.random() < 0.6)
-            bush(B['leaves'], x + rnd.uniform(-30, 30), y + rnd.uniform(-18, 18), rnd, rnd.uniform(0.6, 0.9), berries=B['flowers'])
+            for k in range(rnd.randint(4, 6)):
+                rock(B['rocks'], x + rnd.uniform(-34, 34), y + rnd.uniform(-22, 22), rnd, rnd.uniform(0.7, 1.6) if k else 2.0, moss=rnd.random() < 0.6)
+            for _ in range(rnd.randint(1, 2)):
+                bush(B['leaves'], x + rnd.uniform(-34, 34), y + rnd.uniform(-20, 20), rnd, rnd.uniform(0.6, 0.9), berries=B['flowers'])
+            terrain.flower_bed(B['flowers'], B['leaves'], x + rnd.uniform(-24, 24), y + 18, rnd, 8)
             for _ in range(3):
                 grass_tuft(B['grass'], x + rnd.uniform(-38, 38), y + rnd.uniform(-24, 24), rnd, 1.3)
         elif kind == 'fence':
@@ -1918,6 +1930,7 @@ def fill_lawns(B, P, D, groves, spots, claimed, rnd):
                     claim(kind, jx, jy)
                     counts[kind] = counts.get(kind, 0) + 1
                     placed_n += 1
+                    log.append((kind, int(jx), int(jy), int(d[gy, gx])))
                     done = True
                     if k < len(seq):
                         entry[1] = (start + k + 1) % len(seq)
@@ -1929,6 +1942,7 @@ def fill_lawns(B, P, D, groves, spots, claimed, rnd):
             ell(x, y, 40, 32)  # nothing fits here (hard against a cliff or the water): skip it
     d1 = dist_map()
     print('lawns: widest bare stretch %d -> %d px, %d fillers, %d skipped,' % (2 * d0.max(), 2 * d1.max(), placed_n, fails), counts)
+    print('fillers', log)
     # a map of the fill (grey = cover, green = bare visible meadow, red = still wide open)
     vis = np.zeros((gh, gw, 3), np.uint8)
     vis[region] = (90, 160, 80)
@@ -2547,7 +2561,7 @@ def main():
         crisp(os.path.join(out, 'terrain.png'))
         if A.export:
             export_tiles(os.path.join(out, 'terrain.png'))
-    if A.export or A.props_only:
+    if (A.export and not A.no_props) or A.props_only:
         render_props(built, terrain_objs, frame)
     print('islands', len(island_info))
 
