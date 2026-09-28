@@ -1,0 +1,951 @@
+{
+ "id": "pirates",
+ "width": 3600,
+ "height": 2400,
+ "nodes": [
+  {
+   "id": "s0",
+   "x": 2060,
+   "y": 2060,
+   "type": "start",
+   "region": "Harbour Town",
+   "exposed": false
+  },
+  {
+   "id": "s1",
+   "x": 1890,
+   "y": 2095,
+   "type": "gleam",
+   "region": "Harbour Town",
+   "exposed": false
+  },
+  {
+   "id": "s2",
+   "x": 1720,
+   "y": 2105,
+   "type": "festival",
+   "region": "Harbour Town",
+   "exposed": false
+  },
+  {
+   "id": "b0",
+   "x": 1550,
+   "y": 2095,
+   "type": "gleam",
+   "region": "Palm Beach",
+   "exposed": true
+  },
+  {
+   "id": "b1",
+   "x": 1380,
+   "y": 2070,
+   "type": "gleam",
+   "region": "Palm Beach",
+   "exposed": true
+  },
+  {
+   "id": "b2",
+   "x": 1212,
+   "y": 2025,
+   "type": "event",
+   "region": "Palm Beach",
+   "exposed": true
+  },
+  {
+   "id": "b3",
+   "x": 1050,
+   "y": 1960,
+   "type": "mischief",
+   "region": "Palm Beach",
+   "exposed": true
+  },
+  {
+   "id": "b4",
+   "x": 900,
+   "y": 1875,
+   "type": "gleam",
+   "region": "Palm Beach",
+   "exposed": true
+  },
+  {
+   "id": "b5",
+   "x": 775,
+   "y": 1760,
+   "type": "festival",
+   "region": "Palm Beach",
+   "exposed": false
+  },
+  {
+   "id": "t0",
+   "x": 700,
+   "y": 1615,
+   "type": "gleam",
+   "region": "Tangerine Terrace",
+   "exposed": false
+  },
+  {
+   "id": "t1",
+   "x": 668,
+   "y": 1455,
+   "type": "event",
+   "region": "Tangerine Terrace",
+   "exposed": false
+  },
+  {
+   "id": "t2",
+   "x": 690,
+   "y": 1295,
+   "type": "relic",
+   "region": "Tangerine Terrace",
+   "exposed": false
+  },
+  {
+   "id": "t3",
+   "x": 770,
+   "y": 1155,
+   "type": "gleam",
+   "region": "Tangerine Terrace",
+   "exposed": false
+  },
+  {
+   "id": "t4",
+   "x": 790,
+   "y": 990,
+   "type": "mischief",
+   "region": "Tangerine Terrace",
+   "exposed": false
+  },
+  {
+   "id": "t5",
+   "x": 840,
+   "y": 830,
+   "type": "gleam",
+   "region": "Treasure Cave",
+   "exposed": false
+  },
+  {
+   "id": "k0",
+   "x": 780,
+   "y": 670,
+   "type": "gleam",
+   "region": "Treasure Cave",
+   "exposed": false
+  },
+  {
+   "id": "k1",
+   "x": 860,
+   "y": 520,
+   "type": "relic",
+   "region": "Treasure Cave",
+   "exposed": false
+  },
+  {
+   "id": "k2",
+   "x": 1010,
+   "y": 440,
+   "type": "portal",
+   "region": "Treasure Cave",
+   "exposed": false
+  },
+  {
+   "id": "k3",
+   "x": 1180,
+   "y": 420,
+   "type": "gleam",
+   "region": "Treasure Cave",
+   "exposed": false
+  },
+  {
+   "id": "r0",
+   "x": 1005,
+   "y": 770,
+   "type": "gleam",
+   "region": "Rope Bridge",
+   "exposed": false
+  },
+  {
+   "id": "r1",
+   "x": 1170,
+   "y": 705,
+   "type": "mischief",
+   "region": "Rope Bridge",
+   "exposed": false
+  },
+  {
+   "id": "r2",
+   "x": 1310,
+   "y": 610,
+   "type": "gleam",
+   "region": "Rope Bridge",
+   "exposed": false
+  },
+  {
+   "id": "l0",
+   "x": 1355,
+   "y": 460,
+   "type": "gleam",
+   "region": "Waterfall Lagoon",
+   "exposed": false
+  },
+  {
+   "id": "l1",
+   "x": 1525,
+   "y": 500,
+   "type": "festival",
+   "region": "Waterfall Lagoon",
+   "exposed": false
+  },
+  {
+   "id": "l2",
+   "x": 1695,
+   "y": 525,
+   "type": "gleam",
+   "region": "Waterfall Lagoon",
+   "exposed": false
+  },
+  {
+   "id": "l3",
+   "x": 1865,
+   "y": 520,
+   "type": "mischief",
+   "region": "Waterfall Lagoon",
+   "exposed": false
+  },
+  {
+   "id": "l4",
+   "x": 2035,
+   "y": 495,
+   "type": "gleam",
+   "region": "Waterfall Lagoon",
+   "exposed": false
+  },
+  {
+   "id": "z0",
+   "x": 2205,
+   "y": 475,
+   "type": "gleam",
+   "region": "Dojo Isle",
+   "exposed": false
+  },
+  {
+   "id": "z1",
+   "x": 2375,
+   "y": 490,
+   "type": "festival",
+   "region": "Dojo Isle",
+   "exposed": false
+  },
+  {
+   "id": "z2",
+   "x": 2535,
+   "y": 545,
+   "type": "gleam",
+   "region": "Dojo Isle",
+   "exposed": false
+  },
+  {
+   "id": "z3",
+   "x": 2660,
+   "y": 660,
+   "type": "relic",
+   "region": "Dojo Isle",
+   "exposed": false
+  },
+  {
+   "id": "z4",
+   "x": 2700,
+   "y": 825,
+   "type": "mischief",
+   "region": "Dojo Isle",
+   "exposed": false
+  },
+  {
+   "id": "c0",
+   "x": 945,
+   "y": 1215,
+   "type": "gleam",
+   "region": "Cove Jetty",
+   "exposed": false
+  },
+  {
+   "id": "c1",
+   "x": 1110,
+   "y": 1265,
+   "type": "gleam",
+   "region": "Cove Jetty",
+   "exposed": false
+  },
+  {
+   "id": "d0",
+   "x": 1275,
+   "y": 1310,
+   "type": "gleam",
+   "region": "The Galleon",
+   "exposed": false
+  },
+  {
+   "id": "d1",
+   "x": 1440,
+   "y": 1320,
+   "type": "relic",
+   "region": "The Galleon",
+   "exposed": false
+  },
+  {
+   "id": "d2",
+   "x": 1605,
+   "y": 1320,
+   "type": "event",
+   "region": "The Galleon",
+   "exposed": false
+  },
+  {
+   "id": "d3",
+   "x": 1770,
+   "y": 1310,
+   "type": "gleam",
+   "region": "The Galleon",
+   "exposed": false
+  },
+  {
+   "id": "c2",
+   "x": 1935,
+   "y": 1390,
+   "type": "festival",
+   "region": "Sandbar Shoals",
+   "exposed": true
+  },
+  {
+   "id": "c3",
+   "x": 2105,
+   "y": 1395,
+   "type": "gleam",
+   "region": "Sandbar Shoals",
+   "exposed": true
+  },
+  {
+   "id": "c4",
+   "x": 2270,
+   "y": 1330,
+   "type": "gleam",
+   "region": "Sandbar Shoals",
+   "exposed": true
+  },
+  {
+   "id": "c5",
+   "x": 2435,
+   "y": 1250,
+   "type": "mischief",
+   "region": "Sandbar Shoals",
+   "exposed": true
+  },
+  {
+   "id": "e0",
+   "x": 2700,
+   "y": 995,
+   "type": "gleam",
+   "region": "Lighthouse Point",
+   "exposed": false
+  },
+  {
+   "id": "o0",
+   "x": 2865,
+   "y": 940,
+   "type": "gleam",
+   "region": "Lighthouse Point",
+   "exposed": false
+  },
+  {
+   "id": "o1",
+   "x": 3030,
+   "y": 970,
+   "type": "portal",
+   "region": "Lighthouse Point",
+   "exposed": false
+  },
+  {
+   "id": "o2",
+   "x": 3170,
+   "y": 1060,
+   "type": "relic",
+   "region": "Lighthouse Point",
+   "exposed": false
+  },
+  {
+   "id": "o3",
+   "x": 3240,
+   "y": 1215,
+   "type": "festival",
+   "region": "Lighthouse Point",
+   "exposed": false
+  },
+  {
+   "id": "o4",
+   "x": 3215,
+   "y": 1385,
+   "type": "gleam",
+   "region": "Lighthouse Point",
+   "exposed": false
+  },
+  {
+   "id": "o5",
+   "x": 3120,
+   "y": 1530,
+   "type": "mischief",
+   "region": "Lighthouse Point",
+   "exposed": false
+  },
+  {
+   "id": "f0",
+   "x": 2600,
+   "y": 1160,
+   "type": "gleam",
+   "region": "Reef Steps",
+   "exposed": true
+  },
+  {
+   "id": "f1",
+   "x": 2690,
+   "y": 1310,
+   "type": "mischief",
+   "region": "Reef Steps",
+   "exposed": true
+  },
+  {
+   "id": "f2",
+   "x": 2820,
+   "y": 1435,
+   "type": "event",
+   "region": "Reef Steps",
+   "exposed": true
+  },
+  {
+   "id": "m0",
+   "x": 2975,
+   "y": 1580,
+   "type": "gleam",
+   "region": "Harbour Market",
+   "exposed": false
+  },
+  {
+   "id": "m1",
+   "x": 2830,
+   "y": 1690,
+   "type": "market",
+   "region": "Harbour Market",
+   "exposed": false
+  },
+  {
+   "id": "m2",
+   "x": 2675,
+   "y": 1785,
+   "type": "gleam",
+   "region": "Harbour Market",
+   "exposed": false
+  },
+  {
+   "id": "m3",
+   "x": 2520,
+   "y": 1870,
+   "type": "festival",
+   "region": "Harbour Market",
+   "exposed": false
+  },
+  {
+   "id": "m4",
+   "x": 2370,
+   "y": 1950,
+   "type": "gleam",
+   "region": "Harbour Town",
+   "exposed": false
+  },
+  {
+   "id": "m5",
+   "x": 2210,
+   "y": 2010,
+   "type": "mischief",
+   "region": "Harbour Town",
+   "exposed": false
+  }
+ ],
+ "edges": [
+  {
+   "from": "s0",
+   "to": "s1",
+   "style": "path"
+  },
+  {
+   "from": "s1",
+   "to": "s2",
+   "style": "path"
+  },
+  {
+   "from": "s2",
+   "to": "b0",
+   "style": "path"
+  },
+  {
+   "from": "b0",
+   "to": "b1",
+   "style": "path"
+  },
+  {
+   "from": "b1",
+   "to": "b2",
+   "style": "path"
+  },
+  {
+   "from": "b2",
+   "to": "b3",
+   "style": "path"
+  },
+  {
+   "from": "b3",
+   "to": "b4",
+   "style": "path"
+  },
+  {
+   "from": "b4",
+   "to": "b5",
+   "style": "path"
+  },
+  {
+   "from": "b5",
+   "to": "t0",
+   "style": "path"
+  },
+  {
+   "from": "t0",
+   "to": "t1",
+   "style": "path"
+  },
+  {
+   "from": "t1",
+   "to": "t2",
+   "style": "path"
+  },
+  {
+   "from": "t2",
+   "to": "t3",
+   "style": "path"
+  },
+  {
+   "from": "t3",
+   "to": "t4",
+   "style": "path"
+  },
+  {
+   "from": "t3",
+   "to": "c0",
+   "style": "steps"
+  },
+  {
+   "from": "t4",
+   "to": "t5",
+   "style": "steps"
+  },
+  {
+   "from": "t5",
+   "to": "k0",
+   "style": "path"
+  },
+  {
+   "from": "t5",
+   "to": "r0",
+   "style": "bridge"
+  },
+  {
+   "from": "k0",
+   "to": "k1",
+   "style": "path"
+  },
+  {
+   "from": "k1",
+   "to": "k2",
+   "style": "path"
+  },
+  {
+   "from": "k2",
+   "to": "k3",
+   "style": "path"
+  },
+  {
+   "from": "k3",
+   "to": "l0",
+   "style": "steps"
+  },
+  {
+   "from": "r0",
+   "to": "r1",
+   "style": "bridge"
+  },
+  {
+   "from": "r1",
+   "to": "r2",
+   "style": "bridge"
+  },
+  {
+   "from": "r2",
+   "to": "l0",
+   "style": "bridge"
+  },
+  {
+   "from": "l0",
+   "to": "l1",
+   "style": "path"
+  },
+  {
+   "from": "l1",
+   "to": "l2",
+   "style": "path"
+  },
+  {
+   "from": "l2",
+   "to": "l3",
+   "style": "path"
+  },
+  {
+   "from": "l3",
+   "to": "l4",
+   "style": "path"
+  },
+  {
+   "from": "l4",
+   "to": "z0",
+   "style": "steps"
+  },
+  {
+   "from": "z0",
+   "to": "z1",
+   "style": "path"
+  },
+  {
+   "from": "z1",
+   "to": "z2",
+   "style": "path"
+  },
+  {
+   "from": "z2",
+   "to": "z3",
+   "style": "path"
+  },
+  {
+   "from": "z3",
+   "to": "z4",
+   "style": "path"
+  },
+  {
+   "from": "z4",
+   "to": "e0",
+   "style": "path"
+  },
+  {
+   "from": "c0",
+   "to": "c1",
+   "style": "path"
+  },
+  {
+   "from": "c1",
+   "to": "d0",
+   "style": "steps"
+  },
+  {
+   "from": "d0",
+   "to": "d1",
+   "style": "path"
+  },
+  {
+   "from": "d1",
+   "to": "d2",
+   "style": "path"
+  },
+  {
+   "from": "d2",
+   "to": "d3",
+   "style": "path"
+  },
+  {
+   "from": "d3",
+   "to": "c2",
+   "style": "steps"
+  },
+  {
+   "from": "c2",
+   "to": "c3",
+   "style": "path"
+  },
+  {
+   "from": "c3",
+   "to": "c4",
+   "style": "steps"
+  },
+  {
+   "from": "c4",
+   "to": "c5",
+   "style": "steps"
+  },
+  {
+   "from": "c5",
+   "to": "f0",
+   "style": "steps"
+  },
+  {
+   "from": "e0",
+   "to": "o0",
+   "style": "path"
+  },
+  {
+   "from": "e0",
+   "to": "f0",
+   "style": "steps"
+  },
+  {
+   "from": "o0",
+   "to": "o1",
+   "style": "path"
+  },
+  {
+   "from": "o1",
+   "to": "o2",
+   "style": "path"
+  },
+  {
+   "from": "o2",
+   "to": "o3",
+   "style": "path"
+  },
+  {
+   "from": "o3",
+   "to": "o4",
+   "style": "path"
+  },
+  {
+   "from": "o4",
+   "to": "o5",
+   "style": "path"
+  },
+  {
+   "from": "o5",
+   "to": "m0",
+   "style": "path"
+  },
+  {
+   "from": "f0",
+   "to": "f1",
+   "style": "steps"
+  },
+  {
+   "from": "f1",
+   "to": "f2",
+   "style": "steps"
+  },
+  {
+   "from": "f2",
+   "to": "m0",
+   "style": "steps"
+  },
+  {
+   "from": "m0",
+   "to": "m1",
+   "style": "steps"
+  },
+  {
+   "from": "m1",
+   "to": "m2",
+   "style": "path"
+  },
+  {
+   "from": "m2",
+   "to": "m3",
+   "style": "path"
+  },
+  {
+   "from": "m3",
+   "to": "m4",
+   "style": "path"
+  },
+  {
+   "from": "m4",
+   "to": "m5",
+   "style": "path"
+  },
+  {
+   "from": "m5",
+   "to": "s0",
+   "style": "path"
+  }
+ ],
+ "relicGates": [
+  "t2",
+  "k1",
+  "d1",
+  "z3",
+  "o2"
+ ],
+ "portals": [
+  [
+   "k2",
+   "o1"
+  ]
+ ],
+ "decorations": [
+  {
+   "texture": "bunting",
+   "x": 2060,
+   "y": 1985,
+   "scale": 0.7,
+   "sorted": false,
+   "depth": -15
+  },
+  {
+   "texture": "lantern",
+   "x": 1810,
+   "y": 2040,
+   "scale": 0.5,
+   "sorted": true,
+   "bob": 4
+  },
+  {
+   "texture": "lantern",
+   "x": 2290,
+   "y": 1935,
+   "scale": 0.5,
+   "sorted": true,
+   "bob": 5
+  },
+  {
+   "texture": "props",
+   "frame": "24",
+   "x": 1470,
+   "y": 2010,
+   "scale": 0.36,
+   "sorted": true
+  },
+  {
+   "texture": "stall",
+   "x": 525,
+   "y": 1500,
+   "scale": 0.4,
+   "sorted": true,
+   "id": "map-room"
+  },
+  {
+   "texture": "tree-twist",
+   "x": 545,
+   "y": 1290,
+   "scale": 0.26,
+   "sorted": true,
+   "tint": 16763024
+  },
+  {
+   "texture": "tree-twist",
+   "x": 600,
+   "y": 1150,
+   "scale": 0.22,
+   "sorted": true,
+   "tint": 16765088
+  },
+  {
+   "texture": "props",
+   "frame": "25",
+   "x": 880,
+   "y": 1100,
+   "scale": 0.34,
+   "sorted": true
+  },
+  {
+   "texture": "props",
+   "frame": "6",
+   "x": 1000,
+   "y": 565,
+   "scale": 0.34,
+   "sorted": true,
+   "id": "chest"
+  },
+  {
+   "texture": "props",
+   "frame": "26",
+   "x": 930,
+   "y": 790,
+   "scale": 0.32,
+   "sorted": true
+  },
+  {
+   "texture": "lantern",
+   "x": 700,
+   "y": 560,
+   "scale": 0.45,
+   "sorted": true,
+   "bob": 4
+  },
+  {
+   "texture": "lantern",
+   "x": 1790,
+   "y": 450,
+   "scale": 0.45,
+   "sorted": true,
+   "bob": 4
+  },
+  {
+   "texture": "workshop",
+   "x": 2450,
+   "y": 425,
+   "scale": 0.4,
+   "sorted": true,
+   "id": "dojo"
+  },
+  {
+   "texture": "props",
+   "frame": "15",
+   "x": 1640,
+   "y": 1262,
+   "scale": 0.36,
+   "sorted": true,
+   "id": "cannon"
+  },
+  {
+   "texture": "lantern",
+   "x": 1200,
+   "y": 1262,
+   "scale": 0.42,
+   "sorted": true,
+   "bob": 3
+  },
+  {
+   "texture": "observatory",
+   "x": 3390,
+   "y": 1320,
+   "scale": 0.4,
+   "sorted": true,
+   "id": "lighthouse"
+  },
+  {
+   "texture": "props",
+   "frame": "25",
+   "x": 2800,
+   "y": 1060,
+   "scale": 0.34,
+   "sorted": true
+  },
+  {
+   "texture": "stall",
+   "x": 2700,
+   "y": 1640,
+   "scale": 0.44,
+   "sorted": true,
+   "id": "market-stall"
+  },
+  {
+   "texture": "lantern",
+   "x": 2560,
+   "y": 1790,
+   "scale": 0.5,
+   "sorted": true,
+   "bob": 5
+  }
+ ],
+ "hostSpot": {
+  "x": 1975,
+  "y": 1935
+ }
+}

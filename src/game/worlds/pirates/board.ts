@@ -46,7 +46,7 @@ const nodes: BoardNodeDef[] = [
   n('t3', 770, 1155, 'gleam', ['t4', 'c0'], { meta: { ...TERRACE, signs: { t4: 'North trail', c0: 'Board the galleon' } } }),
   n('t4', 790, 990, 'mischief', ['t5'], { meta: TERRACE }),
   n('t5', 840, 830, 'gleam', ['k0', 'r0'], { meta: { ...CAVE, signs: { k0: 'Treasure Cave', r0: 'Rope bridge' } } }),
-  // Treasure Cave (the longer way, past a Star Coin gate and a portal)
+  // Treasure Cave (the longer way, past a Star Coin space and a portal)
   n('k0', 780, 670, 'gleam', ['k1'], { meta: CAVE }),
   n('k1', 860, 520, 'relic', ['k2'], { meta: CAVE }),
   n('k2', 1010, 440, 'portal', ['k3'], { meta: CAVE }),
