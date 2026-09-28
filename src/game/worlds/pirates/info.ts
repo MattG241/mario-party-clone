@@ -27,7 +27,8 @@ export const PIRATES_INFO: WorldMinigameInfo = {
       players: '1–4 players',
       duration: '45 s',
       color: 0xe5484d,
-      preview: { texture: 'items', frame: '0', scale: 0.7 },
+      // a round wooden top on a pedestal: the feast table
+      preview: { texture: 'props', frame: '12', scale: 0.62 },
       arena: 'rendered-scene-pirates_deck',
       world: 'pirates',
       characters: ['luffy'],
@@ -53,7 +54,8 @@ export const PIRATES_INFO: WorldMinigameInfo = {
       players: '1–4 players',
       duration: '40 s',
       color: 0x3f9e5a,
-      preview: { texture: 'items', frame: '0', scale: 0.7 },
+      // the harbour's cannon
+      preview: { texture: 'props', frame: '15', scale: 0.62 },
       arena: 'rendered-scene-pirates_harbour',
       world: 'pirates',
       characters: ['zoro'],
@@ -78,7 +80,8 @@ export const PIRATES_INFO: WorldMinigameInfo = {
       players: '1–4 players',
       duration: '50 s',
       color: 0x2f7fb5,
-      preview: { texture: 'items', frame: '0', scale: 0.7 },
+      // an open chest of treasure
+      preview: { texture: 'props', frame: '8', scale: 0.62 },
       arena: 'rendered-scene-pirates_storm',
       world: 'pirates',
       characters: ['nami'],
