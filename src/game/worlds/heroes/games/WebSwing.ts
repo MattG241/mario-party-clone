@@ -381,7 +381,7 @@ export class WebSwingScene extends BaseMinigame {
       const spr = this.add.sprite(x, top - 2, NPC_ATLAS, frame);
       const o = standOrigin(NPC_ATLAS, frame);
       spr.setOrigin(o.x, o.y).setScale(0.36).setDepth(DEPTH.tower + 3).setFlipX(true);
-      this.tweens.add({ targets: spr, y: top - 8, duration: 380 + (i % 3) * 80, yoyo: true, repeat: -1, ease: 'Sine.InOut', delay: i * 60 });
+      if (!calmMotion()) this.tweens.add({ targets: spr, y: top - 8, duration: 380 + (i % 3) * 80, yoyo: true, repeat: -1, ease: 'Sine.InOut', delay: i * 60 });
       this.crowd.push(spr);
     });
     const tape = this.add.graphics().setDepth(DEPTH.tower + 3);
