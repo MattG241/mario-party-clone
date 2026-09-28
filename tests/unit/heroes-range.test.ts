@@ -14,6 +14,7 @@ import {
   RANGE,
   rangeCpu,
   scoreHits,
+  shotOrder,
   spawnInterval,
   stepGunner,
   stepTarget,
@@ -140,12 +141,20 @@ function simulate(levels: readonly Level[], seed: number): { score: number[]; ba
       if (targets.filter((q) => q.kind === 'balloon').length < 3) targets.push(makeTarget('balloon', rnd));
     }
     for (let i = targets.length - 1; i >= 0; i--) if (!stepTarget(targets[i], DT, rnd) || targets[i].dead) targets.splice(i, 1);
+    // As in the scene: every CPU thinks (in seat order), everyone's trigger is worked, then the
+    // frame's shots land together, cleanest aim first.
     for (let i = 0; i < n; i++) {
       claimed.clear();
       brains.forEach((b, j) => j !== i && b.tid >= 0 && claimed.add(b.tid));
       rangeCpu(brains[i], gunners[i], targets, claimed, CPU_SKILL_TABLE[levels[i]], DT, rnd, inputs[i]);
+    }
+    const fired: { i: number; shot: NonNullable<ReturnType<typeof stepGunner>> }[] = [];
+    for (let i = 0; i < n; i++) {
       const shot = stepGunner(gunners[i], inputs[i], DT);
-      if (!shot) continue;
+      if (shot) fired.push({ i, shot });
+    }
+    for (const k of shotOrder(fired.map((f) => f.shot), targets, Math.round(t / DT), [])) {
+      const { i, shot } = fired[k];
       const hits: { kind: TargetKind; killed: boolean; bullseye: boolean }[] = [];
       for (const q of targets) {
         if (!blastHits(q, shot.x, shot.y, shot.r)) continue;
@@ -168,6 +177,20 @@ function simulate(levels: readonly Level[], seed: number): { score: number[]; ba
 }
 
 describe('repulsor range: CPU marksmen', () => {
+  it('give equal marksmen an even shot from every pad', () => {
+    const seats = [0, 0, 0, 0];
+    const spreads: number[] = [];
+    for (let seed = 1; seed <= 12; seed++) {
+      const r = simulate(['normal', 'normal', 'normal', 'normal'], seed);
+      r.score.forEach((v, i) => (seats[i] += v / 12));
+      spreads.push(Math.max(...r.score) - Math.min(...r.score));
+    }
+    // eslint-disable-next-line no-console
+    console.log('range seats:', seats.map((v) => v.toFixed(1)), 'spreads:', spreads.join(' '));
+    const mean = seats.reduce((a, b) => a + b, 0) / 4;
+    for (const v of seats) expect(Math.abs(v - mean) / mean).toBeLessThan(0.25);
+  });
+
   it('score at every difficulty, the better ones more, and rarely hit balloons', () => {
     const lobby: Level[] = ['hard', 'normal', 'easy', 'easy'];
     const tot = { hard: { s: 0, b: 0, n: 0 }, normal: { s: 0, b: 0, n: 0 }, easy: { s: 0, b: 0, n: 0 } };

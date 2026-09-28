@@ -5,6 +5,16 @@ import { HEROES_INFO } from '../../src/game/worlds/heroes/info';
 const FULL = Object.keys(import.meta.glob('../../public/assets/rendered/scene_heroes_*.webp'));
 const LITE = Object.keys(import.meta.glob('../../public/assets/lite/scene_heroes_*.webp'));
 const WORDS_TO_AVOID = /\bchips?\b|\brelics?\b|prism/i;
+// Gameplay sprites the scenes load themselves (RooftopGlide / WebSwing / RepulsorRange SPRITES).
+const GAME_SPRITES = ['lamp_head', 'street', 'towers', 'drone', 'zip', 'heavy', 'disc', 'gold', 'balloon', 'balloon_b', 'balloon_c', 'pad'];
+const SPRITE_FULL = Object.keys(import.meta.glob('../../public/assets/rendered/mg/heroes_*.webp'));
+const SPRITE_LITE = Object.keys(import.meta.glob('../../public/assets/lite/mg/heroes_*.webp'));
+const TOWERS = Object.values(import.meta.glob('../../public/assets/rendered/mg/heroes_towers.json', { eager: true, import: 'default' }));
+
+interface TowerAtlas {
+  frames: Record<string, { frame: { w: number; h: number } }>;
+  anchors: Record<string, { anchor: [number, number]; kind: string }>;
+}
 
 describe('Hero Heights minigames', () => {
   it('are the three the boards expect, each themed on its guest', () => {
@@ -39,6 +49,28 @@ describe('Hero Heights minigames', () => {
         expect(set.images.map((n) => `rendered-scene-${n}`), m.id).toContain(icon.texture);
       }
     }
+  });
+
+  it('ship their gameplay sprites (full size and Lite); the buildings atlas places an anchor on every frame', () => {
+    for (const n of GAME_SPRITES) {
+      expect(SPRITE_FULL.some((f) => f.endsWith(`/heroes_${n}.webp`)), n).toBe(true);
+      expect(SPRITE_LITE.some((f) => f.endsWith(`/heroes_${n}.webp`)), `lite ${n}`).toBe(true);
+    }
+    const atlas = TOWERS[0] as TowerAtlas | undefined;
+    expect(atlas).toBeDefined();
+    if (!atlas) return;
+    const kinds = new Set<string>();
+    for (const [name, a] of Object.entries(atlas.anchors)) {
+      const f = atlas.frames[name]?.frame;
+      expect(f, name).toBeDefined();
+      if (!f) continue;
+      expect(a.anchor[0], name).toBeGreaterThanOrEqual(0);
+      expect(a.anchor[0], name).toBeLessThanOrEqual(f.w);
+      expect(a.anchor[1], name).toBeGreaterThanOrEqual(0);
+      expect(a.anchor[1], name).toBeLessThanOrEqual(f.h);
+      kinds.add(a.kind);
+    }
+    expect([...kinds].sort()).toEqual(['cornice', 'crane', 'mast', 'tank']);
   });
 
   it('ship every image they list, full size and for Lite', () => {

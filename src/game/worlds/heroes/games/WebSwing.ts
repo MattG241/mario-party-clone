@@ -143,12 +143,38 @@ export class WebSwingScene extends BaseMinigame {
 
   preload(): void {
     queueHeroSprites(this, ['street']);
-    const half = LITE && this.game.renderer instanceof Phaser.Renderer.WebGL.WebGLRenderer;
-    if (!this.textures.exists(heroTex('towers'))) this.load.atlas(heroTex('towers'), `assets/${half ? 'lite' : 'rendered'}/mg/heroes_towers.webp`, 'assets/rendered/mg/heroes_towers.json');
+    // The buildings atlas: sheet and frame table loaded separately (and put together in createArena),
+    // so a missing table only means the painted buildings, never a loader error.
+    const key = heroTex('towers');
+    if (!this.textures.exists(key)) {
+      const half = LITE && this.game.renderer instanceof Phaser.Renderer.WebGL.WebGLRenderer;
+      this.load.image(`${key}-sheet`, `assets/${half ? 'lite' : 'rendered'}/mg/heroes_towers.webp`);
+      this.load.text(`${key}-table`, 'assets/rendered/mg/heroes_towers.json');
+    }
+  }
+
+  /** Put the buildings atlas together from its sheet and frame table (when both loaded and the table parses). */
+  private assembleTowers(): void {
+    const key = heroTex('towers');
+    const sheet = `${key}-sheet`;
+    const text = this.cache.text.get(`${key}-table`) as string | undefined;
+    this.cache.text.remove(`${key}-table`);
+    if (!this.textures.exists(key) && text && this.textures.exists(sheet)) {
+      let table: object | null = null;
+      try {
+        table = JSON.parse(text) as object;
+      } catch {
+        table = null;
+      }
+      const img = this.textures.get(sheet).getSourceImage() as HTMLImageElement;
+      if (table && 'frames' in table) this.textures.addAtlasJSONHash(key, img, table);
+    }
+    if (this.textures.exists(sheet)) this.textures.remove(sheet);
   }
 
   // --- Arena -----------------------------------------------------------------------------------
   protected createArena(): void {
+    this.assembleTowers();
     finishHeroSprites(this, SPRITES);
     this.duration = 50000;
     this.course = buildCourse(this.rng);

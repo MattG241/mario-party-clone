@@ -26,6 +26,7 @@ import {
   RANGE,
   rangeCpu,
   scoreHits,
+  shotOrder,
   spawnInterval,
   stepGunner,
   stepTarget,
@@ -102,6 +103,11 @@ export class RepulsorRangeScene extends BaseMinigame {
   private wrapped = false;
   private pops!: WordPops;
   private claimed = new Set<number>();
+  /** This frame's shots, resolved together (see shotOrder) so no seat wins the ties. */
+  private shots: { pl: Pilot; shot: NonNullable<Shot> }[] = [];
+  private shotArgs: NonNullable<Shot>[] = [];
+  private order: number[] = [];
+  private frameNo = 0;
   private hits: { kind: TargetKind; killed: boolean; bullseye: boolean }[] = [];
   private crowd!: Crowd;
 
@@ -127,6 +133,10 @@ export class RepulsorRangeScene extends BaseMinigame {
     this.storm = false;
     this.wrapped = false;
     this.claimed = new Set();
+    this.shots = [];
+    this.shotArgs = [];
+    this.order = [];
+    this.frameNo = 0;
     for (const w of Object.values(WORDS)) bakeWord(this, w.key, w.text, { size: w.size, fill: w.fill });
     glowTex(this);
     this.makeTextures();
@@ -661,6 +671,7 @@ export class RepulsorRangeScene extends BaseMinigame {
       if (b < 3) this.spawnTarget('balloon');
     }
     this.stepTargets(dt);
+    this.shots.length = 0;
     for (const pl of this.pilots) {
       const ctl = pl.p.controls;
       if (!pl.p.isCpu) {
@@ -675,7 +686,7 @@ export class RepulsorRangeScene extends BaseMinigame {
       pl.input.holdA = ctl.held('A');
       pl.input.pressA = ctl.pressed('A');
       const shot = stepGunner(pl.g, pl.input, dt);
-      if (shot) this.fire(pl, shot);
+      if (shot) this.shots.push({ pl, shot });
       // A charging hum that climbs with the charge.
       const c = pl.g.charging ? chargeLevel(pl.g.held) : 0;
       if (c > 0) {
@@ -686,6 +697,15 @@ export class RepulsorRangeScene extends BaseMinigame {
         }
       }
     }
+    // Everyone's shots this frame land together: the cleanest aim first.
+    const shots = this.shots;
+    if (shots.length === 1) this.fire(shots[0].pl, shots[0].shot);
+    else if (shots.length > 1) {
+      this.shotArgs.length = 0;
+      for (const x of shots) this.shotArgs.push(x.shot);
+      for (const i of shotOrder(this.shotArgs, this.targets, this.frameNo, this.order)) this.fire(shots[i].pl, shots[i].shot);
+    }
+    this.frameNo++;
   }
 
   protected override ambient(dt: number): void {

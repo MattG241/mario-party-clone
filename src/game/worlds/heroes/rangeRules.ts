@@ -224,6 +224,31 @@ export function blastHits(t: Target, x: number, y: number, r: number): boolean {
   return Math.hypot(t.x - x, t.y - y) < r + reach;
 }
 
+/**
+ * The order to resolve the shots fired in one frame (indices into `shots`): the cleanest shot first
+ * (closest to the centre of a target it hits, for the target's size), so when two players blast the
+ * same drone at once it goes to the better aim, never to whoever sits in the lower seat. Ties and
+ * misses keep a rotating order. Writes into `out`.
+ */
+export function shotOrder(shots: readonly { x: number; y: number; r: number }[], targets: readonly Target[], frame: number, out: number[]): number[] {
+  out.length = 0;
+  const n = shots.length;
+  for (let k = 0; k < n; k++) out.push((k + frame) % n);
+  if (n < 2) return out;
+  const keys: number[] = [];
+  for (const s of shots) {
+    let best = Infinity;
+    for (const t of targets) {
+      if (t.kind === 'balloon' || !blastHits(t, s.x, s.y, s.r)) continue;
+      best = Math.min(best, Math.hypot(t.x - s.x, t.y - s.y) / t.r);
+    }
+    keys.push(best);
+  }
+  // (Array sort is stable: equal keys keep the rotation.)
+  out.sort((a, b) => (keys[a] === keys[b] ? 0 : keys[a] < keys[b] ? -1 : 1));
+  return out;
+}
+
 export function isBullseye(t: Target, x: number, y: number): boolean {
   return t.kind === 'disc' && Math.hypot(t.x - x, t.y - y) < 18;
 }

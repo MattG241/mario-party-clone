@@ -467,7 +467,7 @@ export class RooftopGlideScene extends BaseMinigame {
     c.setDepth(DEPTH.glider + index);
     p.character = c;
     const canopy = this.add.image(0, CANOPY_Y / CHAR_SCALE, `hhg-canopy-${p.slot}`).setScale(CANOPY_W / 232 / CHAR_SCALE).setAlpha(0);
-    const streamer = this.add.image(0, -40 / CHAR_SCALE, `hhg-streamer-${p.slot}`).setOrigin(1, 0.4).setScale(1.1 / CHAR_SCALE).setAlpha(0);
+    const streamer = this.add.image(0, -40 / CHAR_SCALE, `hhg-streamer-${p.slot}`).setOrigin(1, 0.4).setScale(0.9 / CHAR_SCALE).setAlpha(0);
     // The canopy and streamer ride inside the character (behind the body), tilting with it.
     c.addAt(streamer, c.getIndex(c.sprite));
     c.addAt(canopy, c.getIndex(c.sprite));
@@ -937,7 +937,7 @@ export class RooftopGlideScene extends BaseMinigame {
     g.canopy.setY((CANOPY_Y + (1 - g.cape) * 30) / CHAR_SCALE);
     const trail = air && f.mode !== 'stun' ? 1 - g.cape : 0;
     g.streamer.setAlpha(trail).setFlipX(f.face < 0).setOrigin(f.face < 0 ? 0 : 1, 0.4);
-    g.streamer.setX((-f.face * 10) / CHAR_SCALE).setScale((1.1 + Math.min(0.6, Math.hypot(f.vx, f.vy) / 1400)) / CHAR_SCALE, 1.1 / CHAR_SCALE);
+    g.streamer.setX((-f.face * 10) / CHAR_SCALE).setScale((0.8 + Math.min(0.4, Math.hypot(f.vx, f.vy) / 1800)) / CHAR_SCALE, 0.95 / CHAR_SCALE);
     // Badge: over the canopy while gliding, over the head otherwise; always upright.
     const want = g.cape > 0.5 ? MARK_GLIDE : MARK_HEAD;
     g.markY += (want - g.markY) * (1 - Math.exp(-10 * s));
