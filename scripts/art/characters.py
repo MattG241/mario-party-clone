@@ -50,7 +50,8 @@ ATLAS_DIR = os.path.join(lib.ROOT, 'public', 'assets', 'atlases')
 GEN_TS = os.path.join(lib.ROOT, 'src', 'game', 'data', 'heroSprites.generated.ts')
 
 HEROES = {'kip': Kip}
-for _name in ('mossi', 'tumble', 'zippa', 'luffy', 'goku', 'batman', 'spiderman', 'naruto', 'ironman', 'sonic', 'spongebob'):
+for _name in ('mossi', 'tumble', 'zippa', 'luffy', 'goku', 'batman', 'spiderman', 'naruto', 'ironman', 'sonic', 'spongebob',
+              'nami', 'zoro', 'elvis', 'sabrina', 'chappell', 'homer', 'sandler', 'trump', 'obama'):
     # each of the other heroes lives in its own module (scripts/art/char_<name>.py, class <Name>)
     try:
         _mod = __import__(f'char_{_name}')
@@ -231,13 +232,15 @@ def pack(keys):
             solids.append(solid)
             with open(path + '.json') as fh:
                 anchors.append(json.load(fh))
-        # power-of-two sheet (the game mipmaps its atlases): 2048 wide, or 4096 wide when that is smaller
-        W = H = pos = None
-        for width in (2048, 4096):
-            p_, height = shelf_pack([im.size for im in images], width)
-            h_ = 1 << max(0, int(math.ceil(math.log2(max(1, height)))))
-            if W is None or width * h_ < W * H:
-                W, H, pos = width, h_, p_
+        # 2048 wide (4096 only if it would be taller than 2048), cropped to the packed height: with a
+        # whole roster of heroes a power-of-two sheet wastes up to half its memory, and at board size
+        # the sprites don't need mipmaps. The height stays a multiple of 8 so Lite halves it exactly.
+        W = 2048
+        pos, height = shelf_pack([im.size for im in images], W)
+        if height > 2048:
+            W = 4096
+            pos, height = shelf_pack([im.size for im in images], W)
+        H = (height + 7) // 8 * 8
         atlas = Image.new('RGBA', (W, H), (0, 0, 0, 0))
         fr = {}
         for k, (im, (x, y), bb) in enumerate(zip(images, pos, trims)):

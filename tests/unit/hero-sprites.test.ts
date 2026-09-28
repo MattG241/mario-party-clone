@@ -29,7 +29,7 @@ describe('3D hero sprite sheets', () => {
   });
 
   it.each(rendered)('%s: has the same animation set as the other heroes and its anchor points', (id) => {
-    expect(Object.keys(CHARACTER_ANIMATIONS[id]).sort()).toEqual(Object.keys(CHARACTER_ANIMATIONS.kip).sort());
+    expect(Object.keys(CHARACTER_ANIMATIONS[id]).sort()).toEqual(Object.keys(CHARACTER_ANIMATIONS[rendered[0]]).sort());
     const pts = HERO_DATA.points[id];
     for (const k of ['carry', 'pull', 'face'] as const) {
       expect(pts[k], k).toHaveLength(2);

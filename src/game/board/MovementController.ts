@@ -260,7 +260,8 @@ export class MovementController {
     this.fx.vfx('dust', target.x - (c.isFacingLeft ? -30 : 30), target.y - 6, { scale: 0.34, duration: 420, alpha: 0.8 });
     c.squash(0.1, 120);
     this.board.pulseNode(to, COLORS.cream);
-    if (p.characterId === 'tumble') this.fx.shake(0.0012, 80);
+    // The heavyweights (Tumble, Iron Man) make the ground thump.
+    if (CHARACTERS[p.characterId].handling.weight >= 1.1) this.fx.shake(0.0012, 80);
   }
 
   settle(state: MatchState, p: PlayerState): void {

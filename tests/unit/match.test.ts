@@ -1,3 +1,4 @@
+import { CHARACTER_IDS } from '../../src/game/data/characters';
 import { describe, expect, it } from 'vitest';
 import { SUNCOIL } from '../../src/game/data/boards';
 import { SaveManager } from '../../src/game/save/SaveManager';
@@ -118,9 +119,9 @@ describe('settings persistence', () => {
   it('stores and reloads settings, clamping bad values', () => {
     const store = memoryStore();
     const s = new SettingsManager(store);
-    s.set({ musicVolume: 0.25, largeText: true, gameSpeed: 'fast', lastCharacters: ['zippa', null, 'kip', null] });
+    s.set({ musicVolume: 0.25, largeText: true, gameSpeed: 'fast', lastCharacters: [CHARACTER_IDS[3], null, CHARACTER_IDS[0], null] });
     const again = new SettingsManager(store);
-    expect(again.get()).toMatchObject({ musicVolume: 0.25, largeText: true, gameSpeed: 'fast', lastCharacters: ['zippa', null, 'kip', null] });
+    expect(again.get()).toMatchObject({ musicVolume: 0.25, largeText: true, gameSpeed: 'fast', lastCharacters: [CHARACTER_IDS[3], null, CHARACTER_IDS[0], null] });
     store.setItem('gleamtrail.settings.v1', JSON.stringify({ sfxVolume: 7, rounds: 13, deadzone: 0.9 }));
     const clamped = new SettingsManager(store).get();
     expect(clamped.sfxVolume).toBe(1);

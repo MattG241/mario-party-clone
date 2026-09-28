@@ -16,6 +16,7 @@ import { enterScene, goTo } from '../ui/Transition';
 import { applyGrade } from '../effects/GradePipeline';
 import { drawCard, UI } from '../ui/Style';
 import { addStrip } from '../ui/Screen';
+import { rosterLayout, type RosterLayout } from '../ui/rosterLayout';
 
 type SlotPhase = 'empty' | 'choosing' | 'ready';
 
@@ -47,12 +48,6 @@ const CARD_Y = 772;
 const CARD_W = 410;
 const CARD_H = 104;
 /** Roster tiles along the bottom. */
-const TILE_W = 132;
-const TILE_H = 142;
-const TILE_GAP = 10;
-const TILE_Y = 978;
-/** Tiles shrink if the roster ever outgrows the screen width. */
-const tileScale = (n: number) => Math.min(1, (GAME_WIDTH - 80) / (n * TILE_W + (n - 1) * TILE_GAP));
 
 /**
  * Controller-first lobby: press A to join, move along the roster, confirm. Each player's pick
@@ -67,7 +62,7 @@ export class CharacterSelectScene extends Phaser.Scene {
   private vacant: Phaser.GameObjects.Container[] = [];
   private tileRings: Phaser.GameObjects.Graphics[] = [];
   private tileBadges: Phaser.GameObjects.Container[] = [];
-  private tileX: number[] = [];
+  private layout!: RosterLayout;
   private renderedStage = false;
   /** Character index → the slot that picked it. */
   private locked = new Map<number, number>();
@@ -90,7 +85,7 @@ export class CharacterSelectScene extends Phaser.Scene {
     this.vacant = [];
     this.tileRings = [];
     this.tileBadges = [];
-    this.tileX = [];
+    this.layout = rosterLayout(CHARACTER_IDS.length);
     this.locked = new Map();
     this.fx = new EffectsManager(this, 800);
     audio.playMusic('menu');
@@ -142,44 +137,41 @@ export class CharacterSelectScene extends Phaser.Scene {
     });
   }
 
-  /** Portrait tiles for every character, in one row along the bottom of the screen. */
+  /** Portrait tiles for every character, in one or two rows along the bottom of the screen. */
   private buildRoster(): void {
-    const n = CHARACTER_IDS.length;
-    const k = tileScale(n);
-    const w = TILE_W * k;
-    const h = TILE_H * k;
-    const gap = TILE_GAP * k;
-    const x0 = GAME_WIDTH / 2 - (n * w + (n - 1) * gap) / 2 + w / 2;
-    const back = this.add.graphics();
+    const { k, w, h, pos } = this.layout;
+    const back = this.add.graphics().setDepth(19);
     back.fillStyle(0x0a1a26, 0.34);
-    back.fillRoundedRect(x0 - w / 2 - 22, TILE_Y - h / 2 - 16, n * w + (n - 1) * gap + 44, h + 32, 30);
+    const left = Math.min(...pos.map((p) => p.x)) - w / 2 - 22;
+    const right = Math.max(...pos.map((p) => p.x)) + w / 2 + 22;
+    const top = Math.min(...pos.map((p) => p.y)) - h / 2 - 14;
+    const bottom = Math.max(...pos.map((p) => p.y)) + h / 2 + 14;
+    back.fillRoundedRect(left, top, right - left, bottom - top, 30);
     // All portraits share one container and one mask (one stencil pass instead of one per tile).
     const faces = this.add.container(0, 0).setDepth(21);
     const maskG = this.make.graphics({ x: 0, y: 0 }, false);
     maskG.fillStyle(0xffffff);
     CHARACTER_IDS.forEach((id, i) => {
-      const x = x0 + i * (w + gap);
-      this.tileX.push(x);
+      const { x, y } = pos[i];
       const def = CHARACTERS[id];
-      const g = this.add.graphics({ x, y: TILE_Y }).setDepth(20);
+      const g = this.add.graphics({ x, y }).setDepth(20);
       drawCard(g, -w / 2, -h / 2, w, h, { radius: 20 * k, shadow: 0.8 });
       const art = { x: -w / 2 + 7 * k, y: -h / 2 + 7 * k, w: w - 14 * k, h: h - 44 * k };
       g.fillStyle(def.color, 1);
       g.fillRoundedRect(art.x, art.y, art.w, art.h, 15 * k);
       g.fillStyle(0xffffff, 0.28);
       g.fillRoundedRect(art.x, art.y, art.w, art.h * 0.5, { tl: 15 * k, tr: 15 * k, bl: 0, br: 0 });
-      maskG.fillRoundedRect(x + art.x, TILE_Y + art.y, art.w, art.h, 15 * k);
+      maskG.fillRoundedRect(x + art.x, y + art.y, art.w, art.h, 15 * k);
       const face = this.add.sprite(0, 0, def.atlas, '0');
       placePortraitSprite(face, id, 0.52 * k, 0, false);
       face.x += x;
-      face.y += TILE_Y + art.y + art.h * 0.58;
+      face.y += y + art.y + art.h * 0.58;
       faces.add(face);
-      addText(this, x, TILE_Y + h / 2 - 20 * k, def.short.toUpperCase(), Math.round(17 * k), { color: UI.inkCss, weight: 700 }).setDepth(22);
-      this.tileRings.push(this.add.graphics({ x, y: TILE_Y }).setDepth(23));
-      this.tileBadges.push(this.add.container(x, TILE_Y - h / 2 - 4).setDepth(24));
+      addText(this, x, y + h / 2 - 20 * k, def.short.toUpperCase(), Math.max(14, Math.round(17 * k)), { color: UI.inkCss, weight: 700 }).setDepth(22);
+      this.tileRings.push(this.add.graphics({ x, y }).setDepth(23));
+      this.tileBadges.push(this.add.container(x, y).setDepth(24));
     });
     faces.setMask(maskG.createGeometryMask());
-    back.setDepth(19);
   }
 
   private buildSlot(slot: number): SlotView {
@@ -321,13 +313,32 @@ export class CharacterSelectScene extends Phaser.Scene {
     this.refreshFooter();
   }
 
-  private moveCursor(slot: number, dir: number, silent = false): void {
+  /** Move along the roster (left/right, wrapping) or between its rows (up/down), skipping taken characters. */
+  private moveCursor(slot: number, dir: number, silent = false, vertical = false): void {
     const v = this.slots[slot];
     const n = CHARACTER_IDS.length;
     let c = v.cursor;
-    for (let k = 0; k < n; k++) {
-      c = (((c + dir) % n) + n) % n;
-      if (!this.locked.has(c)) break;
+    if (vertical) {
+      const { cols, rows } = this.layout;
+      if (rows < 2) return this.moveCursor(slot, dir, silent);
+      // The same column in the other row (or the nearest free tile in that row).
+      const row = Math.floor(c / cols);
+      const target = (row + (dir > 0 ? 1 : rows - 1)) % rows;
+      const start = target * cols;
+      const end = Math.min(n, start + cols);
+      const col = Math.min(c % cols, end - start - 1);
+      let best = -1;
+      for (let i = start; i < end; i++) {
+        if (this.locked.has(i)) continue;
+        if (best < 0 || Math.abs(i - start - col) < Math.abs(best - start - col)) best = i;
+      }
+      if (best < 0) return;
+      c = best;
+    } else {
+      for (let k = 0; k < n; k++) {
+        c = (((c + dir) % n) + n) % n;
+        if (!this.locked.has(c)) break;
+      }
     }
     if (c === v.cursor || this.locked.has(c)) return;
     v.cursor = c;
@@ -394,9 +405,7 @@ export class CharacterSelectScene extends Phaser.Scene {
       this.tweens.add({ targets: this.pools[slot], alpha: on ? 0.62 : 0, duration: 200 });
     });
     const n = CHARACTER_IDS.length;
-    const k = tileScale(n);
-    const w = TILE_W * k;
-    const h = TILE_H * k;
+    const { k, w, h } = this.layout;
     for (let ci = 0; ci < n; ci++) {
       const ring = this.tileRings[ci];
       const badges = this.tileBadges[ci];
@@ -410,16 +419,16 @@ export class CharacterSelectScene extends Phaser.Scene {
         ring.fillRoundedRect(-w / 2, -h / 2, w, h, 20 * k);
         ring.lineStyle(5, PLAYER_COLORS[lockedBy], 1);
         ring.strokeRoundedRect(-w / 2 - 3, -h / 2 - 3, w + 6, h + 6, 22 * k);
-        badges.add(new PlayerBadge(this, 0, h / 2 - 8, lockedBy, 16));
+        badges.add(new PlayerBadge(this, 0, -h / 2 + 7 * k + (h - 44 * k) / 2, lockedBy, 16));
       }
+      // Pointing players: a ring in their colour, and their badges along the tile's top edge.
       pointing.forEach((s, j) => {
-        const grow = 4 + j * 7;
+        const grow = 4 + j * 6;
         ring.lineStyle(6, PLAYER_COLORS[s], 1);
         ring.strokeRoundedRect(-w / 2 - grow, -h / 2 - grow, w + grow * 2, h + grow * 2, 22 * k + grow);
-        badges.add(new PlayerBadge(this, (j - (pointing.length - 1) / 2) * 44, -8, s, 18));
+        badges.add(new PlayerBadge(this, (j - (pointing.length - 1) / 2) * 34, -h / 2 + 2, s, 15));
       });
       badges.setVisible(badges.length > 0);
-      if (pointing.length > 0) this.tweens.add({ targets: badges, y: { from: TILE_Y - h / 2 - 12, to: TILE_Y - h / 2 - 4 }, duration: 160, ease: 'Back.Out' });
     }
   }
 
@@ -476,8 +485,10 @@ export class CharacterSelectScene extends Phaser.Scene {
       }
       if (v.phase === 'choosing') {
         const nav = dev.nav();
-        if (nav === 'left' || nav === 'up') this.moveCursor(slot, -1);
-        else if (nav === 'right' || nav === 'down') this.moveCursor(slot, 1);
+        if (nav === 'left') this.moveCursor(slot, -1);
+        else if (nav === 'right') this.moveCursor(slot, 1);
+        else if (nav === 'up') this.moveCursor(slot, -1, false, true);
+        else if (nav === 'down') this.moveCursor(slot, 1, false, true);
         if (dev.pressed('A')) this.confirm(slot);
         else if (dev.pressed('B')) this.leave(slot);
       } else if (v.phase === 'ready') {

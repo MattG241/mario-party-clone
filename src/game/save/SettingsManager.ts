@@ -7,7 +7,7 @@ import {
   type RoundCount,
 } from '../constants';
 import { DEFAULT_KEY_BINDINGS, KEY_ACTIONS, type KeyAction } from '../input/buttons';
-import type { CharacterId } from '../data/characters';
+import { CHARACTER_IDS, type CharacterId } from '../data/characters';
 import { sanitizeMappings, type PadMapping } from '../input/padProfiles';
 import type { GraphicsMode } from '../perf';
 
@@ -174,7 +174,7 @@ function sanitize(p: Partial<Settings>): Partial<Settings> {
   if (Array.isArray(p.lastCharacters)) {
     out.lastCharacters = [0, 1, 2, 3].map((i) => {
       const v = p.lastCharacters?.[i];
-      return v === 'kip' || v === 'mossi' || v === 'tumble' || v === 'zippa' ? v : null;
+      return typeof v === 'string' && (CHARACTER_IDS as readonly string[]).includes(v) ? (v as CharacterId) : null;
     });
   }
   return out;

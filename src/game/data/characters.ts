@@ -1,8 +1,9 @@
 import { HERO_DATA } from './heroSprites.generated';
 
-// The playable characters: the four Gleamtrail heroes plus the guest collection (fan-made models
-// for private play, scripts/art/char_<id>.py). A guest only joins the roster once its rendered
-// sheet exists.
+// The playable characters: the guest collection (fan-made models and caricatures for private play
+// at home, scripts/art/char_<id>.py). A guest joins the roster once its rendered sheet is packed.
+// The four original Gleamtrail heroes stay defined as a fallback cast: they are only on the roster
+// while fewer than four guests have been rendered.
 
 export type CharacterId =
   | 'kip'
@@ -10,20 +11,37 @@ export type CharacterId =
   | 'tumble'
   | 'zippa'
   | 'luffy'
+  | 'zoro'
+  | 'nami'
   | 'goku'
   | 'naruto'
   | 'batman'
   | 'spiderman'
   | 'ironman'
   | 'sonic'
-  | 'spongebob';
+  | 'spongebob'
+  | 'homer'
+  | 'elvis'
+  | 'sabrina'
+  | 'chappell'
+  | 'sandler'
+  | 'obama'
+  | 'trump';
 
 /** The original four always have art (a rendered sheet, or the supplied 2D sheets). */
 const ORIGINALS: readonly CharacterId[] = ['kip', 'mossi', 'tumble', 'zippa'];
-const GUESTS: readonly CharacterId[] = ['luffy', 'goku', 'naruto', 'batman', 'spiderman', 'ironman', 'sonic', 'spongebob'];
+/** Roster order: anime, heroes, games and cartoons, music and comedy, presidents. */
+const GUESTS: readonly CharacterId[] = [
+  'luffy', 'zoro', 'nami', 'goku', 'naruto',
+  'batman', 'spiderman', 'ironman',
+  'sonic', 'spongebob', 'homer',
+  'elvis', 'sabrina', 'chappell', 'sandler',
+  'obama', 'trump',
+];
+const READY_GUESTS = GUESTS.filter((id) => !!HERO_DATA.anims[id]);
 
-/** Every character that can be picked, in roster order. */
-export const CHARACTER_IDS: readonly CharacterId[] = [...ORIGINALS, ...GUESTS.filter((id) => !!HERO_DATA.anims[id])];
+/** Every character that can be picked, in roster order (four players need at least four). */
+export const CHARACTER_IDS: readonly CharacterId[] = READY_GUESTS.length >= 4 ? READY_GUESTS : [...ORIGINALS, ...READY_GUESTS];
 
 export interface CharacterDef {
   id: CharacterId;
@@ -200,5 +218,113 @@ export const CHARACTERS: Record<CharacterId, CharacterDef> = {
     atlas: heroAtlas('spongebob'),
     handling: { speed: 0.98, accel: 1.03, weight: 0.92, jump: 1.05 },
     pitch: 1.45,
+  },
+  zoro: {
+    id: 'zoro',
+    name: 'Zoro',
+    short: 'Zoro',
+    role: 'Straw Hat Swordsman',
+    blurb: 'Three swords, zero sense of direction.',
+    color: 0x2e7d32,
+    colorCss: '#2e7d32',
+    atlas: heroAtlas('zoro'),
+    handling: { speed: 1.0, accel: 1.02, weight: 1.06, jump: 0.98 },
+    pitch: 0.85,
+  },
+  nami: {
+    id: 'nami',
+    name: 'Nami',
+    short: 'Nami',
+    role: 'Straw Hat Navigator',
+    blurb: 'Charts every island and never misses a treasure.',
+    color: 0xff8f00,
+    colorCss: '#ff8f00',
+    atlas: heroAtlas('nami'),
+    handling: { speed: 1.04, accel: 1.04, weight: 0.92, jump: 1.04 },
+    pitch: 1.35,
+  },
+  homer: {
+    id: 'homer',
+    name: 'Homer',
+    short: 'Homer',
+    role: 'Nuclear Safety Inspector',
+    blurb: 'Mmm... Gleam Chips.',
+    color: 0x7cb342,
+    colorCss: '#7cb342',
+    atlas: heroAtlas('homer'),
+    handling: { speed: 0.94, accel: 0.94, weight: 1.1, jump: 0.95 },
+    pitch: 0.8,
+  },
+  elvis: {
+    id: 'elvis',
+    name: 'Elvis',
+    short: 'Elvis',
+    role: 'The King of Rock and Roll',
+    blurb: 'Thank you, thank you very much.',
+    color: 0x8e24aa,
+    colorCss: '#8e24aa',
+    atlas: heroAtlas('elvis'),
+    handling: { speed: 1.0, accel: 1.0, weight: 1.0, jump: 1.0 },
+    pitch: 0.8,
+  },
+  sabrina: {
+    id: 'sabrina',
+    name: 'Sabrina Carpenter',
+    short: 'Sabrina',
+    role: 'Pop Star',
+    blurb: 'Short n\' sweet, and quick on her feet.',
+    color: 0xf48fb1,
+    colorCss: '#f48fb1',
+    atlas: heroAtlas('sabrina'),
+    handling: { speed: 1.05, accel: 1.06, weight: 0.9, jump: 1.05 },
+    pitch: 1.4,
+  },
+  chappell: {
+    id: 'chappell',
+    name: 'Chappell Roan',
+    short: 'Chappell',
+    role: 'Midwest Princess',
+    blurb: 'Brings the glitter to every island.',
+    color: 0xd81b60,
+    colorCss: '#d81b60',
+    atlas: heroAtlas('chappell'),
+    handling: { speed: 1.03, accel: 1.03, weight: 0.96, jump: 1.03 },
+    pitch: 1.3,
+  },
+  sandler: {
+    id: 'sandler',
+    name: 'Adam Sandler',
+    short: 'Sandler',
+    role: 'Comedy Legend',
+    blurb: 'Shows up in gym shorts, ready for anything.',
+    color: 0x00897b,
+    colorCss: '#00897b',
+    atlas: heroAtlas('sandler'),
+    handling: { speed: 1.0, accel: 0.98, weight: 1.02, jump: 1.0 },
+    pitch: 0.95,
+  },
+  obama: {
+    id: 'obama',
+    name: 'Barack Obama',
+    short: 'Obama',
+    role: '44th U.S. President',
+    blurb: 'Cool, calm and hard to rattle.',
+    color: 0x3949ab,
+    colorCss: '#3949ab',
+    atlas: heroAtlas('obama'),
+    handling: { speed: 1.02, accel: 1.0, weight: 0.98, jump: 1.02 },
+    pitch: 0.85,
+  },
+  trump: {
+    id: 'trump',
+    name: 'Donald Trump',
+    short: 'Trump',
+    role: '45th & 47th U.S. President',
+    blurb: 'Plays every round to win.',
+    color: 0xc62828,
+    colorCss: '#c62828',
+    atlas: heroAtlas('trump'),
+    handling: { speed: 0.98, accel: 1.0, weight: 1.04, jump: 0.98 },
+    pitch: 0.85,
   },
 };

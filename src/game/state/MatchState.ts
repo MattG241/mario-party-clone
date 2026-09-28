@@ -1,6 +1,6 @@
 import { ECONOMY, type CpuLevel, type EventMode, type GameSpeed, type InstructionMode } from '../constants';
 import type { BoardDef } from '../board/types';
-import { CHARACTERS, type CharacterId } from '../data/characters';
+import { CHARACTER_IDS, CHARACTERS, type CharacterId } from '../data/characters';
 import { ITEM_IDS, type ItemId } from '../data/items';
 import { Random } from '../util/Random';
 import { BONUS_IDS, type BonusId } from './scoring';
@@ -170,7 +170,8 @@ export function deserializeMatch(json: string, knownNodes?: Set<string>): MatchS
   if (s.players.length < 2 || s.players.length > 4) return null;
   if (typeof s.rng !== 'number' || !s.phase || typeof s.phase.kind !== 'string') return null;
   for (const p of s.players) {
-    if (!(p.characterId in CHARACTERS)) return null;
+    // A saved match can only continue with characters that are on the roster (and loaded).
+    if (!CHARACTER_IDS.includes(p.characterId)) return null;
     if (typeof p.chips !== 'number' || typeof p.relics !== 'number' || !Array.isArray(p.items)) return null;
     if (p.items.some((i) => !ITEM_IDS.includes(i))) return null;
     if (knownNodes && !knownNodes.has(p.nodeId)) return null;

@@ -151,7 +151,8 @@ export class TitleScene extends Phaser.Scene {
   }
 
   private buildMenu(): void {
-    const hasSave = saves.hasSave() && !!findBoard('suncoil');
+    // A save made with characters no longer on the roster can't continue (load() drops it).
+    const hasSave = saves.hasSave() && !!findBoard('suncoil') && saves.load() !== null;
     this.menu = new Menu(
       this,
       470,
