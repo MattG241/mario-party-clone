@@ -54,12 +54,49 @@ export function inIrons(heading: number, wind: number): boolean {
  * The heading to sail toward a bearing: straight there if the wind allows, else the closer of the two
  * tacks either side of the no-go zone (`prefer` keeps the current tack, -1 / 1, so a boat doesn't dither).
  */
-export function tackHeading(bearing: number, wind: number, prefer = 0): { heading: number; tack: number } {
+export function tackHeading(bearing: number, wind: number, prefer = 0, out: Tack = { heading: 0, tack: 0 }): Tack {
   const off = angleDelta(bearing, wind + Math.PI);
   const limit = (40 * Math.PI) / 180;
-  if (Math.abs(off) >= limit) return { heading: bearing, tack: 0 };
+  if (Math.abs(off) >= limit) {
+    out.heading = bearing;
+    out.tack = 0;
+    return out;
+  }
   const side = prefer !== 0 ? prefer : off >= 0 ? 1 : -1;
-  return { heading: wind + Math.PI + side * limit * 1.25, tack: side };
+  out.heading = wind + Math.PI + side * limit * 1.25;
+  out.tack = side;
+  return out;
+}
+
+export interface Tack {
+  heading: number;
+  /** -1 / 1 for the two tacks either side of the wind, 0 when sailing straight at the bearing. */
+  tack: number;
+}
+
+const lookPt = { x: 0, y: 0 };
+
+/**
+ * Whether sailing on `heading` from world point (x, y) runs onto the shore within `ahead` px
+ * (`k` squashes world depth to the screen, where the bay is measured).
+ */
+export function shoreAhead(x: number, y: number, heading: number, k: number, ahead = 170, margin = 55): boolean {
+  lookPt.x = x + Math.cos(heading) * ahead;
+  lookPt.y = (y + Math.sin(heading) * ahead) * k;
+  return keepInBay(lookPt, margin);
+}
+
+/**
+ * tackHeading for a boat at world point (x, y), coming about when its leg would run onto the rocks
+ * (unless the other leg would too, say in a corner - then it keeps on and shakes loose later).
+ */
+export function tackClear(bearing: number, wind: number, prefer: number, x: number, y: number, k: number, out: Tack): Tack {
+  tackHeading(bearing, wind, prefer, out);
+  if (out.tack === 0 || !shoreAhead(x, y, out.heading, k)) return out;
+  const keep = out.tack;
+  tackHeading(bearing, wind, -keep, out);
+  if (shoreAhead(x, y, out.heading, k)) tackHeading(bearing, wind, keep, out);
+  return out;
 }
 
 /**

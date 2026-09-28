@@ -20,7 +20,9 @@ import {
   sailEfficiency,
   splitLoss,
   strikeLoss,
+  tackClear,
   tackHeading,
+  type Tack,
   TREASURE_VALUE,
   treasureKind,
   type TreasureKind,
@@ -159,7 +161,7 @@ export class StormNavigatorScene extends BaseMinigame {
   private sailShadow: Phaser.Types.Math.Vector2Like[] = Array.from({ length: 8 }, () => ({ x: 0, y: 0 }));
   private boltPts: { x: number; y: number }[] = Array.from({ length: 12 }, () => ({ x: 0, y: 0 }));
   private tmp = { x: 0, y: 0 };
-  private look = { x: 0, y: 0 };
+  private tack: Tack = { heading: 0, tack: 0 };
 
   constructor() {
     super('mg-storm-navigator');
@@ -1038,12 +1040,8 @@ export class StormNavigatorScene extends BaseMinigame {
         br.timer = 0;
       } else if (!fleeing) bearing = Math.atan2(BAY_MID.y / K - b.y, BAY_MID.x - b.x);
     }
-    let tk = tackHeading(bearing, this.wind, b.tack);
-    // beating upwind: come about before the leg runs onto the rocks
-    if (tk.tack !== 0 && this.shoreAhead(b, tk.heading)) {
-      const other = tackHeading(bearing, this.wind, -tk.tack);
-      if (!this.shoreAhead(b, other.heading)) tk = other;
-    }
+    // beating upwind, it comes about before a leg runs onto the rocks
+    const tk = tackClear(bearing, this.wind, b.tack, b.x, b.y, K, this.tack);
     b.tack = tk.tack;
     const noise = (Math.sin(this.elapsed / 700 + p.slot * 2) * 0.5 + (Math.random() - 0.5)) * sk.aimNoise * 0.35;
     const h = tk.heading + noise;
@@ -1051,13 +1049,6 @@ export class StormNavigatorScene extends BaseMinigame {
     vc.setMove(Math.cos(h), Math.sin(h) * K);
     const dist = Math.hypot(t.x - b.x, t.y - b.y);
     if (b.boostCd <= 0 && (fleeing || (dist > 260 && b.eff > 0.75)) && Math.random() < sk.accuracy * 0.08) vc.tap('A');
-  }
-
-  /** Whether sailing on `heading` runs onto the shore within a couple of boat lengths. */
-  private shoreAhead(b: Boat, heading: number): boolean {
-    this.look.x = b.x + Math.cos(heading) * 170;
-    this.look.y = (b.y + Math.sin(heading) * 170) * K;
-    return keepInBay(this.look, 55);
   }
 
   /** CPU target: the best treasure for the time it takes to sail there (wind included), clear of storms. */
@@ -1069,7 +1060,7 @@ export class StormNavigatorScene extends BaseMinigame {
       if (!l.active) continue;
       const d = Math.hypot(l.x - b.x, l.y - b.y);
       const bearing = Math.atan2(l.y - b.y, l.x - b.x);
-      const eff = Math.max(0.55, sailEfficiency(tackHeading(bearing, this.wind).heading, this.wind));
+      const eff = Math.max(0.55, sailEfficiency(tackHeading(bearing, this.wind, 0, this.tack).heading, this.wind));
       const eta = d / (BASE_SPEED * this.windS * eff);
       let score = (TREASURE_VALUE[l.kind] * 10) / (eta + 0.8);
       for (const o of this.boats) {

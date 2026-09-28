@@ -8,7 +8,9 @@ import {
   keepInBay,
   sailEfficiency,
   splitLoss,
+  shoreAhead,
   strikeLoss,
+  tackClear,
   tackHeading,
   TREASURE_VALUE,
   treasureKind,
@@ -45,6 +47,28 @@ describe('storm navigator: sailing', () => {
     const cross = tackHeading(80 * D, wind);
     expect(cross.tack).toBe(0);
     expect(cross.heading).toBeCloseTo(80 * D);
+  });
+
+  it('comes about before a tack runs onto the rocks', () => {
+    const K = 0.819;
+    const wind = 0; // blowing toward +x; beating back west, the two legs point up-left (1) and down-left (-1)
+    const out = { heading: 0, tack: 0 };
+    const midX = (BAY.x0 + BAY.x1) / 2;
+    // close under the top shore, the up-left leg would hit it: take the other
+    const topY = (BAY.y0 + 50) / K;
+    expect(shoreAhead(midX, topY, tackHeading(Math.PI, wind, 1).heading, K)).toBe(true);
+    expect(tackClear(Math.PI, wind, 1, midX, topY, K, out).tack).toBe(-1);
+    // and the same off the bottom shore
+    const botY = (BAY.y1 - 50) / K;
+    expect(tackClear(Math.PI, wind, -1, midX, botY, K, out).tack).toBe(1);
+    // out in open water it keeps to its tack
+    const midY = (BAY.y0 + BAY.y1) / 2 / K;
+    expect(tackClear(Math.PI, wind, 1, midX, midY, K, out).tack).toBe(1);
+    expect(tackClear(Math.PI, wind, -1, midX, midY, K, out).tack).toBe(-1);
+    // boxed into a corner (both legs blocked) it keeps on rather than dithering
+    expect(tackClear(Math.PI, wind, 1, BAY.x0 + 50, topY, K, out).tack).toBe(1);
+    // a bearing it can sail straight is left alone
+    expect(tackClear(80 * D, wind, 1, midX, midY, K, out)).toEqual({ heading: 80 * D, tack: 0 });
   });
 
   it('swings the boom out to the side the wind pushes', () => {
