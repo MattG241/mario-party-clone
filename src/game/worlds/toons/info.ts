@@ -4,7 +4,8 @@ import type { WorldMinigameInfo } from '../types';
 // Arena art: scripts/art/worlds/toons/mg_*.py -> public/assets/rendered/scene_toons_*.webp (+ Lite).
 // The small scene_toons_ic_* images are the intro card's rule icons (loaded with the arena).
 
-const RELIC = { texture: 'prism-relic' };
+/** The last rule line ("most ... wins") shows the game's Star Coin icon (internal key 'prism-relic'). */
+const WIN_ICON = { texture: 'prism-relic' };
 
 export const TOONS_INFO: WorldMinigameInfo = {
   infos: [
@@ -31,7 +32,7 @@ export const TOONS_INFO: WorldMinigameInfo = {
       color: 0x1e63d6,
       preview: { texture: 'rendered-scene-toons_ic_ring', scale: 1 },
       arena: 'rendered-scene-toons_rush',
-      ruleIcons: [{ texture: 'rendered-scene-toons_ic_ring' }, { texture: 'rendered-scene-toons_ic_turtle' }, { texture: 'rendered-scene-toons_ic_heli' }, RELIC],
+      ruleIcons: [{ texture: 'rendered-scene-toons_ic_ring' }, { texture: 'rendered-scene-toons_ic_turtle' }, { texture: 'rendered-scene-toons_ic_heli' }, WIN_ICON],
       world: 'toons',
       characters: ['sonic'],
     },
@@ -59,7 +60,7 @@ export const TOONS_INFO: WorldMinigameInfo = {
       color: 0xf2c418,
       preview: { texture: 'rendered-scene-toons_ic_burger', scale: 1 },
       arena: 'rendered-scene-toons_kitchen',
-      ruleIcons: [{ texture: 'rendered-scene-toons_ic_burger' }, { texture: 'rendered-scene-toons_ic_patty' }, { texture: 'rendered-scene-toons_ic_fish' }, RELIC],
+      ruleIcons: [{ texture: 'rendered-scene-toons_ic_burger' }, { texture: 'rendered-scene-toons_ic_patty' }, { texture: 'rendered-scene-toons_ic_fish' }, WIN_ICON],
       world: 'toons',
       characters: ['spongebob'],
     },
@@ -71,8 +72,8 @@ export const TOONS_INFO: WorldMinigameInfo = {
       description:
         'Five conveyor belts roll fresh donuts out of the ovens and toss them across the factory floor. Catch the ones frosted in your colour, grab the rainbow ones before anyone else and keep clear of the broccoli and the burnt ones. The belts keep speeding up!',
       instructions: [
-        'Catch donuts frosted in your colour (rainbow ones count double for anyone)',
-        'Broccoli and burnt donuts knock a donut out of your box: dodge them',
+        'Catch donuts frosted in your colour (your shape shows on their landing ring)',
+        'Rainbow donuts count double for anyone; broccoli and burnt ones cost a donut',
         'A dashes, and bumps rivals off a good spot',
         'The belts speed up: most donuts after 45 seconds wins',
       ],
@@ -85,7 +86,7 @@ export const TOONS_INFO: WorldMinigameInfo = {
       color: 0xff8fb1,
       preview: { texture: 'rendered-scene-toons_ic_donut', scale: 1 },
       arena: 'rendered-scene-toons_donut',
-      ruleIcons: [{ texture: 'rendered-scene-toons_ic_donut' }, { texture: 'rendered-scene-toons_ic_broccoli' }, { texture: 'rendered-scene-toons_ic_box' }, RELIC],
+      ruleIcons: [{ texture: 'rendered-scene-toons_ic_donut' }, { texture: 'rendered-scene-toons_ic_broccoli' }, { texture: 'rendered-scene-toons_ic_box' }, WIN_ICON],
       world: 'toons',
       characters: ['homer'],
     },

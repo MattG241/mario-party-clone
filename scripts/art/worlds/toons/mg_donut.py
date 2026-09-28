@@ -254,8 +254,6 @@ def factory():
     # giant decorative donuts on the wall in the free corners above the vats
     big_donut(140, WALL_ROW + 2, 3.05, 1.0, mats, '#ff8fb1')
     big_donut(1780, WALL_ROW + 2, 3.05, 1.0, mats, '#8fe0cf')
-    # string lights over the floor
-    dress.string_lights([(x0 + 1.2, gy(640), 3.4), (9.6, gy(640), 3.7), (x1 - 1.2, gy(640), 3.4)], sag=0.3, bulbs=12)
     path = C.render('donut_factory')
     im = Image.open(path).convert('RGB')
     im = C.upscale_preview(im, (SW, SH))
@@ -344,7 +342,7 @@ def sprites():
         v, f = lib.box((c.x + cx, c.y + cy, h * 0.55), (sx, sy, 0.1))
         bx.add(v, f, col('#e8e2d6'))
     bx.build('box', C.mat_matte('card', 0.7, 0.35))
-    cells['box'] = (x - 80, row - 95, 160, 125, x, row)
+    cells['box'] = (x - 88, row - 120, 176, 155, x, row)
     W, H = 1400, 260
     C.camera(0, 0, W, H, A.preview)
     path = C.render('donut_sprites')

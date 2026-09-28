@@ -534,7 +534,11 @@ export class PattyPanicScene extends BaseMinigame {
     this.drawHighlight(st);
     const rate = ing === 'patty' ? 0.75 : ing === 'lettuce' ? 1.25 : ing === 'tomato' ? 1.05 : 1.45;
     audio.play('pop', { volume: 0.5, rate });
-    if (ing === 'patty') audio.play('land', { volume: 0.3 });
+    if (ing === 'patty') {
+      audio.play('land', { volume: 0.3 });
+      // a sizzle of steam off the hot patty
+      if (!LITE && !calmMotion()) this.fx.vfx('smoke', st.stack.x, st.stack.y - st.stackH * STACK_SCALE - 10, { scale: 0.26, duration: 520, alpha: 0.5, dy: -36, depth: 1150 });
+    }
     st.c.squash(0.08, 120);
     this.rumble(st.p, 0.08, 0.15, 40);
     if (res === 'complete') this.serve(st);

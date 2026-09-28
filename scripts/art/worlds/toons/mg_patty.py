@@ -75,8 +75,9 @@ def floor_material():
     """Diner checker tiles in cream and teal."""
     m = lib.NT('diner_floor')
     X, Y, Z = m.sep(m.position())
+    # tiles run deep so they read as squares from this low camera
     fx = m.math('FLOOR', m.math('DIVIDE', X, 0.64))
-    fy = m.math('FLOOR', m.math('DIVIDE', Y, 0.64))
+    fy = m.math('FLOOR', m.math('DIVIDE', Y, 1.5))
     s = m.math('FLOORED_MODULO', m.math('ADD', fx, fy), 2.0)
     c = m.mix(s, col('#fff1d6'), col('#2f9d9a'))
     n = m.noise(6.0, 3, 0.5, m.position())
@@ -267,6 +268,33 @@ def kitchen():
         cords.add(v, f, col('#fff1b8'))
     lamps.build('lamps', paint)
     cords.build('lamp_bulbs', glow)
+    # warm pools of light from the lamps on the wall and the grill
+    for lx in [230, 690, 1230, 1690]:
+        ld = bpy.data.lights.new(f'lamp_light_{lx}', 'POINT')
+        ld.energy = 38.0
+        ld.shadow_soft_size = 0.25
+        ld.color = col('#ffd49a')[:3]
+        ob = bpy.data.objects.new(f'lamp_light_{lx}', ld)
+        bpy.context.scene.collection.objects.link(ob)
+        ob.location = (lx / 100, gf + 0.45, (WALL_ROW - 505) / (lib.SINB * 100) - 0.35)
+    # little shelves of jars under the middle portholes (they show between the tickets)
+    shelf, jars, lids = lib.MeshBuilder(), lib.MeshBuilder(), lib.MeshBuilder()
+    sz = (WALL_ROW - 452) / (lib.SINB * 100)
+    for sx in [510, 960, 1410]:
+        cx = sx / 100
+        v, f = lib.box((cx, wy - 0.16, sz), (1.5, 0.3, 0.06))
+        shelf.add(v, f, col('#b07a45'))
+        for bx in (-0.5, 0.5):
+            v, f = lib.box((cx + bx, wy - 0.06, sz - 0.12), (0.05, 0.12, 0.2))
+            shelf.add(v, f, col('#8a5a30'))
+        for k, (jx, jc, jh) in enumerate([(-0.5, '#7fcf4a', 0.34), (-0.18, '#ff5a4a', 0.26), (0.14, '#ffcf2e', 0.3), (0.46, '#ff9ad5', 0.22)]):
+            v, f = lib.lathe([(0.11, 0.0), (0.12, jh * 0.85), (0.08, jh), (0.0, jh)], 16, (cx + jx, wy - 0.18, sz + 0.03))
+            jars.add(v, f, col(jc))
+            v, f = lib.cylinder((cx + jx, wy - 0.18, sz + 0.03 + jh), 0.085, 0.085, 0.05, 14)
+            lids.add(v, f, col('#e0a93f'))
+    shelf.build('shelves', wood)
+    jars.build('jars', C.mat_gloss('jar_glass', 0.12, 0.9, spec=0.7, subsurface=0.15))
+    lids.build('jar_lids', metal)
     # the serving counter the cooks stand behind: a butcher-block top with a brass edge over an
     # aqua front with brass rivets (the game lays each station's controls over it)
     cb, cf = gy(COUNTER_BACK), gy(COUNTER_FRONT)
@@ -334,7 +362,7 @@ def sprites():
     v, f = lib.lathe([(0.0, 0.0), (0.62, 0.0), (0.68, 0.04), (0.7, 0.12), (0.66, 0.2), (0.0, 0.21)], 40, (bx, by, 0.0))
     mb.add(v, f, lambda q: col('#e8a456') if q[2] < 0.16 else col('#f7d9a0'))
     mb.build('bun_bottom', soft)
-    cell('bun_bottom', 120 - 80, row - 50, 160, 70, 120, row)
+    cell('bun_bottom', 120 - 95, row - 85, 190, 130, 120, row)
     # bun top: a sesame dome
     bx, by = at(320, row)
     mb, seeds = lib.MeshBuilder(), lib.MeshBuilder()
@@ -350,14 +378,14 @@ def sprites():
         seeds.add(v, f, col('#fff6dc'))
     mb.build('bun_top', gloss)
     seeds.build('seeds', soft)
-    cell('bun_top', 320 - 80, row - 80, 160, 100, 320, row)
+    cell('bun_top', 320 - 95, row - 85, 190, 130, 320, row)
     # patty
     bx, by = at(520, row)
     mb = lib.MeshBuilder()
     v, f = lib.lathe([(0.0, 0.0), (0.62, 0.0), (0.68, 0.05), (0.68, 0.14), (0.62, 0.19), (0.0, 0.2)], 40, (bx, by, 0.0))
     mb.add(v, f, lambda q: col('#6b3a1e') if int(q[0] * 30 + q[1] * 17) % 3 else col('#8a4d28'))
     mb.build('patty', C.mat_gloss('patty_mat', 0.55, 0.15))
-    cell('patty', 520 - 80, row - 50, 160, 70, 520, row)
+    cell('patty', 520 - 95, row - 85, 190, 130, 520, row)
     # cheese: a square slice with drooping corners
     bx, by = at(720, row)
     mb = lib.MeshBuilder()
@@ -377,7 +405,7 @@ def sprites():
     mb.add(top, faces, col('#ffc62b'))
     mb.add(bot, [tuple(reversed(fc)) for fc in faces], col('#f0a818'))
     mb.build('cheese', C.mat_gloss('cheese_mat', 0.3, 0.3, subsurface=0.2))
-    cell('cheese', 720 - 85, row - 40, 170, 70, 720, row)
+    cell('cheese', 720 - 95, row - 85, 190, 130, 720, row)
     # lettuce: a frilly green ring
     bx, by = at(920, row)
     mb = lib.MeshBuilder()
@@ -391,7 +419,7 @@ def sprites():
     f = [(0, 1 + k, 1 + (k + 1) % nn) for k in range(nn)] + [(1 + k, 1 + nn + k, 1 + nn + (k + 1) % nn, 1 + (k + 1) % nn) for k in range(nn)]
     mb.add(v, f, lambda q: col('#8fd84c') if q[2] > 0.04 else col('#4fae3a'))
     mb.build('lettuce', C.mat_gloss('lettuce_mat', 0.4, 0.2, subsurface=0.2))
-    cell('lettuce', 920 - 90, row - 40, 180, 70, 920, row)
+    cell('lettuce', 920 - 95, row - 85, 190, 130, 920, row)
     # tomato: two red slices side by side
     bx, by = at(1120, row)
     mb, seeds = lib.MeshBuilder(), lib.MeshBuilder()
@@ -404,7 +432,7 @@ def sprites():
             seeds.add(v, f, col('#ffd0a0'))
     mb.build('tomato', C.mat_gloss('tomato_mat', 0.25, 0.6, subsurface=0.15))
     seeds.build('tomato_seeds', soft)
-    cell('tomato', 1120 - 80, row - 40, 160, 60, 1120, row)
+    cell('tomato', 1120 - 95, row - 85, 190, 130, 1120, row)
     # plate
     bx, by = at(1340, row)
     mb = lib.MeshBuilder()
@@ -412,7 +440,7 @@ def sprites():
     mb.add(v, f, lambda q: col('#3fb8e8') if math.hypot(q[0] - bx, (q[1] - by)) > 0.72 else col('#fbfbf6'))
     mb.build('plate', C.mat_gloss('plate_mat', 0.15, 0.8))
     C.shadow_catcher(1340, row, 1.4)
-    cell('plate', 1340 - 100, row - 40, 200, 70, 1340, row)
+    cell('plate', 1340 - 100, row - 50, 200, 100, 1340, row)
 
     # customers: head-and-shoulders portraits facing the camera (a ring frames them in game)
     crow = 520.0

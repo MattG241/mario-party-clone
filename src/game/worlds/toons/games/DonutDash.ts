@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { audio } from '../../../audio/AudioManager';
 import { Character } from '../../../characters/Character';
-import { CSS, GAME_WIDTH, PLAYER_COLORS } from '../../../constants';
+import { CSS, GAME_WIDTH, PLAYER_COLORS, PLAYER_SHAPES } from '../../../constants';
 import { CHARACTERS } from '../../../data/characters';
 import { HERO_DATA } from '../../../data/heroSprites.generated';
 import type { VirtualControls } from '../../../input/PlayerInput';
@@ -11,6 +11,7 @@ import { banner, kick, popToHud, punch, shockwave, titleTexture, type HudPop } f
 import { burst, ensureArenaFxTextures, RingPool, Spray } from '../../../minigames/games/arenaFx';
 import { bakeWord, calmMotion, WordPops } from '../../../minigames/games/stageKit';
 import { LITE } from '../../../perf';
+import { drawPlayerShape } from '../../../ui/PlayerBadge';
 import { finishAtlas, hasFrame, queueAtlas } from '../toonsKit';
 import {
   BELT_END_Y,
@@ -194,6 +195,16 @@ export class DonutDashScene extends BaseMinigame {
       g.fillStyle(0xffffff, 0.22);
       g.fillCircle(64, 64, 54);
     });
+    // a donut's marker carries its owner's shape too (colour is never the only cue)
+    PLAYER_SHAPES.forEach((shape, i) =>
+      tex(`dd-mark-s${i}`, 128, 128, () => {
+        g.lineStyle(10, 0xffffff, 1);
+        g.strokeCircle(64, 64, 54);
+        g.fillStyle(0xffffff, 0.22);
+        g.fillCircle(64, 64, 54);
+        drawPlayerShape(g, shape, 64, 66, 24, 0xffffff, 0x1a1a2a, 6);
+      }),
+    );
     tex('dd-mark-bad', 128, 128, () => {
       g.lineStyle(10, 0xffffff, 1);
       g.strokeCircle(64, 64, 54);
@@ -335,6 +346,11 @@ export class DonutDashScene extends BaseMinigame {
     it.mark.setVisible(false);
   }
 
+  private markTexture(p: Pick): string {
+    if (isBad(p)) return 'dd-mark-bad';
+    return p.kind === 'donut' && this.colours.includes(p.colour) ? `dd-mark-s${p.colour}` : 'dd-mark';
+  }
+
   private markColour(p: Pick): number {
     if (p.kind === 'donut') return PLAYER_COLORS[p.colour];
     if (p.kind === 'rainbow') return 0xffe9ff;
@@ -357,7 +373,7 @@ export class DonutDashScene extends BaseMinigame {
           it.spr.setPosition(x, y + 6).setDepth(560 + it.u).setAlpha(Math.min(1, it.u / 0.08));
           if (!it.marked && it.u >= markU) {
             it.marked = true;
-            it.mark.setTexture(isBad(it.pick) ? 'dd-mark-bad' : 'dd-mark').setTint(this.markColour(it.pick)).setVisible(true);
+            it.mark.setTexture(this.markTexture(it.pick)).setTint(this.markColour(it.pick)).setVisible(true);
           }
           if (it.marked) {
             const k = Math.max(0, Math.min(1, (it.u - markU) / (1 - markU)));
@@ -467,6 +483,8 @@ export class DonutDashScene extends BaseMinigame {
     // bad luck: broccoli or a burnt one knocks a donut out of the box and leaves you dazed
     const lost = c.p.score > 0 ? 1 : 0;
     c.p.score -= lost;
+    c.pop = undefined;
+    this.releaseHud(c.p.slot, 9999);
     c.stun = STUN_MS[it.pick.kind];
     c.dashT = 0;
     c.vx *= 0.2;
@@ -641,7 +659,10 @@ export class DonutDashScene extends BaseMinigame {
         const bx = c.x + (left ? -1 : 1) * c.carry[0] * CHAR_SCALE * 0.7;
         const by = c.y + c.carry[1] * CHAR_SCALE - bob + 22;
         c.box.setPosition(bx, by).setDepth(c.y + 0.5);
-        c.pile.forEach((img, k) => img.setPosition(bx - 22 + (k % 2) * 26 + (k > 1 ? 12 : 0), by - 30 - (k > 1 ? 12 : 0) - (k % 2) * 3).setDepth(c.y + 0.4 - k * 0.01));
+        for (let k = 0; k < c.pile.length; k++) {
+          // two donuts at the front of the heap, two tucked in behind them
+          c.pile[k].setPosition(bx - 22 + (k % 2) * 26 + (k > 1 ? 12 : 0), by - 26 - (k > 1 ? 10 : 0) - (k % 2) * 3).setDepth(c.y + 0.6 + (k > 1 ? -0.02 : 0) + k * 0.001);
+        }
       }
     }
   }

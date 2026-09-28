@@ -614,7 +614,13 @@ export class RingRushScene extends BaseMinigame {
   private stepRunner(r: Runner, dt: number): void {
     const s = dt / 1000;
     const c = r.p.controls;
+    const wasCd = r.dashCd;
     r.dashCd = Math.max(0, r.dashCd - dt);
+    // the spin-dash is ready again: a quick pulse round a human runner
+    if (wasCd > 0 && r.dashCd <= 0 && !r.p.isCpu && this.phase === 'playing') {
+      const gy = this.laneY(r.laneF);
+      this.rings.spawn(r.x, gy - 50 - r.z, 30, 70, { alpha: 0.7, ms: 260, tint: PLAYER_COLORS[r.p.slot], add: true, depth: gy + 6 });
+    }
     r.invuln = Math.max(0, r.invuln - dt);
     r.stun = Math.max(0, r.stun - dt);
     // lanes: one step per push of the stick (or D-pad)
@@ -884,7 +890,9 @@ export class RingRushScene extends BaseMinigame {
     r.invuln = INVULN_MS;
     r.xv = -680;
     r.jumpBuf = 0;
-    if (r.pop) r.pop = undefined;
+    // any "+N" still flying in lands on the new, lower count
+    r.pop = undefined;
+    this.releaseHud(r.p.slot, 9999);
     audio.play('hit', { volume: 0.8 });
     if (lost) audio.play('shop', { volume: 0.5, rate: 0.62 });
     this.rumble(r.p, 0.7, 0.5, 240);
@@ -930,6 +938,8 @@ export class RingRushScene extends BaseMinigame {
         a.bumped |= 1 << b.p.slot;
         const lost = ringsBumped(b.p.score);
         b.p.score -= lost;
+        b.pop = undefined;
+        this.releaseHud(b.p.slot, 9999);
         b.streak = 0;
         b.stun = 260;
         b.invuln = 700;
