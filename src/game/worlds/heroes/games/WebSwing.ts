@@ -581,11 +581,11 @@ export class WebSwingScene extends BaseMinigame {
       const wy = s.y - 120;
       if (q === 'perfect') {
         audio.play('nearMiss', { volume: 0.5, rate: 1.05 + Math.min(0.3, s.chain * 0.02) });
-        this.pops.pop(WORDS.perfect.key, wx, wy, { owner: slot, scale: r.p.isCpu ? 0.8 : 1, rise: 36, hold: 380 });
+        this.pops.pop(WORDS.perfect.key, wx, wy, { owner: slot, scale: r.p.isCpu ? 0.7 : 1, rise: 36, hold: r.p.isCpu ? 300 : 380 });
         shockwave(this, s.x, s.y, { radius: 100, color: PLAYER_COLORS[slot], alpha: 0.8, duration: 320, depth: DEPTH.web - 1 });
         if (!calmMotion()) r.flip = Math.PI * 2;
         this.rumble(r.p, 0.12, 0.25, 70);
-      } else if (q === 'good') this.pops.pop(WORDS.good.key, wx, wy, { owner: slot, scale: 0.8, rise: 30, hold: 300 });
+      } else if (q === 'good' && !r.p.isCpu) this.pops.pop(WORDS.good.key, wx, wy, { owner: slot, scale: 0.8, rise: 30, hold: 300 });
       else if (!r.p.isCpu && (q === 'early' || q === 'late')) this.pops.pop((q === 'early' ? WORDS.early : WORDS.late).key, wx, wy, { owner: slot, scale: 0.8, rise: 26, hold: 300 });
       if (s.chain === 5 || s.chain === 10 || (s.chain > 10 && s.chain % 10 === 0)) {
         this.pops.pop((s.chain >= 10 ? WORDS.chain10 : WORDS.chain5).key, s.x, s.y - 190, { owner: slot + 10, scale: 1, rise: 40, hold: 520, tilt: -6 });
