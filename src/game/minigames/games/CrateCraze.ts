@@ -3,7 +3,7 @@ import { audio } from '../../audio/AudioManager';
 import { Character } from '../../characters/Character';
 import { CSS, GAME_WIDTH, PLAYER_COLORS, PLAYER_COLORS_CSS, PLAYER_SHAPES } from '../../constants';
 import { CHARACTERS } from '../../data/characters';
-import { npcFrame, type NpcId } from '../../data/npcs';
+import { NPC_ATLAS, npcFrame, type NpcId } from '../../data/npcs';
 import type { VirtualControls } from '../../input/PlayerInput';
 import { drawPlayerShape } from '../../ui/PlayerBadge';
 import { addText } from '../../ui/theme';
@@ -269,8 +269,8 @@ export class CrateCrazeScene extends BaseMinigame {
     CROWD_X.forEach((x, i) => {
       const [id, pose] = folk[i % folk.length];
       const y = CROWD_Y - (i % 2) * 6;
-      const spr = this.add.sprite(x, y, 'npcs', npcFrame(id, pose));
-      const o = standOrigin('npcs', npcFrame(id, pose));
+      const spr = this.add.sprite(x, y, NPC_ATLAS, npcFrame(id, pose));
+      const o = standOrigin(NPC_ATLAS, npcFrame(id, pose));
       spr.setOrigin(o.x, o.y).setScale(0.4).setDepth(FLOOR.y - 20 + i * 0.01).setFlipX(x > GAME_WIDTH / 2);
       this.tweens.add({ targets: spr, y: y - 7, duration: 400 + (i % 3) * 90, yoyo: true, repeat: -1, ease: 'Sine.InOut', delay: i * 60 });
       this.crowd.push(spr);
@@ -399,7 +399,12 @@ export class CrateCrazeScene extends BaseMinigame {
     if (this.renderedCrate && gold && !goldArt) sprite.setTint(0xffd45a);
     const aura = this.add.image(0, 0, art).setOrigin(meta.x, meta.y).setScale(scale).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0).setVisible(false);
     const glow = this.add.image(0, 0, 'fx-dot').setScale((CRATE * 2.3) / 24, (CRATE * DEPTH_K * 2.3) / 24).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0).setVisible(false);
-    const shadow = this.renderedCrate ? null : this.add.image(0, 0, 'cc-crate-shadow').setAlpha(0.85);
+    // The cast shadow is a separate floor-layer sprite so it never falls across players behind the crate.
+    const shadow = !this.renderedCrate
+      ? this.add.image(0, 0, 'cc-crate-shadow').setAlpha(0.85)
+      : this.textures.exists('rendered-mg-crate-shadow')
+        ? this.add.image(0, 0, 'rendered-mg-crate-shadow').setOrigin(meta.x, meta.y).setScale(scale)
+        : null;
     const twinkle = gold ? this.add.image(0, 0, 'fx-dot').setBlendMode(Phaser.BlendModes.ADD).setTint(0xfff4c0).setAlpha(0) : null;
     const k: Crate = {
       id: this.nextId++,
@@ -450,7 +455,8 @@ export class CrateCrazeScene extends BaseMinigame {
     k.sprite.setPosition(sx, sy - k.z).setDepth(sy + 0.5);
     k.aura.setPosition(sx, sy - k.z).setDepth(sy + 0.6);
     k.glow.setPosition(sx, sy).setDepth(5);
-    k.shadow?.setPosition(sx + 12, sy - 3).setDepth(5.5);
+    if (this.renderedCrate) k.shadow?.setPosition(sx, sy).setDepth(5.5);
+    else k.shadow?.setPosition(sx + 12, sy - 3).setDepth(5.5);
     if (k.twinkle) k.twinkle.setDepth(sy + 0.7);
   }
 

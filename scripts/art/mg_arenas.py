@@ -742,8 +742,28 @@ def spr_crate(meta, gold=False):
         v = lib.transform(v, loc=(c.x, c.y - s / 2 - 0.05, s / 2), rot=(math.pi / 2, 0.0, 0.0))
         P.b['glow'].add(v, f, col('#5ce1ff'))
     P.build()
-    shadow_floor(bx, by)
-    render_sprite('crate_gold' if gold else 'crate', (bx - 90, by - 150, 180, 190), bx, by, meta)
+    floor = shadow_floor(bx, by)
+    region = (bx - 90, by - 150, 180, 190)
+    # The crate on its own (the floor still bounces light onto it but is not seen): the game draws the
+    # crate at the depth of its footprint, so a baked-in shadow would fall across players behind it.
+    floor.visible_camera = False
+    render_sprite('crate_gold' if gold else 'crate', region, bx, by, meta)
+    if not gold:
+        # ...and its cast shadow alone, which the game lays on the floor beneath everyone
+        floor.visible_camera = True
+        for ob in bpy.data.objects:
+            if ob.type == 'MESH' and ob is not floor:
+                ob.visible_camera = False
+        render_sprite('crate_shadow', region, bx, by, meta)
+        # drop the part hidden under the crate (a solid black footprint that its squash would uncover);
+        # a 2 px margin keeps the shadow beneath the crate's soft edges
+        crate = Image.open(os.path.join(OUT, 'crate.png')).convert('RGBA').getchannel('A').filter(ImageFilter.MinFilter(5))
+        sh = Image.open(os.path.join(OUT, 'crate_shadow.png')).convert('RGBA')
+        a = np.asarray(sh.getchannel('A')).astype(np.float32) * (1.0 - np.asarray(crate).astype(np.float32) / 255.0)
+        sh.putalpha(Image.fromarray(a.astype(np.uint8)))
+        sh.save(os.path.join(OUT, 'crate_shadow.png'))
+        if not A.preview:
+            sh.save(os.path.join(PUB, 'mg', 'crate_shadow.webp'), 'WEBP', quality=92, method=6)
 
 
 def spr_pad(meta):
