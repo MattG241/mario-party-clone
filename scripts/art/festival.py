@@ -586,33 +586,74 @@ def signpost(B, bx, by, rnd):
 
 
 def greenhouse(B, bx, by, s, rnd):
-    """Small glasshouse: white frame, pale green glass and potted greenery inside."""
+    """Small glasshouse: tinted see-through panes in a white frame (posts, rails, roof ribs), a
+    dark green ridge cap and door, and benches of potted plants and flowers inside."""
     p = _w(bx, by)
     x, y = p.x, p.y
-    Wd, D, Hh, Rz = 0.9 * s, 0.55 * s, 0.4 * s, 0.62 * s
-    v, f = lib.box((x, y, 0.03), (Wd + 0.04, D + 0.04, 0.06))
-    B['stone'].add(v, f, col('#d9cdbd'))
-    # glass walls and roof
-    v, f = lib.box((x, y, 0.06 + Hh / 2), (Wd, D, Hh))
-    B['glass'].add(v, f, col('#bfe8dc'))
+    Wd, D, Hh, Rz = 1.0 * s, 0.6 * s, 0.38 * s, 0.64 * s
+    z0 = 0.06
+    white, dark = col('#fbfaf4'), col('#2f5a46')
+    v, f = lib.box((x, y, z0 / 2), (Wd + 0.06, D + 0.06, z0))
+    B['stone'].add(v, f, col('#cfc3b0'))
+    # inside: two benches of pots along the long walls, greenery and flowers
     for sgn in (-1, 1):
-        q = [(x - Wd / 2, y + sgn * D / 2, 0.06 + Hh), (x + Wd / 2, y + sgn * D / 2, 0.06 + Hh), (x + Wd / 2, y, Rz + 0.06), (x - Wd / 2, y, Rz + 0.06)]
-        B['glass'].add(q, [(0, 1, 2, 3), (3, 2, 1, 0)], col('#cdf0e4'))
+        yy = y + sgn * D * 0.28
+        v, f = lib.box((x, yy, z0 + 0.1), (Wd - 0.12, D * 0.3, 0.025))
+        B['wood'].add(v, f, col('#a8744a'))
+        for k in range(7):
+            px_ = x - Wd / 2 + 0.1 + k * (Wd - 0.2) / 6
+            v, f = lib.cylinder((px_, yy, z0 + 0.112), 0.032, 0.038, 0.05, 8)
+            B['paint'].add(v, f, col('#c9703f'))
+            v, f = lib.blob((px_, yy, z0 + 0.19), rnd.uniform(0.045, 0.06), squash=(1, 1, 1.1), rough=0.25, subdiv=2, seed=rnd.random() * 9)
+            B['leaves'].add(v, f, col(rnd.choice(['#3f9b33', '#4aa83a', '#2f8a2c', '#5cb040'])))
+            if k % 2 == 0:
+                v, f = lib.blob((px_ + 0.01, yy - 0.01, z0 + 0.235), 0.022, rough=0.1, subdiv=1)
+                B['flowers'].add(v, f, col(rnd.choice(['#ff5a6e', '#ffd23f', '#ff9ecb', '#ffffff'])))
+    # glass: walls, roof slopes and gable ends (tinted, partly see-through)
+    glass = col('#8ccfbe')
     for sgn in (-1, 1):
-        B['glass'].add([(x + sgn * Wd / 2, y - D / 2, 0.06 + Hh), (x + sgn * Wd / 2, y + D / 2, 0.06 + Hh), (x + sgn * Wd / 2, y, Rz + 0.06)], [(0, 1, 2), (2, 1, 0)], col('#bfe8dc'))
-    # white frame: corner posts, mullions and the ridge
-    for i in range(5):
-        fx = x - Wd / 2 + i * Wd / 4
+        wall = [(x - Wd / 2, y + sgn * D / 2, z0), (x + Wd / 2, y + sgn * D / 2, z0), (x + Wd / 2, y + sgn * D / 2, z0 + Hh), (x - Wd / 2, y + sgn * D / 2, z0 + Hh)]
+        B['glass'].add(wall, [(0, 1, 2, 3), (3, 2, 1, 0)], glass)
+        roof = [(x - Wd / 2, y + sgn * D / 2, z0 + Hh), (x + Wd / 2, y + sgn * D / 2, z0 + Hh), (x + Wd / 2, y, Rz), (x - Wd / 2, y, Rz)]
+        B['glass'].add(roof, [(0, 1, 2, 3), (3, 2, 1, 0)], col('#9ed8c8'))
+        end_ = [(x + sgn * Wd / 2, y - D / 2, z0), (x + sgn * Wd / 2, y + D / 2, z0), (x + sgn * Wd / 2, y + D / 2, z0 + Hh), (x + sgn * Wd / 2, y, Rz),
+                (x + sgn * Wd / 2, y - D / 2, z0 + Hh)]
+        B['glass'].add(end_, [(0, 1, 2, 3, 4), (4, 3, 2, 1, 0)], glass)
+    # white frame: corner and wall posts, eave and mid rails, roof ribs, gable framing
+    fw = 0.028
+    n = 5
+    for i in range(n + 1):
+        fx = x - Wd / 2 + i * Wd / n
         for sgn in (-1, 1):
-            v, f = lib.box((fx, y + sgn * D / 2, 0.06 + Hh / 2), (0.018, 0.018, Hh))
-            B['paint'].add(v, f, col('#fbfaf6'))
-            v, f = lib.tube([(fx, y + sgn * D / 2, 0.06 + Hh), (fx, y, Rz + 0.06)], 0.009, 4)
-            B['paint'].add(v, f, col('#fbfaf6'))
-    v, f = lib.tube([(x - Wd / 2, y, Rz + 0.06), (x + Wd / 2, y, Rz + 0.06)], 0.012, 5)
-    B['paint'].add(v, f, col('#fbfaf6'))
-    for k in range(6):
-        v, f = lib.blob((x - Wd / 2 + 0.12 + k * 0.13, y + rnd.uniform(-0.1, 0.1), 0.16), 0.07, rough=0.2, subdiv=2, seed=rnd.random() * 9)
-        B['leaves'].add(v, f, col(rnd.choice(['#3f9b33', '#4aa83a', '#2f8a2c'])))
+            v, f = lib.box((fx, y + sgn * D / 2, z0 + Hh / 2), (fw, fw, Hh))
+            B['paint'].add(v, f, white)
+            v, f = lib.tube([(fx, y + sgn * D / 2, z0 + Hh), (fx, y, Rz)], fw * 0.55, 4)
+            B['paint'].add(v, f, white)
+    for sgn in (-1, 1):
+        for zz in (z0 + 0.02, z0 + Hh * 0.55, z0 + Hh):
+            v, f = lib.box((x, y + sgn * D / 2, zz), (Wd + fw, fw, fw))
+            B['paint'].add(v, f, white)
+        for u in (-1, 1):
+            v, f = lib.box((x + sgn * Wd / 2, y + u * D / 4, z0 + Hh), (fw, D / 2, fw))
+            B['paint'].add(v, f, white)
+            v, f = lib.box((x + sgn * Wd / 2, y + u * D / 2, z0 + Hh / 2), (fw, fw, Hh))
+            B['paint'].add(v, f, white)
+            v, f = lib.tube([(x + sgn * Wd / 2, y + u * D / 2, z0 + Hh), (x + sgn * Wd / 2, y, Rz)], fw * 0.55, 4)
+            B['paint'].add(v, f, white)
+        v, f = lib.box((x + sgn * Wd / 2, y, (z0 + Hh + Rz) / 2), (fw, fw, Rz - z0 - Hh))
+        B['paint'].add(v, f, white)
+    # dark ridge cap and a door in the camera-facing wall
+    v, f = lib.box((x, y, Rz + 0.012), (Wd + 0.05, 0.05, 0.03))
+    B['paint'].add(v, f, dark)
+    v, f = lib.box((x, y - D / 2 - 0.004, z0 + 0.14), (0.16, 0.012, 0.28))
+    B['paint'].add(v, f, dark)
+    v, f = lib.box((x, y - D / 2 - 0.009, z0 + 0.14), (0.11, 0.006, 0.22))
+    B['glass'].add(v, f, col('#6fbcae'))
+    # a watering can and a sack by the door
+    v, f = lib.cylinder((x + 0.2, y - D / 2 - 0.09, 0.0), 0.035, 0.035, 0.07, 10)
+    B['metal'].add(v, f, col('#6fa08c'))
+    v, f = lib.blob((x - 0.22, y - D / 2 - 0.08, 0.05), 0.055, squash=(1, 0.9, 1.1), rough=0.2, subdiv=2)
+    B['cloth'].add(v, f, col('#c9a66b'))
 
 
 def campsite(B, bx, by, rnd):
@@ -665,3 +706,103 @@ def flower_arch(B, a, b, rnd, h=0.62):
             B['leaves'].add(v, f, col('#3f8f3a'))
         v, f = lib.blob((q[0], q[1] - 0.02, q[2] + 0.02), 0.026, rough=0.1, subdiv=1)
         B['flowers'].add(v, f, col(['#ff8fb1', '#fff6ea', '#ff6b8a'][k % 3]))
+
+
+# ------------------------------------------------------------------------------------------
+# Townsfolk, critters and small lawn scenes (tiny: a villager is about 0.3 units, 18 px tall)
+VILLAGER_COLS = ['#ff6b5e', '#3f9ee0', '#f4b83b', '#8e5cd9', '#1fa5a0', '#ff8fb1', '#6cc24a', '#e8604c', '#fff4dc']
+SKIN = ['#f5d0b0', '#e0ac7e', '#c68a5c', '#8d5a3b', '#f2c49a']
+HAIR = ['#3a2a22', '#6b4226', '#d9a441', '#1f1a1a', '#a0522d']
+
+
+def villager(B, bx, by, yaw, rnd, pose='stand', z0=0.0, s=1.0):
+    """A tiny townsperson: tunic, head, hat or hair, and arms; `pose` 'stand' or 'sit' (facing yaw,
+    radians in the ground plane; 0 = towards +x)."""
+    p = _w(bx, by)
+    x, y = p.x, p.y
+    body = col(rnd.choice(VILLAGER_COLS))
+    skin = col(rnd.choice(SKIN))
+    fx, fy = math.cos(yaw), math.sin(yaw)
+    if pose == 'sit':
+        base = z0 + 0.01 * s
+        # thighs forward and shins down
+        v, f = lib.box((x + fx * 0.04 * s, y + fy * 0.04 * s, base + 0.02 * s), (0.08 * s, 0.07 * s, 0.035 * s), rot_z=yaw)
+        B['cloth'].add(v, f, col('#4a5a7a'))
+        hip = base + 0.02 * s
+    else:
+        for sgn in (-1, 1):
+            lx, ly = x - fy * 0.018 * s * sgn, y + fx * 0.018 * s * sgn
+            v, f = lib.cylinder((lx, ly, z0), 0.014 * s, 0.014 * s, 0.07 * s, 6)
+            B['cloth'].add(v, f, col('#4a5a7a'))
+        hip = z0 + 0.065 * s
+    v, f = lib.lathe([(0.042 * s, 0.0), (0.048 * s, 0.03 * s), (0.04 * s, 0.09 * s), (0.028 * s, 0.13 * s), (0.0, 0.14 * s)], 10, (x, y, hip))
+    B['cloth'].add(v, f, body)
+    top = hip + 0.14 * s
+    for sgn in (-1, 1):
+        sx, sy = x - fy * 0.038 * s * sgn, y + fx * 0.038 * s * sgn
+        hand = (sx + fx * 0.05 * s, sy + fy * 0.05 * s, top - 0.07 * s)
+        v, f = lib.tube([(sx, sy, top - 0.02 * s), hand], 0.011 * s, 5)
+        B['cloth'].add(v, f, body)
+    hz = top + 0.035 * s
+    v, f = lib.blob((x, y, hz), 0.036 * s, rough=0.0, subdiv=2)
+    B['paint'].add(v, f, skin)
+    k = rnd.random()
+    if k < 0.4:  # straw hat
+        v, f = lib.lathe([(0.064 * s, 0.0), (0.03 * s, 0.008 * s), (0.028 * s, 0.03 * s), (0.0, 0.034 * s)], 12, (x, y, hz + 0.018 * s))
+        B['paint'].add(v, f, col(rnd.choice(['#e8c070', '#d8a848', '#f0d890'])))
+    elif k < 0.65:  # a bright cap
+        v, f = lib.blob((x, y, hz + 0.02 * s), 0.034 * s, squash=(1, 1, 0.6), rough=0.0, subdiv=1)
+        B['paint'].add(v, f, col(rnd.choice(VILLAGER_COLS)))
+    else:  # hair
+        v, f = lib.blob((x - fx * 0.008 * s, y - fy * 0.008 * s, hz + 0.012 * s), 0.037 * s, squash=(1, 1, 0.85), rough=0.1, subdiv=1)
+        B['paint'].add(v, f, col(rnd.choice(HAIR)))
+    return (x + fx * 0.05 * s, y + fy * 0.05 * s, top - 0.07 * s)  # a hand, for things held
+
+
+def sheep(B, bx, by, yaw, rnd, s=1.0):
+    """A fluffy sheep grazing: woolly body, dark face and legs."""
+    p = _w(bx, by)
+    x, y = p.x, p.y
+    fx, fy = math.cos(yaw), math.sin(yaw)
+    for (u, w) in [(0.045, 0.03), (0.045, -0.03), (-0.045, 0.03), (-0.045, -0.03)]:
+        lx, ly = x + fx * u * s - fy * w * s, y + fy * u * s + fx * w * s
+        v, f = lib.cylinder((lx, ly, 0.0), 0.009 * s, 0.009 * s, 0.05 * s, 5)
+        B['paint'].add(v, f, col('#3a3434'))
+    v, f = lib.blob((0, 0, 0), 0.075 * s, squash=(1.35, 0.95, 0.85), rough=0.28, freq=3.2, subdiv=2, seed=rnd.random() * 40)
+    B['cloth'].add(lib.transform(v, loc=(x, y, 0.1 * s), rot=(0.0, 0.0, yaw)), f, col(rnd.choice(['#f8f5ee', '#f1ece0', '#fbf8f2'])))
+    hx, hy = x + fx * 0.1 * s, y + fy * 0.1 * s
+    v, f = lib.blob((hx, hy, 0.085 * s), 0.03 * s, squash=(1.3, 0.85, 0.9), rough=0.0, subdiv=1)
+    B['paint'].add(lib.transform([(vx - hx, vy - hy, vz) for (vx, vy, vz) in v], loc=(hx, hy, 0.0), rot=(0.0, 0.25, yaw)), f, col('#3a3434'))
+
+
+def lamp_post(B, bx, by, rnd, h=0.95):
+    """A festival lamp post: a wooden post with an iron arm and a warm glowing lantern."""
+    p = _w(bx, by)
+    v, f = lib.cylinder((p.x, p.y, 0.0), 0.024, 0.02, h, 8)
+    B['wood'].add(v, f, col('#4a3a34'))
+    v, f = lib.box((p.x + 0.06, p.y, h - 0.03), (0.13, 0.02, 0.02))
+    B['metal'].add(v, f, col('#3a3a44'))
+    v, f = lib.lathe([(0.0, 0.0), (0.04, 0.02), (0.045, 0.08), (0.03, 0.12), (0.0, 0.13)], 8, (p.x + 0.12, p.y, h - 0.2))
+    B['glow'].add(v, f, col(rnd.choice(['#ffd27a', '#ffb347', '#ffe29a'])))
+    v, f = lib.lathe([(0.055, 0.0), (0.0, 0.04)], 8, (p.x + 0.12, p.y, h - 0.07), cap_bottom=True, cap_top=False)
+    B['metal'].add(v, f, col('#3a2e2a'))
+
+
+def fishing_rod(B, hand, toward, reach=0.5):
+    """A rod held out over the water and a line dropping to a float (`toward`: unit vector in the
+    ground plane)."""
+    hx, hy, hz = hand
+    tip = (hx + toward[0] * reach, hy + toward[1] * reach, hz + reach * 0.45)
+    v, f = lib.tube([hand, tip], 0.006, 4)
+    B['wood'].add(v, f, col('#6e4a2c'))
+    v, f = lib.tube([tip, (tip[0] + toward[0] * 0.03, tip[1] + toward[1] * 0.03, 0.03)], 0.0022, 3)
+    B['paint'].add(v, f, col('#f4f0e6'))
+    v, f = lib.blob((tip[0] + toward[0] * 0.03, tip[1] + toward[1] * 0.03, 0.035), 0.012, rough=0.0, subdiv=1)
+    B['paint'].add(v, f, col('#ff5a4a'))
+
+
+def stool(B, bx, by, s=1.0):
+    p = _w(bx, by)
+    v, f = lib.cylinder((p.x, p.y, 0.0), 0.035 * s, 0.03 * s, 0.07 * s, 8)
+    B['wood'].add(v, f, col('#8a5e3a'))
+    return 0.07 * s

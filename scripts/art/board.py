@@ -50,6 +50,7 @@ def args():
     p.add_argument('--plan', action='store_true', help='draw the valley layout map (plan.png) and exit without rendering')
     p.add_argument('--bands', type=int, default=1, help='render the terrain in N horizontal bands (saved as they finish), then stitch')
     p.add_argument('--band', type=int, default=-1, help='with --bands: render only this band (band_<i>.png) and exit')
+    p.add_argument('--build-only', action='store_true', help='build the scene (and the lawn cover map) without rendering')
     return p.parse_args(sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else sys.argv[1:])
 
 
@@ -704,14 +705,13 @@ DISTRICT = dict(
         dict(kind='picnic', x=1700, y=1668, yaw=-0.4, cloth=1),
         dict(kind='signpost', x=1404, y=1372),
         dict(kind='blossom', x=1112, y=1085),
-        dict(kind='blossom', x=1242, y=1332),
         dict(kind='blossom', x=1330, y=1580),
         dict(kind='blossom', x=1855, y=1228, pal=('#e7e0f4', '#ffffff')),
         dict(kind='willow', x=1795, y=1300),
         dict(kind='maple', x=1480, y=1738),
         dict(kind='blossom', x=1915, y=1120),
         # --- east: the orchard gardens
-        dict(kind='greenhouse', x=2590, y=880, s=1.0),
+        dict(kind='greenhouse', x=2606, y=884, s=1.0),
         dict(kind='pier', pond=4, x=2900, reach=95, boat=(2960, 1214, -0.45)),
         dict(kind='picnic', x=2722, y=968, yaw=0.2, cloth=2),
         dict(kind='picnic', x=2890, y=948, yaw=-0.3, cloth=0),
@@ -743,7 +743,7 @@ DISTRICT = dict(
 # footprint half-sizes (board px across, board px deep) and height (world units) of each kind
 DISTRICT_SIZE = dict(ferris=(66, 24, 2.2), booth=(52, 30, 1.2), beds=(96, 34, 0.2), bandstand=(62, 48, 1.2), bench=(24, 12, 0.3),
                      carousel=(80, 64, 1.7), parasol=(32, 26, 0.8), cart=(36, 24, 0.9), picnic=(26, 22, 0.2), signpost=(14, 10, 0.5),
-                     blossom=(40, 32, 2.1), willow=(56, 44, 1.6), maple=(46, 36, 2.2), greenhouse=(50, 26, 0.7), beehives=(34, 14, 0.3),
+                     blossom=(40, 32, 2.1), willow=(56, 44, 1.6), maple=(46, 36, 2.2), greenhouse=(56, 30, 0.75), beehives=(34, 14, 0.3),
                      scarecrow=(22, 10, 0.7), camp=(36, 34, 0.35), hay=(40, 20, 0.3))
 
 
@@ -847,11 +847,12 @@ def glow_material(strength=2.4):
 
 
 def glass_material():
-    """Greenhouse glass: pale, glossy and slightly see-through-looking without real refraction."""
+    """Greenhouse glass: tinted, softly glossy and partly see-through (the plants inside show), not
+    a bright mirror of the sky (which read as a flat white slab from the board camera)."""
     m = lib.NT('low_glass_m')
     c = m.attr('col')
-    b = m.bsdf(c, 0.08, coat=0.9, emission=c, emission_strength=0.12)
-    b.inputs['Specular IOR Level'].default_value = 0.8
+    b = m.bsdf(c, 0.18, coat=0.15, alpha=0.5)
+    b.inputs['Specular IOR Level'].default_value = 0.3
     return m.mat
 
 
@@ -1026,19 +1027,25 @@ def hedgerow(leaves, ax, ay, bx, by, rnd):
 
 
 def fruit_tree(leaves, wood, fruit, bx, by, rnd, fruit_col, s=1.0):
-    """Small round orchard tree with fruit on its sunny, camera-facing side."""
+    """Small orchard tree with fruit on its sunny, camera-facing side (round, oval or spreading
+    crown, a tint shift and now and then a different fruit, picked by position)."""
+    rv = terrain.variant(bx, by, 5)
+    var = rv.randrange(4)
+    hk, rk, sq = [(1.0, 1.0, 0.9), (1.12, 0.9, 1.15), (0.9, 1.14, 0.78), (1.05, 1.05, 0.95)][var]
+    if rv.random() < 0.25:
+        fruit_col = rv.choice(['#e8433a', '#ff9a2e', '#f2cc3a', '#b8233a'])
     p = board_to_world(bx, by, 0.0)
-    th = rnd.uniform(0.38, 0.46) * s
+    th = rnd.uniform(0.38, 0.46) * s * hk
     tv, tf = lib.cylinder((p.x, p.y, 0.0), 0.062 * s, 0.045 * s, th + 0.18 * s, sides=8)
     wood.add(tv, tf, lambda vv: lib.lerp_col(col('#6a4428'), col('#8e5e36'), min(1.0, vv[2] / th)))
-    R = rnd.uniform(0.3, 0.34) * s
+    R = rnd.uniform(0.3, 0.34) * s * rk
     cz = th + R * 0.82
-    lo, hi = col('#357a34'), col('#97cb58')
+    lo, hi = terrain.tint_pair(col('#357a34'), col('#97cb58'), rv)
     puffs = [(0.0, 0.0, 0.0, 1.0)] + [(math.cos(a) * R * 0.5, math.sin(a) * R * 0.42, rnd.uniform(-0.12, 0.12) * R, rnd.uniform(0.55, 0.66))
                                       for a in np.linspace(0, math.tau, 4, endpoint=False) + rnd.random()]
     for (ox, oy, oz, rr) in puffs:
         r = R * rr
-        v, f = lib.blob((p.x + ox, p.y + oy, cz + oz), r, squash=(1, 1, 0.9), rough=0.12, freq=1.8, subdiv=3, seed=rnd.random() * 70)
+        v, f = lib.blob((p.x + ox, p.y + oy, cz + oz), r, squash=(1, 1, sq), rough=0.12, freq=1.8, subdiv=3, seed=rnd.random() * 70)
         leaves.add(v, f, lambda vv, zc=cz + oz, r=r: lib.lerp_col(lo, hi, max(0.0, min(1.0, (vv[2] - zc) / (r * 1.1) + 0.5)) ** 1.6))
     fc = col(fruit_col)
     for _ in range(rnd.randint(9, 13)):
@@ -1050,16 +1057,19 @@ def fruit_tree(leaves, wood, fruit, bx, by, rnd, fruit_col, s=1.0):
 
 
 def poplar(leaves, wood, bx, by, rnd, s=1.0):
-    """Slim columnar tree (field corners, lanes)."""
+    """Slim columnar tree (field corners, lanes): four builds and tints, picked by position."""
+    rv = terrain.variant(bx, by, 6)
+    var = rv.randrange(4)
+    hk, wk = [(1.0, 1.0), (1.18, 0.82), (0.86, 1.18), (1.08, 0.94)][var]
     p = board_to_world(bx, by, 0.0)
-    h = rnd.uniform(1.6, 2.0) * s
+    h = rnd.uniform(1.6, 2.0) * s * hk
     tv, tf = lib.cylinder((p.x, p.y, 0.0), 0.06 * s, 0.04 * s, h * 0.4, sides=8)
     wood.add(tv, tf, col('#6a4428'))
-    lo, hi = col('#2d6e3e'), col('#8cc661')
+    lo, hi = terrain.tint_pair(col('#2d6e3e'), col('#8cc661'), rv)
     for k in range(5):
         t = k / 4
         z = h * (0.34 + 0.5 * t)
-        r = (0.25 - 0.1 * t ** 1.4) * s
+        r = (0.25 - 0.1 * t ** 1.4) * s * wk
         v, f = lib.blob((p.x, p.y, z), r, squash=(1, 1, 1.45), rough=0.18, freq=2.2, subdiv=2, seed=rnd.random() * 30)
         leaves.add(v, f, lambda vv, h=h: lib.lerp_col(lo, hi, max(0.0, min(1.0, (vv[2] - h * 0.25) / (h * 0.85)))))
 
@@ -1077,10 +1087,12 @@ def birch(leaves, wood, bx, by, rnd, s=1.0):
     wood.v.extend(v)
     wood.f.extend([tuple(i + base for i in fc) for fc in f])
     wood.c.extend([dark if (i // 7) in marks and (i % 7) in (1, 2, 4) else pale for i in range(len(v))])
-    lo, hi = col('#5a9437'), col('#c3df76')
+    rv = terrain.variant(bx, by, 7)
+    lo, hi = terrain.tint_pair(col('#5a9437'), col('#c3df76'), rv)
+    wk = rv.choice([0.85, 1.0, 1.15, 1.3])
     for k in range(4):
         a = k / 4 * math.tau + rnd.random()
-        ox, oy = math.cos(a) * 0.14 * s, math.sin(a) * 0.1 * s
+        ox, oy = math.cos(a) * 0.14 * s * wk, math.sin(a) * 0.1 * s * wk
         r = rnd.uniform(0.17, 0.24) * s
         cz = h * rnd.uniform(0.72, 0.98)
         v, f = lib.blob((p.x + lean[0] * h + ox, p.y + lean[1] * h + oy, cz), r, squash=(1, 1, 0.85), rough=0.22, freq=2.2, subdiv=2, seed=rnd.random() * 30)
@@ -1088,23 +1100,16 @@ def birch(leaves, wood, bx, by, rnd, s=1.0):
 
 
 def valley_pine(leaves, wood, bx, by, rnd, s=1.0):
-    """Pine in the valley's lighter, cooler greens."""
+    """Pine in the valley's lighter, cooler greens (four builds and tints, picked by position)."""
+    rv = terrain.variant(bx, by, 8)
+    var = rv.randrange(4)
+    hk, base, tiers, gap, taper = [(1.0, 0.58, 4, 0.19, 0.115), (1.15, 0.46, 5, 0.15, 0.075), (0.85, 0.68, 3, 0.24, 0.16), (1.06, 0.62, 5, 0.155, 0.095)][var]
     p = board_to_world(bx, by, 0.0)
-    h = rnd.uniform(1.7, 2.3) * s
+    h = rnd.uniform(1.7, 2.3) * s * hk
     tv, tf = lib.cylinder((p.x, p.y, 0.0), 0.09 * s, 0.06 * s, h * 0.35, sides=8)
     wood.add(tv, tf, col('#5e3b22'))
-    lo, hi = col('#23603f'), col('#6cb47e')
-    for t in range(4):
-        z0 = h * (0.22 + t * 0.19)
-        r0 = (0.58 - t * 0.115) * s
-        hh = h * 0.34
-        sides = 12
-        verts = [(p.x + math.cos(a) * r0, p.y + math.sin(a) * r0, z0) for a in np.linspace(0, math.tau, sides, endpoint=False)]
-        verts = [(x + noise.noise(Vector((x * 3, y * 3, z0))) * 0.05, y, z) for (x, y, z) in verts]
-        verts.append((p.x, p.y, z0 + hh))
-        verts.append((p.x, p.y, z0 + 0.02))
-        faces = [(k, (k + 1) % sides, sides) for k in range(sides)] + [((k + 1) % sides, k, sides + 1) for k in range(sides)]
-        leaves.add(verts, faces, lambda vv, z0=z0, hh=hh: lib.lerp_col(lo, hi, max(0.0, min(1.0, (vv[2] - z0) / hh))))
+    lo_hi = rv.choice([('#23603f', '#6cb47e'), ('#1f5550', '#6aae9e'), ('#2f6a36', '#94c46a'), ('#1b573a', '#58a070')])
+    terrain.pine_tiers(leaves, p, h, s, rv, lo_hi, base, tiers, gap, taper)
 
 
 def pavilion(cloth, wood, metal, bx, by, r, cols, rnd):
@@ -1434,8 +1439,11 @@ def paint_valley(P, out, D=None):
                 rx, ry = it['rx'] * 1.15, it['ry'] * 1.25
                 over(raster(lambda d: d.ellipse([it['x'] - rx, it['y'] - ry, it['x'] + rx, it['y'] + ry], fill=255), 5) * 0.45, '#cbb887')
             elif k == 'beds':
-                rx, ry = it['rx'] + 6, it['ry'] + 6
-                over(raster(lambda d: d.rectangle([it['x'] - rx, it['y'] - ry, it['x'] + rx, it['y'] + ry], fill=255), 1.0) * 0.85, '#d9cfb4')
+                # dark garden soil between the raised beds (a pale gravel patch read as a blank slab
+                # wherever a bed was hidden), with a trodden edge
+                rx, ry = it['rx'] + 5, it['ry'] + 5
+                over(raster(lambda d: d.rectangle([it['x'] - rx - 5, it['y'] - ry - 4, it['x'] + rx + 5, it['y'] + ry + 4], fill=255), 1.4) * 0.35, '#7c6a3e')
+                over(raster(lambda d: d.rectangle([it['x'] - rx, it['y'] - ry, it['x'] + rx, it['y'] + ry], fill=255), 1.0) * 0.8, '#6f4f33')
     # mown orchard grass in stripes along the rows
     if P['orchard']:
         xs = [t[0] for t in P['orchard']]
@@ -1602,7 +1610,7 @@ def build_district(B, D, P, rnd, tops):
         elif k == 'signpost':
             fv.signpost(B, x, y, rnd)
         elif k == 'blossom':
-            terrain.tree_blossom(B['flora'], B['wood'], x, y, rnd, rnd.uniform(0.95, 1.1), pal=it.get('pal', ('#d9658f', '#ffe2ee')))
+            terrain.tree_blossom(B['flora'], B['wood'], x, y, rnd, rnd.uniform(0.95, 1.1), pal=it.get('pal'))
         elif k == 'willow':
             terrain.willow(B['leaves'], B['wood'], x, y, rnd, 1.0)
         elif k == 'maple':
@@ -1634,6 +1642,300 @@ def build_district(B, D, P, rnd, tops):
         for c in near:
             if (c - pl).length < 1.3:
                 fv.pennant_string(B, pl, c, rnd, sag=0.1)
+
+
+LAWN_GAP = 140  # px: fill until no visible bare meadow is wider than about twice this
+# lawn fillers: footprint half-size (px across, px deep) and height (world units, for the trail check)
+FILLER = dict(drift=(70, 44, 0.2), rocks=(42, 30, 0.35), fence=(82, 26, 0.3), lamp=(34, 24, 1.1), picnic=(40, 30, 0.35),
+              hay=(44, 26, 0.3), trees=(70, 52, 2.4), bushes=(52, 34, 0.45), sheep=(64, 40, 0.3), angler=(30, 24, 0.55),
+              logs=(40, 24, 0.3), cart=(38, 26, 0.5), posy=(26, 18, 0.2), stone=(22, 16, 0.3))
+FESTIVE = ['drift', 'trees', 'lamp', 'rocks', 'picnic', 'bushes', 'drift', 'fence', 'trees', 'lamp']
+RURAL = ['trees', 'drift', 'fence', 'rocks', 'sheep', 'bushes', 'hay', 'trees', 'drift', 'logs', 'rocks', 'picnic', 'fence', 'cart', 'trees',
+         'drift', 'bushes']
+CAPS = dict(picnic=5, sheep=4, hay=4, lamp=8, angler=4, logs=4, cart=3)
+
+
+def in_interior(x, y):
+    """The two valleys inside the loop (valley px): festival fillers there, farm fillers outside."""
+    return (1050 < x < 2000 and 800 < y < 1850) or (2400 < x < 3300 and 700 < y < 1800)
+
+
+def fill_lawns(B, P, D, groves, spots, claimed, rnd):
+    """Find the widest stretch of bare, visible meadow and put something there (a flower drift,
+    rocks, a fence, a lamp, a picnic, hay, a few trees, bushes or grazing sheep), again and again
+    until no bare stretch is wider than about 2 x LAWN_GAP. Anglers sit on the banks and queues form
+    at the snack carts. Nothing tall goes where it could hide a trail, space or arrow above."""
+    import festival as fv
+    ok, clear_of_paths = P['ok'], P['clear_of_paths']
+    gh, gw = claimed.shape
+    img = Image.new('L', (gw, gh), 0)
+    dr = ImageDraw.Draw(img)
+
+    def ell(x, y, rx, ry):
+        dr.ellipse([(x - rx) / GRID, (y - ry) / GRID, (x + rx) / GRID, (y + ry) / GRID], fill=255)
+
+    # everything already down there counts as cover
+    for fld in P['fields']:
+        x0, y0, x1, y1 = fld['box']
+        dr.rectangle([(x0 - 10) / GRID, (y0 - 10) / GRID, (x1 + 10) / GRID, (y1 + 12) / GRID], fill=255)
+    for (ax, ay, bx, by) in P['hedges'] + P['fences']:
+        dr.line([(ax / GRID, ay / GRID), (bx / GRID, by / GRID)], fill=255, width=4)
+    for (x, y) in P['corners']:
+        ell(x, y, 26, 22)
+    for (x, y, _) in P['orchard']:
+        ell(x, y, 44, 38)
+    cx_, cy_ = VALLEY['cottage']
+    dr.rectangle([(cx_ - 190) / GRID, (cy_ - 80) / GRID, (cx_ + 160) / GRID, (cy_ + 110) / GRID], fill=255)
+    fe = VALLEY['festival']
+    ell(fe['cx'], fe['cy'], fe['rx'] + 30, fe['ry'] + 36)
+    for it in D['items']:
+        if it['kind'] == 'pier':
+            dr.line([(x / GRID, y / GRID) for (x, y) in it['pts']], fill=255, width=6)
+        else:
+            ell(it['x'], it['y'], it['rx'] + 10, it['ry'] + 10)
+    for ln in D['lanes']:
+        dr.line([(x / GRID, y / GRID) for (x, y) in ln['line']], fill=255, width=max(1, int((ln['w'] + 6) / GRID)))
+    for (x, y) in groves:
+        ell(x, y, 50, 42)
+    # birches and flower meadows (lone bushes, rocks and tufts do not fill a lawn, so they are not listed)
+    for (x, y, r) in spots:
+        ell(x, y, r, r * 0.7)
+    ell(MIMI[0], MIMI[1], 110, 90)  # Mimi's spot stays open (the game stands her there)
+    water = P['water']
+    region = P['clear'] & (ndimage.distance_transform_edt(P['clear']) * GRID > 16)
+    inner = ndimage.distance_transform_edt(region) * GRID  # room from the edge of the visible meadow
+
+    def cover():
+        return np.asarray(img) > 127
+
+    def dist_map():
+        # distance from each spot of visible dry meadow to the nearest feature. Water, cliffs and the
+        # island's edge do not count as features (a long strip beside a brook or under a cliff is
+        # still an empty meadow), so fillers end up spaced along strips as well as in open lawns
+        d = ndimage.distance_transform_edt(~cover()) * GRID
+        d[water | ~region | (inner < 24)] = 0
+        return d
+
+    d0 = dist_map()
+    counts, fails, anglers = {}, 0, []
+    placed_n = 0
+
+    def fits(kind, x, y):
+        rx, ry, hgt = FILLER[kind]
+        if kind == 'angler':  # sits right on the bank: only its own spot must be dry
+            pts = [(x, y)]
+        else:
+            pts = [(x, y)] + [(x + rx * math.cos(a), y + ry * math.sin(a)) for a in np.linspace(0, math.tau, 8, endpoint=False)]
+        if not all(ok(px, py, 12, 14 if kind != 'angler' else 8) for (px, py) in pts):
+            return False
+        if ((x - MIMI[0]) / 120) ** 2 + ((y - MIMI[1]) / 100) ** 2 < 1.0:
+            return False
+        return clear_of_paths(x, y, rx + 18, hgt)
+
+    def water_dir(x, y):
+        best = None
+        for a in np.linspace(0, math.tau, 24, endpoint=False):
+            for r in (20, 30, 45, 60):
+                qx, qy = x + math.cos(a) * r, y + math.sin(a) * r
+                gx, gy = int(qx / GRID), int(qy / GRID)
+                if 0 <= gy < gh and 0 <= gx < gw and water[gy, gx]:
+                    if best is None or r < best[0]:
+                        best = (r, a)
+                    break
+        return best
+
+    def build(kind, x, y):
+        """Model one filler at (x, y); returns False if it could not be made."""
+        if kind == 'drift':
+            for _ in range(rnd.randint(5, 8)):
+                a, r = rnd.uniform(0, math.tau), math.sqrt(rnd.random())
+                qx, qy = x + math.cos(a) * r * 60, y + math.sin(a) * r * 36
+                terrain.flower_bed(B['flowers'], B['leaves'], qx, qy, random.Random(rnd.random()), rnd.randint(8, 14))
+            for _ in range(rnd.randint(1, 2)):
+                bush(B['leaves'], x + rnd.uniform(-55, 55), y + rnd.uniform(-30, 30), rnd, rnd.uniform(0.6, 0.85), berries=B['flowers'])
+        elif kind == 'rocks':
+            for k in range(rnd.randint(3, 5)):
+                rock(B['rocks'], x + rnd.uniform(-34, 34), y + rnd.uniform(-22, 22), rnd, rnd.uniform(0.7, 1.6) if k else 1.9, moss=rnd.random() < 0.6)
+            bush(B['leaves'], x + rnd.uniform(-30, 30), y + rnd.uniform(-18, 18), rnd, rnd.uniform(0.6, 0.9), berries=B['flowers'])
+            for _ in range(3):
+                grass_tuft(B['grass'], x + rnd.uniform(-38, 38), y + rnd.uniform(-24, 24), rnd, 1.3)
+        elif kind == 'fence':
+            ang = rnd.uniform(-0.35, 0.35) + (0.0 if rnd.random() < 0.7 else 0.9)
+            L = rnd.uniform(120, 165)
+            ax, ay = x - math.cos(ang) * L / 2, y - math.sin(ang) * L / 2 * 0.7
+            n = rnd.randint(2, 3)
+            for k in range(n):
+                t0, t1 = k / n, (k + 1) / n
+                fence_run(B['wood'], ax + math.cos(ang) * L * t0, ay + math.sin(ang) * L * 0.7 * t0,
+                          ax + math.cos(ang) * L * t1, ay + math.sin(ang) * L * 0.7 * t1, rnd)
+            terrain.flower_bed(B['flowers'], B['leaves'], ax + 6, ay + 10, rnd, 9)
+            bush(B['leaves'], ax + math.cos(ang) * L + 8, ay + math.sin(ang) * L * 0.7 + 6, rnd, 0.75, berries=B['flowers'])
+        elif kind == 'lamp':
+            fv.lamp_post(B, x, y, rnd)
+            fv.bench(B, x + 30, y + 10, rnd.uniform(-0.2, 0.2), rnd)
+            terrain.flower_bed(B['flowers'], B['leaves'], x - 26, y + 12, rnd, 8)
+        elif kind == 'picnic':
+            yaw = rnd.uniform(-0.6, 0.6)
+            fv.picnic(B, x, y, yaw, rnd, cloth=rnd.choice(STRIPE))
+            for (dx, dy, face) in [(-26, -6, 0.0), (22, 10, math.pi)]:
+                fv.villager(B, x + dx, y + dy, face + yaw, rnd, pose='sit')
+            if rnd.random() < 0.6:
+                fv.parasol_table(B, x + 34, y - 18, rnd.choice(STRIPE), rnd)
+        elif kind == 'hay':
+            for (dx, dy) in [(-24, 4), (4, -8), (28, 8)]:
+                hay_bale(B['wood'], x + dx + rnd.uniform(-4, 4), y + dy, rnd)
+            crate(B['wood'], x - 40, y + 14, rnd, 0.9)
+        elif kind == 'trees':
+            k = rnd.randint(2, 3)
+            for j in range(k):
+                qx, qy = x + rnd.uniform(-44, 44), y + rnd.uniform(-26, 26) + (j - 1) * 12
+                pick = rnd.choice(['round', 'round', 'blossom', 'maple', 'pine', 'poplar', 'birch'])
+                if pick == 'round':
+                    tree_round(B['leaves'], B['wood'], qx, qy, rnd, rnd.uniform(0.75, 1.0), palette=None, crown=True)
+                elif pick == 'blossom':
+                    tree_blossom(B['flora'], B['wood'], qx, qy, rnd, rnd.uniform(0.85, 1.0))
+                elif pick == 'maple':
+                    tree_maple(B['flora'], B['wood'], qx, qy, rnd, 0.95)
+                elif pick == 'pine':
+                    valley_pine(B['leaves'], B['wood'], qx, qy, rnd, rnd.uniform(0.8, 1.0))
+                elif pick == 'poplar':
+                    poplar(B['leaves'], B['wood'], qx, qy, rnd, rnd.uniform(0.85, 1.0))
+                else:
+                    birch(B['leaves'], B['wood'], qx, qy, rnd, rnd.uniform(0.9, 1.05))
+        elif kind == 'bushes':
+            for _ in range(rnd.randint(3, 4)):
+                bush(B['leaves'], x + rnd.uniform(-40, 40), y + rnd.uniform(-24, 24), rnd, rnd.uniform(0.75, 1.15), berries=B['flowers'])
+            terrain.flower_bed(B['flowers'], B['leaves'], x + rnd.uniform(-30, 30), y + 20, rnd, 8)
+        elif kind == 'sheep':
+            for _ in range(rnd.randint(3, 5)):
+                fv.sheep(B, x + rnd.uniform(-50, 50), y + rnd.uniform(-30, 30), rnd.uniform(0, math.tau), rnd)
+            if rnd.random() < 0.5:
+                fv.villager(B, x + rnd.uniform(-60, 60), y + 28, rnd.uniform(-2.5, -0.6), rnd)
+        elif kind == 'logs':
+            for k in range(3):
+                v, f = lib.cylinder((0, 0, 0), 0.045, 0.045, 0.34, 10)
+                p = board_to_world(x + (k - 1) * 9, y + (k % 2) * 4, 0.0)
+                v = lib.transform(v, loc=(p.x - 0.17, p.y, 0.045 + (0.07 if k == 1 else 0.0)), rot=(0.0, math.pi / 2, 0.0))
+                B['wood'].add(v, f, col(rnd.choice(['#8a5e3a', '#7a5234', '#9a6a42'])))
+            p = board_to_world(x + 34, y + 6, 0.0)
+            v, f = lib.cylinder((p.x, p.y, 0.0), 0.07, 0.07, 0.1, 12)
+            B['wood'].add(v, f, col('#a8744a'))
+            bush(B['leaves'], x - 36, y - 8, rnd, 0.7, berries=B['flowers'])
+        elif kind == 'cart':
+            fv.food_cart(B, x, y, rnd.choice(STRIPE), rnd)
+            fv.villager(B, x - 40, y + 10, rnd.uniform(-0.3, 0.3), rnd)
+        elif kind == 'posy':
+            terrain.flower_bed(B['flowers'], B['leaves'], x, y, rnd, rnd.randint(10, 15))
+            terrain.flower_bed(B['flowers'], B['leaves'], x + rnd.uniform(-16, 16), y + rnd.uniform(-8, 8), rnd, rnd.randint(6, 9))
+        elif kind == 'stone':
+            rock(B['rocks'], x, y, rnd, rnd.uniform(1.6, 2.1), moss=True)
+            rock(B['rocks'], x + rnd.uniform(10, 18), y + rnd.uniform(-4, 6), rnd, 0.8, moss=False)
+            for _ in range(3):
+                grass_tuft(B['grass'], x + rnd.uniform(-20, 20), y + rnd.uniform(-12, 12), rnd, 1.3)
+        elif kind == 'angler':
+            wd = water_dir(x, y)
+            if wd is None:
+                return False
+            a = wd[1]
+            fv.stool(B, x, y)
+            hand = fv.villager(B, x, y, a, rnd, pose='sit', z0=0.06)
+            # board px direction -> world direction (the ground's depth is foreshortened on screen)
+            wv = board_to_world(x + math.cos(a) * 10, y + math.sin(a) * 10, 0.0) - board_to_world(x, y, 0.0)
+            wv.normalize()
+            fv.fishing_rod(B, hand, (wv.x, wv.y), 0.42)
+            bkt = board_to_world(x - math.cos(a) * 12 + 12, y - math.sin(a) * 9, 0.0)
+            v, f = lib.cylinder((bkt.x, bkt.y, 0.0), 0.03, 0.035, 0.06, 10)
+            B['metal'].add(v, f, col('#7f8a92'))
+        return True
+
+    def claim(kind, x, y):
+        rx, ry, _ = FILLER[kind]
+        ell(x, y, rx, ry)
+
+    # anglers on the banks of the ponds and brooks, one per stretch of water
+    banks = []
+    for pd in P['ponds']:
+        for k in range(0, len(pd['pts']), 5):
+            qx, qy = pd['pts'][k]
+            ox, oy = qx - pd['cx'], qy - pd['cy']
+            L = math.hypot(ox, oy) or 1.0
+            banks.append((qx + ox / L * 24, qy + oy / L * 18))
+    for bk in P['brooks']:
+        line, w = bk['line'], bk['w']
+        tang = np.gradient(line, axis=0)
+        for i in range(10, len(line) - 10, 14):
+            t = tang[i] / (np.linalg.norm(tang[i]) + 1e-9)
+            for sgn in (-1, 1):
+                banks.append((line[i][0] - t[1] * sgn * (w[i] / 2 + 20), line[i][1] + t[0] * sgn * (w[i] / 2 + 20)))
+    rnd.shuffle(banks)
+    for (x, y) in banks:
+        if counts.get('angler', 0) >= CAPS['angler']:
+            break
+        gx, gy = min(gw - 1, int(x / GRID)), min(gh - 1, int(y / GRID))
+        if cover()[gy, gx] or not fits('angler', x, y) or any(math.hypot(x - q[0], y - q[1]) < 500 for q in anglers):
+            continue
+        if build('angler', x, y):
+            claim('angler', x, y)
+            counts['angler'] = counts.get('angler', 0) + 1
+            anglers.append((x, y))
+    # queues at the snack carts, browsers at the market booths, an audience on the bandstand benches
+    for it in D['items']:
+        if it['kind'] == 'cart':
+            for j in range(rnd.randint(3, 4)):
+                qx, qy = it['x'] - 46 - j * 22, it['y'] + 8 + j * 9
+                if ok(qx, qy, 12, 12) and clear_of_paths(qx, qy, 24, 0.4):
+                    fv.villager(B, qx, qy, rnd.uniform(-0.3, 0.2), rnd)
+                    ell(qx, qy, 14, 10)
+        elif it['kind'] == 'booth' and rnd.random() < 0.8:
+            qx, qy = it['x'] + rnd.uniform(-20, 20), it['y'] + 44
+            if ok(qx, qy, 10, 10):
+                fv.villager(B, qx, qy, -math.pi / 2 + rnd.uniform(-0.4, 0.4), rnd)
+        elif it['kind'] == 'bench':
+            fv.villager(B, it['x'] + rnd.uniform(-6, 6), it['y'] - 2, -it['yaw'] - math.pi / 2, rnd, pose='sit', z0=0.12)
+
+    # the greedy fill: always the widest remaining gap first
+    seqs = {True: [FESTIVE, 0], False: [RURAL, 0]}
+    for _ in range(400):
+        d = dist_map()
+        gy, gx = np.unravel_index(np.argmax(d), d.shape)
+        if d[gy, gx] < LAWN_GAP:
+            break
+        x, y = gx * GRID + GRID / 2, gy * GRID + GRID / 2
+        entry = seqs[in_interior(x, y)]
+        seq, start = entry
+        # candidate spots round the gap, roomiest first (a gap's far point is often by an edge)
+        cands = [(x, y)] + [(x + math.cos(a) * r, y + math.sin(a) * r * 0.8) for r in (40, 75) for a in np.linspace(0, math.tau, 8, endpoint=False)]
+        cands.sort(key=lambda q: -inner[min(gh - 1, max(0, int(q[1] / GRID))), min(gw - 1, max(0, int(q[0] / GRID)))])
+        done = False
+        for k in range(len(seq) + 2):
+            kind = seq[(start + k) % len(seq)] if k < len(seq) else ['posy', 'stone'][k - len(seq)]
+            if counts.get(kind, 0) >= CAPS.get(kind, 999):
+                continue
+            for (cx0, cy0) in cands[:6]:
+                # nudge the spot a little so fillers do not sit on a perfect grid
+                jx, jy = cx0 + rnd.uniform(-12, 12), cy0 + rnd.uniform(-8, 8)
+                if fits(kind, jx, jy) and build(kind, jx, jy):
+                    claim(kind, jx, jy)
+                    counts[kind] = counts.get(kind, 0) + 1
+                    placed_n += 1
+                    done = True
+                    if k < len(seq):
+                        entry[1] = (start + k + 1) % len(seq)
+                    break
+            if done:
+                break
+        if not done:
+            fails += 1
+            ell(x, y, 40, 32)  # nothing fits here (hard against a cliff or the water): skip it
+    d1 = dist_map()
+    print('lawns: widest bare stretch %d -> %d px, %d fillers, %d skipped,' % (2 * d0.max(), 2 * d1.max(), placed_n, fails), counts)
+    # a map of the fill (grey = cover, green = bare visible meadow, red = still wide open)
+    vis = np.zeros((gh, gw, 3), np.uint8)
+    vis[region] = (90, 160, 80)
+    vis[cover()] = (170, 170, 170)
+    vis[water] = (60, 120, 220)
+    vis[(d1 > LAWN_GAP * 0.8) & region & ~cover()] = (220, 80, 60)
+    Image.fromarray(vis).save(os.path.join(A.out, 'lawn_cover.png'))
 
 
 def build_lowland(island_info, canopy_clear, mats):
@@ -1821,6 +2123,7 @@ def build_lowland(island_info, canopy_clear, mats):
     build_district(B, D, P, random.Random(505), [q for t in tops for q in t])
 
     # --- woods: rounded trees, valley pines and poplars in a few groves; birches along the west brook
+    spots = []  # (x, y, radius) of scatter placed below, for the lawn filler
     low_pals = [('#2f7a3c', '#8cc862'), ('#337a44', '#82c46c'), ('#46803a', '#a8cc5c'), ('#2f703e', '#7cba64')]
     placed = []
     for (gx, gy, rx, ry, n, kind) in VALLEY['groves']:
@@ -1853,6 +2156,7 @@ def build_lowland(island_info, canopy_clear, mats):
         q = bk['line'][i] + np.array([-t[1], t[0]]) * sgn * (bk['w'][i] / 2 + rnd.uniform(34, 50))
         if on_low(q[0], q[1], 40) and seen(q[0], q[1]) and free(q[0], q[1], 20):
             birch(leaves, wood, q[0], q[1], rnd, rnd.uniform(0.95, 1.1))
+            spots.append((q[0], q[1], 30))
 
     # --- calm scatter, about half of before: tufts, a few flower patches, bushes and stones
     for _ in range(int(area / (72 * 72))):
@@ -1863,11 +2167,15 @@ def build_lowland(island_info, canopy_clear, mats):
         c = pick(60, margin=30)
         if not c:
             continue
+        beds = []
         for _k in range(rnd.randint(6, 11)):
             a_, r_ = rnd.uniform(0, math.tau), math.sqrt(rnd.random())
             bx, by = c[0] + math.cos(a_) * r_ * 150, c[1] + math.sin(a_) * r_ * 85
             if on_low(bx, by, 20) and seen(bx, by) and free(bx, by, 24):
                 flower_bed(flowers, leaves, bx, by, rnd, rnd.randint(6, 11))
+                beds.append((bx, by))
+        if len(beds) >= 4:  # a real flower meadow (a few scattered tufts do not fill a lawn)
+            spots.append((sum(b[0] for b in beds) / len(beds), sum(b[1] for b in beds) / len(beds), 80))
     for _ in range(int(area / 300000)):
         pt = pick(16, margin=24)
         if pt and clear_of_paths(pt[0], pt[1], 40, 0.9):
@@ -1891,6 +2199,9 @@ def build_lowland(island_info, canopy_clear, mats):
                         rock(rocks, qx + rnd.uniform(-8, 8), qy, rnd, rnd.uniform(0.8, 1.5), moss=rnd.random() < 0.6)
                     else:
                         bush(leaves, qx + rnd.uniform(-8, 8), qy, rnd, rnd.uniform(0.7, 1.0), berries=flowers)
+
+    # --- fill the open lawns: no stretch of bare visible meadow much wider than ~330 px
+    fill_lawns(B, P, D, placed, spots, claimed, random.Random(606))
 
     # everything was authored at z = 0: drop it onto the rolling valley floor
     for mb in B.values():
@@ -2021,7 +2332,7 @@ def main():
                 else:
                     tree_round(leaves, wood, bx, by, rnd, rnd.uniform(0.85, 1.15), crown=True)
             else:
-                tree_pine(leaves, wood, bx, by, rnd, rnd.uniform(0.85, 1.1))
+                tree_pine(leaves, wood, bx, by, rnd, rnd.uniform(0.85, 1.1), varied=True)
             n_trees -= 1
         for _ in range(int(area / (24 * 24))):
             j = rnd.randrange(len(xs))
@@ -2214,6 +2525,9 @@ def main():
         for o in obs:
             lib.shadow_only(o)
 
+    if A.build_only:
+        print('built (no render)')
+        return
     frame = FRAME
     lib.camera_for_region(*frame, scale=SCALE)
     if A.crop:

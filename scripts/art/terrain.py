@@ -535,23 +535,60 @@ def rock(mb, bx, by, rnd, s=1.0, moss=True):
     mb.add(v, f, lambda vv: lib.lerp_col(base, mossc, 0.85) if (moss and vv[2] > r * 0.55) else base)
 
 
+def variant(bx, by, salt=0):
+    """A per-tree RNG seeded by position: picks a tree's variant and its shape/size/tint tweaks
+    without touching the scatter RNG, so every later placement stays where it was."""
+    return random.Random(int(bx * 13.0) * 7919 + int(by * 7.0) * 104729 + salt)
+
+
+def tint_pair(low, high, rv):
+    """Shift a (low, high) colour pair a little towards yellow-green, blue-green or deeper green."""
+    k = rv.randrange(4)
+    toward = [None, ('#3c6e1c', '#d2dc5a'), ('#155848', '#5fc49a'), ('#0f4a22', '#4aa83c')][k]
+    if toward is None:
+        return low, high
+    t = rv.uniform(0.18, 0.32)
+    return lib.lerp_col(low, col(toward[0]), t), lib.lerp_col(high, col(toward[1]), t)
+
+
 def tree_round(mb_leaf, mb_wood, bx, by, rnd, s=1.0, palette=None, crown=False):
+    """Round broadleaf tree. With `crown`, one of four shapes (round, tall, spreading or a forked
+    twin crown) and a tint shift, picked by position, so neighbouring trees never look copied."""
     p = board_to_world(bx, by, 0.0)
     h = rnd.uniform(1.5, 2.1) * s
     # trunk with a slight lean
     lean = (rnd.uniform(-0.08, 0.08), rnd.uniform(-0.08, 0.08))
-    tv, tf = lib.cylinder((p.x, p.y, 0.0), 0.13 * s, 0.08 * s, h * 0.72, sides=10)
+    rv = variant(bx, by, 1)
+    var = rv.randrange(4) if crown else 0
+    hk, rk, sq, spread, tw = [(1.0, 1.0, 0.9, 1.0, 1.0), (1.14, 0.84, 1.18, 0.8, 0.9), (0.88, 1.16, 0.78, 1.28, 1.2), (1.0, 0.92, 0.92, 1.0, 1.05)][var]
+    h *= hk
+    tv, tf = lib.cylinder((p.x, p.y, 0.0), 0.13 * s * tw, 0.08 * s * tw, h * 0.72, sides=10)
     tv = [(x + lean[0] * z, y + lean[1] * z, z) for (x, y, z) in tv]
     mb_wood.add(tv, tf, lambda vv: lib.lerp_col(col('#5e3b22'), col('#8a5a34'), min(1.0, vv[2] / h)))
     pal = palette or rnd.choice([('#1d6e21', '#6cc23a'), ('#17632f', '#5dbb4a'), ('#2a7d1e', '#93cc2e'), ('#145f3f', '#4fc07a'), ('#2d6b1a', '#b0c73a')])
     low, high = col(pal[0]), col(pal[1])
+    if crown and palette is None:
+        low, high = tint_pair(low, high, rv)
     cx, cy, cz = p.x + lean[0] * h, p.y + lean[1] * h, h * 0.78
-    R = rnd.uniform(0.55, 0.75) * s
+    R = rnd.uniform(0.55, 0.75) * s * rk
     puffs = [(0, 0, 0.1, 1.0)] + [(math.cos(a) * R * 0.55, math.sin(a) * R * 0.45, rnd.uniform(-0.2, 0.25) * R, rnd.uniform(0.6, 0.8))
                                    for a in np.linspace(0, math.tau, rnd.randint(4, 6), endpoint=False) + rnd.random()]
+    if var == 3:
+        # forked: two leaning boughs carry two sub-crowns side by side
+        side = rv.uniform(0, math.tau)
+        dx, dy = math.cos(side) * R * 0.46, math.sin(side) * R * 0.3
+        for sgn in (-1, 1):
+            pts = [(cx - lean[0] * h * 0.3, cy - lean[1] * h * 0.3, h * 0.45), (cx + sgn * dx * 0.8, cy + sgn * dy * 0.8, cz - R * 0.25)]
+            v, f = lib.tube(pts, lambda t: (0.075 - 0.03 * t) * s, 7)
+            mb_wood.add(v, f, col('#6e4a2c'))
+        puffs = [(ox + (dx if k % 2 else -dx), oy + (dy if k % 2 else -dy), oz, rr * (0.86 if k else 0.8)) for k, (ox, oy, oz, rr) in enumerate(puffs)]
+        # the second sub-crown's core (seeded from the variant RNG, not the scatter RNG)
+        q = puffs[0]
+        v, f = lib.blob((cx - q[0], cy - q[1], cz + q[2]), R * q[3], squash=(1, 1, sq), rough=0.16, freq=1.8, subdiv=3, seed=rv.random() * 70)
+        mb_leaf.add(v, f, lambda vv, zc=cz + q[2], r=R * q[3]: lib.lerp_col(low, high, max(0.0, min(1.0, (vv[2] - zc) / (r * 1.1) + 0.5)) ** 2))
     for (ox, oy, oz, rr) in puffs:
         r = R * rr
-        v, f = lib.blob((cx + ox, cy + oy, cz + oz), r, squash=(1, 1, 0.9), rough=0.16, freq=1.8, subdiv=3, seed=rnd.random() * 70)
+        v, f = lib.blob((cx + ox * spread, cy + oy * spread, cz + oz * (1.3 if var == 1 else 1.0)), r, squash=(1, 1, sq), rough=0.16, freq=1.8, subdiv=3, seed=rnd.random() * 70)
 
         def shade(vv, zc=cz + oz, r=r):
             t = max(0.0, min(1.0, (vv[2] - zc) / (r * 1.1) + 0.5))
@@ -566,16 +603,24 @@ def tree_round(mb_leaf, mb_wood, bx, by, rnd, s=1.0, palette=None, crown=False):
     for _ in range(r2.randint(4, 6)):
         a, el = r2.uniform(0, math.tau), r2.uniform(0.3, 1.0)
         r = R * r2.uniform(0.3, 0.42)
-        q = (cx + math.cos(a) * math.cos(el) * R * 0.78, cy + math.sin(a) * math.cos(el) * R * 0.66, cz + 0.1 * R + math.sin(el) * R * 0.66)
+        q = (cx + math.cos(a) * math.cos(el) * R * 0.78 * spread, cy + math.sin(a) * math.cos(el) * R * 0.66 * spread, cz + 0.1 * R + math.sin(el) * R * 0.66 * sq / 0.9)
         v, f = lib.blob(q, r, squash=(1, 1, 0.88), rough=0.2, freq=2.2, subdiv=2, seed=r2.random() * 70)
         mb_leaf.add(v, f, lambda vv, zc=q[2], r=r: lib.lerp_col(low, high, max(0.0, min(1.0, (vv[2] - zc) / (r * 1.1) + 0.55)) ** 1.6))
     return h + R
 
 
-def tree_blossom(mb_flora, mb_wood, bx, by, rnd, s=1.0, pal=('#e06a98', '#ffc9df')):
-    """Festival blossom tree: a slim dark trunk under a clumpy pink (or white) crown."""
+BLOSSOM_PALS = [('#e06a98', '#ffc9df'), ('#c2447a', '#ff9cc4'), ('#d98fb0', '#ffe8f1'), ('#e07a86', '#ffd6cc')]
+
+
+def tree_blossom(mb_flora, mb_wood, bx, by, rnd, s=1.0, pal=None):
+    """Festival blossom tree: a slim dark trunk under a clumpy crown in one of four pinks (or the
+    palette given) and one of four shapes (round, spreading umbrella, upright, low and full)."""
+    rv = variant(bx, by, 3)
+    var = rv.randrange(4)
+    pal = pal or rv.choice(BLOSSOM_PALS)
+    hk, spread, sq, lift = [(1.0, 1.0, 0.86, 1.0), (0.9, 1.32, 0.66, 0.95), (1.14, 0.84, 1.1, 1.08), (0.86, 1.12, 0.9, 0.9)][var]
     p = board_to_world(bx, by, 0.0)
-    h = rnd.uniform(1.25, 1.6) * s
+    h = rnd.uniform(1.25, 1.6) * s * hk
     lean = (rnd.uniform(-0.1, 0.1), rnd.uniform(-0.06, 0.06))
     pts = [(p.x + lean[0] * t * h, p.y + lean[1] * t * h, t * h * 0.8) for t in np.linspace(0, 1, 8)]
     v, f = lib.tube(pts, lambda t: (0.09 - 0.04 * t) * s, 8)
@@ -591,8 +636,8 @@ def tree_blossom(mb_flora, mb_wood, bx, by, rnd, s=1.0, pal=('#e06a98', '#ffc9df
         puffs.append((math.cos(a) * R * 0.35, math.sin(a) * R * 0.3, R * rnd.uniform(0.35, 0.55), rnd.uniform(0.36, 0.46)))
     for (ox, oy, oz, rr) in puffs:
         r = R * rr
-        v, f = lib.blob((cx + ox, cy + oy, cz + oz), r, squash=(1, 1, 0.86), rough=0.22, freq=2.3, subdiv=2, seed=rnd.random() * 70)
-        mb_flora.add(v, f, lambda vv, zc=cz + oz, r=r: lib.lerp_col(low, high, max(0.0, min(1.0, (vv[2] - zc) / (r * 1.1) + 0.55)) ** 1.3))
+        v, f = lib.blob((cx + ox * spread, cy + oy * spread, cz * lift + oz * sq / 0.86), r, squash=(1, 1, sq), rough=0.22, freq=2.3, subdiv=2, seed=rnd.random() * 70)
+        mb_flora.add(v, f, lambda vv, zc=cz * lift + oz, r=r: lib.lerp_col(low, high, max(0.0, min(1.0, (vv[2] - zc) / (r * 1.1) + 0.55)) ** 1.3))
     return h + R
 
 
@@ -603,14 +648,19 @@ def tree_maple(mb_flora, mb_wood, bx, by, rnd, s=1.0):
 
 
 def willow(mb_leaf, mb_wood, bx, by, rnd, s=1.0):
-    """Weeping willow for pond sides: a stout trunk, a domed crown and curtains of hanging fronds."""
+    """Weeping willow for pond sides: a stout trunk, a domed crown and curtains of hanging fronds
+    (four builds and tints, picked by position)."""
+    rv = variant(bx, by, 4)
+    var = rv.randrange(4)
+    hk, rk, fl = [(1.0, 1.0, 1.0), (1.12, 0.88, 1.25), (0.9, 1.14, 0.8), (1.05, 1.0, 1.1)][var]
+    lo_hi = [('#4f8a38', '#c4e27a'), ('#5a8a4a', '#d6e89a'), ('#3f7a44', '#a8d67a'), ('#6a8f3a', '#e0e070')][rv.randrange(4)]
     p = board_to_world(bx, by, 0.0)
-    h = rnd.uniform(1.3, 1.5) * s
+    h = rnd.uniform(1.3, 1.5) * s * hk
     v, f = lib.cylinder((p.x, p.y, 0.0), 0.12 * s, 0.08 * s, h * 0.8, 10)
     mb_wood.add(v, f, col('#5e4630'))
-    low, high = col('#4f8a38'), col('#c4e27a')
+    low, high = col(lo_hi[0]), col(lo_hi[1])
     cz = h * 0.95
-    R = 0.62 * s
+    R = 0.62 * s * rk
     for (ox, oy, oz, rr) in [(0, 0, 0, 0.8), (0.3, 0.1, -0.05, 0.55), (-0.3, 0.05, -0.05, 0.55), (0.05, -0.28, -0.1, 0.5), (0.0, 0.25, 0.05, 0.5)]:
         r = R * rr
         v, f = lib.blob((p.x + ox * s, p.y + oy * s, cz + oz * s), r, squash=(1.1, 1.1, 0.62), rough=0.2, freq=2.0, subdiv=2, seed=rnd.random() * 30)
@@ -619,7 +669,7 @@ def willow(mb_leaf, mb_wood, bx, by, rnd, s=1.0):
         a = k / 46 * math.tau + rnd.uniform(-0.06, 0.06)
         rr = R * rnd.uniform(0.7, 1.0)
         top = (p.x + math.cos(a) * rr * 0.9, p.y + math.sin(a) * rr * 0.9, cz - 0.04 * s)
-        L = rnd.uniform(0.4, 0.75) * s
+        L = rnd.uniform(0.4, 0.75) * s * fl
         pts = [(top[0] + math.cos(a) * 0.07 * t * s, top[1] + math.sin(a) * 0.07 * t * s, top[2] - L * t) for t in np.linspace(0, 1, 6)]
         v, f = lib.tube(pts, lambda t: (0.05 - 0.03 * t) * s, 5)
         mb_leaf.add(v, f, lambda vv, z0=top[2], L=L: lib.lerp_col(high, low, max(0.0, min(1.0, (z0 - vv[2]) / L)) ** 0.8))
@@ -629,24 +679,41 @@ def willow(mb_leaf, mb_wood, bx, by, rnd, s=1.0):
     return h + R
 
 
-def tree_pine(mb_leaf, mb_wood, bx, by, rnd, s=1.0):
-    p = board_to_world(bx, by, 0.0)
-    h = rnd.uniform(1.8, 2.5) * s
-    tv, tf = lib.cylinder((p.x, p.y, 0.0), 0.1 * s, 0.07 * s, h * 0.35, sides=8)
-    mb_wood.add(tv, tf, col('#5e3b22'))
-    low, high = col('#0f4f2e'), col('#3fa05a')
-    tiers = 4
+PINE_TINTS = [('#0f4f2e', '#3fa05a'), ('#123f3e', '#4f9a8a'), ('#1f5a26', '#7fb64a'), ('#0c4428', '#2f8a4a')]
+
+
+def pine_tiers(mb_leaf, p, h, s, rv, lo_hi, base=0.62, tiers=4, gap=0.19, taper=0.12, tall=0.34, ragged=True):
+    """Stacked cone tiers of a conifer; `ragged` turns each tier a little and gives it a jagged hem
+    so no two trees match."""
+    low, high = col(lo_hi[0]), col(lo_hi[1])
     for t in range(tiers):
-        z0 = h * (0.22 + t * 0.19)
-        r0 = (0.62 - t * 0.12) * s
-        hh = h * 0.34
+        z0 = h * (0.22 + t * gap)
+        r0 = (base - t * taper) * s * (rv.uniform(0.92, 1.08) if ragged else 1.0)
+        hh = h * tall
         sides = 12
-        verts = [(p.x + math.cos(a) * r0, p.y + math.sin(a) * r0, z0) for a in np.linspace(0, math.tau, sides, endpoint=False)]
+        rot = rv.uniform(0, math.tau) if ragged else 0.0
+        drop = 0.03 * s if ragged else 0.0
+        verts = [(p.x + math.cos(a + rot) * r0, p.y + math.sin(a + rot) * r0, z0 - (drop if k % 2 else 0.0))
+                 for k, a in enumerate(np.linspace(0, math.tau, sides, endpoint=False))]
         verts = [(x + noise.noise(Vector((x * 3, y * 3, z0))) * 0.05, y, z) for (x, y, z) in verts]
         verts.append((p.x, p.y, z0 + hh))
         verts.append((p.x, p.y, z0 + 0.02))
         faces = [(k, (k + 1) % sides, sides) for k in range(sides)] + [((k + 1) % sides, k, sides + 1) for k in range(sides)]
         mb_leaf.add(verts, faces, lambda vv, z0=z0, hh=hh: lib.lerp_col(low, high, max(0.0, min(1.0, (vv[2] - z0) / hh))))
+
+
+def tree_pine(mb_leaf, mb_wood, bx, by, rnd, s=1.0, varied=False):
+    """Conifer. With `varied`, one of four builds (classic, slender spire, squat and full, broad and
+    tall) and one of four needle tints, picked by position."""
+    p = board_to_world(bx, by, 0.0)
+    h = rnd.uniform(1.8, 2.5) * s
+    rv = variant(bx, by, 2)
+    var = rv.randrange(4) if varied else 0
+    hk, base, tiers, gap, taper = [(1.0, 0.62, 4, 0.19, 0.12), (1.16, 0.48, 5, 0.15, 0.08), (0.84, 0.72, 3, 0.24, 0.17), (1.08, 0.66, 5, 0.155, 0.1)][var]
+    h *= hk
+    tv, tf = lib.cylinder((p.x, p.y, 0.0), 0.1 * s, 0.07 * s, h * 0.35, sides=8)
+    mb_wood.add(tv, tf, col('#5e3b22'))
+    pine_tiers(mb_leaf, p, h, s, rv, rv.choice(PINE_TINTS) if varied else PINE_TINTS[0], base, tiers, gap, taper, ragged=varied)
     return h
 
 
