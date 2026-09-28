@@ -4,8 +4,9 @@
 
 backdrop  scene_heroes_skyline.webp (1920x1080, tiles sideways: the game scrolls it slowly behind
           the race as a parallax layer)
-street    mg/heroes_street.webp (1920x220, tiles sideways): shopfronts, pavement and road; its kerb
-          line sits 105 px down (SWING.STREET_Y in src/game/worlds/heroes/swingRules.ts)
+street    mg/heroes_street.webp (1920x300, transparent above the shops, tiles sideways): a row of low
+          shops, pavement and road, drawn at screen y 800; its kerb line sits 185 px down
+          (SWING.STREET_Y in src/game/worlds/heroes/swingRules.ts)
 towers    mg/heroes_towers.webp + .json: the buildings the web anchors sit on (atlas frames with an
           `anchors` table: where on each frame the anchor is, and its kind)
 card      (Pillow only) scene_heroes_skyline_card.webp + _blur: a composed still for the intro card
@@ -40,6 +41,19 @@ def save_pair(im, rel: str, quality: int = 90):
     print('wrote', rel, '(+ lite)')
 PERIOD = 19.2  # 1920 px: the backdrop and street repeat every screen width
 TOWER_H = 820  # px: frame height of a building sprite
+STREET_TOP, STREET_H = 800, 300  # the street strip's place on screen (WebSwing.ts STREET_TOP / STREET_H)
+
+
+def spans(r: random.Random, wlo: float, whi: float, glo: float, ghi: float, margin: float = 0.06, wmin: float = 0.35):
+    """Building footprints across one period that never cross the seam (so no copy overlaps another
+    building inside the frame, and the image tiles cleanly)."""
+    out = []
+    x = 0.0
+    while x < PERIOD - margin - wmin:
+        w = min(r.uniform(wlo, whi), PERIOD - margin - x)
+        out.append((x, x + w))
+        x += w + r.uniform(glo, ghi)
+    return out
 
 
 def wrap_dupes(builder, x0: float, x1: float, *args, **kw):
@@ -85,24 +99,19 @@ def backdrop():
     def mid_block(x0, x1, top, d, color):
         C.box(mid, x0, d, C.fz(1300, d), x1, d + 3, C.fz(top, d), color, bevel=0.04)
 
-    x = 0.0
-    while x < PERIOD:
-        w = r.uniform(0.6, 1.5)
+    for (x0, x1) in spans(r, 0.6, 1.5, 0.0, 0.25):
         top = r.uniform(470, 700)
-        wrap_dupes(far_block, x, x + w, top, 70.0, '#5a3f78')
+        wrap_dupes(far_block, x0, x1, top, 70.0, '#5a3f78')
         if r.random() < 0.25:  # a spire
-            sx = x + w / 2
+            sx = (x0 + x1) / 2
             wrap_dupes(far_block, sx - 0.06, sx + 0.06, top - r.uniform(60, 120), 70.5, '#5a3f78')
-        x += w + r.uniform(-0.1, 0.25)
-    x = 0.0
-    while x < PERIOD:
-        w = r.uniform(1.1, 2.4)
+    for (x0, x1) in spans(r, 1.1, 2.4, 0.05, 0.5):
         top = r.uniform(520, 780)
         col = r.choice(['#6a4a7e', '#5e4a82', '#744e7c'])
-        wrap_dupes(mid_block, x, x + w, top, 30.0, col)
+        wrap_dupes(mid_block, x0, x1, top, 30.0, col)
         if r.random() < 0.4:
-            wrap_dupes(mid_block, x + w * 0.2, x + w * 0.8, top - r.uniform(20, 60), 30.4, col)
-        x += w + r.uniform(0.0, 0.5)
+            w = x1 - x0
+            wrap_dupes(mid_block, x0 + w * 0.2, x0 + w * 0.8, top - r.uniform(20, 60), 30.4, col)
     far.build('far', C.facade_material('s_far', lit='#ffcf8a', lit_frac=0.18, cell=(0.28, 0.3), win=(0.12, 0.14), seed=2.0, glass='#4a3666', emit=1.2))
     mid.build('mid', C.facade_material('s_mid', lit='#ffd9a0', lit_frac=0.26, cell=(0.36, 0.4), win=(0.18, 0.22), seed=6.0, glass='#4e3c6e', emit=1.6))
     import mg_dress as dress
@@ -118,55 +127,77 @@ def street():
     import bpy
     import lib
     from lib import MeshBuilder, col
-    C.setup(20, PREVIEW, transparent=False, exposure=0.0)
+    C.setup(20, PREVIEW, transparent=True, exposure=0.0)
     C.PITCH = math.radians(9)
-    # camera centred on the strip: screen y 880..1100 of the game => frame 1920 x 220
-    C.camera(0.5 if PREVIEW else 1.0, width_px=1920, height_px=220, cx_px=960, cy_px=990)
+    # camera centred on the strip: screen y 800..1100 of the game => frame 1920 x 300 (clear above the shops)
+    C.camera(0.5 if PREVIEW else 1.0, width_px=1920, height_px=STREET_H, cx_px=960, cy_px=STREET_TOP + STREET_H / 2)
     lib.world_light(0.8, zenith='#9a86d8', horizon='#ffb48a', ground='#5a4a5a')
     lib.sun(energy=2.2, elevation=14, azimuth=-60, angle=3.0, color='#ffb878')
     wall, trim, glow, metal, pave, road, awn = (MeshBuilder() for _ in range(7))
     kerb = C.fz(985)
-    # road, kerb, pavement
-    for dx in (0.0, -PERIOD, PERIOD):
-        C.box(road, -1 + dx, -3.0, kerb - 2.0, PERIOD + 1 + dx, 3.0, kerb - 0.16, '#3d4152')
-        C.box(pave, -1 + dx, -0.2, kerb - 0.16, PERIOD + 1 + dx, 1.6, kerb, '#9a9fb2')
-        C.box(pave, -1 + dx, -0.3, kerb - 0.3, PERIOD + 1 + dx, -0.2, kerb - 0.02, '#c9cdd9')
-    # lane dashes on the road (in front of the kerb)
+    # road (its top fills the bottom of the strip), kerb, pavement
+    C.box(road, -3.0, -9.0, kerb - 2.0, PERIOD + 3.0, 3.0, kerb - 0.16, '#3d4152')
+    C.box(pave, -3.0, -0.2, kerb - 0.16, PERIOD + 3.0, 1.6, kerb, '#9a9fb2')
+    C.box(pave, -3.0, -0.3, kerb - 0.3, PERIOD + 3.0, -0.2, kerb - 0.02, '#c9cdd9')
+    # lane dashes down the middle of the road (period-aligned: 12 x 1.6 = 19.2)
     for k in range(12):
         x0 = k * 1.6 + 0.3
-        C.box(glow, x0, -1.6, kerb - 0.159, x0 + 0.8, -1.45, kerb - 0.155, '#e8d27a')
-    # shopfront band along the back of the pavement: awnings and warm shop windows, no lettering
+        C.box(glow, x0, -4.1, kerb - 0.159, x0 + 0.8, -3.85, kerb - 0.155, '#e8d27a')
+    # a row of low shops along the back of the pavement: awnings, warm windows, a lit upper floor, no
+    # lettering. Their widths are fitted to the period, so none straddles the seam.
     r = random.Random(12)
+    widths = []
+    while sum(widths) < PERIOD:
+        widths.append(r.uniform(1.6, 2.6))
+    k_fit = PERIOD / sum(widths)
     x = 0.0
-    while x < PERIOD:
-        w = r.uniform(1.6, 2.6)
-        colr = r.choice(['#7a5a6e', '#6a5a86', '#8a6a5a', '#5a6a8a'])
+    for w in widths:
+        w *= k_fit
+        colr = r.choice(['#7a5a6e', '#6a5a86', '#8a6a5a', '#5a6a8a', '#6a7a6a'])
+        trimc = r.choice(['#e8d8c8', '#d8d0ea', '#f0dcc0'])
         awc = r.choice(['#e0485a', '#2fb7e9', '#f4b83b', '#8bd346', '#c49bff'])
+        h = r.uniform(1.05, 1.32)
+        upper = r.random() < 0.8
 
-        def shop(x0, x1):
-            C.box(wall, x0, 1.6, kerb, x1, 2.6, kerb + 1.6, colr)
-            C.box(glow, x0 + 0.2, 1.58, kerb + 0.1, x1 - 0.2, 1.62, kerb + 0.8, '#ffd08a')
-            C.box(trim, x0 + 0.15, 1.5, kerb + 0.82, x1 - 0.15, 1.62, kerb + 0.9, '#3a3444')
+        def shop(x0, x1, colr=colr, trimc=trimc, awc=awc, h=h, upper=upper):
+            C.box(wall, x0, 1.6, kerb, x1, 2.6, kerb + h, colr)
+            C.box(trim, x0 - 0.03, 1.54, kerb + h, x1 + 0.03, 2.62, kerb + h + 0.08, trimc)
+            C.box(glow, x0 + 0.2, 1.58, kerb + 0.12, x1 - 0.2, 1.62, kerb + 0.62, '#ffd08a')
+            # window mullions and a sill
+            n_m = max(1, int((x1 - x0 - 0.4) / 0.55))
+            for i in range(1, n_m):
+                mx = x0 + 0.2 + (x1 - x0 - 0.4) * i / n_m
+                C.box(trim, mx - 0.02, 1.555, kerb + 0.12, mx + 0.02, 1.6, kerb + 0.62, '#3a3444')
+            C.box(trim, x0 + 0.16, 1.52, kerb + 0.08, x1 - 0.16, 1.6, kerb + 0.12, trimc)
+            if upper:
+                n_u = max(2, int((x1 - x0) / 0.5))
+                for i in range(n_u):
+                    ux = x0 + (x1 - x0) * (i + 0.5) / n_u
+                    lit = (i * 7 + int(x0 * 13)) % 3 != 0
+                    C.box(glow if lit else trim, ux - 0.11, 1.585, kerb + h - 0.3, ux + 0.11, 1.61, kerb + h - 0.1, '#ffe2a8' if lit else '#2e3450')
             # striped awning sloping out over the pavement
             n = max(3, int((x1 - x0) / 0.25))
             for i in range(n):
                 sx0 = x0 + 0.1 + (x1 - x0 - 0.2) * i / n
                 sx1 = x0 + 0.1 + (x1 - x0 - 0.2) * (i + 1) / n
                 c = awc if i % 2 == 0 else '#fff4dc'
-                verts = [(sx0, 1.55, kerb + 1.05), (sx1, 1.55, kerb + 1.05), (sx1, 1.05, kerb + 0.82), (sx0, 1.05, kerb + 0.82)]
+                verts = [(sx0, 1.55, kerb + 0.86), (sx1, 1.55, kerb + 0.86), (sx1, 1.1, kerb + 0.66), (sx0, 1.1, kerb + 0.66)]
                 awn.add(verts + [(v[0], v[1], v[2] + 0.03) for v in verts], [(0, 1, 2, 3), (7, 6, 5, 4)], col(c))
+            # the awning's front valance
+            C.box(awn, x0 + 0.1, 1.08, kerb + 0.6, x1 - 0.1, 1.11, kerb + 0.67, awc)
 
-        wrap_dupes(shop, x, x + w - 0.08)
+        wrap_dupes(shop, x + 0.04, x + w - 0.04)
         x += w
-    # street lamps and hydrants along the pavement
+    # street lamps and hydrants along the pavement (with copies a period either side for the shadows)
     for k in range(4):
-        lx = 2.4 + k * 4.8
-        C.cyl(metal, lx, 0.5, kerb, 0.05, 0.04, 1.35, '#3c4254', 10)
-        C.box(metal, lx - 0.02, 0.45, kerb + 1.32, lx + 0.32, 0.55, kerb + 1.36, '#3c4254')
-        C.sphere(glow, lx + 0.3, 0.5, kerb + 1.28, 0.08, '#fff0c8', subdiv=1)
-        hx = lx + 2.4
-        C.cyl(metal, hx, 0.4, kerb, 0.07, 0.07, 0.22, '#e5484d', 10)
-        C.sphere(metal, hx, 0.4, kerb + 0.24, 0.07, '#e5484d', subdiv=1)
+        for dx in (0.0, -PERIOD, PERIOD):
+            lx = 2.4 + k * 4.8 + dx
+            C.cyl(metal, lx, 0.5, kerb, 0.05, 0.04, 1.35, '#3c4254', 10)
+            C.box(metal, lx - 0.02, 0.45, kerb + 1.32, lx + 0.32, 0.55, kerb + 1.36, '#3c4254')
+            C.sphere(glow, lx + 0.3, 0.5, kerb + 1.28, 0.08, '#fff0c8', subdiv=1)
+            hx = lx + 1.9
+            C.cyl(metal, hx, 0.4, kerb, 0.07, 0.07, 0.22, '#e5484d', 10)
+            C.sphere(metal, hx, 0.4, kerb + 0.24, 0.07, '#e5484d', subdiv=1)
     wall.build('shops', C.mat('paint'))
     trim.build('trims', C.mat('paint'))
     glow.build('glow', C.mat('glow'))
@@ -178,7 +209,7 @@ def street():
     C.render(path)
     if not PREVIEW:
         from PIL import Image
-        save_pair(Image.open(path).convert('RGB'), 'mg/heroes_street.webp')
+        save_pair(Image.open(path).convert('RGBA'), 'mg/heroes_street.webp')
     del bpy
 
 
@@ -307,7 +338,7 @@ def card():
     base = Image.open(os.path.join(C.PUB, 'scene_heroes_skyline.webp')).convert('RGBA')
     atlas = Image.open(os.path.join(MG, 'heroes_towers.webp')).convert('RGBA')
     meta = json.load(open(os.path.join(MG, 'heroes_towers.json')))
-    street = Image.open(os.path.join(MG, 'heroes_street.webp')).convert('RGBA').resize((1920, 220))
+    street = Image.open(os.path.join(MG, 'heroes_street.webp')).convert('RGBA').resize((1920, STREET_H))
     names = list(meta['frames'].keys())
     spots = [(120, 300), (470, 360), (830, 250), (1190, 330), (1560, 280), (1880, 380)]
     hooks = []
@@ -318,7 +349,7 @@ def card():
         img = atlas.crop((f['x'], f['y'], f['x'] + f['w'], f['y'] + f['h']))
         base.alpha_composite(img, (int(ax - a[0]), int(ay - a[1])))
         hooks.append((ax, ay))
-    base.alpha_composite(street, (0, 880))
+    base.alpha_composite(street, (0, STREET_TOP))
     d = ImageDraw.Draw(base)
     for (hx, hy) in hooks:
         d.ellipse((hx - 14, hy - 14, hx + 14, hy + 14), outline=(255, 255, 255, 255), width=5)

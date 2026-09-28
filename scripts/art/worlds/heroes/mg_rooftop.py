@@ -106,12 +106,15 @@ def main():
     for (vx, sy) in VENTS:
         top = deck_z(sy)
         cx = vx / 100
-        C.box(metal, cx - 0.56, 0.35, top, cx + 0.56, 0.95, top + 0.22, '#8a93a8', bevel=0.03)
+        C.box(metal, cx - 0.56, 0.35, top, cx + 0.56, 0.95, top + 0.4, '#8a93a8', bevel=0.03)
         for k in range(7):
             sx = cx - 0.45 + k * 0.15
-            C.box(dark, sx - 0.04, 0.32, top + 0.04, sx + 0.04, 0.36, top + 0.18, '#1a1e2a')
-            C.box(glow, sx - 0.03, 0.34, top + 0.06, sx + 0.03, 0.37, top + 0.16, '#ff9a4a')
-        C.box(metal, cx - 0.62, 0.3, top + 0.2, cx + 0.62, 1.0, top + 0.25, '#a7afc2')
+            C.box(dark, sx - 0.045, 0.32, top + 0.14, sx + 0.045, 0.36, top + 0.36, '#1a1e2a')
+            C.box(glow, sx - 0.03, 0.31, top + 0.16, sx + 0.03, 0.34, top + 0.34, '#ff9a4a')
+        C.box(metal, cx - 0.62, 0.3, top + 0.38, cx + 0.62, 1.0, top + 0.44, '#a7afc2')
+        # stubby legs, so the unit reads as sitting on the deck
+        for s in (-1, 1):
+            C.box(dark, cx + s * 0.5 - 0.05, 0.4, top - 0.01, cx + s * 0.5 + 0.05, 0.9, top + 0.03, '#39404f')
 
     # Searchlight pedestals (the game turns the lamp heads on top).
     for (lx, ly) in LAMPS:
@@ -192,7 +195,7 @@ def main():
         ld.color = col('#ff9a5a')[:3]
         ld.shadow_soft_size = 0.5
         ob = bpy.data.objects.new('vent_glow', ld)
-        ob.location = (vx / 100, 0.1, deck_z(sy) + 0.35)
+        ob.location = (vx / 100, 0.05, deck_z(sy) + 0.3)
         bpy.context.scene.collection.objects.link(ob)
 
     import mg_dress as dress

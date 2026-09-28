@@ -39,7 +39,7 @@ def main():
     x = -60.0
     while x < 1980:
         w = r.uniform(50, 130)
-        top = r.uniform(700, 860)
+        top = r.uniform(520, 640) if r.random() < 0.85 else r.uniform(430, 500)
         C.box(far, x / 100, 60, C.fz(1400, 60), (x + w) / 100, 62, C.fz(top, 60), '#4a3a78')
         x += w + r.uniform(-8, 20)
     far.build('far_city', C.facade_material('r_far', lit='#ffcf8a', lit_frac=0.3, cell=(0.24, 0.26), win=(0.1, 0.12), seed=8.0, glass='#3a2f66', emit=1.6))
@@ -47,13 +47,14 @@ def main():
     # from its middle at DECK_Y), a bright rim, lane stripes and chevrons, lights along the front edge
     trim, deck, metal, glow, paint, dark = (MeshBuilder() for _ in range(6))
     dz = C.fz(DECK_Y) - 0.08
-    front = -12.0
+    front = -16.0
     C.box(deck, -1.0, front, dz - 3.2, 20.2, 9.0, dz, '#5a6488')
     C.box(trim, -1.0, front - 0.12, dz - 0.18, 20.2, front + 0.05, dz + 0.04, '#c8d4f0')
     C.box(glow, -1.0, front - 0.14, dz - 0.3, 20.2, front - 0.1, dz - 0.24, '#5ce1ff')
+    soft = MeshBuilder()
     for k in range(12):  # lane stripes running back from the front edge
         lx = 0.6 + k * 1.64
-        C.box(glow, lx - 0.05, front + 0.6, dz + 0.001, lx + 0.05, 8.5, dz + 0.004, '#8ff0ff')
+        C.box(soft, lx - 0.035, front + 0.6, dz + 0.001, lx + 0.035, 8.5, dz + 0.004, '#8ff0ff')
     for k in range(20):  # hazard chevrons along the front
         cx = 0.3 + k * 0.98
         for sg in (-1, 1):
@@ -95,6 +96,7 @@ def main():
     glow.build('glow', C.mat('glow'))
     paint.build('paint', C.mat('paint'))
     dark.build('dark', C.mat('paint'))
+    soft.build('lanes', C.mat('softglow'))
     # Floodlight glow on the deck
     for mx in (0.4, 18.8):
         ld = bpy.data.lights.new('flood', 'SPOT')

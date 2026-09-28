@@ -33,7 +33,7 @@ SPRITES = {
     'balloon': (140, 200, (70, 62), 6),
     'balloon_b': (140, 200, (70, 62), 6),
     'balloon_c': (140, 200, (70, 62), 6),
-    'pad': (200, 70, (100, 32), 32),
+    'pad': (200, 70, (100, 32), 14),
     'lamp_head': (56, 60, (28, 44), 4),
 }
 
@@ -82,7 +82,13 @@ def build(name: str):
             faces = [(0, 1 + (k + 1) % 40, 1 + k) for k in range(40)]
             from lib import col
             body.add(verts, faces, col(c))
-        C.cyl(metal, 0, 0.0, 0.24, 0.56, 0.56, 0.0, '#8a96b8', 40)
+        # a metal backing plate with a rim, behind the rings (a disc facing the camera, along y)
+        n = 40
+        ring = [(math.cos(k / n * math.tau) * 0.58, math.sin(k / n * math.tau) * 0.58) for k in range(n)]
+        verts = [(x, 0.0, 0.24 + z) for (x, z) in ring] + [(x, 0.07, 0.24 + z) for (x, z) in ring]
+        faces = [(k, (k + 1) % n, n + (k + 1) % n, n + k) for k in range(n)] + [tuple(range(n)), tuple(range(2 * n - 1, n - 1, -1))]
+        from lib import col
+        metal.add(verts, faces, col('#8a96b8'))
     elif name.startswith('balloon'):
         colr = {'balloon': '#ff6b8a', 'balloon_b': '#5ce1ff', 'balloon_c': '#ffd05a'}[name]
         C.sphere(body, 0, 0, 0.0, 0.56, colr, squash=(1.0, 1.0, 1.1), subdiv=3)

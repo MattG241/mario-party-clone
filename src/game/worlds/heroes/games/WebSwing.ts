@@ -41,9 +41,9 @@ const SPRITES: readonly string[] = ['street', 'towers'];
 const CHAR_SCALE = 0.55;
 /** Parallax of the skyline backdrop. */
 const BACK_K = 0.14;
-/** The street strip's image top (its kerb line is at SWING.STREET_Y). */
-const STREET_TOP = 880;
-const STREET_H = 220;
+/** The street strip's image top: a row of low shops with awnings, the pavement (its kerb line is at SWING.STREET_Y) and the road. */
+const STREET_TOP = 800;
+const STREET_H = 300;
 /** The leader is kept this far across the screen; stragglers behind the left edge are zipped forward. */
 const LEAD_X = 1120;
 const CATCH_X = 40;
@@ -229,15 +229,29 @@ export class WebSwingScene extends BaseMinigame {
         }
       }
     });
-    canvasTex(this, 'hws-street', 1920, 220, (ctx) => {
+    canvasTex(this, 'hws-street', 1920, STREET_H, (ctx) => {
+      // low shopfronts (lit windows under striped awnings), then pavement, kerb and road
+      const shops = ['#7a5a6e', '#6a5a86', '#8a6a5a', '#5a6a8a'];
+      const awn = ['#e0485a', '#2fb7e9', '#f4b83b', '#8bd346'];
+      for (let i = 0, x = 0; x < 1920; i++, x += 240) {
+        const top = 40 + ((i * 37) % 3) * 12;
+        ctx.fillStyle = shops[i % 4];
+        ctx.fillRect(x + 4, top, 232, 176 - top);
+        ctx.fillStyle = '#ffd08a';
+        ctx.fillRect(x + 24, 110, 192, 56);
+        for (let k = 0; k < 8; k++) {
+          ctx.fillStyle = k % 2 ? '#fff4dc' : awn[i % 4];
+          ctx.fillRect(x + 16 + k * 26, 88, 26, 18);
+        }
+      }
       ctx.fillStyle = '#9aa1b3';
-      ctx.fillRect(0, 96, 1920, 16);
+      ctx.fillRect(0, 176, 1920, 16);
       ctx.fillStyle = '#6e7486';
-      ctx.fillRect(0, 112, 1920, 16);
+      ctx.fillRect(0, 192, 1920, 16);
       ctx.fillStyle = '#3a3f4f';
-      ctx.fillRect(0, 128, 1920, 92);
+      ctx.fillRect(0, 208, 1920, 92);
       ctx.fillStyle = '#e8d27a';
-      for (let x = 20; x < 1920; x += 160) ctx.fillRect(x, 170, 80, 8);
+      for (let x = 20; x < 1920; x += 160) ctx.fillRect(x, 250, 80, 8);
     });
     for (const kind of ['cornice', 'mast', 'tank', 'crane'] as const) this.fallbackTower(kind);
   }
