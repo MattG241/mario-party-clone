@@ -33,12 +33,12 @@ function course(seed: number, chunks: number, fever = false): { items: CourseIte
 }
 
 describe('Ring Rush rules', () => {
-  it('knocks loose half your rings (at least one, at most eight) on a hit', () => {
+  it('knocks loose half your rings (at least one, at most twelve) on a hit', () => {
     expect(ringsLost(0)).toBe(0);
     expect(ringsLost(1)).toBe(1);
     expect(ringsLost(5)).toBe(3);
     expect(ringsLost(12)).toBe(6);
-    expect(ringsLost(40)).toBe(8);
+    expect(ringsLost(40)).toBe(12);
     expect(ringsBumped(1)).toBe(1);
     expect(ringsBumped(9)).toBe(2);
   });

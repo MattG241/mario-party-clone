@@ -323,6 +323,8 @@ export class DonutDashScene extends BaseMinigame {
     if (!f.frame) it.spr.setOrigin(0.5, 0.7);
     it.shadow.setVisible(false);
     it.mark.setVisible(false);
+    // a puff of steam as it comes out of the oven
+    if (!LITE && !calmMotion()) this.fx.vfx('smoke', BELT_X[belt], BELT_TOP_Y - 8, { scale: 0.22, duration: 480, alpha: 0.45, dy: -30, depth: 559 });
   }
 
   private release(it: Item): void {

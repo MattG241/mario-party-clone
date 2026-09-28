@@ -91,7 +91,7 @@ interface Station {
   layerN: number;
   stackH: number;
   cpuDelay: number;
-  ringKey: string;
+  ringKey: number;
 }
 
 /**
@@ -323,7 +323,7 @@ export class PattyPanicScene extends BaseMinigame {
       layerN: 0,
       stackH: PLATE_THICK,
       cpuDelay: 0,
-      ringKey: '',
+      ringKey: -1,
     };
     this.stations.push(st);
     this.buildLegend(st, kind);
@@ -683,7 +683,7 @@ export class PattyPanicScene extends BaseMinigame {
     const q = Math.round(u * 90);
     const low = u < 0.28;
     const pulse = low && !calmMotion() ? Math.floor(this.clock / 140) % 2 : 0;
-    const key = `${q}:${pulse}`;
+    const key = q * 2 + pulse;
     if (key !== st.ringKey) {
       st.ringKey = key;
       const g = st.ring;

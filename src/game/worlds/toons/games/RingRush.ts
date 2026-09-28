@@ -2,12 +2,14 @@ import Phaser from 'phaser';
 import { audio } from '../../../audio/AudioManager';
 import { Character } from '../../../characters/Character';
 import { GAME_WIDTH, PLAYER_COLORS, PLAYER_COLORS_CSS } from '../../../constants';
+import { NPC_ATLAS, npcFrame, type NpcId } from '../../../data/npcs';
 import type { VirtualControls } from '../../../input/PlayerInput';
 import { BaseMinigame, type MgPlayer } from '../../../minigames/BaseMinigame';
 import { kick, popToHud, punch, shockwave, titleTexture, type HudPop } from '../../../minigames/juice';
 import { AFX, burst, ensureArenaFxTextures, RingPool, Spray } from '../../../minigames/games/arenaFx';
 import { bakeWord, calmMotion, WordPops } from '../../../minigames/games/stageKit';
 import { LITE } from '../../../perf';
+import { standOrigin } from '../../../util/spriteUtil';
 import { finishAtlas, hasFrame, queueAtlas } from '../toonsKit';
 import {
   BIG_RING,
@@ -61,6 +63,19 @@ const BUZZER_CLEAR = 175;
 /** Ring-streak call-outs every this many rings without a hit. */
 const STREAK_STEP = 10;
 const POP_SIZE = 58;
+/** Festival folk cheering along the back of the track (they scroll past with it). */
+const FANS: [NpcId, string][] = [
+  ['ora', 'cheer'],
+  ['pipper', 'happy'],
+  ['packsprout', 'cheer'],
+  ['wrench', 'laugh'],
+  ['mimi', 'happy'],
+  ['ora', 'flag'],
+  ['packsprout', 'star'],
+  ['pipper', 'wave'],
+];
+const FAN_Y = 452;
+const FAN_GAP = 330;
 const WORDS = {
   bonk: { key: 'rr-w-bonk', text: 'BONK!', size: 44, fill: ['#fff6c4', '#ffb12a'] },
   ouch: { key: 'rr-w-ouch', text: 'OUCH!', size: 44, fill: ['#ffe1da', '#ff6b5e'] },
@@ -116,6 +131,8 @@ interface Runner {
   streak: number;
   markerY: number;
   aura: Phaser.GameObjects.Image;
+  /** While spinning the sprite pivots round its middle: how far that sits above the feet (local px). */
+  spinDy: number;
   pop?: { h: HudPop; value: number };
   trailT: number;
   // CPU plan
@@ -153,6 +170,7 @@ export class RingRushScene extends BaseMinigame {
   private debris?: Spray;
   private seen: Seen[] = Array.from({ length: 160 }, () => ({ lane: 0, dx: 0, kind: 'ring' as Kind, z: 0 }) as Seen);
   private seenN = 0;
+  private fans: { spr: Phaser.GameObjects.Sprite; wx: number; hop: number }[] = [];
   private wrapped = false;
 
   constructor() {
@@ -199,6 +217,7 @@ export class RingRushScene extends BaseMinigame {
     this.streaks = new Spray(this, AFX.streak, { depth: 1200, reserve: LITE ? 24 : 60, lifespan: [160, 300], scale: { start: 1.1, end: 0.4 }, alpha: { start: 0.8, end: 0 }, add: true, align: true });
     if (this.hasArt) this.debris = new Spray(this, ATLAS, { depth: 6400, reserve: LITE ? 16 : 36, lifespan: [420, 700], gravity: 1500, scale: { start: 0.9, end: 0.6 }, spin: 0.08, frame: 'gear' });
     else this.debris = new Spray(this, AFX.chip, { depth: 6400, reserve: LITE ? 16 : 36, lifespan: [420, 700], gravity: 1500, tint: [0xdfe4ea, 0xb9c2cf], spin: 0.08 });
+    this.buildFans();
     // The first stretch of course is laid out before GO, so rings are already waiting down the lanes.
     this.layCourse();
     this.spawnDue();
@@ -296,6 +315,42 @@ export class RingRushScene extends BaseMinigame {
     }
   }
 
+  /** A few festival folk on the bank behind the lanes, recycled ahead as they scroll off. */
+  private buildFans(): void {
+    this.fans = [];
+    if (!this.textures.exists(NPC_ATLAS)) return;
+    const n = LITE ? 5 : 8;
+    for (let i = 0; i < n; i++) {
+      const [id, pose] = FANS[i % FANS.length];
+      const frame = npcFrame(id, pose);
+      if (!this.textures.get(NPC_ATLAS).has(frame)) continue;
+      const spr = this.add.sprite(0, FAN_Y, NPC_ATLAS, frame);
+      const o = standOrigin(NPC_ATLAS, frame);
+      spr.setOrigin(o.x, o.y).setScale(0.3).setDepth(FAN_Y - 30).setFlipX(i % 2 === 0);
+      this.fans.push({ spr, wx: 260 + i * FAN_GAP + (i % 3) * 60, hop: i * 0.9 });
+    }
+  }
+
+  private syncFans(): void {
+    const calm = calmMotion();
+    const span = this.fans.length * FAN_GAP;
+    for (const f of this.fans) {
+      if (f.wx - this.scroll < -120) f.wx += span;
+      const bounce = calm ? 0 : Math.abs(Math.sin(this.clock * 0.009 + f.hop)) * 9;
+      f.spr.setPosition(f.wx - this.scroll, FAN_Y - bounce);
+    }
+  }
+
+  /** The fans jump for joy (a super ring, a streak, the finish). */
+  private cheerFans(): void {
+    if (calmMotion()) return;
+    for (const f of this.fans) {
+      this.tweens.killTweensOf(f.spr);
+      f.spr.setScale(0.3);
+      this.tweens.add({ targets: f.spr, scaleY: 0.34, scaleX: 0.28, duration: 120, yoyo: true, repeat: 1, ease: 'Quad.Out', onComplete: () => f.spr.setScale(0.3) });
+    }
+  }
+
   private art(kind: Kind): { key: string; frame?: string } {
     const f = kind === 'scatter' ? 'ring' : kind === 'crawler' ? 'turtle' : kind === 'buzzer' ? 'heli' : kind;
     if (this.hasArt && hasFrame(this, ATLAS, f)) return { key: ATLAS, frame: f };
@@ -332,6 +387,7 @@ export class RingRushScene extends BaseMinigame {
       streak: 0,
       markerY: c.marker?.y ?? 0,
       aura,
+      spinDy: 0,
       trailT: 0,
       cpuLane: lane,
       cpuTap: 0,
@@ -352,6 +408,7 @@ export class RingRushScene extends BaseMinigame {
 
   protected override onFinalStretch(): void {
     this.fever = true;
+    this.cheerFans();
     this.showFinalStretch('RING FEVER!');
     audio.play('cheer', { volume: 0.6 });
     punch(this, 0.02, 260);
@@ -452,7 +509,10 @@ export class RingRushScene extends BaseMinigame {
       // everyone jogs to a stop as the world slows down under them
       this.speedK = Math.max(0, this.speedK - dt / 900);
       this.advanceWorld(dt);
-    } else this.syncItems();
+    } else {
+      this.syncItems();
+      this.syncFans();
+    }
     this.syncRunners();
     this.syncFx(dt);
   }
@@ -477,6 +537,7 @@ export class RingRushScene extends BaseMinigame {
       if (it.wx - this.scroll < DESPAWN_X || (it.kind === 'scatter' && it.life <= 0)) this.release(it);
     }
     this.syncItems();
+    this.syncFans();
   }
 
   private stepScatter(it: Item, dt: number): void {
@@ -620,6 +681,10 @@ export class RingRushScene extends BaseMinigame {
     audio.play('bounce', { volume: 0.35, rate: 1.6 });
     this.rumble(r.p, 0.2, 0.3, 90);
     r.c.hold('jump', 1);
+    const sp = r.c.sprite;
+    const base = sp.originY;
+    sp.setOrigin(0.5, 0.56);
+    r.spinDy = (base - 0.56) * sp.height;
     r.aura.setVisible(true).setAlpha(0.9).setScale(0.2);
     this.tweens.add({ targets: r.aura, scale: 0.62, duration: 120, ease: 'Back.Out' });
     const y = this.laneY(r.laneF) - 55 - r.z;
@@ -628,6 +693,7 @@ export class RingRushScene extends BaseMinigame {
 
   private endDash(r: Runner): void {
     r.dashT = 0;
+    r.spinDy = 0;
     r.c.sprite.setAngle(0);
     this.tweens.add({ targets: r.aura, alpha: 0, scale: 0.9, duration: 140, onComplete: () => r.aura.setVisible(false) });
     if (this.phase === 'playing' && r.c.current !== 'stunned') r.c.play(r.z > 0 ? 'jump' : 'run', { force: true, returnTo: 'run' });
@@ -638,7 +704,7 @@ export class RingRushScene extends BaseMinigame {
     for (const r of this.runners) {
       const gy = this.laneY(r.laneF);
       r.c.setPosition(r.x, gy).setDepth(gy + 5);
-      r.c.sprite.y = -r.z;
+      r.c.sprite.y = -r.z / CHAR_SCALE - r.spinDy;
       if (r.c.marker) r.c.marker.y = r.markerY - r.z / CHAR_SCALE;
       r.c.shadow?.setScale(Math.max(0.35, 1 - r.z / 300));
       if (r.dashT > 0) {
@@ -739,6 +805,7 @@ export class RingRushScene extends BaseMinigame {
       this.words.pop(WORDS.big.key, x, y - 60, { owner: r.p.slot, depth: 7000, rise: 50, hold: 520 });
       shockwave(this, x, y, { radius: 110, color: 0xffe066, alpha: 0.8, duration: 380, depth: 6900 });
       this.rumble(r.p, 0.2, 0.3, 100);
+      this.cheerFans();
     }
     if (Math.floor(r.streak / STREAK_STEP) > Math.floor(before / STREAK_STEP)) this.streakCall(r);
   }
@@ -769,11 +836,12 @@ export class RingRushScene extends BaseMinigame {
 
   private streakCall(r: Runner): void {
     const n = Math.floor(r.streak / STREAK_STEP) * STREAK_STEP;
-    const key = bakeWord(this, `rr-w-streak-${n}-${r.p.slot}`, `${n} IN A ROW!`, { size: 40, fill: ['#ffffff', PLAYER_COLORS_CSS[r.p.slot]] });
+    const key = bakeWord(this, `rr-w-streak-${n}-${r.p.slot}`, `${n} IN A ROW!`, { size: 46, fill: ['#ffffff', PLAYER_COLORS_CSS[r.p.slot]] });
     const y = this.laneY(r.laneF) - 170 - r.z;
     this.words.pop(key, r.x, y, { owner: 10 + r.p.slot, depth: 7050, rise: 40, hold: 560, tilt: -6 });
     this.sparks?.fire(r.x, y, burst(12), -90, 80, 120, 320);
     audio.play('streak', { volume: 0.55, rate: 1 + Math.min(0.3, n / 100) });
+    if (n >= 20) this.cheerFans();
   }
 
   private springUp(r: Runner, it: Item): void {
@@ -888,12 +956,14 @@ export class RingRushScene extends BaseMinigame {
         r.vz = 0;
         if (r.dashT > 0) {
           r.dashT = 0;
+          r.spinDy = 0;
           r.aura.setVisible(false);
         }
         r.c.sprite.setAngle(0).setAlpha(1);
         r.invuln = 0;
         if (r.c.current === 'jump' || r.c.current === 'stunned') r.c.play('run', { force: true });
       }
+      this.cheerFans();
     }
     super.end();
   }

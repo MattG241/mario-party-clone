@@ -56,7 +56,7 @@ export function scrollSpeed(elapsedMs: number, fever: boolean): number {
 // --- Scoring -----------------------------------------------------------------------------------
 export const BIG_RING = 5;
 /** Most rings a single hit can knock loose. */
-export const MAX_SCATTER = 8;
+export const MAX_SCATTER = 12;
 
 /** Rings knocked loose by a robot hit: half of what you hold (at least one), at most MAX_SCATTER. */
 export function ringsLost(held: number): number {
@@ -137,7 +137,7 @@ export class RushCourse {
         this.lastKind[it.lane] = it.kind;
       }
     }
-    this.cursor = end + this.rng.range(150, 260) * (fever ? 0.75 : 1);
+    this.cursor = end + this.rng.range(180, 300) * (fever ? 0.7 : 1);
     return items;
   }
 
@@ -196,22 +196,22 @@ export class RushCourse {
     switch (p) {
       case 'line': {
         const l = this.lane();
-        this.line(out, l, x, rng.int(5, 8));
+        this.line(out, l, x, rng.int(4, 7));
         if (fever) this.line(out, this.otherLane([l]), x + 140, 5);
         break;
       }
       case 'twin': {
         const a = this.lane();
         const b = this.otherLane([a]);
-        this.line(out, a, x, 5);
-        this.line(out, b, x + 60, 5);
+        this.line(out, a, x, 4);
+        this.line(out, b, x + 60, 4);
         break;
       }
       case 'hop': {
         // a crawler with a ring arc over it (jump for the lot); a thinner line elsewhere
         const l = this.lane();
         out.push({ kind: 'crawler', lane: l, wx: x + 260, z: 0 });
-        this.hopArc(out, l, x + 260, speed, 7);
+        this.hopArc(out, l, x + 260, speed, 6);
         if (rng.chance(0.6)) this.line(out, this.otherLane([l]), x + 120, 3);
         break;
       }
@@ -244,7 +244,7 @@ export class RushCourse {
         const apex = (SPRING_V * SPRING_V) / (2 * GRAVITY);
         out.push({ kind: 'spring', lane: l, wx: x + 60, z: 0 });
         out.push({ kind: 'crawler', lane: l, wx: x + 60 + (speed * T) / 2, z: 0 });
-        this.flight(out, l, x + 60, speed, SPRING_V, 9, 0.12, 0.88);
+        this.flight(out, l, x + 60, speed, SPRING_V, 8, 0.12, 0.88);
         if (fever || rng.chance(0.45)) out.push({ kind: 'bigring', lane: l, wx: x + 60 + (speed * T) / 2, z: apex * 0.92 });
         break;
       }
