@@ -2,12 +2,13 @@ import Phaser from 'phaser';
 
 /**
  * House UI style: calm, clean surfaces with few accents.
- *  - Cards: soft white rounded panels with a soft drop shadow and ink text (menus, info cards).
+ *  - Cards: warm-white rounded panels with a slim darker lip (they read as solid panels, not web
+ *    cards), a soft drop shadow and ink text (menus, info cards).
  *  - Slate: a translucent dark pill over gameplay (HUD), white text, no outlines or sheens.
  * Colour is used sparingly: player colours as small accents, gold only for the focused item.
  */
 export const UI = {
-  card: 0xffffff,
+  card: 0xfffaf1,
   cardSoft: 0xf3f5f9,
   line: 0xdfe4ec,
   ink: 0x1f2940,
@@ -44,11 +45,24 @@ export interface CardOpts {
   borderWidth?: number;
 }
 
-/** White rounded card with a soft shadow. */
+/** A colour a little darker and warmer (a card's lip). */
+function lipOf(c: number): number {
+  const k = 0.86;
+  const r = ((c >> 16) & 255) * k;
+  const gg = ((c >> 8) & 255) * k * 0.98;
+  const b = (c & 255) * k * 0.93;
+  return (Math.round(r) << 16) | (Math.round(gg) << 8) | Math.round(b);
+}
+
+/** Warm-white rounded card with a slim lip and a soft shadow. */
 export function drawCard(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number, o: CardOpts = {}): void {
   const r = Math.min(o.radius ?? 24, h / 2);
-  if ((o.shadow ?? 1) > 0) softShadow(g, x, y, w, h, r, o.shadow ?? 1);
-  g.fillStyle(o.fill ?? UI.card, o.alpha ?? 1);
+  const fill = o.fill ?? UI.card;
+  const lip = Math.max(3, Math.min(6, Math.round(h * 0.06)));
+  if ((o.shadow ?? 1) > 0) softShadow(g, x, y + lip, w, h, r, o.shadow ?? 1);
+  g.fillStyle(lipOf(fill), o.alpha ?? 1);
+  g.fillRoundedRect(x, y + lip, w, h, r);
+  g.fillStyle(fill, o.alpha ?? 1);
   g.fillRoundedRect(x, y, w, h, r);
   if (o.border !== undefined) {
     const bw = o.borderWidth ?? 4;

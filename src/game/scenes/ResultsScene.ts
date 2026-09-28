@@ -174,9 +174,10 @@ export class ResultsScene extends Phaser.Scene {
           const rw = Math.max(320, title.width + 110);
           const rg = this.add.graphics();
           drawCard(rg, -rw / 2, -40, rw, 80, { radius: 40, shadow: 1.3 });
-          rg.fillStyle(UI.focus, 1);
-          rg.fillRoundedRect(-44, -54, 88, 26, 13);
-          ribbon.add([rg, title, addText(this, 0, -41, pl.place === 1 && winners === 1 ? '1ST' : 'WIN', 16, { color: UI.inkCss, weight: 700, fixed: true })]);
+          ribbon.add([rg, title]);
+          // The winner stands in a warm pool of light.
+          const pool = this.add.image(x, baseY - h + 6, 'fx-dot').setScale(11, 3).setTint(0xfff0c8).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0).setDepth(-1);
+          this.tweens.add({ targets: pool, alpha: 0.45, duration: 400 });
           this.tweens.add({ targets: ribbon, scale: 1, duration: 360, ease: 'Back.Out' });
           if (!lp.isCpu) {
             input.rumbleSlot(lp.slot, 0.6, 0.6, 150);

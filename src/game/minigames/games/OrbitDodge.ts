@@ -5,7 +5,7 @@ import { COLORS, CSS, GAME_WIDTH } from '../../constants';
 import type { VirtualControls } from '../../input/PlayerInput';
 import { makeGlyph, glyphKindFor } from '../../ui/ControllerPrompt';
 import { addText } from '../../ui/theme';
-import { npcFrame, type NpcId } from '../../data/npcs';
+import { NPC_ATLAS, npcFrame, type NpcId } from '../../data/npcs';
 import { standOrigin } from '../../util/spriteUtil';
 import { BaseMinigame, type MgPlayer } from '../BaseMinigame';
 
@@ -74,8 +74,7 @@ export class OrbitDodgeScene extends BaseMinigame {
     if (rendered) {
       // Pre-rendered observatory rooftop (engraved stone, brass rings, crystal lights).
       const sky = ['rendered-sky-clear', 'rendered-sky-day'].find((k) => this.textures.exists(k));
-      // A slightly cooler, deeper sky so the warm platform separates from the cloud sea.
-      if (sky) this.add.image(GAME_WIDTH / 2, 480, sky).setDisplaySize(GAME_WIDTH * 1.12, 1210).setDepth(-100).setTint(0xd6e1ef);
+      if (sky) this.add.image(GAME_WIDTH / 2, 480, sky).setDisplaySize(GAME_WIDTH * 1.12, 1210).setDepth(-100);
       this.add.image(0, 0, 'rendered-scene-orbit').setOrigin(0).setDepth(-10);
       this.buildSpectators();
     } else {
@@ -129,8 +128,8 @@ export class OrbitDodgeScene extends BaseMinigame {
       ['wrench', 'tool', 1770, -34],
     ];
     [...back.map((b) => [...b, 0.3] as const), ...folk.map((f) => [...f, 0.36] as const)].forEach(([id, pose, x, dy, sc], i) => {
-      const spr = this.add.sprite(x, deckY + dy, 'npcs', npcFrame(id, pose));
-      const o = standOrigin('npcs', npcFrame(id, pose));
+      const spr = this.add.sprite(x, deckY + dy, NPC_ATLAS, npcFrame(id, pose));
+      const o = standOrigin(NPC_ATLAS, npcFrame(id, pose));
       spr.setOrigin(o.x, o.y).setScale(sc).setDepth(-5 + i * 0.01).setFlipX(x > 960);
       if (sc < 0.36) spr.setTint(0xe6ebf4);
       this.tweens.add({ targets: spr, y: deckY + dy - 7, duration: 380 + (i % 3) * 90, yoyo: true, repeat: -1, ease: 'Sine.InOut', delay: i * 80 });
@@ -196,17 +195,38 @@ export class OrbitDodgeScene extends BaseMinigame {
       const flashing = a.flipIn > 0 && Math.floor(a.flipIn / 120) % 2 === 0;
       const hue = low ? 0xff4a2a : 0xb45cff;
       const layer = low ? g : h;
+      // Soft cast shadow on the disc (light from the upper left; the raised beam's falls further away).
+      const floorEnd = rim(a.angle);
+      const sx = 14 + lift * 0.2;
+      const sy = 10 + lift * 0.62;
+      for (const [sw, sa] of [[low ? 86 : 60, 0.07], [low ? 62 : 44, 0.09], [low ? 40 : 28, 0.12]]) {
+        g.lineStyle(sw, 0x1d1430, sa);
+        g.lineBetween(CX + sx, CY + sy, floorEnd.x + sx, floorEnd.y + sy);
+      }
       if (this.phase === 'playing') {
-        // Warning wedge on the floor ahead of the sweep: where the arm is about to pass.
-        const ahead = Math.min(0.85, 0.32 * this.omega);
-        for (let k = 0; k < 5; k++) {
-          g.fillStyle(hue, (0.14 + 0.1 * pulse) * (1 - k / 5));
-          wedge(g, a.angle + this.dir * ahead * (k / 5), a.angle + this.dir * ahead * ((k + 1) / 5), 0);
+        // Sweep telegraph: chevrons on the disc ahead of the arm, pointing the way it turns.
+        const ahead = Phaser.Math.Clamp(0.32 * this.omega, 0.5, 0.9);
+        for (let k = 1; k <= 4; k++) {
+          const an = a.angle + this.dir * ahead * (k / 4);
+          for (const rr of [0.55, 0.9]) {
+            const px = CX + Math.cos(an) * RX * rr;
+            const py = CY + Math.sin(an) * RY * rr;
+            let tx = -Math.sin(an) * RX * this.dir;
+            let ty = Math.cos(an) * RY * this.dir;
+            const tl = Math.hypot(tx, ty) || 1;
+            tx /= tl;
+            ty /= tl;
+            const sz = 17 * (0.8 + rr * 0.3);
+            g.fillStyle(0xffffff, 0.5 * (1 - (k - 1) / 4));
+            g.fillCircle(px, py, sz * 0.95);
+            g.fillStyle(hue, (0.7 + 0.3 * pulse) * (1 - (k - 1) / 4));
+            g.fillTriangle(px + tx * sz, py + ty * sz, px - tx * sz * 0.5 - ty * sz * 0.8, py - ty * sz * 0.5 + tx * sz * 0.8, px - tx * sz * 0.5 + ty * sz * 0.8, py - ty * sz * 0.5 - tx * sz * 0.8);
+          }
         }
         // Motion smear trailing behind so speed and direction read at a glance.
         const trail = Math.min(0.55, 0.12 * this.omega);
         for (let k = 0; k < 4; k++) {
-          layer.fillStyle(low ? 0xffc27a : 0xd7b0ff, 0.12 * (1 - k / 4));
+          layer.fillStyle(low ? 0xffc27a : 0xd7b0ff, 0.1 * (1 - k / 4));
           wedge(layer, a.angle - this.dir * trail * ((k + 1) / 4), a.angle - this.dir * trail * (k / 4), lift);
         }
       }
@@ -229,15 +249,8 @@ export class OrbitDodgeScene extends BaseMinigame {
           if (flashing) sp.setTintFill(0xffffff);
           else sp.clearTint();
         }
-        // Pulsing danger glow on the floor under the arm keeps it readable at a glance.
-        const floorTip = rim(a.angle);
-        g.lineStyle(low ? 70 : 44, hue, 0.12 + 0.14 * pulse);
-        g.lineBetween(CX, CY, floorTip.x, floorTip.y);
         continue;
       }
-      // Ground shadow (for the high arm this is how you read where it is).
-      g.lineStyle(low ? 50 : 30, 0x0b1a24, low ? 0.32 : 0.38);
-      g.lineBetween(CX, CY + 14, rim(a.angle).x, rim(a.angle).y + 14);
       // Pulsing danger glow, dark outline, saturated body.
       const w = low ? 34 : 26;
       layer.lineStyle(w + 40, hue, 0.16 + 0.16 * pulse);

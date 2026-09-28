@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { COLORS, CSS, DEPTH, PLAYER_COLORS } from '../constants';
-import { NPCS, npcFrame, type NpcId } from '../data/npcs';
+import { NPC_ATLAS, NPCS, npcFrame, type NpcId } from '../data/npcs';
 import { renderedManifestKey, renderedTileKey, type RenderedBoard } from '../data/rendered';
 import { clampTexture } from '../util/texture';
 import type { MatchState } from '../state/MatchState';
@@ -31,12 +31,15 @@ function hash(s: string): number {
 }
 
 /** Renders a board and keeps its dynamic visuals in sync with the match state. */
+/** Vertical squash of the ground plane in the board renders (camera 52° above the horizon). */
+export const GROUND_SQUASH = Math.cos((38 * Math.PI) / 180);
+
 export class BoardManager {
   readonly graph: BoardGraph;
   readonly nodes = new Map<string, NodeView>();
   readonly decorations = new Map<string, Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.Transform>();
   /** Fork arrows on the ground (grown when the camera pulls back so junctions stay readable). */
-  private chevrons: Phaser.GameObjects.Image[] = [];
+  private chevrons: Phaser.GameObjects.Container[] = [];
   private bridgeLayer!: Phaser.GameObjects.Container;
   private detourLayer!: Phaser.GameObjects.Container;
   private relic!: Phaser.GameObjects.Container;
@@ -159,15 +162,19 @@ export class BoardManager {
       const badge = s.add.container(n.x + 42, n.y + 8).setDepth(DEPTH.spaces + 3);
       this.portalBadges.set(n.id, badge);
     }
-    // Ground chevrons at every fork, pointing along each branch.
+    // Arrows painted on the trail at every fork, pointing along each branch: drawn in ground space
+    // and squashed into the board's perspective so they lie on the path instead of facing the camera.
     for (const n of this.def.nodes) {
       if (n.next.length < 2) continue;
       for (const to of n.next) {
         const b = this.graph.node(to);
         const ang = Math.atan2(b.y - n.y, b.x - n.x);
-        const chev = s.add.image(n.x + Math.cos(ang) * 100, n.y + Math.sin(ang) * 78, 'fork-chevron').setRotation(ang).setDepth(DEPTH.spaces - 1).setScale(1.3);
-        s.tweens.add({ targets: chev, alpha: { from: 1, to: 0.8 }, duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
-        this.chevrons.push(chev);
+        const ground = Math.atan2((b.y - n.y) / GROUND_SQUASH, b.x - n.x);
+        const holder = s.add.container(n.x + Math.cos(ang) * 100, n.y + Math.sin(ang) * 78).setDepth(DEPTH.spaces - 1);
+        holder.add(s.add.image(0, 0, 'fork-arrow').setRotation(ground));
+        holder.setScale(1.3, 1.3 * GROUND_SQUASH);
+        s.tweens.add({ targets: holder, alpha: { from: 1, to: 0.82 }, duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+        this.chevrons.push(holder);
       }
     }
     // Prism gate
@@ -209,8 +216,8 @@ export class BoardManager {
     this.relic.add([beam, core, this.relicGlow, relicImg]);
     s.tweens.add({ targets: relicImg, y: -166, duration: 1300, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
     s.tweens.add({ targets: this.relicGlow, alpha: { from: 0.35, to: 0.7 }, scale: { from: 8, to: 10 }, duration: 1100, yoyo: true, repeat: -1 });
-    this.keeper = s.add.sprite(0, 0, 'npcs', npcFrame('packsprout', 'gift'));
-    const ko = standOrigin('npcs', npcFrame('packsprout'));
+    this.keeper = s.add.sprite(0, 0, NPC_ATLAS, npcFrame('packsprout', 'gift'));
+    const ko = standOrigin(NPC_ATLAS, npcFrame('packsprout'));
     this.keeper.setOrigin(ko.x, ko.y).setScale(0.52);
     this.placeRelic(state.board.relicGate);
     this.refresh(state);
@@ -218,8 +225,8 @@ export class BoardManager {
 
   private placeNpc(id: NpcId, x: number, y: number, pose: string): void {
     const frame = npcFrame(id, pose);
-    const spr = this.scene.add.sprite(x, y, 'npcs', frame);
-    const o = standOrigin('npcs', frame);
+    const spr = this.scene.add.sprite(x, y, NPC_ATLAS, frame);
+    const o = standOrigin(NPC_ATLAS, frame);
     // A little smaller than the players (so she never reads as a fifth player), with a name plate.
     spr.setOrigin(o.x, o.y).setScale(0.42).setDepth(y);
     this.npcs.set(id, spr);
@@ -240,7 +247,7 @@ export class BoardManager {
   /** Keep fork arrows readable at any zoom (called every frame with the board camera's zoom). */
   scaleForZoom(zoom: number): void {
     const k = 1.4 * Phaser.Math.Clamp(0.9 / zoom, 1, 2);
-    for (const c of this.chevrons) if (Math.abs(c.scaleX - k) > 0.01) c.setScale(k);
+    for (const c of this.chevrons) if (Math.abs(c.scaleX - k) > 0.01) c.setScale(k, k * GROUND_SQUASH);
   }
 
   npcPose(id: NpcId, pose: string): void {
@@ -282,28 +289,34 @@ export class BoardManager {
   // --- Paths --------------------------------------------------------------------------------
   private makeTextures(): void {
     const s = this.scene;
-    if (!s.textures.exists('fork-chevron')) {
-      // Bold white double chevron with a soft shadow, painted on the trail (points along +x).
+    if (!s.textures.exists('fork-arrow')) {
+      // A bold cream arrow with a soft shadow, as if painted on the trail (points along +x).
       const g = s.make.graphics({ x: 0, y: 0 }, false);
-      const chevron = (ox: number, oy: number, fill: number, alpha: number) => {
+      const arrow = (ox: number, oy: number, fill: number, alpha: number) => {
         g.fillStyle(fill, alpha);
+        g.fillRoundedRect(ox + 4, oy + 16, 34, 18, 6);
         g.fillPoints(
           [
-            { x: ox, y: oy + 4 },
-            { x: ox + 13, y: oy + 4 },
-            { x: ox + 29, y: oy + 21 },
-            { x: ox + 13, y: oy + 38 },
-            { x: ox, y: oy + 38 },
-            { x: ox + 16, y: oy + 21 },
+            { x: ox + 30, y: oy + 4 },
+            { x: ox + 66, y: oy + 25 },
+            { x: ox + 30, y: oy + 46 },
           ],
           true,
         );
       };
-      chevron(8, 3, 0x2a1c0e, 0.28);
-      chevron(28, 3, 0x2a1c0e, 0.28);
-      chevron(6, 0, 0xfffaf0, 1);
-      chevron(26, 0, 0xfffaf0, 1);
-      g.generateTexture('fork-chevron', 64, 44);
+      arrow(3, 4, 0x2a1c0e, 0.3);
+      arrow(0, 0, 0xd8c7a2, 1);
+      g.fillStyle(0xfffaf0, 1);
+      g.fillRoundedRect(6, 18, 30, 14, 5);
+      g.fillPoints(
+        [
+          { x: 33, y: 9 },
+          { x: 61, y: 25 },
+          { x: 33, y: 41 },
+        ],
+        true,
+      );
+      g.generateTexture('fork-arrow', 72, 52);
       g.destroy();
     }
     if (!s.textures.exists('fx-beam')) {

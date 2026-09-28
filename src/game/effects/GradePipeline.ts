@@ -90,7 +90,7 @@ export interface GradeSettings {
 }
 
 export const DEFAULT_GRADE: GradeSettings = {
-  gamma: 1.08,
+  gamma: 1.0,
   saturation: 1.12,
   contrast: 1.08,
   vignette: 0.1,

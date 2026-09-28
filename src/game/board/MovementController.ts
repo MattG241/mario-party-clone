@@ -7,7 +7,7 @@ import type { EffectsManager } from '../effects/EffectsManager';
 import type { MatchState, PlayerState } from '../state/MatchState';
 import { PlayerBadge } from '../ui/PlayerBadge';
 import { addText } from '../ui/theme';
-import type { BoardManager } from './BoardManager';
+import { GROUND_SQUASH, type BoardManager } from './BoardManager';
 import type { JumpKind } from './flowTypes';
 import { setDebugInfo } from '../debug/debug';
 
@@ -152,10 +152,10 @@ export class MovementController {
     else this.scene.tweens.add({ targets: tag.counter, scale: { from: 0.2, to: 1 }, duration: 240, ease: 'Back.Out' });
   }
 
-  private route: Phaser.GameObjects.Image[] = [];
+  private route: Phaser.GameObjects.Graphics[] = [];
 
-  /** Glow the spaces ahead (up to the next fork) so the move reads before it happens. */
-  showRoute(from: string, steps: number): void {
+  /** Ring the spaces ahead (up to the next fork) in the mover's colour so the move reads before it happens. */
+  showRoute(from: string, steps: number, color: number = COLORS.crystalLight): void {
     this.clearRoute();
     let id = from;
     for (let i = 0; i < steps; i++) {
@@ -164,10 +164,18 @@ export class MovementController {
       id = n.next[0];
       const q = this.board.pos(id);
       const last = i === steps - 1;
-      const ring = this.scene.add.image(q.x, q.y, 'fx-ring').setTint(last ? COLORS.goldLight : COLORS.crystalLight).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.spaces + 2);
-      ring.setScale(last ? 1.05 : 0.8, last ? 0.8 : 0.6).setAlpha(0);
-      this.scene.tweens.add({ targets: ring, alpha: { from: 0, to: last ? 0.95 : 0.6 }, delay: i * 70, duration: 220 });
-      this.scene.tweens.add({ targets: ring, scaleX: ring.scaleX * 1.08, scaleY: ring.scaleY * 1.08, duration: 520, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+      const ring = this.scene.add.graphics({ x: q.x, y: q.y }).setDepth(DEPTH.spaces + 2);
+      const rx = last ? 70 : 62;
+      const ry = rx * GROUND_SQUASH;
+      ring.lineStyle(9, 0x0a1120, 0.18);
+      ring.strokeEllipse(0, 4, rx * 2, ry * 2);
+      ring.lineStyle(8, 0xffffff, 0.95);
+      ring.strokeEllipse(0, 0, rx * 2, ry * 2);
+      ring.lineStyle(4, last ? COLORS.gold : color, 1);
+      ring.strokeEllipse(0, 0, rx * 2, ry * 2);
+      ring.setAlpha(0);
+      this.scene.tweens.add({ targets: ring, alpha: { from: 0, to: 1 }, delay: i * 70, duration: 220 });
+      if (last) this.scene.tweens.add({ targets: ring, scaleX: 1.08, scaleY: 1.08, duration: 520, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
       this.route.push(ring);
     }
   }
@@ -177,7 +185,7 @@ export class MovementController {
     const r = this.route.shift();
     if (r) {
       this.scene.tweens.killTweensOf(r);
-      this.scene.tweens.add({ targets: r, alpha: 0, scaleX: r.scaleX * 1.4, scaleY: r.scaleY * 1.4, duration: 200, onComplete: () => r.destroy() });
+      this.scene.tweens.add({ targets: r, alpha: 0, scaleX: r.scaleX * 1.3, scaleY: r.scaleY * 1.3, duration: 200, onComplete: () => r.destroy() });
     }
   }
 
@@ -237,7 +245,8 @@ export class MovementController {
   async step(state: MatchState, p: PlayerState, _from: string, to: string, remaining: number): Promise<void> {
     const c = this.token(p.slot);
     const target = this.standPos(state, p.slot, to);
-    this.board.markOccupied(new Set([...state.players.filter((o) => o.slot !== p.slot).map((o) => o.nodeId), to]));
+    // Spaces the mover passes keep their icon; the one they stop on loses it when the move ends (arrange).
+    this.board.markOccupied(new Set(state.players.filter((o) => o.slot !== p.slot).map((o) => o.nodeId)));
     c.faceToward(target.x);
     if (c.current !== 'run') c.play('run');
     this.setCounter(p.slot, remaining + 1);

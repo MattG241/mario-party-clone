@@ -4,7 +4,7 @@ import { Character } from '../../characters/Character';
 import { GAME_WIDTH } from '../../constants';
 import { CHARACTERS } from '../../data/characters';
 import type { VirtualControls } from '../../input/PlayerInput';
-import { npcFrame, type NpcId } from '../../data/npcs';
+import { NPC_ATLAS, npcFrame, type NpcId } from '../../data/npcs';
 import { centerOrigin, standOrigin } from '../../util/spriteUtil';
 import { BaseMinigame, type MgPlayer } from '../BaseMinigame';
 import { clampRect, dist, drift, separate, steer, type Mover } from '../common';
@@ -47,7 +47,7 @@ interface Drop {
 const ARENA = { x: 250, y: 290, w: 1420, h: 640 };
 /** Character scale at a depth scale of 1 (the perspective arena scales it by depth). */
 const CHAR_SCALE = 0.58;
-const CHAR_SCALE_3D = 0.62;
+const CHAR_SCALE_3D = 0.7;
 const FALL_MS = 950;
 const DASH_MS = 190;
 const DASH_CD = 1200;
@@ -133,8 +133,8 @@ export class GleamGrabScene extends BaseMinigame {
     folk.push(['wrench', 'idea', 480], ['pipper', 'coin', 1440], ['mimi', 'apple', 930]);
     folk.forEach(([id, pose, lx], i) => {
       const x = sx(lx);
-      const spr = this.add.sprite(x, feetY, 'npcs', npcFrame(id, pose));
-      const o = standOrigin('npcs', npcFrame(id, pose));
+      const spr = this.add.sprite(x, feetY, NPC_ATLAS, npcFrame(id, pose));
+      const o = standOrigin(NPC_ATLAS, npcFrame(id, pose));
       spr.setOrigin(o.x, o.y).setScale(0.42).setDepth(200 + i * 0.01).setFlipX(x > 960);
       this.tweens.add({ targets: spr, y: feetY - 8, duration: 420 + (i % 3) * 90, yoyo: true, repeat: -1, ease: 'Sine.InOut', delay: i * 70 });
       this.crowd.push(spr);
@@ -153,8 +153,8 @@ export class GleamGrabScene extends BaseMinigame {
       const id = ids[(k * 3) % ids.length];
       const pose = poses[id][k % 3];
       const x = sx(300 + k * 111 + ((k * 37) % 23));
-      const spr = this.add.sprite(x, backY + ((k * 13) % 9), 'npcs', npcFrame(id, pose));
-      const o = standOrigin('npcs', npcFrame(id, pose));
+      const spr = this.add.sprite(x, backY + ((k * 13) % 9), NPC_ATLAS, npcFrame(id, pose));
+      const o = standOrigin(NPC_ATLAS, npcFrame(id, pose));
       spr.setOrigin(o.x, o.y).setScale(0.33).setDepth(190 + k * 0.01).setFlipX(k % 2 === 0).setTint(0xdfe6f2);
       this.tweens.add({ targets: spr, y: spr.y - 6, duration: 380 + (k % 4) * 80, yoyo: true, repeat: -1, ease: 'Sine.InOut', delay: k * 55 });
       this.crowd.push(spr);
@@ -173,18 +173,18 @@ export class GleamGrabScene extends BaseMinigame {
       mimi: ['happy', 'laugh', 'surprised', 'apple'],
     };
     let n = 0;
-    // Small full-figure spectators standing along the benches: evenly spaced, a gentle sway, the
-    // back rows a touch hazier. Fewer and tidier reads better than a packed wall of busts.
+    // Full-figure spectators along the benches, shoulder to shoulder so each row overlaps the one
+    // behind it; a gentle sway, the back rows a touch hazier.
     tiers.forEach((t, ti) => {
-      const count = 10 - ti * 2;
+      const count = 15 - ti * 2;
       const step = (t.x1 - t.x0) / count;
       for (let k = 0; k < count; k++) {
         const id = ids[(n * 2 + ti) % ids.length];
-        const pose = poses[id][(n + ti) % 2];
+        const pose = poses[id][(n + ti) % 4];
         const x = t.x0 + (k + 0.5) * step + (((n * 37) % 11) - 5);
         const frame = npcFrame(id, pose);
-        const spr = this.add.sprite(x, t.y - 2, 'npcs', frame);
-        const o = standOrigin('npcs', frame);
+        const spr = this.add.sprite(x, t.y - 2, NPC_ATLAS, frame);
+        const o = standOrigin(NPC_ATLAS, frame);
         spr.setOrigin(o.x, o.y).setScale(0.28 * t.scale).setDepth(200 - ti + k * 0.001).setFlipX(x > 960);
         const haze = ti === 0 ? 0xffffff : ti === 1 ? 0xf1f4fa : 0xe4e9f2;
         spr.setTint(haze);

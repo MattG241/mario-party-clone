@@ -31,8 +31,8 @@ export class PreloadScene extends Phaser.Scene {
     this.buildScreen();
     this.load.setPath('');
     for (const key of ATLAS_KEYS) {
-      // rendered 3D hero sheets are WebP; the processed 2D sheets are PNG
-      const ext = key.startsWith('hero_') ? 'webp' : 'png';
+      // rendered 3D sheets (heroes, NPCs) are WebP; the processed 2D sheets are PNG
+      const ext = key.startsWith('hero_') || key === 'npcs3d' ? 'webp' : 'png';
       this.load.atlas(key, `assets/atlases/${key}.${ext}`, `assets/atlases/${key}.json`);
     }
     for (const s of COMMON_SVGS) this.load.svg(s.key, s.path, { width: s.width, height: s.height });
@@ -65,6 +65,7 @@ export class PreloadScene extends Phaser.Scene {
     const mgSprites: [string, string][] = [
       ['crate', 'crate'],
       ['crate-gold', 'crate_gold'],
+      ['crate-shadow', 'crate_shadow'],
       ['pad', 'pad'],
       ['sky-tile', 'sky_tile'],
       ['mace', 'mace'],

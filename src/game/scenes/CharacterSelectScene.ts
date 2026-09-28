@@ -49,6 +49,7 @@ export class CharacterSelectScene extends Phaser.Scene {
   private slots: SlotView[] = [];
   private chars: Character[] = [];
   private glows: Phaser.GameObjects.Graphics[] = [];
+  private pools: Phaser.GameObjects.Image[] = [];
   private renderedStage = false;
   private namePlates: Phaser.GameObjects.Container[] = [];
   private locked: (number | null)[] = [null, null, null, null]; // character index → slot
@@ -69,6 +70,7 @@ export class CharacterSelectScene extends Phaser.Scene {
     this.slots = [];
     this.chars = [];
     this.glows = [];
+    this.pools = [];
     this.namePlates = [];
     this.locked = [null, null, null, null];
     this.fx = new EffectsManager(this, 800);
@@ -103,6 +105,9 @@ export class CharacterSelectScene extends Phaser.Scene {
     CHARACTER_IDS.forEach((id, i) => {
       const x = PODIUM_X[i];
       if (!this.renderedStage) this.add.image(x, PODIUM_Y + 40, 'podium').setScale(0.95);
+      // A soft pool of light on the pedestal top for the hero being pointed at.
+      const pool = this.add.image(x, PODIUM_Y - 2 * STAGE_K, 'fx-dot').setScale(9.5 * STAGE_K, 2.6 * STAGE_K).setTint(0xfff1cf).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0);
+      this.pools.push(pool);
       const glow = this.add.graphics({ x, y: PODIUM_Y - 30 * STAGE_K }).setScale(STAGE_K);
       this.glows.push(glow);
       const c = new Character(this, x, PODIUM_Y - 20 * STAGE_K, id, { scale: CHAR_K });
@@ -331,10 +336,11 @@ export class CharacterSelectScene extends Phaser.Scene {
       const ch = this.chars[ci];
       const target = active ? CHAR_K * 1.08 : CHAR_K;
       this.tweens.add({ targets: ch, scale: target, duration: 180, ease: 'Back.Out' });
-      // Characters nobody is pointing at (or has picked) are only lightly dimmed.
+      // Characters nobody is pointing at (or has picked) step back into the shade.
       const lit = active || lockedBy !== null || this.slots.every((v) => v.phase === 'empty');
       if (lit) ch.sprite.clearTint();
-      else ch.sprite.setTint(0xb4b9c6);
+      else ch.sprite.setTint(0xa4aaba);
+      this.tweens.add({ targets: this.pools[ci], alpha: active || lockedBy !== null ? 0.42 : 0, duration: 200 });
       const plate = this.namePlates[ci];
       this.tweens.add({ targets: plate, scale: active || lockedBy !== null ? 1 : 0.94, duration: 160 });
       // Cursor badges hover above the head, side by side.

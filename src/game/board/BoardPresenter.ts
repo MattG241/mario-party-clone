@@ -189,6 +189,7 @@ export class BoardPresenter implements FlowIO {
       controls: c,
       cpuDelay: this.dur(p.cpuLevel === 'easy' ? 1100 : p.cpuLevel === 'hard' ? 650 : 850),
       fast: this.fast,
+      color: PLAYER_COLORS[p.slot],
       waitForInput: (ctrl) =>
         this.ui.waitButton(ctrl, ['A']).then(() => {
           // Clear the prompt the moment the dial is stopped (the reveal animation follows).
@@ -200,7 +201,7 @@ export class BoardPresenter implements FlowIO {
     this.moves.setTagHidden(p.slot, false);
     if (c) c.rumble(0.35, 0.5, 90);
     this.moves.setCounter(p.slot, result + bonus);
-    this.moves.showRoute(p.nodeId, result + bonus);
+    this.moves.showRoute(p.nodeId, result + bonus, PLAYER_COLORS[p.slot]);
     this.scene.followToken(p.slot);
   }
 

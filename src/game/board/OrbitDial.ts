@@ -18,22 +18,42 @@ export class OrbitDial {
     private fx: EffectsManager,
   ) {}
 
-  async spin(token: Character, result: number, bonus: number, opts: { controls?: Controls; cpuDelay: number; waitForInput: (c: Controls) => Promise<boolean>; fast: boolean }): Promise<void> {
+  async spin(
+    token: Character,
+    result: number,
+    bonus: number,
+    opts: { controls?: Controls; cpuDelay: number; waitForInput: (c: Controls) => Promise<boolean>; fast: boolean; color: number },
+  ): Promise<void> {
     const s = this.scene;
     const x = token.x;
-    const y = token.y - 300;
+    const lift = 262;
+    const y = token.y - lift;
     const root = s.add.container(x, y).setDepth(DEPTH.worldUi + 50);
     // The hovering dial casts a soft shadow on the ground at the hero's feet.
-    const shadow = s.add.image(24, 318, 'fx-shadow').setScale(2.8, 0.7).setAlpha(0.6);
+    const shadow = s.add.image(20, lift + 16, 'fx-shadow').setScale(2.1, 0.55).setAlpha(0.55);
+    // A pointer in the player's colour ties the dial to its hero.
+    const tail = s.add.graphics();
+    tail.fillStyle(0xffffff, 1);
+    tail.fillTriangle(-24, 78, 24, 78, 0, 112);
+    tail.fillStyle(opts.color, 1);
+    tail.fillTriangle(-16, 80, 16, 80, 0, 104);
     // The world dims around the hero while the dial spins (a spotlight centred on the screen).
     const dim = s.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'fx-spot').setScrollFactor(0).setDisplaySize(GAME_WIDTH * 1.5, GAME_HEIGHT * 1.5).setDepth(DEPTH.worldUi + 40).setAlpha(0);
     s.tweens.add({ targets: dim, alpha: 1, duration: 300 });
     const rendered = s.textures.exists('rendered-ui-dial');
-    const ring = rendered ? s.add.image(0, 0, 'rendered-ui-dial').setDisplaySize(236, 236) : s.add.image(0, 0, 'orbit-dial').setScale(0.52);
+    const ring = rendered ? s.add.image(0, 0, 'rendered-ui-dial').setDisplaySize(180, 180) : s.add.image(0, 0, 'orbit-dial').setScale(0.4);
     // A darker copy just below reads as the medallion's thickness (a coin edge), not a flat decal.
-    const edge = s.add.image(0, 10, ring.texture.key).setDisplaySize(ring.displayWidth, ring.displayHeight).setTint(0x6a4a1c);
-    const num = addText(s, 0, -4, '1', 108, { color: '#1f2940', weight: 700, fixed: true });
-    root.add([shadow, edge, ring, num]);
+    const edge = s.add.image(0, 8, ring.texture.key).setDisplaySize(ring.displayWidth, ring.displayHeight).setTint(0x6a4a1c);
+    // Player-colour rim round the medallion.
+    const rim = s.add.graphics();
+    rim.fillStyle(0x0a1120, 0.18);
+    rim.fillCircle(0, 8, 102);
+    rim.fillStyle(0xffffff, 1);
+    rim.fillCircle(0, 0, 100);
+    rim.fillStyle(opts.color, 1);
+    rim.fillCircle(0, 0, 95);
+    const num = addText(s, 0, -3, '1', 84, { color: '#1f2940', weight: 700, fixed: true });
+    root.add([shadow, tail, rim, edge, ring, num]);
     root.setScale(0.1);
     token.play('dial');
     audio.play('pop', { rate: 0.8 });
@@ -105,7 +125,7 @@ export class OrbitDial {
     token.play('jump');
     await new Promise<void>((r) => s.time.delayedCall(opts.fast ? 420 : 700, () => r()));
     if (bonus > 0) {
-      const plus = addText(s, 150, -80, `+${bonus}`, 72, { color: CSS.coral, weight: 700, stroke: '#ffffff', strokeThickness: 10, fixed: true });
+      const plus = addText(s, 124, -66, `+${bonus}`, 64, { color: CSS.coral, weight: 700, stroke: '#ffffff', strokeThickness: 10, fixed: true });
       root.add(plus);
       plus.setScale(0.2);
       audio.play('itemUse');

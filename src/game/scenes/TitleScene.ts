@@ -102,7 +102,7 @@ export class TitleScene extends Phaser.Scene {
     ];
     const made = CHARACTER_IDS.map((id, i) => {
       const [x, y] = spots[i];
-      const c = new Character(this, x, y, id, { scale: 0.86 + ((y - 660) / 60) * 0.1 });
+      const c = new Character(this, x, y, id, { scale: 0.95 + ((y - 660) / 60) * 0.1 });
       c.face(i >= 2);
       return c;
     });
