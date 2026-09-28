@@ -130,6 +130,8 @@ export class StormNavigatorScene extends BaseMinigame {
   private windTo = 0;
   private windS = 1;
   private shiftT = 0;
+  /** Until when (scene ms) a banner is up, so two never pile onto each other. */
+  private bannerUntil = 0;
   private strikeT = 0;
   private spawnT = 0;
   private thunderT = 0;
@@ -181,6 +183,7 @@ export class StormNavigatorScene extends BaseMinigame {
     this.windTo = this.wind;
     this.windS = 1;
     this.shiftT = 7500;
+    this.bannerUntil = 0;
     this.strikeT = 5000;
     this.spawnT = 0;
     this.thunderT = 3500;
@@ -297,6 +300,7 @@ export class StormNavigatorScene extends BaseMinigame {
   protected override onFinalStretch(): void {
     this.tide = true;
     this.showFinalStretch('TREASURE TIDE!');
+    this.bannerUntil = this.elapsed + 1900;
     for (let i = 0; i < 6; i++) this.time.delayedCall(i * 120, () => this.spawnLoot(false));
     this.crowd?.cheer(true);
   }
@@ -449,7 +453,11 @@ export class StormNavigatorScene extends BaseMinigame {
       const turn = (0.9 + this.rng.next() * 1.4) * (this.rng.next() < 0.5 ? -1 : 1);
       this.windTo = this.wind + turn;
       this.windS = 0.85 + this.rng.next() * 0.35;
-      banner(this, 'WIND SHIFT!', { y: this.bannerY(), size: 76, color: '#dff4ff', hold: 600 });
+      // (the dial and the vane swinging round say it too, if another banner is up)
+      if (this.elapsed >= this.bannerUntil) {
+        banner(this, 'WIND SHIFT!', { y: this.bannerY(), size: 76, color: '#dff4ff', hold: 600 });
+        this.bannerUntil = this.elapsed + 1400;
+      }
       audio.play('sweep', { volume: 0.5 });
       audio.play('whoosh', { volume: 0.5, rate: 0.6 });
     }
@@ -711,8 +719,8 @@ export class StormNavigatorScene extends BaseMinigame {
     g.lineStyle(2.5, 0x6b4428, 1);
     g.lineBetween(topX, topY, mx, footY + 6);
     g.lineBetween(mx, footY, ex, ey);
-    const mastInFront = my > cy;
-    g.setDepth(D_OBJ + sy * 0.01 + (mastInFront ? 0.3 : 0.1));
+    // the sailor always stands in front of the sail, so a tall sail never hides who's who
+    g.setDepth(D_OBJ + sy * 0.01 + 0.1);
     if (b.boostT > 0 && !calm()) {
       g.lineStyle(3, 0xffffff, 0.6);
       for (let i = 0; i < 3; i++) {
@@ -892,12 +900,13 @@ export class StormNavigatorScene extends BaseMinigame {
 
   private updateWhirl(dt: number): void {
     if (!this.whirlOn) {
-      if (this.elapsed > 9000 && this.phase === 'playing') {
+      if (this.elapsed > 9000 && this.phase === 'playing' && this.elapsed >= this.bannerUntil) {
         this.whirlOn = true;
         this.whirlT = 0;
         this.whirl?.setVisible(true);
         if (this.whirl) this.tweens.add({ targets: this.whirl, alpha: WHIRL_ALPHA, duration: 900 });
         banner(this, 'WHIRLPOOL!', { y: this.bannerY(), size: 76, color: '#bff0ff', hold: 600 });
+        this.bannerUntil = this.elapsed + 1400;
         audio.play('portal', { volume: 0.5, rate: 0.7 });
       }
       return;

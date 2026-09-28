@@ -34,8 +34,11 @@ const GROUND_Y = 650;
 const SEAT_R = 435;
 /** Shoulders (where an arm starts) sit this far from the centre, on the table plane. */
 const SHOULDER_R = 395;
-/** Seat angles (0 = east, 90 = the front) by player count, in launch order (P1 on the left). */
-const SEATS: Record<number, number[]> = { 1: [90], 2: [180, 0], 3: [180, 90, 0], 4: [180, 125, 55, 0] };
+/**
+ * Seat angles (0 = east, 90 = the front) by player count, in launch order (P1 on the left). Four seats
+ * sit an even 70 degrees apart, so the middle two don't have more neighbours' arms to cross than the ends.
+ */
+const SEATS: Record<number, number[]> = { 1: [90], 2: [180, 0], 3: [180, 90, 0], 4: [195, 125, 55, -15] };
 /** The cook's feet on screen (behind the table) and where the tentacles leave the body. */
 const COOK_X = 960;
 const COOK_Y = 351;
@@ -129,6 +132,8 @@ export class StretchSnatchScene extends BaseMinigame {
   private omega = 0.42;
   private spinDir = 1;
   private flipAt = 0;
+  /** Until when (scene ms) a banner is up, so two never pile onto each other. */
+  private bannerUntil = 0;
   private frenzy = false;
   private serveT = 0;
   private roastAt: number[] = [];
@@ -177,6 +182,7 @@ export class StretchSnatchScene extends BaseMinigame {
     this.omega = spinSpeed(0, false);
     this.spinDir = 1;
     this.flipAt = 21000 + this.rng.next() * 6000;
+    this.bannerUntil = 0;
     this.frenzy = false;
     this.serveT = 300;
     this.roastAt = [11500, 27000];
@@ -359,6 +365,7 @@ export class StretchSnatchScene extends BaseMinigame {
   protected override onFinalStretch(): void {
     this.frenzy = true;
     this.showFinalStretch('FEAST FRENZY!');
+    this.bannerUntil = this.elapsed + 1900;
     this.crowd?.cheer(true);
     this.setCookMood('happy', 1200);
     this.serveT = 0;
@@ -389,7 +396,11 @@ export class StretchSnatchScene extends BaseMinigame {
 
   private tossRoast(): void {
     this.toss('roast', { r: 150 + this.rng.next() * 70, a: this.rng.next() * Math.PI * 2 });
-    banner(this, 'GOLDEN ROAST!', { y: this.bannerY(), size: 74, color: CSS.goldLight, hold: 700 });
+    // (its own glint and landing burst say it well enough while another banner is up)
+    if (this.elapsed >= this.bannerUntil) {
+      banner(this, 'GOLDEN ROAST!', { y: this.bannerY(), size: 74, color: CSS.goldLight, hold: 700 });
+      this.bannerUntil = this.elapsed + 1400;
+    }
     audio.play('itemGet', { volume: 0.6 });
     this.setCookMood('happy', 900);
   }
@@ -890,10 +901,11 @@ export class StretchSnatchScene extends BaseMinigame {
   protected tick(dt: number): void {
     const s = dt / 1000;
     // the table spins (and turns round once, a little past halfway)
-    if (this.flipAt > 0 && this.elapsed >= this.flipAt) {
+    if (this.flipAt > 0 && this.elapsed >= this.flipAt && this.elapsed >= this.bannerUntil) {
       this.flipAt = 0;
       this.spinDir *= -1;
       banner(this, 'THE TABLE TURNS!', { y: this.bannerY(), size: 72, color: '#ffe9a8', hold: 650 });
+      this.bannerUntil = this.elapsed + 1400;
       audio.play('sweep', { volume: 0.5 });
     }
     const want = this.spinDir * spinSpeed(this.elapsed / this.duration, this.frenzy);
