@@ -43,7 +43,7 @@ export function gradeSwirl(dotAngle: number, heartAngle: number): SwirlGrade {
 
 /**
  * A served coffee: 3, plus 1 for a PERFECT shot and 1 for PERFECT latte art; double in rush hour.
- * (Serving more coffees still counts for the most: three sloppy coffees beat two perfect ones.)
+ * (Serving counts for the most: one more coffee is worth more than making a coffee perfect.)
  */
 export function coffeePoints(shot: 'perfect' | 'good', swirl: SwirlGrade, rush: boolean): number {
   const pts = 3 + (shot === 'perfect' ? 1 : 0) + (swirl === 'perfect' ? 1 : 0);

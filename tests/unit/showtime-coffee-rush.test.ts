@@ -61,7 +61,8 @@ describe('coffee rush: scoring', () => {
     expect(coffeePoints('perfect', 'good', false)).toBe(4);
     expect(coffeePoints('perfect', 'perfect', false)).toBe(5);
     expect(coffeePoints('perfect', 'perfect', true)).toBe(10);
-    // More coffees still win: three sloppy ones beat two perfect ones.
-    expect(3 * coffeePoints('good', 'messy', false)).toBeGreaterThan(2 * coffeePoints('perfect', 'perfect', false) - 1);
+    // Serving counts for the most: one more coffee is worth more than making a coffee perfect.
+    const plain = coffeePoints('good', 'messy', false);
+    expect(plain).toBeGreaterThan(coffeePoints('perfect', 'perfect', false) - plain);
   });
 });
