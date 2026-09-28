@@ -29,8 +29,35 @@ export const CAPITOL_INFO: WorldMinigameInfo = {
       world: 'capitol',
       characters: ['obama'],
     },
+    {
+      id: 'fairway',
+      sceneKey: 'mg-fairway',
+      name: 'Fairway Frenzy',
+      tagline: 'Chip and putt on the rolling green!',
+      description:
+        'Chip and putt on a rolling green in the gardens. Aim, hold A to power up and let go — the tee shot rides the wind and the ball rolls with the slopes. Hole out in fewer strokes for more points; when time runs out on a hole, the ball closest to the pin scores too.',
+      instructions: [
+        'Stick aims, hold A to power up, let go to hit',
+        'Tee shots chip through the wind; then the ball rolls with the slope',
+        'Hole out in 1 stroke for 5, in 2 for 3, in 3 for 2',
+        'Closest to the pin when a hole ends scores 2 — last 10 s double',
+      ],
+      controls: [
+        { button: 'STICK', label: 'Aim' },
+        { button: 'A', label: 'Hold: power' },
+      ],
+      players: '1–4 players',
+      duration: '50 s',
+      color: 0x4caf50,
+      preview: { texture: 'items', frame: '0', scale: 0.7 },
+      arena: 'rendered-scene-capitol_green',
+      ruleIcons: [null, null, null, { texture: 'prism-relic' }],
+      world: 'capitol',
+      characters: ['trump'],
+    },
   ],
   renders: {
     'free-throw': { images: ['capitol_court', 'capitol_court_blur'] },
+    fairway: { images: ['capitol_green', 'capitol_green_blur'] },
   },
 };
