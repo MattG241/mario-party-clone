@@ -109,7 +109,7 @@ ROCKY = [(840, 460, 330), (1650, 260, 330), (3420, 1250, 200), (2700, 380, 180)]
 GALLEON = BP.Galleon(1170, 1880, 1285)
 LANDMARKS = [
     dict(id='galleon-rig', kind='rig', x=1520, y=1285, tex='', depth_y=1250),
-    dict(id='lighthouse', kind='lighthouse', x=3372, y=1300, s=1.0, tex='observatory'),
+    dict(id='lighthouse', kind='lighthouse', x=3372, y=1300, s=1.0, tex='observatory', manifest_kind='lantern'),
     dict(id='dojo', kind='dojo', x=2460, y=372, s=0.95, tex='workshop'),
     dict(id='map-room', kind='map_room', x=500, y=1420, s=0.95, tex='stall'),
     dict(id='cave', kind='cave', x=950, y=352, s=1.0, tex=''),
@@ -349,6 +349,7 @@ def build_scene():
     mats = scatter_mats()
     scatter(mask, sd, raise_z, sand, paving, trail, mats)
     trails_over_water(mats)
+    sea_life(mats)
     ship_hull(mats)
     shrines(mats)
     return mask, sd
@@ -596,6 +597,28 @@ def trails_over_water(mats):
     wood.build('water_wood', mats['wood'])
     rocks.build('reef_rocks', mats['rock'])
     tops.build('reef_tops', mats['paving'], smooth=False)
+
+
+def sea_life(mats):
+    """Coral round the reef stones and the sandbar, a channel buoy off the harbour, drifting barrels."""
+    rnd = random.Random(61)
+    coral, paint, wood = lib.MeshBuilder(), lib.MeshBuilder(), lib.MeshBuilder()
+    for i in REEF_NODES + ['c2', 'c3']:
+        x, y = xy(i)
+        for _ in range(3):
+            a = rnd.uniform(0, math.tau)
+            r = rnd.uniform(85, 130)
+            cx, cy = x + math.cos(a) * r, y + math.sin(a) * r * 0.8
+            if B.near_node(cx, cy, 80) or B.near_path(cx, cy, 55):
+                continue
+            K.coral(coral, cx, cy, rnd, rnd.uniform(0.8, 1.2))
+    for (bx, by) in [(2230, 1640), (1180, 1700), (2900, 1860)]:
+        K.buoy(paint, bx, by)
+    for (bx, by) in [(1450, 1560), (2350, 1450), (980, 1450), (2600, 1450)]:
+        K.floating_barrel(wood, bx, by, rnd)
+    coral.build('coral', mats['flower'])
+    paint.build('buoys', mats['cloth'])
+    wood.build('drift_barrels', mats['wood'])
 
 
 def ship_hull(mats):

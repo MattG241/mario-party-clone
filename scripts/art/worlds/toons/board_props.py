@@ -118,17 +118,24 @@ def pineapple_house(bx, by, s=1.0, z0=0.0) -> list:
         side = Vector((-math.sin(a), math.cos(a), 0.0)) * 0.1 * s
         verts = [(base[0] + side.x, base[1] + side.y, base[2]), (base[0] - side.x, base[1] - side.y, base[2]), tip]
         P.b['leaf'].add(verts, [(0, 1, 2), (2, 1, 0)], col('#3fae3a' if k % 2 else '#2f8a2c'))
-    # round door and porthole on the camera side
-    def disc_on(xx, zz, r, colour, mb, depth=0.02):
-        verts = [(xx, y - R * 0.97, zz)] + [(xx + math.cos(t) * r, y - R * 0.97, zz + math.sin(t) * r) for t in np.linspace(0, math.tau, 20, endpoint=False)]
+    # round door and porthole on the camera side, seated on the curved wall
+    def surface_y(xx, zz):
+        h = min(max((zz - z0) / H, 0.02), 0.98)
+        t = math.acos(1 - 2 * h)
+        r = R * math.sin(t) * (1.0 - 0.08 * math.cos(t))
+        return y - math.sqrt(max(0.0, r * r - (xx - x) ** 2)) - 0.012
+
+    def disc_on(xx, zz, r, colour, mb, lift=0.0):
+        py = surface_y(xx, zz) - lift
+        verts = [(xx, py, zz)] + [(xx + math.cos(t) * r, py, zz + math.sin(t) * r) for t in np.linspace(0, math.tau, 20, endpoint=False)]
         faces = [(0, 1 + i, 1 + (i + 1) % 20) for i in range(20)]
         mb.add(verts, faces + [tuple(reversed(fc)) for fc in faces], colour)
-    door = [(x - 0.14 * s, y - R * 0.98, z0), (x + 0.14 * s, y - R * 0.98, z0), (x + 0.14 * s, y - R * 0.98, z0 + 0.34 * s),
-            (x - 0.14 * s, y - R * 0.98, z0 + 0.34 * s)]
+    dy = surface_y(x, z0 + 0.2 * s)
+    door = [(x - 0.14 * s, dy, z0), (x + 0.14 * s, dy, z0), (x + 0.14 * s, dy, z0 + 0.34 * s), (x - 0.14 * s, dy, z0 + 0.34 * s)]
     P.b['wood'].add(door, [(0, 1, 2, 3), (3, 2, 1, 0)], col('#8a5a34'))
     disc_on(x, z0 + 0.34 * s, 0.14 * s, col('#8a5a34'), P.b['wood'])
     disc_on(x - 0.22 * s, z0 + 0.9 * s, 0.13 * s, col('#7a8a99'), P.b['metal'])
-    disc_on(x - 0.22 * s, z0 + 0.9 * s, 0.1 * s, col('#bfe8ff'), P.b['glow'])
+    disc_on(x - 0.22 * s, z0 + 0.9 * s, 0.1 * s, col('#bfe8ff'), P.b['glow'], lift=0.006)
     v, f = lib.box((x, y - R - 0.05 * s, z0 + 0.03 * s), (0.4 * s, 0.14 * s, 0.06 * s))
     P.b['stone'].add(v, f, col('#b8aca0'))
     return P.build()
@@ -280,6 +287,12 @@ def donut_shop(bx, by, s=1.0) -> list:
             c = ((i + 1) % nu) * nv + (j + 1) % nv
             d = i * nv + (j + 1) % nv
             faces.append((a, b, c, d))
+    from terrain import orient
+
+    def outward(cc):
+        u = math.atan2(cc.z - cz, cc.x - x)
+        return cc - Vector((x + Rr * math.cos(u), y + 0.1 * s, cz + Rr * math.sin(u)))
+    faces = orient(faces, verts, outward)
 
     def frosting(vv):
         front = vv[1] < y + 0.1 * s - rr * 0.15

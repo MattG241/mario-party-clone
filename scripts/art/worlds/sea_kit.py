@@ -708,6 +708,40 @@ def driftwood(mb, bx, by, rnd):
     mb.add(v, f, col(rnd.choice(['#b8a48c', '#a8927a', '#c4b299'])))
 
 
+def coral(mb, bx, by, rnd, s=1.0, z=WATER_Z + 0.05):
+    """A clump of branching coral poking out of the shallows."""
+    p = board_to_world(bx, by, z)
+    c = col(rnd.choice(['#ff7a6b', '#ff9ad0', '#ffb347', '#c49bff', '#ff5f8f']))
+    for _ in range(rnd.randint(4, 7)):
+        a = rnd.uniform(0, math.tau)
+        L = rnd.uniform(0.12, 0.3) * s
+        base = (p.x + rnd.uniform(-0.06, 0.06), p.y + rnd.uniform(-0.05, 0.05), z - 0.08)
+        tip = (base[0] + math.cos(a) * L * 0.4, base[1] + math.sin(a) * L * 0.4, z + L)
+        v, f = lib.tube([base, tip], lambda t: (0.035 - 0.02 * t) * s, 6)
+        mb.add(v, f, c)
+        v, f = lib.blob(tip, 0.03 * s, rough=0.0, subdiv=1)
+        mb.add(v, f, c)
+
+
+def buoy(paint, bx, by, s=1.0):
+    """A red-and-white channel buoy bobbing at the water line."""
+    p = board_to_world(bx, by, WATER_Z)
+    prof = [(0.0, -0.1), (0.16 * s, -0.05), (0.17 * s, 0.1), (0.1 * s, 0.35 * s), (0.04 * s, 0.5 * s), (0.0, 0.52 * s)]
+    v, f = lib.lathe(prof, 16, (p.x, p.y, WATER_Z))
+    paint.add(v, f, lambda vv: col('#e8483b') if int((vv[2] - WATER_Z) / (0.12 * s)) % 2 == 0 else col('#fbf6ee'))
+    v, f = lib.blob((p.x, p.y, WATER_Z + 0.56 * s), 0.05 * s, rough=0.0, subdiv=1)
+    paint.add(v, f, col('#ffd23f'))
+
+
+def floating_barrel(wood, bx, by, rnd):
+    """A barrel lying on its side, half in the water."""
+    p = board_to_world(bx, by, WATER_Z)
+    r, h = 0.09, 0.26
+    v, f = lib.lathe([(r * 0.85, 0.0), (r, h * 0.3), (r, h * 0.7), (r * 0.85, h), (0.0, h)], 14, (0, 0, -h / 2))
+    v = lib.transform(v, loc=(p.x, p.y, WATER_Z + 0.03), rot=(math.pi / 2, 0.0, rnd.uniform(0, math.pi)))
+    wood.add(v, f, col('#9a6436'))
+
+
 # ------------------------------------------------------------------------------------------
 # Trails over water: jetties, gangplanks, reef stones
 def jetty(wood, a, b, rnd, width=0.34, z=0.0, rails=True, posts_to=None):
@@ -936,7 +970,8 @@ def render_props(board, built, terrain_objs, frame, scale, out_dir, only=()):
         im = Image.open(png).convert('RGBA')
         name = f'prop_{pid}.webp'
         im.save(os.path.join(dest, name), 'WEBP', quality=92, method=6)
-        e = {'id': pid, 'file': name, 'tex': lm.get('tex', ''), 'kind': lm['kind'],
+        # manifest_kind: how the game treats it (a 'lantern' gets a warm halo after dark)
+        e = {'id': pid, 'file': name, 'tex': lm.get('tex', ''), 'kind': lm.get('manifest_kind', lm['kind']),
              'x': fx + px0 / scale, 'y': fy + py0 / scale, 'w': im.width / scale, 'h': im.height / scale,
              'baseY': lm['y'], 'anchorX': lm['x']}
         if lm.get('depth_y') is not None:
