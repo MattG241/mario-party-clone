@@ -371,10 +371,17 @@ def reflecting_pool(B, x0, y0, x1, y1):
     b = _at(x1, y1)
     cx, cy = (a.x + b.x) / 2, (a.y + b.y) / 2
     w, d = abs(b.x - a.x), abs(b.y - a.y)
-    v, f = lib.box((cx, cy, 0.03), (w + 0.2, d + 0.2, 0.06))
+    # a low stone floor, the water sheet just above it, and a kerb ring standing a little proud
+    v, f = lib.box((cx, cy, 0.01), (w + 0.2, d + 0.2, 0.02))
     B['stone'].add(v, f, col('#ebe6dc'))
-    v, f = lib.box((cx, cy, 0.035), (w, d, 0.02))
+    v, f = lib.box((cx, cy, 0.035), (w, d, 0.03))
     B['ponds'].add(v, f, (1, 1, 1, 1))
+    for sy in (-1, 1):
+        v, f = lib.box((cx, cy + sy * (d / 2 + 0.05), 0.035), (w + 0.2, 0.1, 0.07))
+        B['stone'].add(v, f, col('#ebe6dc'))
+    for sx in (-1, 1):
+        v, f = lib.box((cx + sx * (w / 2 + 0.05), cy, 0.035), (0.1, d, 0.07))
+        B['stone'].add(v, f, col('#ebe6dc'))
     for (px, py) in ((cx - w / 2 - 0.1, cy), (cx + w / 2 + 0.1, cy)):
         v, f = lib.box((px, py, 0.06), (0.14, d + 0.34, 0.12))
         B['stone'].add(v, f, col('#e3ddd1'))
