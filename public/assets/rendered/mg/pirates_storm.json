@@ -1,0 +1,433 @@
+{
+"frames": {
+"whirl": {
+"frame": {
+"x": 0,
+"y": 0,
+"w": 766,
+"h": 766
+},
+"rotated": false,
+"trimmed": true,
+"spriteSourceSize": {
+"x": 2,
+"y": 2,
+"w": 766,
+"h": 766
+},
+"sourceSize": {
+"w": 768,
+"h": 768
+}
+},
+"boat_12": {
+"frame": {
+"x": 769,
+"y": 0,
+"w": 72,
+"h": 168
+},
+"rotated": false,
+"trimmed": true,
+"spriteSourceSize": {
+"x": 84,
+"y": 17,
+"w": 72,
+"h": 168
+},
+"sourceSize": {
+"w": 240,
+"h": 240
+}
+},
+"boat_11": {
+"frame": {
+"x": 844,
+"y": 0,
+"w": 94,
+"h": 162
+},
+"rotated": false,
+"trimmed": true,
+"spriteSourceSize": {
+"x": 75,
+"y": 18,
+"w": 94,
+"h": 162
+},
+"sourceSize": {
+"w": 240,
+"h": 240
+}
+},
+"boat_13": {
+"frame": {
+"x": 941,
+"y": 0,
+"w": 94,
+"h": 162
+},
+"rotated": false,
+"trimmed": true,
+"spriteSourceSize": {
+"x": 71,
+"y": 18,
+"w": 94,
+"h": 162
+},
+"sourceSize": {
+"w": 240,
+"h": 240
+}
+},
+"boat_10": {
+"frame": {
+"x": 1038,
+"y": 0,
+"w": 122,
+"h": 149
+},
+"rotated": false,
+"trimmed": true,
+"spriteSourceSize": {
+"x": 61,
+"y": 20,
+"w": 122,
+"h": 149
+},
+"sourceSize": {
+"w": 240,
+"h": 240
+}
+},
+"boat_14": {
+"frame": {
+"x": 1163,
+"y": 0,
+"w": 122,
+"h": 149
+},
+"rotated": false,
+"trimmed": true,
+"spriteSourceSize": {
+"x": 57,
+"y": 20,
+"w": 122,
+"h": 149
+},
+"sourceSize": {
+"w": 240,
+"h": 240
+}
+},
+"boat_04": {
+"frame": {
+"x": 1288,
+"y": 0,
+"w": 72,
+"h": 147
+},
+"rotated": false,
+"trimmed": true,
+"spriteSourceSize": {
+"x": 84,
+"y": 37,
+"w": 72,
+"h": 147
+},
+"sourceSize": {
+"w": 240,
+"h": 240
+}
+},
+"boat_03": {
+"frame": {
+"x": 1363,
+"y": 0,
+"w": 95,
+"h": 142
+},
+"rotated": false,
+"trimmed": true,
+"spriteSourceSize": {
+"x": 70,
+"y": 36,
+"w": 95,
+"h": 142
+},
+"sourceSize": {
+"w": 240,
+"h": 240
+}
+},
+"boat_05": {
+"frame": {
+"x": 1461,
+"y": 0,
+"w": 95,
+"h": 142
+},
+"rotated": false,
+"trimmed": true,
+"spriteSourceSize": {
+"x": 75,
+"y": 36,
+"w": 95,
+"h": 142
+},
+"sourceSize": {
+"w": 240,
+"h": 240
+}
+},
+"boat_02": {
+"frame": {
+"x": 1559,
+"y": 0,
+"w": 123,
+"h": 135
+},
+"rotated": false,
+"trimmed": true,
+"spriteSourceSize": {
+"x": 56,
+"y": 34,
+"w": 123,
+"h": 135
+},
+"sourceSize": {
+"w": 240,
+"h": 240
+}
+},
+"boat_06": {
+"frame": {
+"x": 1685,
+"y": 0,
+"w": 122,
+"h": 135
+},
+"rotated": false,
+"trimmed": true,
+"spriteSourceSize": {
+"x": 61,
+"y": 34,
+"w": 122,
+"h": 135
+},
+"sourceSize": {
+"w": 240,
+"h": 240
+}
+},
+"boat_09": {
+"frame": {
+"x": 1810,
+"y": 0,
+"w": 142,
+"h": 135
+},
+"rotated": false,
+"trimmed": true,
+"spriteSourceSize": {
+"x": 49,
+"y": 22,
+"w": 142,
+"h": 135
+},
+"sourceSize": {
+"w": 240,
+"h": 240
+}
+},
+"boat_15": {
+"frame": {
+"x": 0,
+"y": 769,
+"w": 142,
+"h": 135
+},
+"rotated": false,
+"trimmed": true,
+"spriteSourceSize": {
+"x": 49,
+"y": 23,
+"w": 142,
+"h": 135
+},
+"sourceSize": {
+"w": 240,
+"h": 240
+}
+},
+"boat_01": {
+"frame": {
+"x": 145,
+"y": 769,
+"w": 142,
+"h": 127
+},
+"rotated": false,
+"trimmed": true,
+"spriteSourceSize": {
+"x": 49,
+"y": 30,
+"w": 142,
+"h": 127
+},
+"sourceSize": {
+"w": 240,
+"h": 240
+}
+},
+"boat_07": {
+"frame": {
+"x": 290,
+"y": 769,
+"w": 142,
+"h": 127
+},
+"rotated": false,
+"trimmed": true,
+"spriteSourceSize": {
+"x": 49,
+"y": 31,
+"w": 142,
+"h": 127
+},
+"sourceSize": {
+"w": 240,
+"h": 240
+}
+},
+"boat_08": {
+"frame": {
+"x": 435,
+"y": 769,
+"w": 152,
+"h": 119
+},
+"rotated": false,
+"trimmed": true,
+"spriteSourceSize": {
+"x": 44,
+"y": 26,
+"w": 152,
+"h": 119
+},
+"sourceSize": {
+"w": 240,
+"h": 240
+}
+},
+"boat_00": {
+"frame": {
+"x": 590,
+"y": 769,
+"w": 152,
+"h": 118
+},
+"rotated": false,
+"trimmed": true,
+"spriteSourceSize": {
+"x": 44,
+"y": 27,
+"w": 152,
+"h": 118
+},
+"sourceSize": {
+"w": 240,
+"h": 240
+}
+},
+"vane": {
+"frame": {
+"x": 745,
+"y": 769,
+"w": 181,
+"h": 70
+},
+"rotated": false,
+"trimmed": true,
+"spriteSourceSize": {
+"x": 14,
+"y": 5,
+"w": 181,
+"h": 70
+},
+"sourceSize": {
+"w": 200,
+"h": 80
+}
+},
+"chest": {
+"frame": {
+"x": 929,
+"y": 769,
+"w": 68,
+"h": 69
+},
+"rotated": false,
+"trimmed": true,
+"spriteSourceSize": {
+"x": 36,
+"y": 24,
+"w": 68,
+"h": 69
+},
+"sourceSize": {
+"w": 140,
+"h": 140
+}
+},
+"goldchest": {
+"frame": {
+"x": 1000,
+"y": 769,
+"w": 68,
+"h": 69
+},
+"rotated": false,
+"trimmed": true,
+"spriteSourceSize": {
+"x": 36,
+"y": 24,
+"w": 68,
+"h": 69
+},
+"sourceSize": {
+"w": 140,
+"h": 140
+}
+},
+"pouch": {
+"frame": {
+"x": 1071,
+"y": 769,
+"w": 58,
+"h": 60
+},
+"rotated": false,
+"trimmed": true,
+"spriteSourceSize": {
+"x": 41,
+"y": 27,
+"w": 58,
+"h": 60
+},
+"sourceSize": {
+"w": 140,
+"h": 140
+}
+}
+},
+"meta": {
+"app": "mg_sprites.py",
+"image": "pirates_storm.webp",
+"size": {
+"w": 2048,
+"h": 904
+},
+"scale": "1"
+}
+}
