@@ -110,7 +110,7 @@ GALLEON = BP.Galleon(1170, 1880, 1285)
 LANDMARKS = [
     dict(id='galleon-rig', kind='rig', x=1520, y=1285, tex='', depth_y=1250),
     dict(id='lighthouse', kind='lighthouse', x=3372, y=1300, s=1.0, tex='observatory', manifest_kind='lantern'),
-    dict(id='dojo', kind='dojo', x=2460, y=372, s=0.95, tex='workshop'),
+    dict(id='dojo', kind='dojo', x=2460, y=372, s=1.1, tex='workshop'),
     dict(id='map-room', kind='map_room', x=500, y=1420, s=0.95, tex='stall'),
     dict(id='cave', kind='cave', x=950, y=352, s=1.0, tex=''),
     dict(id='stall-fish', kind='stall', x=2665, y=1640, s=1.35, stripe=('#1fa5a0', '#fff4dc'), tex='stall'),
@@ -244,6 +244,8 @@ def build_zones(mask, sd, pool, bank):
     B.capsule(hull, 1190, 1322, 1860, 1322, 105, soft=10)
     B.disc(hull, 1900, 1322, 80, soft=10)
     dist = K.ndimage.distance_transform_edt(~(solid | (extra_foam > 0.5) | (hull > 0.5))) * K.GRID
+    # smooth the grid's stair steps out of the distance so the shore foam runs clean
+    dist = K.ndimage.gaussian_filter(dist.astype(np.float32), 1.6)
     seamap = np.clip(dist / 420.0, 0, 1).astype(np.float32)
     shallows = B.zeros()
     for (x, y, r) in [(2450, 1300, 260), (2750, 1300, 220), (2020, 1480, 200), (1100, 700, 160)]:
@@ -340,8 +342,8 @@ def build_scene():
         if nrm[k][1] > 0.92 and 700 < ring[k][0] < 3200 and k % 3 == 0:
             picks.append(k)
     rnd = random.Random(5)
-    picks = sorted(rnd.sample(picks, min(4, len(picks))))
-    K.rim_falls(B, ring, nrm, picks, water, rnd)
+    picks = sorted(rnd.sample(picks, min(3, len(picks))))
+    K.rim_falls(B, ring, nrm, picks, water, rnd, width=0.72)
     water.build('falls', lib.falls_material('falls', K.WATER_Z + 0.04, K.WATER_Z - 3.6), smooth=True)
     lagoon = lib.MeshBuilder()
     top_z = lagoon_falls(lagoon, raise_z)
@@ -584,7 +586,7 @@ def trails_over_water(mats):
                 wood.add(v, f, col('#8a5e3a'))
     for i in REEF_NODES:
         x, y = xy(i)
-        K.reef_stone(rocks, tops, x, y, rnd, r=0.66)
+        K.reef_stone(rocks, tops, x, y, rnd, r=0.6, top='#dcc9a0')
     for i in JETTY_NODES:
         x, y = xy(i)
         p = board_to_world(x, y, 0.0)

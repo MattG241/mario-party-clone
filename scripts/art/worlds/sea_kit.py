@@ -289,8 +289,8 @@ def water_material(board, sea_path, pal=None, name='sea'):
     mot = m.noise(1.3, 3, 0.5, pos)
     c = m.mult(c, m.mix(m.maprange(mot.outputs['Fac'], 0.35, 0.65), lib.col('#ffffff'), lib.col('#d0ecf2')))
     cv = m.voronoi(9.0, pos, feature='DISTANCE_TO_EDGE')
-    caust = m.math('MULTIPLY', m.maprange(cv.outputs['Distance'], 0.05, 0.0), m.maprange(depth, 0.25, 0.02))
-    c = m.mix(m.math('MULTIPLY', caust, 0.35), c, lib.col('#e8fffb'))
+    caust = m.math('MULTIPLY', m.maprange(cv.outputs['Distance'], 0.04, 0.0), m.maprange(depth, 0.14, 0.02))
+    c = m.mix(m.math('MULTIPLY', caust, 0.16), c, lib.col('#e8fffb'))
     # wave crests: thin pale bands broken up by noise, more out in open water
     wv = m.node('ShaderNodeTexWave')
     wv.wave_type = 'BANDS'
@@ -457,9 +457,9 @@ def land_heights(board, sd, bank, raise_z=None, beach_w=58.0, bank_w=12.0):
     return z_fn
 
 
-def slab(board, mask, rock_mat, water_mat, name='sea_slab', cliff=235.0):
-    """The floating sea: a flat water top at WATER_Z inside `mask`, a low rocky lip round it and a
-    rock mass underneath that drops steeply at the rim (the visible cliff is about `cliff` px)."""
+def slab(board, mask, rock_mat, water_mat, name='sea_slab'):
+    """The floating sea: a flat water top at WATER_Z inside `mask`, a low rocky kerb round it, a rock
+    cliff wall dropping about 200 px (on screen) under the kerb, and a bowl of rock underneath."""
     from scipy.spatial import Delaunay  # noqa: F401  (triangle needs scipy present)
     import triangle as tr
     dist = ndimage.distance_transform_edt(mask) * GRID
@@ -495,29 +495,33 @@ def slab(board, mask, rock_mat, water_mat, name='sea_slab', cliff=235.0):
     for k in range(N):
         bx, by = ring[k] + nrm[k] * 16
         verts.append(tuple(board_to_world(bx, by, lip_z - 0.04)))
-    for k in range(N):
-        bx, by = ring[k] + nrm[k] * 22
-        verts.append(tuple(board_to_world(bx, by, WATER_Z - 0.5)))
-    # underside: steep near the rim, then deepening gently towards the middle
+    # the cliff wall: rings dropping straight down under the kerb, bulging a little (rocky, displaced)
+    wall = [(22, WATER_Z - 0.5, 0.5), (28, WATER_Z - 1.3, 0.8), (25, WATER_Z - 2.1, 1.0), (14, WATER_Z - 2.8, 1.0)]
+    wall_z0 = len(verts)
+    for (off, z, _) in wall:
+        for k in range(N):
+            j = noise.noise(Vector((ring[k][0] * 0.013, ring[k][1] * 0.013, z)))
+            bx, by = ring[k] + nrm[k] * (off + 9 * j)
+            verts.append(tuple(board_to_world(bx, by, z + 0.12 * j)))
+    # underside: a bowl under the whole sea, deepest in the middle
     und = len(verts)
     for i, (bx, by) in enumerate(pts2):
         d = terrain.dist_at(dist, bx, by) if i >= N else 0.0
         w = board_to_world(bx, by, 0.0)
         q = Vector((w.x * 0.7, w.y * 0.7, 0.0))
-        depth = 0.6 + (cliff / (PX * SINB)) * min(1.0, d / 220.0) ** 0.9 + max(0.0, d - 220.0) / 380.0
-        depth *= 1.0 + 0.22 * noise.noise(q) + 0.1 * noise.noise(q * 3.1 + Vector((2, 5, 1)))
-        verts.append((w.x, w.y, WATER_Z - 0.5 - depth))
+        depth = 3.1 + 1.7 * min(1.0, d / 450.0) ** 0.8
+        depth += 0.35 * noise.noise(q) + 0.15 * noise.noise(q * 3.1 + Vector((2, 5, 1)))
+        verts.append((w.x, w.y, WATER_Z - depth))
     faces += terrain.orient([tuple(und + i for i in t) for t in tris], verts, lambda c: Vector((0, 0, -1)))
     mats += [0] * len(tris)
     wc = board_to_world(*ring.mean(0), 0.0)
     band = []
+    rings = [base, base + N] + [wall_z0 + i * N for i in range(len(wall))] + [und]
     for k in range(N):
         k2 = (k + 1) % N
-        # water edge up to the kerb top, kerb top out, kerb face down, then down to the underside ring
-        band.append((k, k2, base + k2, base + k))
-        band.append((base + k, base + k2, base + N + k2, base + N + k))
-        band.append((base + N + k, base + N + k2, base + 2 * N + k2, base + 2 * N + k))
-        band.append((base + 2 * N + k, base + 2 * N + k2, und + k2, und + k))
+        band.append((k, k2, base + k2, base + k))  # water edge up to the kerb top
+        for r0, r1 in zip(rings, rings[1:]):
+            band.append((r0 + k, r0 + k2, r1 + k2, r1 + k))
     faces += terrain.orient(band, verts, lambda c: Vector((c.x - wc.x, c.y - wc.y, 0.0)))
     mats += [0] * len(band)
     ob = lib.mesh_object(name, verts, faces, smooth=True)
@@ -529,7 +533,8 @@ def slab(board, mask, rock_mat, water_mat, name='sea_slab', cliff=235.0):
         me.polygons[i].use_smooth = False
     vg = ob.vertex_groups.new(name='rock')
     vg.add(list(range(und, len(verts))), 1.0, 'REPLACE')
-    vg.add(list(range(base + 2 * N, base + 3 * N)), 0.5, 'REPLACE')
+    for i, (_, _, wgt) in enumerate(wall):
+        vg.add(list(range(wall_z0 + i * N, wall_z0 + (i + 1) * N)), wgt, 'REPLACE')
     sub = ob.modifiers.new('sub', 'SUBSURF')
     sub.subdivision_type = 'SIMPLE'
     sub.levels = 0

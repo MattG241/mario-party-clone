@@ -20,71 +20,80 @@ def _w(bx, by, z=0.0):
     return board_to_world(bx, by, z)
 
 
-def loop_the_loop(bx, by, R=1.9, s=1.0) -> list:
-    """A giant loop-the-loop facing the camera: a checkered track band standing on its edge, gold
-    rails along both lips, chunky supports and a run-in ramp at each foot. The trail passes through
-    its bottom."""
+def loop_the_loop(bx, by, R=1.55, s=1.0, tall=1.75) -> list:
+    """A giant loop-the-loop facing the camera: a tall oval of checkered track standing on its edge
+    (taller than wide, so it reads as upright from the board camera), gold rails along both lips,
+    red lattice towers holding its sides, run-in ramps and a gold star on top. The trail passes
+    through its foot."""
     P = props.Prop('loop')
     p = _w(bx, by)
     x, y = p.x, p.y
-    R *= s
+    Rx = R * s
+    Rz = R * tall * s
     width = 0.42 * s  # track width (across, along world y)
-    n = 72
-    verts, faces = [], []
-    for k in range(n + 1):
-        t = -math.pi / 2 + k / n * math.tau  # start at the bottom
-        cx, cz = x + math.cos(t) * R, R + math.sin(t) * R
-        for dy in (-width / 2, width / 2):
-            verts.append((cx, y + dy, cz))
-    for k in range(n):
-        a = k * 2
-        faces.append((a, a + 1, a + 3, a + 2))
-    # checker: alternating squares along the track, two tones across it
+    n = 80
+
+    def pt(t, grow=0.0):
+        return x + math.cos(t) * (Rx + grow), Rz + math.sin(t) * (Rz + grow)
+    ts = [-math.pi / 2 + k / n * math.tau for k in range(n + 1)]
+    faces = [(k * 2, k * 2 + 1, k * 2 + 3, k * 2 + 2) for k in range(n)]
+    faces2 = faces + [tuple(reversed(f)) for f in faces]
+    verts = []
+    for t in ts:
+        cx, cz = pt(t)
+        verts += [(cx, y - width / 2, cz), (cx, y + width / 2, cz)]
+
     def checker(vv):
-        t = math.atan2(vv[2] - R, vv[0] - x)
-        seg = int((t + math.pi) / math.tau * 36)
+        t = math.atan2((vv[2] - Rz) / Rz, (vv[0] - x) / Rx)
+        seg = int((t + math.pi) / math.tau * 40)
         side = 0 if vv[1] < y else 1
         return col('#2f7de1') if (seg + side) % 2 == 0 else WHITE
-    P.b['paint'].add(verts, faces + [tuple(reversed(f)) for f in faces], checker)
-    # inner surface thickness: a second band slightly outside (the underside of the track)
+    P.b['paint'].add(verts, faces2, checker)
     verts2 = []
-    for k in range(n + 1):
-        t = -math.pi / 2 + k / n * math.tau
-        cx, cz = x + math.cos(t) * (R + 0.1 * s), R + math.sin(t) * (R + 0.1 * s)
-        for dy in (-width / 2, width / 2):
-            verts2.append((cx, y + dy, cz))
-    P.b['paint'].add(verts2, faces + [tuple(reversed(f)) for f in faces], col('#1c4f99'))
+    for t in ts:
+        cx, cz = pt(t, 0.1 * s)
+        verts2 += [(cx, y - width / 2, cz), (cx, y + width / 2, cz)]
+    P.b['paint'].add(verts2, faces2, col('#1c4f99'))
+    # side walls between the track and its underside, so the band has thickness
     for dy in (-width / 2, width / 2):
-        rim = [(x + math.cos(t) * (R - 0.02), y + dy, R + math.sin(t) * (R - 0.02)) for t in np.linspace(-math.pi / 2, 1.5 * math.pi, 73)]
+        wv = []
+        for t in ts:
+            a_, b_ = pt(t), pt(t, 0.1 * s)
+            wv += [(a_[0], y + dy, a_[1]), (b_[0], y + dy, b_[1])]
+        P.b['paint'].add(wv, faces2, col('#e8eef8'))
+        rim = [(pt(t, -0.02 * s)[0], y + dy, pt(t, -0.02 * s)[1]) for t in ts]
         v, f = lib.tube(rim, 0.04 * s, 6)
         P.b['metal'].add(v, f, GOLD)
-    # supports: two stout pillars under the loop's sides and a cross beam
+    # lattice towers under both sides of the oval
     for sgn in (-1, 1):
-        px_ = x + sgn * R * 0.72
-        v, f = lib.cylinder((px_, y, 0.0), 0.12 * s, 0.09 * s, R * 0.35, 12)
-        P.b['paint'].add(v, f, col('#e8483b'))
-        v, f = lib.lathe([(0.2 * s, 0.0), (0.2 * s, 0.08 * s), (0.0, 0.08 * s)], 14, (px_, y, 0.0))
+        tx = x + sgn * Rx * 1.02
+        top = Rz * 0.95
+        for dy in (-0.16 * s, 0.16 * s):
+            v, f = lib.cylinder((tx, y + dy, 0.0), 0.05 * s, 0.045 * s, top, 8)
+            P.b['paint'].add(v, f, col('#e8483b'))
+        for k in range(5):
+            z0 = k * top / 5
+            v, f = lib.tube([(tx, y - 0.16 * s, z0), (tx, y + 0.16 * s, z0 + top / 5)], 0.018 * s, 5)
+            P.b['paint'].add(v, f, col('#c83a30'))
+        v, f = lib.lathe([(0.26 * s, 0.0), (0.26 * s, 0.1 * s), (0.0, 0.1 * s)], 14, (tx, y, 0.0))
         P.b['stone'].add(v, f, col('#d8cbb8'))
-    # ramps leading in and out along the trail (low wedges at both feet)
+    # run-in ramps along the trail at both feet
     for sgn in (-1, 1):
-        verts, faces = [], []
+        rv = []
         for k in range(9):
             t = k / 8
-            xx = x + sgn * (0.15 + t * 0.9) * s
-            zz = 0.02 + 0.1 * (1 - t) * s
-            verts += [(xx, y - width / 2, zz), (xx, y + width / 2, zz)]
-        for k in range(8):
-            a = k * 2
-            faces.append((a, a + 1, a + 3, a + 2))
-        P.b['paint'].add(verts, faces + [tuple(reversed(f)) for f in faces], col('#2f7de1'))
-    # a big gold star badge on the top of the loop (original, just a star)
-    sx, sz = x, 2 * R + 0.28 * s
+            xx = x + sgn * (0.1 + t * 0.9) * s
+            zz = 0.02 + 0.12 * (1 - t) * s
+            rv += [(xx, y - width / 2, zz), (xx, y + width / 2, zz)]
+        P.b['paint'].add(rv, [(k * 2, k * 2 + 1, k * 2 + 3, k * 2 + 2) for k in range(8)] + [(k * 2 + 2, k * 2 + 3, k * 2 + 1, k * 2) for k in range(8)], col('#2f7de1'))
+    # a big gold star on top (original: just a star)
+    sx, sz = x, 2 * Rz + 0.34 * s
     pts = []
     for k in range(10):
         a = math.pi / 2 + k * math.pi / 5
-        r = (0.26 if k % 2 == 0 else 0.11) * s
-        pts.append((sx + math.cos(a) * r, y - 0.02, sz + math.sin(a) * r))
-    verts = [(sx, y - 0.04, sz)] + pts
+        r = (0.3 if k % 2 == 0 else 0.13) * s
+        pts.append((sx + math.cos(a) * r, y - 0.03, sz + math.sin(a) * r))
+    verts = [(sx, y - 0.05, sz)] + pts
     faces = [(0, i + 1, (i + 1) % 10 + 1) for i in range(10)]
     P.b['metal'].add(verts, faces + [tuple(reversed(f)) for f in faces], GOLD)
     return P.build()
@@ -141,42 +150,61 @@ def pineapple_house(bx, by, s=1.0, z0=0.0) -> list:
     return P.build()
 
 
-def tiki_hut(bx, by, s=1.0, sink=0.55) -> list:
-    """A carved tiki-stone head used as a hut, half sunk in the bay: a heavy brow, a wide nose, a
-    broad grin, window eyes and a round door low in the chin, with bubbles rising beside it."""
+def tiki_hut(bx, by, s=1.0, sink=0.5) -> list:
+    """A carved tiki-stone head used as a hut, half sunk in the bay: a rounded crown, a heavy brow,
+    big glowing window eyes, a broad flat nose, a wide grin, ears, a round door in the chin and a
+    ring of bubbles rising round it."""
     P = props.Prop('tiki')
     p = _w(bx, by)
     x, y = p.x, p.y
     z0 = -sink * s
-    H, Wd, D = 2.2 * s, 0.9 * s, 0.75 * s
-    v, f = lib.box((x, y, z0 + H / 2), (Wd, D, H))
-    P.b['stone'].add(v, f, col('#9aa3a6'))
-    v, f = lib.box((x, y - D / 2 - 0.06 * s, z0 + H * 0.72), (Wd * 1.04, 0.14 * s, 0.14 * s))  # brow
-    P.b['stone'].add(v, f, col('#868f92'))
-    verts = [(x - 0.12 * s, y - D / 2, z0 + H * 0.66), (x + 0.12 * s, y - D / 2, z0 + H * 0.66), (x + 0.16 * s, y - D / 2 - 0.18 * s, z0 + H * 0.42),
-             (x - 0.16 * s, y - D / 2 - 0.18 * s, z0 + H * 0.42)]
-    P.b['stone'].add(verts, [(0, 1, 2, 3), (3, 2, 1, 0)], col('#7e878a'))  # nose
-    for sgn in (-1, 1):  # window eyes with a warm light
-        v, f = lib.box((x + sgn * 0.24 * s, y - D / 2 - 0.01, z0 + H * 0.6), (0.18 * s, 0.03, 0.13 * s))
-        P.b['glow'].add(v, f, col('#ffe29a'))
-    v, f = lib.box((x, y - D / 2 - 0.01, z0 + H * 0.34), (0.5 * s, 0.03, 0.06 * s))  # the grin
-    P.b['paint'].add(v, f, col('#4a4f52'))
-    verts = [(x, y - D / 2 - 0.02, z0 + H * 0.12)] + [(x + math.cos(t) * 0.16 * s, y - D / 2 - 0.02, z0 + H * 0.12 + math.sin(t) * 0.2 * s) for t in np.linspace(0, math.pi, 12)]
-    P.b['wood'].add(verts, [(0, i + 1, i + 2) for i in range(11)] + [(0, i + 2, i + 1) for i in range(11)], col('#6a4a30'))
-    # ears and a flat cap
+    H, Wd, D = 2.3 * s, 0.95 * s, 0.8 * s
+    stone, dark, light = col('#a7b3a8'), col('#6f7d74'), col('#c9d3c6')
+    # the head: a rounded block (lathe with an oval section), wider at the jaw
+    prof = [(0.0, 0.0), (0.5, 0.0), (0.52, 0.35), (0.5, 0.7), (0.47, 0.85), (0.4, 0.95), (0.22, 1.0), (0.0, 1.0)]
+    v, f = lib.lathe([(r * Wd, z * H) for (r, z) in prof], 20, (x, y, z0), squash_y=D / Wd)
+    P.b['stone'].add(v, f, lambda vv: light if vv[2] > z0 + H * 0.96 else stone)
+    fy = y - D / 2 * 1.02  # the face plane
+    # brow ridge, nose, lips
+    v, f = lib.box((x, fy - 0.08 * s, z0 + H * 0.74), (Wd * 0.95, 0.2 * s, 0.14 * s))
+    P.b['stone'].add(v, f, light)
+    nose = [(x - 0.1 * s, fy, z0 + H * 0.7), (x + 0.1 * s, fy, z0 + H * 0.7), (x + 0.2 * s, fy - 0.24 * s, z0 + H * 0.46), (x - 0.2 * s, fy - 0.24 * s, z0 + H * 0.46)]
+    P.b['stone'].add(nose, [(0, 1, 2, 3), (3, 2, 1, 0)], light)
+    P.b['stone'].add([(x - 0.2 * s, fy - 0.24 * s, z0 + H * 0.46), (x + 0.2 * s, fy - 0.24 * s, z0 + H * 0.46), (x + 0.16 * s, fy, z0 + H * 0.44), (x - 0.16 * s, fy, z0 + H * 0.44)],
+                     [(0, 1, 2, 3), (3, 2, 1, 0)], dark)
+    v, f = lib.box((x, fy - 0.03 * s, z0 + H * 0.34), (0.62 * s, 0.1 * s, 0.1 * s))
+    P.b['paint'].add(v, f, col('#3f4a44'))
+    v, f = lib.box((x, fy - 0.05 * s, z0 + H * 0.3), (0.5 * s, 0.1 * s, 0.05 * s))
+    P.b['stone'].add(v, f, light)
+    # window eyes (lit) with dark frames
     for sgn in (-1, 1):
-        v, f = lib.box((x + sgn * (Wd / 2 + 0.05 * s), y, z0 + H * 0.55), (0.1 * s, 0.3 * s, 0.5 * s))
-        P.b['stone'].add(v, f, col('#8a9396'))
-    v, f = lib.box((x, y, z0 + H + 0.05 * s), (Wd * 1.1, D * 1.1, 0.1 * s))
-    P.b['stone'].add(v, f, col('#7e878a'))
-    # bubbles rising beside it
+        v, f = lib.box((x + sgn * 0.25 * s, fy - 0.01, z0 + H * 0.6), (0.24 * s, 0.05 * s, 0.17 * s))
+        P.b['paint'].add(v, f, dark)
+        v, f = lib.box((x + sgn * 0.25 * s, fy - 0.035, z0 + H * 0.6), (0.18 * s, 0.03, 0.12 * s))
+        P.b['glow'].add(v, f, col('#ffe29a'))
+    # ears
+    for sgn in (-1, 1):
+        v, f = lib.blob((x + sgn * (Wd * 0.52), y, z0 + H * 0.58), 0.16 * s, squash=(0.45, 0.8, 1.6), rough=0.1, subdiv=2)
+        P.b['stone'].add(v, f, stone)
+    # the round door low in the chin (just above the water)
+    dz = z0 + H * 0.12 + 0.12 * s
+    verts = [(x, fy - 0.02, dz)] + [(x + math.cos(t) * 0.17 * s, fy - 0.02, dz + math.sin(t) * 0.2 * s) for t in np.linspace(0, math.pi, 12)]
+    P.b['wood'].add(verts, [(0, i + 1, i + 2) for i in range(11)] + [(0, i + 2, i + 1) for i in range(11)], col('#6a4a30'))
+    v, f = lib.box((x, fy - 0.02, dz - 0.12 * s), (0.34 * s, 0.03, 0.24 * s))
+    P.b['wood'].add(v, f, col('#6a4a30'))
+    # moss where it meets the water
+    for k in range(10):
+        a = k / 10 * math.tau
+        v, f = lib.blob((x + math.cos(a) * Wd * 0.52, y + math.sin(a) * D * 0.52, -0.3), 0.1 * s, squash=(1.4, 1.2, 0.5), rough=0.2, subdiv=1, seed=k)
+        P.b['leaf'].add(v, f, col('#4f9a4a'))
+    # bubbles rising round it
     rng = np.random.default_rng(4)
-    for k in range(14):
-        bx_ = x + (rng.random() - 0.5) * 1.4 * s
-        by_ = y - 0.2 * s - rng.random() * 0.5 * s
-        bz = 0.05 + rng.random() * 1.9 * s
+    for k in range(16):
+        bx_ = x + (rng.random() - 0.5) * 1.8 * s
+        by_ = y - 0.3 * s - rng.random() * 0.6 * s
+        bz = -0.2 + rng.random() * 2.2 * s
         v, f = lib.blob((bx_, by_, bz), (0.03 + rng.random() * 0.06) * s, rough=0.0, subdiv=2)
-        P.b['crystal'].add(v, f, col('#d8f6ff'))
+        P.b['crystal'].add(v, f, col('#e4f8ff'))
     return P.build()
 
 

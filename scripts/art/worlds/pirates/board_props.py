@@ -63,16 +63,20 @@ class Galleon:
         yc = _w(0, self.gy).y
         rows = 26
         ts = np.linspace(0, 1, rows)
-        # hull sides: from the deck edge (DECK_Z) down to the waterline and a rounded bilge
-        profile = [(1.0, DECK_Z + 0.02), (1.02, DECK_Z - 0.25), (0.98, DECK_Z - 0.6), (0.86, DECK_Z - 0.95), (0.6, DECK_Z - 1.25), (0.2, DECK_Z - 1.4)]
-        verts, faces = [], []
+        # hull sides, top to bottom: brown planking, a cream band, a deep-blue waterline band and a
+        # rounded bilge. Rows sit in pairs at each colour boundary so the bands stay crisp.
+        BR, CR, BL = col('#7a4a2a'), col('#f4e6c8'), col('#2f5d7a')
+        profile = [(1.0, 0.62, BR), (1.02, 0.45, BR), (1.02, 0.27, BR), (1.02, 0.25, CR), (1.017, 0.12, CR), (1.016, 0.1, BL),
+                   (0.99, -0.12, BL), (0.9, -0.5, BL), (0.65, -0.75, BL), (0.25, -0.85, BL)]
+        verts, faces, cols_ = [], [], []
         for t in ts:
             x = x0 + (x1 - x0) * t
             hb = self.half_beam(t)
             sheer = 0.12 * (2 * t - 1) ** 2 + (0.18 if t < 0.2 else 0.0) * (0.2 - t) / 0.2  # rises fore and aft
             for sgn in (-1, 1):
-                for (k, z) in profile:
-                    verts.append((x, yc + sgn * hb * k, z + sheer * (z > DECK_Z - 0.3)))
+                for (k, z, c) in profile:
+                    verts.append((x, yc + sgn * hb * k, z + sheer * min(1.0, max(0.0, z / 0.6))))
+                    cols_.append(c)
         per = len(profile) * 2
         for r in range(rows - 1):
             for sgn_i in range(2):
@@ -85,7 +89,10 @@ class Galleon:
         nprof = len(profile)
         transom = [j for j in range(nprof)] + [nprof + j for j in reversed(range(nprof))]
         faces += orient([tuple(transom)], verts, lambda c: Vector((-1.0, 0.0, 0.0)))
-        P.b['paint'].add(verts, faces, lambda vv: col('#2f5d7a') if vv[2] < DECK_Z - 0.62 else (col('#f4e6c8') if vv[2] < DECK_Z - 0.48 else col('#7a4a2a')))
+        base = len(P.b['paint'].v)
+        P.b['paint'].v.extend(verts)
+        P.b['paint'].f.extend([tuple(i + base for i in fc) for fc in faces])
+        P.b['paint'].c.extend(cols_)
         # deck
         dverts, dfaces = [], []
         for t in ts:
@@ -360,9 +367,9 @@ def dojo(bx, by, s=1.0) -> list:
             for r in range(rr - 1):
                 a = c * rr + r
                 faces.append((a, a + 1, a + rr + 1, a + rr))
-        P.b['paint'].add(verts, faces + [tuple(reversed(fc)) for fc in faces], col('#3a4658'))
+        P.b['paint'].add(verts, faces + [tuple(reversed(fc)) for fc in faces], col('#56688a'))
     v, f = lib.tube([(x - Wd / 2 - 0.2 * s, y, 1.52 * s), (x + Wd / 2 + 0.2 * s, y, 1.52 * s)], 0.05 * s, 8)
-    P.b['paint'].add(v, f, col('#2a3444'))
+    P.b['paint'].add(v, f, col('#44557a'))
     # sword rack (three wooden practice blades) beside the door
     rx, ry = x - Wd / 2 - 0.45 * s, y - 0.2 * s
     for dz in (0.25, 0.55):

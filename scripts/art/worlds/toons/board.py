@@ -91,9 +91,9 @@ RAISE = [  # rolling hills (x, y, rx, ry, height)
 CHECKER = [(1500, 1450, 420), (2250, 1350, 380), (1100, 520, 320), (1250, 1650, 240), (2500, 1600, 230), (1900, 1150, 250)]
 ROCKY = [(2990, 1200, 260)]
 LANDMARKS = [
-    dict(id='loop', kind='loop', x=1170, y=1062, s=1.0, R=1.9, tex='', depth_y=1062),
+    dict(id='loop', kind='loop', x=1170, y=1062, s=1.0, R=1.55, tex='', depth_y=1062),
     dict(id='pineapple-house', kind='pineapple', x=3440, y=1080, s=1.05, tex='workshop'),
-    dict(id='tiki-hut', kind='tiki', x=3455, y=1440, s=1.0, tex=''),
+    dict(id='tiki-hut', kind='tiki', x=3450, y=1445, s=1.25, tex=''),
     dict(id='family-house', kind='house', x=2640, y=400, s=0.95, tex='workshop'),
     dict(id='donut-shop', kind='donut', x=2430, y=455, s=1.0, tex='stall'),
     dict(id='garage', kind='garage', x=1880, y=560, s=1.0, tex=''),
@@ -188,6 +188,8 @@ def build_zones(mask, sd, bank):
         B.disc(checker, x, y, r, soft=60)
     checker *= np.clip(1 - trail * 2, 0, 1)
     dist = K.ndimage.distance_transform_edt(~mask) * K.GRID
+    # smooth the grid's stair steps out of the distance so the shore foam runs clean
+    dist = K.ndimage.gaussian_filter(dist.astype(np.float32), 1.6)
     seamap = np.clip(dist / 420.0, 0, 1).astype(np.float32)
     shallows = B.zeros()
     for (x, y, r) in [(3250, 1250, 330), (1800, 2250, 300)]:
@@ -277,8 +279,8 @@ def build_scene():
     water = lib.MeshBuilder()
     picks = [k for k in range(len(ring)) if nrm[k][1] > 0.92 and 800 < ring[k][0] < 3200 and k % 3 == 0]
     rnd = random.Random(6)
-    picks = sorted(rnd.sample(picks, min(4, len(picks))))
-    K.rim_falls(B, ring, nrm, picks, water, rnd)
+    picks = sorted(rnd.sample(picks, min(3, len(picks))))
+    K.rim_falls(B, ring, nrm, picks, water, rnd, width=0.72)
     water.build('falls', lib.falls_material('falls', K.WATER_Z + 0.04, K.WATER_Z - 3.6), smooth=True)
     mats = scatter_mats()
     scatter(mask, sd, raise_z, sand, paving, trail, checker, mats)
@@ -315,7 +317,7 @@ def near_landmark(bx, by, pad=0.0):
              'stage': 90, 'lantern': 34, 'bunting': 0, 'tree': 80, 'pedestal': 50}.get(lm['kind'], 60)
         if r and (bx - lm['x']) ** 2 + (by - lm['y']) ** 2 < (r + pad) ** 2:
             return True
-    if abs(bx - 1170) < 230 and 980 < by < 1100:  # the loop's footprint
+    if abs(bx - 1170) < 200 and 980 < by < 1100:  # the loop's footprint
         return True
     if (bx - MIMI[0]) ** 2 + (by - MIMI[1]) ** 2 < 70 ** 2:
         return True
@@ -350,8 +352,9 @@ def scatter(mask, sd, raise_z, sand, paving, trail, checker, mats):
             mb.v[n0:] = [(vx, vy, vz + z) for (vx, vy, vz) in mb.v[n0:]]
 
     area = len(xs) * K.GRID * K.GRID
-    # palms on the dunes, the beach and the hills
-    for _ in range(int(area / 20000)):
+    # palms on the dunes and the beach, round trees in the suburb and the park; the checkered hills
+    # stay open (a palm here and there)
+    for _ in range(int(area / 26000)):
         pt = pick(min_edge=30, path_clear=0.0, node_r=115)
         if not pt:
             continue
@@ -359,7 +362,10 @@ def scatter(mask, sd, raise_z, sand, paving, trail, checker, mats):
         z = z_at(bx, by)
         if B.at(paving, bx, by) > 0.3 or not B.canopy_clear(bx, by - z * 61.6, 110, 200):
             continue
-        if B.at(sand, bx, by) > 0.4 or B.at(checker, bx, by) > 0.5 or rnd.random() < 0.3:
+        on_hills = B.at(checker, bx, by) > 0.3 or z > 0.25
+        if on_hills and rnd.random() > 0.12:
+            continue
+        if B.at(sand, bx, by) > 0.4 or on_hills or rnd.random() < 0.3:
             K.palm(palms, wood, fruit, bx, by, rnd, rnd.uniform(0.85, 1.15), z0=z)
         else:
             n0l, n0w = len(leaves.v), len(wood.v)
