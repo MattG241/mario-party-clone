@@ -528,8 +528,9 @@ export class RepulsorRangeScene extends BaseMinigame {
       this.pops.pop(WORDS.multi.key, shot.x, shot.y - 90, { owner: pl.p.slot + 10, scale: 1, rise: 40, hold: 520, tilt: -5 });
       audio.play('streak', { volume: 0.6 });
     }
-    if (first && !big) this.hitStop(35);
-    else if (first && big) this.hitStop(70);
+    // A freeze-frame only for the big moments (a charged blast landing, a heavy or gold drone down):
+    // quick pops from four blasters at once would stutter.
+    if (first && (big || this.hits.some((h) => h.killed && (h.kind === 'heavy' || h.kind === 'gold')))) this.hitStop(big ? 70 : 50);
     const mult = comboMult(pl.g.combo);
     if (mult > pl.lastMult) {
       const w = mult >= 3 ? WORDS.x3 : WORDS.x2;
