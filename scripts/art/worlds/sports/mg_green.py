@@ -265,7 +265,7 @@ def sprites():
     foot = (500, 600)
     c = board_to_world(*foot, 0)
     Mt = lib.MeshBuilder()
-    H = 160 / (100 * math.sin(math.radians(ELEV)))
+    H = 160 / (100 * math.sin(math.radians(90 - ELEV)))  # 160 px tall on screen
     for k in range(6):
         z0 = k * H / 6
         v, f = lib.cylinder((c.x, c.y, z0), 0.022, 0.022, H / 6, 10)
@@ -289,7 +289,7 @@ def sprites():
     ob = lib.mesh_object('golfball', *lib.icosphere(4), smooth=True, material=m.mat)
     ob.location = board_to_world(960, 540, 0.15)
     ob.scale = (0.14, 0.14, 0.14)
-    C.sprite_camera(960 - 16, 540 - 0.15 * 100 * math.sin(math.radians(ELEV)) - 16, 32, 32, scale=1.0)
+    C.sprite_camera(960 - 16, 540 - 0.15 * 100 * math.sin(math.radians(90 - ELEV)) - 16, 32, 32, scale=1.0)
     if not A.dry:
         path = os.path.join(C.OUT, 'golfball.png')
         lib.render_to(path)

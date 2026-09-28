@@ -21,8 +21,11 @@ const SPRITES = ['capitol_golfball', 'capitol_flag'] as const;
 const ARENA = 'rendered-scene-capitol_green';
 /** The golf ball render is 32 px across (drawn 2 * BALL_R across). */
 const BALL_ART = 32;
-/** The flagstick render: 80x200, the foot of the pole (in the cup) at its pixel (22, 190). */
-const FLAG_ART = { w: 80, h: 200, ax: 22, ay: 190 };
+/**
+ * The flagstick render (with its long shadow falling back-right): 180x180, the foot of the pole (in
+ * the cup) at its pixel (22, 172), the pole 160 px tall (see mg_green.py).
+ */
+const FLAG_ART = { w: 180, h: 180, ax: 22, ay: 172 };
 const CHAR_SCALE = 0.62;
 /** Aim turns this fast (radians/s) at full stick; the power bar sweeps 0 -> 1 in POWER_MS. */
 const AIM_RATE = 1.35;
@@ -114,6 +117,9 @@ export class FairwayScene extends BaseMinigame {
   private flagImg!: Phaser.GameObjects.Image;
   private flagG!: Phaser.GameObjects.Graphics;
   private cupG!: Phaser.GameObjects.Graphics;
+  /** A glow round the cup that brightens while a ball is rolling up to it (will it drop?). */
+  private cupGlow!: Phaser.GameObjects.Image;
+  private tension = 0;
   private dotsG!: Phaser.GameObjects.Graphics;
   private teeG!: Phaser.GameObjects.Graphics;
   private flagX = 0;
@@ -174,6 +180,8 @@ export class FairwayScene extends BaseMinigame {
     this.dotsG = this.add.graphics().setDepth(DEPTH.dots);
     this.teeG = this.add.graphics().setDepth(DEPTH.tee);
     this.cupG = this.add.graphics().setDepth(DEPTH.cup);
+    this.cupGlow = this.add.image(0, 0, 'fx-dot').setBlendMode(Phaser.BlendModes.ADD).setTint(0xfff1a8).setAlpha(0).setDepth(DEPTH.cup - 0.5);
+    this.tension = 0;
     this.flagG = this.add.graphics();
     this.flagImg = this.add.image(0, 0, spriteKey('capitol_flag')).setOrigin(FLAG_ART.ax / FLAG_ART.w, FLAG_ART.ay / FLAG_ART.h);
     this.buildDots();
@@ -277,6 +285,7 @@ export class FairwayScene extends BaseMinigame {
       this.tweens.add({ targets: this, flagLift: { from: 0, to: 120 }, duration: 350, yoyo: true, ease: 'Quad.Out' });
     }
     this.flagImg.setDepth(cy + 2);
+    this.cupGlow.setPosition(cx, cy);
     // Tees in the players' colours (their shape on each mat).
     const t = this.teeG;
     t.clear();
@@ -845,6 +854,18 @@ export class FairwayScene extends BaseMinigame {
 
   private syncVisuals(dt: number): void {
     this.rings.update(dt);
+    // Suspense: the cup glows brighter the closer (and slower) a rolling ball comes.
+    let want = 0;
+    for (const g of this.golfers) {
+      const b = g.ball;
+      if (!b.moving || b.air || b.holed) continue;
+      const d = Math.hypot(b.x - this.cup.x, b.y - this.cup.y);
+      const sp = Math.hypot(b.vx, b.vy);
+      if (d < 150 && sp < 420) want = Math.max(want, (1 - d / 150) * (1 - sp / 420 * 0.5));
+    }
+    this.tension += (want - this.tension) * Math.min(1, dt / 90);
+    const pulse = 0.75 + 0.25 * Math.sin(this.clock / 70);
+    this.cupGlow.setAlpha(this.tension * 0.9 * pulse).setScale(2.2 + this.tension * 1.6, (2.2 + this.tension * 1.6) * COSB);
     const ts = this.time.timeScale;
     this.sparks.sync(ts);
     this.gusts.sync(ts);
@@ -858,7 +879,8 @@ export class FairwayScene extends BaseMinigame {
       const sy = b.y * COSB;
       const lift = b.z * SINB + Math.sin(b.hop * Math.PI) * 10 * b.hop;
       if (!b.holed) b.img.setPosition(sx, sy - lift - 4);
-      b.img.setDepth(sy + 1);
+      // In the air it passes over everyone's heads; on the ground it sorts with them.
+      b.img.setDepth(b.air ? 5000 : sy + 1);
       b.shadow.setPosition(sx, sy).setScale(0.26 * Math.max(0.5, 1 - b.z / 400), 0.09 * Math.max(0.5, 1 - b.z / 400)).setDepth(sy);
       b.ring.setPosition(sx, sy).setDepth(sy - 0.5);
       this.drawTrail(g, sx, sy - lift - 4);

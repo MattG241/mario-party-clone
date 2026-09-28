@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  assistAim,
   boards,
   BOTTOM,
   crossedGoal,
@@ -90,6 +91,43 @@ describe('slapshot: goals', () => {
     expect(s).toEqual([5, 0, 6, 0]);
     scoreGoal(s, -1, 0);
     expect(s).toEqual([4, 0, 6, 0]);
+  });
+});
+
+describe('slapshot: aim assist', () => {
+  const goals = [LEFT, RIGHT, TOP, BOTTOM].map((s) => goalGeom(s as Side));
+  const unit = (x: number, y: number) => {
+    const m = Math.hypot(x, y);
+    return { x: x / m, y: y / m };
+  };
+
+  it('leaves a shot that is already between the posts alone', () => {
+    const r = goalGeom(RIGHT);
+    const from = { x: RINK.cx, y: RINK.cy };
+    const aim = unit(r.mx - from.x, r.my + 60 - from.y);
+    const out = assistAim({ ...aim }, from.x, from.y, goals, LEFT, { x: 0, y: 0 });
+    expect(out.x).toBeCloseTo(aim.x);
+    expect(out.y).toBeCloseTo(aim.y);
+  });
+
+  it('turns a near miss onto the goal, but not a wild one, and never onto your own goal', () => {
+    const r = goalGeom(RIGHT);
+    const from = { x: RINK.cx, y: RINK.cy };
+    // Just wide of the far post.
+    const near = unit(r.mx - from.x, r.my + GOAL.w / 2 + 40 - from.y);
+    const out = assistAim(near, from.x, from.y, goals, LEFT, { x: 0, y: 0 });
+    expect(out.y).toBeLessThan(near.y);
+    expect(Math.hypot(out.x, out.y)).toBeCloseTo(1);
+    // Straight up the ice between goals: left alone.
+    const wild = unit(1, -1);
+    const w = assistAim({ ...wild }, from.x, from.y, goals, LEFT, { x: 0, y: 0 });
+    expect(w.x).toBeCloseTo(wild.x);
+    // Aimed just wide of your own goal: no help towards it.
+    const l = goalGeom(LEFT);
+    const own = unit(l.mx - from.x, l.my + GOAL.w / 2 + 40 - from.y);
+    const o = assistAim({ ...own }, from.x, from.y, goals, LEFT, { x: 0, y: 0 });
+    expect(o.x).toBeCloseTo(own.x);
+    expect(o.y).toBeCloseTo(own.y);
   });
 });
 

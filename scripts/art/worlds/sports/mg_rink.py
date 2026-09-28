@@ -260,14 +260,16 @@ def night_light():
     sc = bpy.context.scene
     ld = bpy.data.lights.new('rink_key', 'AREA')
     ld.shape = 'DISK'
+    # ~3.5 W/m² on the ice below (a 14 m disc 9 m up: E = P / A * sin^2(38 deg)), like the day
+    # arenas' sun, so the white ice holds its detail.
     ld.size = 14.0
-    ld.energy = 9000.0
+    ld.energy = 1500.0
     ld.color = (1.0, 0.97, 0.94)
     ob = bpy.data.objects.new('rink_key', ld)
     sc.collection.objects.link(ob)
     ob.location = board_to_world(CX - 60, sy(CY_W) + 40, 9.0)
     ob.rotation_euler = (0.0, 0.0, 0.0)
-    for (x, y, c_, e) in [(260, 560, (1.0, 0.45, 0.8), 900.0), (1660, 560, (0.45, 0.8, 1.0), 900.0), (960, 150, (1.0, 0.8, 0.5), 700.0)]:
+    for (x, y, c_, e) in [(260, 560, (1.0, 0.45, 0.8), 220.0), (1660, 560, (0.45, 0.8, 1.0), 220.0), (960, 150, (1.0, 0.8, 0.5), 180.0)]:
         pl = bpy.data.lights.new('fill', 'POINT')
         pl.energy = e
         pl.color = c_

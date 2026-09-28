@@ -10,6 +10,7 @@ import { burst, ensureArenaFxTextures, RingPool, Spray } from '../../../minigame
 import { bakeWord, WordPops } from '../../../minigames/games/stageKit';
 import { banner, confettiBurst, kick, popToHud, punch, shockwave, titleTexture } from '../../../minigames/juice';
 import { LITE } from '../../../perf';
+import { settings } from '../../../save/SettingsManager';
 import { drawPlayerShape } from '../../../ui/PlayerBadge';
 import { standOrigin } from '../../../util/spriteUtil';
 import { finishSprites, paintTexture, queueSprites, spriteKey } from '../rinkKit';
@@ -127,6 +128,9 @@ export class SlapshotScene extends BaseMinigame {
   private crowd: { spr: Phaser.GameObjects.Sprite; y: number }[] = [];
   private spots: Phaser.GameObjects.Image[] = [];
   private tmp: R.Vec = { x: 0, y: 0 };
+  private aim: R.Vec = { x: 1, y: 0 };
+  /** The goals' geometry alone (for the aim assist). */
+  private goalGeoms: R.GoalGeom[] = [];
 
   constructor() {
     super('mg-slapshot');
@@ -148,6 +152,7 @@ export class SlapshotScene extends BaseMinigame {
     this.skaters = [];
     this.pucks = [];
     this.goals = [];
+    this.goalGeoms = [];
     this.wrapped = false;
     this.clock = 0;
     this.crowd = [];
@@ -271,6 +276,7 @@ export class SlapshotScene extends BaseMinigame {
       // The goal lamp above the net: it blazes when a goal goes in.
       const lamp = this.add.image(sx + g.nx * 40, sy + g.ny * 40 * COSB - 86, 'fx-dot').setTint(0xff4040).setScale(1.2).setAlpha(0.35).setDepth(DEPTH.lamp).setBlendMode(Phaser.BlendModes.ADD);
       this.goals.push({ g, owner, crease, lamp, flash });
+      this.goalGeoms.push(g);
     }
   }
 
@@ -348,10 +354,12 @@ export class SlapshotScene extends BaseMinigame {
     audio.play('whoosh', { volume: 0.3, rate: 0.7 });
   }
 
-  private shoot(s: Skater): void {
-    const pk = s.carry;
-    s.charging = false;
-    if (!pk) return;
+  /**
+   * Where a shot would go: the stick's direction (or the facing), nudged towards a rival goal's
+   * mouth when it's within a few degrees of one (the same gentle assist for everyone, so an
+   * eight-way keyboard can still pick a corner). Written into this.aim.
+   */
+  private aimOf(s: Skater, pk: Puck): R.Vec {
     const c = s.p.controls;
     let ax = c.moveX;
     let ay = c.moveY / COSB;
@@ -363,6 +371,18 @@ export class SlapshotScene extends BaseMinigame {
       ax /= am;
       ay /= am;
     }
+    this.aim.x = ax;
+    this.aim.y = ay;
+    return R.assistAim(this.aim, pk.x, pk.y, this.goalGeoms, s.goal.side, this.aim);
+  }
+
+  private shoot(s: Skater): void {
+    const pk = s.carry;
+    s.charging = false;
+    if (!pk) return;
+    const aim = this.aimOf(s, pk);
+    const ax = aim.x;
+    const ay = aim.y;
     const v = R.shotSpeed(s.charge);
     pk.holder = null;
     pk.last = s;
@@ -583,7 +603,11 @@ export class SlapshotScene extends BaseMinigame {
       s.x += s.vx * dt;
       s.y += s.vy * dt;
       R.boards(s, SKATER_R, 0.35);
-      for (const gv of this.goals) R.goalFrame(s, SKATER_R, gv.g, 0.3);
+      // Skaters can't get into a net: its frame, and its mouth, are walls to them (not to pucks).
+      for (const gv of this.goals) {
+        R.goalFrame(s, SKATER_R, gv.g, 0.3);
+        R.segment(s, SKATER_R, gv.g.posts[0], gv.g.posts[1], 0.3);
+      }
     }
     // Skater bumps: push apart; a hard bump or a check knocks the puck loose.
     for (let i = 0; i < this.skaters.length; i++) {
@@ -614,6 +638,19 @@ export class SlapshotScene extends BaseMinigame {
         // A carried puck pinned on the boards pops free.
         if (Math.abs(pk.x - RINK.cx) > RINK.half - PUCK_R || Math.abs(pk.y - RINK.cy) > RINK.half - PUCK_R) {
           R.boards(pk, PUCK_R, 0.5);
+        }
+        // Pushed over a goal line on the stick (from in front of the mouth): that counts too.
+        for (const gv of this.goals) {
+          const g = gv.g;
+          const inFront = Math.abs((h.x - g.mx) * g.tx + (h.y - g.my) * g.ty) < GOAL.w / 2 + 10;
+          if (!inFront || !R.crossedGoal(pk.px, pk.py, pk.x, pk.y, g)) continue;
+          h.carry = null;
+          h.charging = false;
+          h.charge = 0;
+          pk.holder = null;
+          pk.last = h;
+          this.goalScored(pk, gv);
+          break;
         }
       } else {
         R.slide(pk, dt);
@@ -760,13 +797,37 @@ export class SlapshotScene extends BaseMinigame {
     this.sparks.sync(ts);
     for (const s of this.skaters) this.drawSkater(s, dt);
     for (const pk of this.pucks) this.drawPuck(pk);
-    if (!LITE) {
+    this.goalDanger();
+    // The spotlights drift about (not on the TV, nor with Reduced Motion on).
+    if (!LITE && !settings.get().reducedMotion) {
       for (let i = 0; i < this.spots.length; i++) {
         const sp = this.spots[i];
         if (this.tweens.isTweening(sp)) continue;
         const t = this.clock / 2600 + i * 2.1;
         sp.setPosition(RINK.cx + Math.cos(t) * 300, (RINK.cy + Math.sin(t * 1.3) * 250) * COSB);
       }
+    }
+  }
+
+  /** A goal's lamp flickers while a fast puck is bearing down on its mouth (anticipation). */
+  private goalDanger(): void {
+    if (this.phase !== 'playing') return;
+    for (const gv of this.goals) {
+      if (this.tweens.isTweening(gv.lamp)) continue;
+      const g = gv.g;
+      let danger = 0;
+      for (const pk of this.pucks) {
+        if (!pk.on || pk.holder || pk.z > 0) continue;
+        const sp = Math.hypot(pk.vx, pk.vy);
+        if (sp < 500) continue;
+        const toX = g.mx - pk.x;
+        const toY = g.my - pk.y;
+        const d = Math.hypot(toX, toY);
+        const aim = (pk.vx * toX + pk.vy * toY) / (sp * (d || 1));
+        if (aim > 0.9 && d / sp < 0.45) danger = Math.max(danger, aim);
+      }
+      const flick = danger > 0 ? 0.55 + 0.4 * (Math.floor(this.clock / 60) % 2) : 0.35;
+      gv.lamp.setAlpha(flick).setScale(danger > 0 ? 1.7 : 1.2);
     }
   }
 
@@ -856,19 +917,11 @@ export class SlapshotScene extends BaseMinigame {
       else g.lineTo(px, py);
     }
     g.strokePath();
-    // Aim arrow from the puck, longer with the wind-up.
-    const c = s.p.controls;
-    let ax = c.moveX;
-    let ay = c.moveY / COSB;
-    const am = Math.hypot(ax, ay);
-    if (am < 0.3) {
-      ax = s.fx;
-      ay = s.fy;
-    } else {
-      ax /= am;
-      ay /= am;
-    }
+    // Aim arrow from the puck (where the shot will really go), longer with the wind-up.
     const pk = s.carry;
+    const aim = this.aimOf(s, pk);
+    const ax = aim.x;
+    const ay = aim.y;
     const L = 70 + 150 * s.charge;
     const x0 = pk.x;
     const y0 = pk.y * COSB;
@@ -969,7 +1022,8 @@ export class SlapshotScene extends BaseMinigame {
       return;
     }
     if (ai.mode === 'charge' && s.carry) {
-      vc.hold('A', true);
+      // Press (again, if a held press didn't take: the wind-up starts on the press itself).
+      vc.hold('A', !vc.held('A'));
       const ax = ai.aimX - s.x;
       const ay = ai.aimY - s.y;
       vc.setMove(ax, ay * COSB);

@@ -170,6 +170,50 @@ export function crossedGoal(px: number, py: number, x: number, y: number, g: Goa
   return Math.abs(along) < GOAL.w / 2 - PUCK_R * 0.5;
 }
 
+/**
+ * Aim assist, the same for everyone (an eight-way keyboard can still pick a corner): a shot from
+ * (px, py) already heading between some goal's posts is left alone; one missing a mouth by less than
+ * ASSIST radians is turned onto the nearest point inside the posts. `own` (the shooter's goal) is
+ * skipped. Reads and writes unit vectors; `out` may be `aim`.
+ */
+export const ASSIST = 0.24;
+export function assistAim(aim: Vec, px: number, py: number, goals: readonly GoalGeom[], own: Side | -1, out: Vec): Vec {
+  const ax = aim.x;
+  const ay = aim.y;
+  let best = ASSIST;
+  let tx = 0;
+  let ty = 0;
+  for (const g of goals) {
+    if (g.side === own) continue;
+    const inset = GOAL.w / 2 - 26;
+    const x1 = g.mx + g.tx * inset - px;
+    const y1 = g.my + g.ty * inset - py;
+    const x2 = g.mx - g.tx * inset - px;
+    const y2 = g.my - g.ty * inset - py;
+    const c12 = x1 * y2 - y1 * x2;
+    const between = (x1 * ay - y1 * ax) * c12 >= 0 && (ax * y2 - ay * x2) * c12 >= 0 && ax * (x1 + x2) + ay * (y1 + y2) > 0;
+    if (between) {
+      out.x = ax;
+      out.y = ay;
+      return out;
+    }
+    for (let k = 0; k < 2; k++) {
+      const ex = k ? x2 : x1;
+      const ey = k ? y2 : y1;
+      const d = Math.hypot(ex, ey) || 1;
+      const off = Math.acos(Math.max(-1, Math.min(1, (ax * ex + ay * ey) / d)));
+      if (off < best) {
+        best = off;
+        tx = ex / d;
+        ty = ey / d;
+      }
+    }
+  }
+  out.x = best < ASSIST ? tx : ax;
+  out.y = best < ASSIST ? ty : ay;
+  return out;
+}
+
 /** Points for a goal: the shooter +2 (not for an own goal), the goal's owner -1 (never below zero). */
 export const GOAL_POINTS = 2;
 export const CONCEDE_POINTS = 1;
