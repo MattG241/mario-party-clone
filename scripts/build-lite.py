@@ -78,6 +78,14 @@ def main():
     if args[:1] == ['--board']:
         board(args[1])
         return
+    if args[:1] == ['--atlas']:
+        # One atlas's half-size copy, after its full-size sheet changed (scripts/art/coins.py, say).
+        src = os.path.join(ROOT, 'public', 'assets', 'atlases')
+        for key in args[1:]:
+            img = next(os.path.join(src, key + ext) for ext in ('.webp', '.png') if os.path.exists(os.path.join(src, key + ext)))
+            half(img, os.path.join(OUT, 'atlases', key + '.webp'), quality=90)
+            print('lite atlas', key)
+        return
     if args[:1] == ['--image']:
         for rel in args[1:]:
             dst = os.path.join(OUT, rel)

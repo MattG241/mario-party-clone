@@ -1,8 +1,8 @@
 # Gleamtrail: Festival of the Spiral Isles
 
 An original local-multiplayer party game for the browser. Up to four players (controllers or
-keyboard, CPUs fill empty seats) travel a floating-island board, collect Gleam Chips, trade them
-for Prism Relics and battle it out in minigames between rounds.
+keyboard, CPUs fill empty seats) travel a floating-island board, collect coins, trade them for
+Star Coins and battle it out in minigames between rounds.
 
 Built with TypeScript, Vite and Phaser 3. Environment art and the four heroes are modelled and
 pre-rendered from code in Blender (see [Art pipeline](#art-pipeline)).
@@ -83,15 +83,17 @@ load the assets.
 1. **Title → Board Game** (or **Minigames**). Everyone presses **A** to join on the character
    select screen, browses the roster along the bottom (left/right) and picks with **A**; each pick
    stands on that player's pedestal. Empty seats can be filled by CPUs, who pick at random.
-2. **Your turn:** optionally open your items (**Y**), then stop the **Orbit Dial** (**A**) and move
-   1–10 spaces. At forks, tilt the stick toward the path you want.
-3. **Spaces:** Gleam (+chips), Mischief (something sneaky), Festival (a lucky surprise), Market
-   (buy items), Portal (warp), Relic Gate, Event and Start.
-4. **Prism Relics:** pass Packsprout, the Relic Keeper, with 20 chips to buy a Relic. He moves to a
-   new gate after every sale — follow the beam of light.
-5. **Minigames:** every round ends with a minigame for everyone; placings pay 10 / 6 / 3 / 1 chips.
-6. **Winning:** most Relics after the final round (chips break ties). Festival Awards hand out bonus
-   Relics at the end.
+2. **Your turn:** optionally open your items (**Y**) or look around the board (**X**: the map —
+   pan with the stick, zoom with LB / RB, **B** to go back), then stop the **Orbit Dial** (**A**)
+   and move 1–10 spaces. At forks, tilt the stick toward the path you want. Each player's corner
+   shows how many steps they are from the Star Coin.
+3. **Spaces:** Gleam (+coins), Mischief (something sneaky), Festival (a lucky surprise), Market
+   (buy items), Portal (warp), Star Coin, Event and Start.
+4. **Star Coins:** pass Packsprout, the Star Keeper, with 20 coins to buy a Star Coin. He moves to
+   a new spot after every sale — follow the beam of light.
+5. **Minigames:** every round ends with a minigame for everyone; placings pay 10 / 6 / 3 / 1 coins.
+6. **Winning:** most Star Coins after the final round (coins break ties). Festival Awards hand out
+   bonus Star Coins at the end.
 
 The in-game **How to Play** screen covers the same ground with pictures.
 
@@ -102,11 +104,11 @@ The in-game **How to Play** screen covers the same ground with pictures.
 | Move / choose | Left stick or D-pad | W A S D / arrow keys |
 | Confirm, jump, stop the dial | A | Enter / Space |
 | Back, duck | B | Esc / Backspace |
-| Secondary action (dash, throw, grab) | X | E |
+| Secondary action (dash, throw, grab); the board map before you spin | X | E |
 | Items | Y | Q |
 | Bumpers / triggers | LB RB / LT RT | Z C / R F |
 | Aim (twin-stick minigames) | Right stick | I J K L |
-| Scores and map | View | Tab |
+| Scores (hold) | View | Tab |
 | Pause | Menu | P |
 
 Keyboard keys can be rebound in **Settings → Keyboard Controls**. **Settings → Test Controllers**
@@ -119,7 +121,7 @@ free controller takes over (press A), or the player carries on with the keyboard
 
 | Minigame | Players | Idea |
 | --- | --- | --- |
-| Gleam Grab | 1–4 | Catch falling chips; dodge the wobbly fake capsules |
+| Gleam Grab | 1–4 | Catch falling coins; dodge the wobbly fake capsules |
 | Orbit Dodge | 1–4 | Jump the low arm, duck the high arm; last one standing |
 | Crate Craze | 1–4 | Shove festival crates into your corner zone |
 | Skybridge Scramble | 1–4 | Keep your footing as platforms shake and fall |
@@ -144,8 +146,8 @@ The overlay and board shortcuts below are available in development builds, or in
 builds opened with `?debug`; the URL shortcuts work in any build:
 
 - **F2** — overlay with FPS, scene, match state and recent errors.
-- **On the board:** F3 skip turn · F4 go to the minigame · F5 +20 chips · F6 random item ·
-  F7 move to the relic · F8 finish the round.
+- **On the board:** F3 skip turn · F4 go to the minigame · F5 +20 coins · F6 random item ·
+  F7 move to the Star Coin · F8 finish the round.
 - **URL shortcuts** (never reachable from menus):
   `?quick` starts a board match immediately; `?minigame=<id>` jumps into a minigame
   (`gleam-grab`, `orbit-dodge`, `crate-craze`, `skybridge-scramble`, `totem-tug`, `spiral-splash`,

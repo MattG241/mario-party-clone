@@ -90,7 +90,7 @@ export const SUNCOIL: BoardDef = {
   name: 'Suncoil Sanctuary',
   subtitle: 'Floating festival of the spiral observatory',
   description:
-    'Rope bridges, crystal generators and brass machines ring an ancient observatory. Follow the trails, dodge the mischief, and chase the Relic Keeper from gate to gate.',
+    'Rope bridges, crystal generators and brass machines ring an ancient observatory. Follow the trails, dodge the mischief, and chase the Star Keeper from spot to spot.',
   width: 4200,
   height: 2800,
   nodes: suncoilNodes,
