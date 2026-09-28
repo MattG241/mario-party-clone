@@ -248,9 +248,9 @@ def path_mask(islands_masks):
         if e['style'] != 'path':
             continue
         a, b = NODES[e['from']], NODES[e['to']]
-        dr.line([(a['x'] / s, a['y'] / s), (b['x'] / s, b['y'] / s)], fill=255, width=int(70 / s))
+        dr.line([(a['x'] / s, a['y'] / s), (b['x'] / s, b['y'] / s)], fill=255, width=int(84 / s))
     for n in NODES.values():
-        r = 66 / s
+        r = 72 / s
         dr.ellipse([n['x'] / s - r, n['y'] / s - r * 0.8, n['x'] / s + r, n['y'] / s + r * 0.8], fill=255)
     img = img.filter(ImageFilter.GaussianBlur(3.2))
     path = os.path.join(A.out, 'pathmask.png')
@@ -395,24 +395,7 @@ def theme_of(ids):
 
 
 def water_material():
-    m = lib.NT('water')
-    pos = m.position()
-    X, Y, Z = m.sep(pos)
-    wave = m.node('ShaderNodeTexWave')
-    wave.wave_type = 'BANDS'
-    wave.bands_direction = 'X'
-    wave.inputs['Scale'].default_value = 9.0
-    wave.inputs['Distortion'].default_value = 4.0
-    wave.inputs['Detail'].default_value = 2.0
-    m.link(pos, wave.inputs['Vector'])
-    # clear blue water with pale streaks at the lip, turning to white foam as it falls
-    streak = m.maprange(wave.outputs['Fac'], 0.35, 0.85)
-    water = m.mix(streak, lib.col('#2e9fd6'), lib.col('#d9f5ff'))
-    foam = m.maprange(Z, -0.4, -2.4, 0.0, 1.0)
-    c = m.mix(m.math('MULTIPLY', foam, 0.75), water, lib.col('#ffffff'))
-    fade = m.maprange(Z, -3.6, -1.2, 0.0, 1.0)
-    m.bsdf(c, 0.12, emission=c, emission_strength=0.28, coat=0.6, alpha=m.math('MULTIPLY', fade, 0.95))
-    return m.mat
+    return lib.falls_material('water', -0.02, -3.6)
 
 
 def pond_material():
@@ -462,8 +445,10 @@ def add_waterfall(water_mb, pond_mb, rock_mb, ring, nrm, pm, rnd):
         out = 0.06 + 0.42 * min(1.0, t * 3.0) ** 0.5
         z = -0.02 - 3.6 * t ** 1.15
         for i in range(cols + 1):
-            u = (i / cols - 0.5) * width * (1 + 0.35 * t)
-            verts.append((w0.x + ox * out + px * u, w0.y + oy * out + py * u, z))
+            uu = i / cols * 2 - 1
+            u = uu * 0.5 * width * (1 + 0.35 * t)
+            bulge = 0.07 * (1 - uu * uu)  # rounded, not a flat card
+            verts.append((w0.x + ox * (out + bulge) + px * u, w0.y + oy * (out + bulge) + py * u, z))
     for j in range(rows):
         for i in range(cols):
             a = j * (cols + 1) + i
@@ -607,26 +592,32 @@ def build_lowland(island_info, canopy_clear, mats):
         bx, by = rnd.uniform(20, W - 20), rnd.uniform(20, H - 20)
         if on_low(bx, by, 8) and seen(bx, by):
             grass_tuft(grass, bx, by, rnd, rnd.uniform(0.9, 1.4))
-    for _ in range(int(area / 100000)):
-        pt = pick(20)
-        if pt:
-            flower_bed(flowers, leaves, *pt, rnd)
-    for _ in range(int(area / 55000)):
+    # flower meadows: dense patches of colour with open grass between them (clearings, not confetti)
+    for _ in range(9):
+        c = pick(60)
+        if not c:
+            continue
+        for _k in range(rnd.randint(10, 18)):
+            a_, r_ = rnd.uniform(0, math.tau), math.sqrt(rnd.random())
+            bx, by = c[0] + math.cos(a_) * r_ * 170, c[1] + math.sin(a_) * r_ * 100
+            if on_low(bx, by, 20) and seen(bx, by):
+                flower_bed(flowers, leaves, bx, by, rnd)
+    for _ in range(int(area / 150000)):
         pt = pick(16)
         if pt and clear_of_paths(pt[0], pt[1], 40, 0.9):
             bush(leaves, *pt, rnd, rnd.uniform(0.8, 1.3), berries=flowers)
-    for _ in range(int(area / 90000)):
+    for _ in range(int(area / 160000)):
         pt = pick(12)
         if pt:
             rock(rocks, *pt, rnd, rnd.uniform(0.9, 1.8))
-    # forests: clumps of round trees and pines (cooler palettes, they sit further away)
+    # forests: a few distinct groves of round trees and pines (cooler palettes, they sit further away)
     low_pals = [('#1f5f2c', '#5aa84e'), ('#1a5a3a', '#4fa86a'), ('#2a6a24', '#80b843'), ('#245a2a', '#6aa24a')]
-    for _ in range(20):
+    for _ in range(12):
         c = pick(80)
         if not c:
             continue
-        for _k in range(rnd.randint(5, 10)):
-            bx, by = c[0] + rnd.uniform(-130, 130), c[1] + rnd.uniform(-80, 80)
+        for _k in range(rnd.randint(6, 11)):
+            bx, by = c[0] + rnd.uniform(-105, 105), c[1] + rnd.uniform(-65, 65)
             if not (on_low(bx, by, 50) and seen(bx, by) and clear_of_paths(bx, by, 95, 2.6)):
                 continue
             if rnd.random() < 0.6:
@@ -643,8 +634,8 @@ def build_lowland(island_info, canopy_clear, mats):
             bx, by = rim[k]
             for off in (18, 34):
                 qx, qy = bx, by + off
-                if on_low(qx, qy, 10) and seen(qx, qy) and rnd.random() < 0.3:
-                    if rnd.random() < 0.7:
+                if on_low(qx, qy, 10) and seen(qx, qy) and rnd.random() < 0.16:
+                    if rnd.random() < 0.88:
                         rock(rocks, qx + rnd.uniform(-8, 8), qy, rnd, rnd.uniform(1.0, 2.0))
                     else:
                         bush(leaves, qx + rnd.uniform(-8, 8), qy, rnd, rnd.uniform(0.7, 1.1), berries=flowers)
@@ -819,15 +810,15 @@ def main():
                 continue
             grass_tuft(grass, bx, by, rnd, rnd.uniform(0.8, 1.3))
         # decoration kept deliberately sparse: a few meaningful clusters instead of noise
-        for _ in range(int(area / 20000 * T['flowers'] * 0.45)):
+        for _ in range(int(area / 20000 * T['flowers'] * 0.65)):
             pt = pick(min_edge=20, path_clear=0.02, node_r=78)
             if pt:
                 flower_bed(flowers, leaves, *pt, rnd)
-        for _ in range(int(area / 16000 * T['bushes'] * 0.65)):
+        for _ in range(int(area / 16000 * T['bushes'] * 0.3)):
             pt = pick(min_edge=12, max_edge=120, path_clear=0.01, node_r=92)
             if pt and canopy_clear(pt[0], pt[1], 40, 60):
                 bush(leaves, *pt, rnd, rnd.uniform(0.7, 1.2), berries=flowers)
-        for _ in range(int(area / 32000 * T['rocks'] * 0.6)):
+        for _ in range(int(area / 32000 * T['rocks'] * 0.75)):
             pt = pick(path_clear=0.08, node_r=70)
             if pt:
                 rock(rocks, *pt, rnd, rnd.uniform(0.8, 1.4))

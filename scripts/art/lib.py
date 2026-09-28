@@ -394,6 +394,26 @@ class NT:
         return b
 
 
+def falls_material(name: str, z_lip: float, z_foot: float) -> bpy.types.Material:
+    """Stylised falling water: foam streaks running down the fall over clear blue, a bright lip and white
+    spray towards the foot, fading out near z_foot. (Bands across the fall read as a flat printed card.)"""
+    m = NT(name)
+    pos = m.position()
+    X, Y, Z = m.sep(pos)
+    stretch = m.node('ShaderNodeVectorMath', operation='MULTIPLY')
+    m.link(pos, stretch.inputs[0])
+    stretch.inputs[1].default_value = (7.0, 7.0, 0.55)  # long along Z: vertical streaks
+    nz = m.noise(1.0, 3.0, 0.55, stretch.outputs['Vector'])
+    streak = m.maprange(nz.outputs['Fac'], 0.5, 0.66)
+    depth = m.maprange(Z, z_lip, z_foot, 0.0, 1.0, smooth=False)  # 0 at the lip, 1 at the foot
+    c = m.mix(streak, col('#3aa6dc'), col('#e6f8ff'))
+    c = m.mix(m.maprange(Z, z_lip - 0.3, z_lip), c, col('#f4fdff'))  # white water tipping over the lip
+    c = m.mix(m.math('MULTIPLY', m.maprange(depth, 0.5, 0.95), 0.85), c, col('#ffffff'))
+    fade = m.maprange(depth, 1.0, 0.78)
+    m.bsdf(c, 0.1, emission=c, emission_strength=0.25, coat=0.6, alpha=m.math('MULTIPLY', fade, 0.95))
+    return m.mat
+
+
 def simple_mat(name: str, color: str, rough: float = 0.7, **kw) -> bpy.types.Material:
     m = NT(name)
     m.bsdf(col(color), rough, **kw)

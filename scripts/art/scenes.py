@@ -110,24 +110,9 @@ def title_waterfall(ring, nrm, target_x=1560):
     k = min(range(len(ring)), key=lambda i: abs(ring[i][0] - target_x) + (0 if nrm[i][1] > 0.6 else 9999))
     bx, by = ring[k]
     top = board_to_world(bx, by - 10, 0.0)
-    m = lib.NT('title_fall')
-    pos = m.position()
-    X, Y, Z = m.sep(pos)
-    wave = m.node('ShaderNodeTexWave')
-    wave.wave_type = 'BANDS'
-    wave.bands_direction = 'X'
-    wave.inputs['Scale'].default_value = 7.0
-    wave.inputs['Distortion'].default_value = 5.0
-    m.link(pos, wave.inputs['Vector'])
-    # clear blue water with pale streaks at the lip, turning to white foam as it falls
-    streak = m.maprange(wave.outputs['Fac'], 0.35, 0.85)
-    water = m.mix(streak, col('#2e9fd6'), col('#d9f5ff'))
-    foam = m.maprange(Z, top.z - 1.2, top.z - 3.8, 0.0, 1.0)
-    c = m.mix(m.math('MULTIPLY', foam, 0.75), water, col('#ffffff'))
-    fade = m.maprange(Z, top.z - 4.2, top.z - 1.0, 0.0, 1.0)
-    m.bsdf(c, 0.12, emission=c, emission_strength=0.28, coat=0.6, alpha=m.math('MULTIPLY', fade, 0.95))
+    mat = lib.falls_material('title_fall', top.z, top.z - 4.4)
     verts, faces = [], []
-    rows = 22
+    rows, cols = 22, 8
     for r in range(rows + 1):
         t = r / rows
         out = 0.35 * math.sqrt(t) + 0.05
@@ -136,11 +121,15 @@ def title_waterfall(ring, nrm, target_x=1560):
         cx = top.x + math.sin(t * 3) * 0.04
         cy = top.y - out - 0.12
         cz = top.z - drop
-        verts += [(cx - wd, cy, cz), (cx + wd, cy, cz)]
+        for i in range(cols + 1):
+            u = i / cols * 2 - 1
+            # a rounded sheet (bulging towards the camera) so the key light shades it across its width
+            verts.append((cx + u * wd, cy - 0.09 * (1 - u * u), cz))
     for r in range(rows):
-        i = r * 2
-        faces.append((i, i + 1, i + 3, i + 2))
-    lib.mesh_object('title_waterfall', verts, faces, smooth=True, material=m.mat)
+        for i in range(cols):
+            a = r * (cols + 1) + i
+            faces.append((a, a + 1, a + cols + 2, a + cols + 1))
+    lib.mesh_object('title_waterfall', verts, faces, smooth=True, material=mat)
     mist = lib.MeshBuilder()
     rnd = random.Random(8)
     for _ in range(9):
@@ -168,12 +157,14 @@ def title():
     outline = blob_outline(1280, 650, 625, 150, seed=4, lobes=9)
     ob, dist, under, ring, nrm = island_under(outline, 'title_island', mat)
     # companion islets: a larger one bottom-left with the festival sky-boat moored above it
-    for i, (cx, cy, rx, ry) in enumerate([(250, 905, 230, 60), (1860, 300, 120, 30)]):
+    # (kept inside the frame: the bottom-left islet sits a little up and in from the corner)
+    ix, iy = 290, 868
+    for i, (cx, cy, rx, ry) in enumerate([(ix, iy, 220, 58), (1860, 300, 120, 30)]):
         island_under(blob_outline(cx, cy, rx, ry, seed=10 + i, lobes=5), f'islet{i}', mat, depth=0.6 if i == 0 else 0.5)
-    # the festival sky-boat drifting in the top-left sky (clear of the logo)
-    props.skyboat(160, 330, 1.3)
-    props.lantern(140, 900, 1.2)
-    props.lantern(370, 915, 1.0)
+    # the festival sky-boat drifting in the top-left sky (clear of the logo and of the frame edge)
+    props.skyboat(215, 365, 1.2)
+    props.lantern(ix - 110, iy - 5, 1.2)
+    props.lantern(ix + 120, iy + 10, 1.0)
     rnd = random.Random(3)
     grass = lib.MeshBuilder()
     flowers = lib.MeshBuilder()
@@ -182,14 +173,14 @@ def title():
     rocks = lib.MeshBuilder()
     vines = lib.MeshBuilder()
     # the bottom-left islet is a little scene of its own: a flower cart under a tree, bushes and grass
-    props.flower_cart(250, 902, 0.95)
-    terrain.tree_round(leaves, wood, 92, 888, rnd, 0.95)
-    terrain.bush(leaves, 392, 926, rnd, 1.0, berries=flowers)
-    terrain.bush(leaves, 150, 940, rnd, 0.8, berries=flowers)
-    terrain.flower_bed(flowers, leaves, 330, 944, rnd)
+    props.flower_cart(ix, iy - 3, 0.95)
+    terrain.tree_round(leaves, wood, ix - 158, iy - 17, rnd, 0.95)
+    terrain.bush(leaves, ix + 142, iy + 21, rnd, 1.0, berries=flowers)
+    terrain.bush(leaves, ix - 100, iy + 35, rnd, 0.8, berries=flowers)
+    terrain.flower_bed(flowers, leaves, ix + 80, iy + 39, rnd)
     for _ in range(70):
         a, r = rnd.uniform(0, math.tau), math.sqrt(rnd.random())
-        terrain.grass_tuft(grass, 250 + math.cos(a) * r * 200, 905 + math.sin(a) * r * 48, rnd, rnd.uniform(0.9, 1.3))
+        terrain.grass_tuft(grass, ix + math.cos(a) * r * 190, iy + math.sin(a) * r * 46, rnd, rnd.uniform(0.9, 1.3))
     poly = Image.new('L', (SW // 4, SH // 4), 0)
     ImageDraw.Draw(poly).polygon([(x / 4, y / 4) for x, y in outline], fill=255)
     pm_arr = np.asarray(Image.open(pm), np.float32) / 255.0
@@ -222,19 +213,6 @@ def title():
         w = board_to_world(bx, by, -0.12)
         length = rnd.uniform(0.3, 1.0) if rnd.random() < 0.75 else rnd.uniform(1.4, 2.4)
         terrain.vine(vines, (w.x, w.y, w.z), (nrm[k][0], -nrm[k][1]), rnd, length)
-    # crystals poking out of the underside
-    crys = lib.MeshBuilder()
-    cands = [v for v, d in under if d > 40]
-    for _ in range(min(len(cands), 7)):
-        v0 = rnd.choice(cands)
-        for _k in range(rnd.randint(1, 3)):
-            pv, fv = lib.prism((v0[0] + rnd.uniform(-0.15, 0.15), v0[1] + rnd.uniform(-0.15, 0.15), v0[2] + 0.15), rnd.uniform(0.08, 0.16), rnd.uniform(0.6, 1.3),
-                               tilt=(math.pi + rnd.uniform(-0.5, 0.5), rnd.uniform(-0.5, 0.5)), twist=rnd.random())
-            crys.add(pv, fv, col(rnd.choice(['#5ce1ff', '#8ff0ff', '#c49bff'])))
-    cm = lib.NT('title_crystal')
-    cc = cm.attr('col')
-    cm.bsdf(cc, 0.12, emission=cc, emission_strength=2.6, coat=0.6, transmission=0.2)
-    crys.build('title_crystals', cm.mat, smooth=False)
     # a waterfall spilling off the front rim, with a mist puff where it thins out
     title_waterfall(ring, nrm)
     lib.MeshBuilder.build(grass, 'grass', lib.attr_mat('grass', rough=0.8, sheen=0.15, ao=0.3), smooth=False)
@@ -503,11 +481,6 @@ def astro_texture(path, size=1400):
         a = k / 48 * math.tau
         r0, r1 = (0.83 if k % 4 else 0.78) * R, 0.92 * R
         d.line([(c + math.cos(a) * r0, c + math.sin(a) * r0), (c + math.cos(a) * r1, c + math.sin(a) * r1)], fill=(230, 214, 170), width=4 if k % 4 else 7)
-    # glowing crystal inlays
-    for k in range(12):
-        a = k / 12 * math.tau + 0.13
-        r = 0.59 * R
-        d.ellipse([c + math.cos(a) * r - 10, c + math.sin(a) * r - 10, c + math.cos(a) * r + 10, c + math.sin(a) * r + 10], fill=(140, 208, 222))
     # brass spokes between the inner rings
     for k in range(8):
         a = k / 8 * math.tau
@@ -547,7 +520,15 @@ def astro_texture(path, size=1400):
             d.line([pts[i], pts[i + 1]], fill=(176, 142, 100), width=3)
     for (x, y) in pts:
         d.ellipse([x - 6, y - 6, x + 6, y + 6], fill=(255, 236, 170))
-    im.save(path)
+    # weathering: soft mottling and fine grain so the stone doesn't read as flat vector fills
+    from scipy import ndimage
+    arr = np.asarray(im).astype(np.float32)
+    rng = np.random.default_rng(3)
+    mottle = ndimage.gaussian_filter(rng.normal(0.0, 1.0, arr.shape[:2]), 18.0)
+    mottle /= max(1e-6, float(np.abs(mottle).max()))
+    grain = ndimage.gaussian_filter(rng.normal(0.0, 1.0, arr.shape[:2]), 1.2)
+    arr *= (1.0 + 0.06 * mottle + 0.03 * grain)[..., None]
+    Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8)).save(path)
 
 
 def orbit():
@@ -564,6 +545,28 @@ def orbit():
     c = board_to_world(cx, cy, 0.0)
     v, f = lib.lathe([(ORBIT_R, 0.0), (0.0, 0.0)], 96, (c.x, c.y, 0.0), cap_bottom=False, cap_top=False)
     lib.mesh_object('platform_top', v, f, smooth=False, material=top_m)
+    # Raised brass rings, tick studs and glowing gem inlays: real relief catches the key light and
+    # casts small shadows, so the disc sits in the same rendered world as the characters.
+    relief = lib.MeshBuilder()
+    for rr, wd, hh in [(0.935, 0.11, 0.05), (0.72, 0.065, 0.035), (0.46, 0.065, 0.035), (0.22, 0.075, 0.04)]:
+        r0 = rr * ORBIT_R
+        prof = [(r0 - wd / 2, 0.0), (r0 - wd / 2, hh * 0.6), (r0 - wd / 4, hh), (r0 + wd / 4, hh), (r0 + wd / 2, hh * 0.6), (r0 + wd / 2, 0.0)]
+        rv, rf = lib.lathe(prof, 128, (c.x, c.y, 0.0), cap_bottom=False, cap_top=False)
+        relief.add(rv, rf, col('#e0a93f'))
+    for k in range(48):
+        a = k / 48 * math.tau
+        big = k % 4 == 0
+        r0, r1 = (0.78 if big else 0.83) * ORBIT_R, 0.915 * ORBIT_R
+        mid = (r0 + r1) / 2
+        tv, tf = lib.box((c.x + math.cos(a) * mid, c.y + math.sin(a) * mid, 0.02), (r1 - r0, 0.075 if big else 0.05, 0.04), rot_z=a)
+        relief.add(tv, tf, col('#f0d9a0'))
+    relief.build('platform_relief', props.mats()['metal'])
+    gems = lib.MeshBuilder()
+    for k in range(12):
+        a = k / 12 * math.tau + 0.13
+        gv, gf = lib.blob((c.x + math.cos(a) * 0.59 * ORBIT_R, c.y + math.sin(a) * 0.59 * ORBIT_R, 0.0), 0.11, squash=(1.0, 1.0, 0.45), rough=0.0, subdiv=2)
+        gems.add(gv, gf, col('#5ce1ff'))
+    gems.build('platform_gems', props.mats()['glow'])
     rim = lib.MeshBuilder()
     rim_v, rim_f = lib.lathe([(ORBIT_R + 0.02, 0.02), (ORBIT_R + 0.25, 0.02), (ORBIT_R + 0.25, -0.35), (ORBIT_R + 0.1, -0.6), (ORBIT_R - 0.6, -1.4), (ORBIT_R - 1.4, -2.6)], 96, (c.x, c.y, 0.0), cap_bottom=False, cap_top=False)
     rim.add(rim_v, rim_f, col('#bda486'))

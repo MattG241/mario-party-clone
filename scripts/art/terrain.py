@@ -212,9 +212,12 @@ def island_material(mask_path, theme='plaza'):
     peb = m.voronoi(18.0, pos)
     pebf = m.maprange(peb.outputs['Distance'], 0.05, 0.18, 1.0, 0.0)
     dirt = m.mix(m.math('MULTIPLY', pebf, 0.45), dirt, lib.col('#f4e2bd'))
-    # soft darker edge where trail meets grass
-    edge = m.math('MULTIPLY', m.maprange(m.sep(pmask)[0], 0.12, 0.35), m.maprange(m.sep(pmask)[0], 0.6, 0.35))
-    grass_d = m.mix(m.math('MULTIPLY', edge, 0.55), grass, lib.col('#6b8a32'))
+    # a pale sandy border where the trail meets the grass, and lighter grass beside it
+    pv = m.sep(pmask)[0]
+    fringe = m.maprange(pv, 0.02, 0.2)
+    grass_d = m.mix(m.math('MULTIPLY', fringe, 0.35), grass, lib.col('#b6d36a'))
+    edge = m.math('MULTIPLY', m.maprange(pv, 0.12, 0.3), m.maprange(pv, 0.55, 0.32))
+    grass_d = m.mix(m.math('MULTIPLY', edge, 0.8), grass_d, lib.col('#f1dfb0'))
     top = m.mix(pm, grass_d, dirt)
     # --- rock underside: strata bands + noise
     wave = m.node('ShaderNodeTexWave')
