@@ -15,7 +15,8 @@
 // holds), record seconds, key name (press and release, not recorded), press name (press and
 // release while recording), down/up name, wait ms (real time), eval "<js>" (run in the page, e.g.
 // to hide UI that should not be in the shot).
-// Frames are written as <outDir>/<name>/f00000.jpg at 30 fps.
+// Frames are written as <outDir>/<name>/f00000.jpg at 30 fps, with sfx.json listing the sound
+// effects the game played: [frame index, key, rate, volume].
 import { chromium } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -44,7 +45,26 @@ function takeOver() {
   performance.now = () => vt;
   Date.now = () => dateBase + vt;
   const canvas = g.canvas;
+  // Log the game's sound effects against the recorded frames (sfx.json next to the frames), so
+  // the edit can lay the real effects under the footage. Mirrors AudioManager's throttle.
+  const sfx = [];
+  const lastPlayed = new Map();
+  const au = window.__GLEAMTRAIL__.audio;
+  if (au) {
+    const play = au.play.bind(au);
+    au.play = (key, opts = {}) => {
+      const last = lastPlayed.get(key) ?? -1e9;
+      if (vt - last >= (opts.throttleMs ?? 28)) {
+        lastPlayed.set(key, vt);
+        if (window.__rec.recording) sfx.push([window.__rec.saved, key, opts.rate ?? 1, opts.volume ?? 1]);
+      }
+      return play(key, opts);
+    };
+  }
   window.__rec = {
+    sfx,
+    saved: 0,
+    recording: false,
     /** Advance n frames; render only the last (rendering is the slow part). */
     advance(n, dt, render) {
       for (let i = 0; i < n; i++) {
@@ -68,7 +88,10 @@ function takeOver() {
     },
     /** Step one frame, render it and return it as a JPEG data URL (read before the frame is presented). */
     frame(dt, q) {
+      this.recording = true;
       this.advance(1, dt, true);
+      this.recording = false;
+      this.saved++;
       return canvas.toDataURL('image/jpeg', q);
     },
     check(expr) {
@@ -142,6 +165,10 @@ for (const shot of shots) {
       } else if (op === 'eval') await page.evaluate(a);
       else if (op === 'down') await page.keyboard.down(a);
       else if (op === 'up') await page.keyboard.up(a);
+    }
+    if (owned) {
+      const sfx = await page.evaluate(() => window.__rec.sfx);
+      fs.writeFileSync(path.join(dir, 'sfx.json'), JSON.stringify({ fps: FPS, events: sfx }));
     }
     console.log(`${shot.name}: ${frameNo} frames @ ${((Date.now() - t0) / 1000).toFixed(0)}s`);
   } catch (e) {

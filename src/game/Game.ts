@@ -28,7 +28,7 @@ import { TitleScene } from './scenes/TitleScene';
 declare global {
   interface Window {
     /** Test / diagnostics hook (read by the Playwright smoke test). */
-    __GLEAMTRAIL__?: { game: Phaser.Game; ready: boolean; errors: string[]; session: typeof session; debug: typeof debugInfo };
+    __GLEAMTRAIL__?: { game: Phaser.Game; ready: boolean; errors: string[]; session: typeof session; debug: typeof debugInfo; audio: typeof audio };
   }
 }
 
@@ -75,7 +75,7 @@ export function createGame(parent: HTMLElement): Phaser.Game {
   // Pause music when the tab is hidden.
   game.events.on(Phaser.Core.Events.HIDDEN, () => audio.stopMusic(0.2));
 
-  window.__GLEAMTRAIL__ = { game, ready: false, errors: [], session, debug: debugInfo };
+  window.__GLEAMTRAIL__ = { game, ready: false, errors: [], session, debug: debugInfo, audio };
   window.addEventListener('error', (e) => {
     logError(String(e.message));
     window.__GLEAMTRAIL__?.errors.push(String(e.message));
