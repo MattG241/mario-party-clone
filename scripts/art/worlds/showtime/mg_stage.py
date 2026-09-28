@@ -113,9 +113,16 @@ def rings():
 
 def backdrop():
     y = row_y(BACK_ROW)
-    x0, x1 = 200 / PX, 1720 / PX
-    z1 = z_of(BACK_ROW, 180)
-    lib.mesh_object('backdrop', [(x0, y, 0), (x1, y, 0), (x1, y, z1), (x0, y, z1)], [(0, 1, 2, 3)], smooth=False, material=sunburst_material())
+    # the backdrop fills the innermost arch (a superellipse), so nothing square shows round it
+    k_ = PX * lib.SINB
+    verts = [(960 / PX, y, 0.0)]
+    seg = 64
+    for i in range(seg + 1):
+        t = math.pi * i / seg
+        xx, zz = K.superellipse(t, 760, 560, N_EXP)
+        verts.append(((960 + xx) / PX, y, zz / k_))
+    faces = [(0, i + 2, i + 1) for i in range(seg)]
+    lib.mesh_object('backdrop', verts, faces, smooth=False, material=sunburst_material())
     k = Kit('backdrop_deco')
     # starbursts on the rays
     for (sx, sy, r, n, c) in [(420, 330, 0.55, 4, '#ffd23f'), (1500, 330, 0.55, 4, '#ffd23f'), (560, 470, 0.34, 8, '#ff7aa2'),
