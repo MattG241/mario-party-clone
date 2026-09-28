@@ -60,6 +60,9 @@ function takeOver() {
           g.events.emit('step', vt, dt);
           g.scene.update(vt, dt);
           g.events.emit('poststep', vt, dt);
+          // SceneManager.render() is what clears this; left set, a scene op queued while
+          // processing (e.g. bringToTop) re-queues itself forever on the next frame.
+          g.scene.isProcessing = false;
         }
       }
     },
