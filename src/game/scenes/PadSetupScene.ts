@@ -52,7 +52,10 @@ export class PadSetupScene extends Phaser.Scene {
   private stepIndex = 0;
   private waitNeutral = true;
   private idleMs = 0;
+  /** Where each raw axis rests, measured once after the pad is picked. */
   private rest: number[] = [];
+  /** Axes recorded as triggers moving up from 0: some report 0 until first used, then rest at -1. */
+  private quirkAxes = new Set<number>();
   private prevPressed = new Map<number, boolean[]>();
   private mapping: PadMapping = { buttons: {} };
   private used = new Map<string, string>();
@@ -78,6 +81,8 @@ export class PadSetupScene extends Phaser.Scene {
     this.prevPressed = new Map();
     this.mapping = { buttons: {} };
     this.used = new Map();
+    this.rest = [];
+    this.quirkAxes = new Set();
   }
 
   create(): void {
@@ -155,11 +160,11 @@ export class PadSetupScene extends Phaser.Scene {
     }
     const st = STEPS[this.stepIndex];
     const pressedNow = this.newlyPressed(p);
-    // Wait until everything is let go (and remember where the axes rest).
+    // Wait until everything is let go. The first time, that is where the axes rest.
     if (this.waitNeutral) {
-      if (!p.rawButtons.some((b) => b.pressed || b.value > 0.5) && this.axesCentred(p)) {
+      if (!p.rawButtons.some((b) => b.pressed || b.value > 0.5) && (this.rest.length === 0 || this.axesCentred(p))) {
         this.waitNeutral = false;
-        this.rest = p.rawAxes.slice();
+        if (this.rest.length === 0) this.rest = p.rawAxes.slice();
       }
       return;
     }
@@ -177,8 +182,10 @@ export class PadSetupScene extends Phaser.Scene {
         return;
       }
       if (st.kind === 'button') {
-        this.mapping.buttons[st.button] = captured as PadSource;
+        const src = captured as PadSource;
+        this.mapping.buttons[st.button] = src;
         this.used.set(key, st.title);
+        if (src.t === 'a' && src.s === 1 && Math.abs(src.rest) < 0.1 && (st.button === 'LT' || st.button === 'RT')) this.quirkAxes.add(src.i);
       } else {
         this.mapping[st.axis] = captured as StickAxis;
         this.used.set(`axis${(captured as StickAxis).i}`, st.title);
@@ -255,11 +262,20 @@ export class PadSetupScene extends Phaser.Scene {
   }
 
   /**
-   * Everything at a resting position: sticks near centre, hats centred, triggers resting at -1
-   * (some report 0 until first touched, then -1), or back where the axis rested before.
+   * Every axis back where it rests: a hat centred again, anything else within 0.3 of its rest. A
+   * trigger recorded from a resting 0 may settle at -1 instead (it reported 0 until first used).
    */
   private axesCentred(p: GamepadDevice): boolean {
-    return p.rawAxes.every((v, i) => isHatRest(v) || Math.abs(v) < 0.35 || v <= -0.9 || (this.rest.length > 0 && Math.abs(v - (this.rest[i] ?? v)) < 0.3));
+    return p.rawAxes.every((v, i) => {
+      const r = this.rest[i] ?? v;
+      if (isHatRest(r)) return isHatRest(v);
+      if (Math.abs(v - r) < 0.3) return true;
+      if (this.quirkAxes.has(i) && Math.abs(r) < 0.1 && v <= -0.9) {
+        this.rest[i] = v;
+        return true;
+      }
+      return false;
+    });
   }
 
   private captureButton(p: GamepadDevice, pressedNow: number[]): PadSource | null {
