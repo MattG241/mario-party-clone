@@ -14,9 +14,9 @@ export const DOJO_INFO: WorldMinigameInfo = {
       description:
         'Ride a little golden cloud through a sky course between the mountain peaks. Fly through rings, grab glowing energy orbs and burst ahead to bump rivals off their line, but steer clear of storm clouds and wind gusts!',
       instructions: [
-        'Steer up and down: fly through rings (+1) and energy orbs (+3)',
-        'Hold A to charge, let go to burst ahead: ram rivals to knock rings loose',
-        'Storm clouds zap you and gusts push you off course: watch for their warnings',
+        'Steer through rings (+1) and energy orbs (+3)',
+        'Hold A to charge, let go to burst ahead',
+        'Ram rivals for rings; dodge storms and wind',
         'Most rings after 45 seconds wins',
       ],
       controls: [
@@ -40,10 +40,10 @@ export const DOJO_INFO: WorldMinigameInfo = {
       description:
         'A ninja hides among a crowd of identical smoke clones that leap and shuffle across the village rooftops. Keep your eyes on the real one and lock in your pick before the smoke clears: quick, correct answers score the most. Five rounds, each faster and trickier than the last.',
       instructions: [
-        'Watch the real ninja: smoke clones pop up and shuffle across the rooftops',
-        'When they stop, move your marker and press A to lock in your pick',
-        'Right and fast scores most (up to +5): the clones play tricks, trust your eyes!',
-        'Five rounds (the last counts double): most points wins',
+        'Watch the real ninja as his clones shuffle',
+        'When they stop, move your marker and press A',
+        'Quick, right picks score most (up to +5)',
+        'Beware tricks! 5 rounds, the last is double',
       ],
       controls: [
         { button: 'STICK', label: 'Move marker' },

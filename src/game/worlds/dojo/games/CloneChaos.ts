@@ -33,7 +33,12 @@ const D_SMOKE = 3500;
 const D_DARK = 3600;
 const D_MARK = 4000;
 const D_PUFF = 4500;
-const PLAQUE_Y = 150;
+/** The round plaque sits on the deck between the middle players (nothing leaps through it there). */
+const PLAQUE_Y = 1012;
+/** Mid-round call-outs, over the front houses' walls (never over a clone). */
+const CALL_Y = 885;
+/** Leaping clones keep their feet at least this low on screen, so their heads clear the HUD. */
+const APEX_MIN_Y = 228;
 const POP_SIZE = 64;
 const POP_COLOR = '#ffffff';
 
@@ -139,9 +144,10 @@ export class CloneChaosScene extends BaseMinigame {
     bakeWord(this, 'cc-real', 'THE REAL ONE!', { size: 52, fill: ['#fff9d6', '#ffcf3a'] });
     bakeWord(this, 'cc-dark', 'LIGHTS OUT!', { size: 60, fill: ['#e6ecff', '#9fb2ff'] });
     bakeWord(this, 'cc-smoke', 'SMOKE SCREEN!', { size: 60, fill: ['#ffffff', '#c7cfdf'] });
+    bakeWord(this, 'cc-fast', 'FASTEST!', { size: 44, fill: ['#fff9d6', '#ffcf3a'] });
     if (this.textures.exists('rendered-scene-dojo_roofs')) this.add.image(0, 0, 'rendered-scene-dojo_roofs').setOrigin(0).setDepth(-100);
     else this.fallbackArena();
-    this.dark = this.add.rectangle(GAME_WIDTH / 2, 540, GAME_WIDTH, 1080, 0x0b1030, 1).setAlpha(0).setDepth(D_DARK);
+    this.dark = this.add.rectangle(GAME_WIDTH / 2, 540, GAME_WIDTH * 1.2, 1300, 0x0b1030, 1).setAlpha(0).setDepth(D_DARK);
     this.haze = this.add.graphics().setDepth(D_SMOKE - 10);
     this.buildPlaque();
     this.realMark = this.buildRealMark();
@@ -178,12 +184,12 @@ export class CloneChaosScene extends BaseMinigame {
     const c = this.add.container(GAME_WIDTH / 2, PLAQUE_Y).setDepth(8200).setScrollFactor(0);
     const g = this.add.graphics();
     g.fillStyle(0x0a1120, 0.3);
-    g.fillRoundedRect(-172, -30, 344, 70, 30);
+    g.fillRoundedRect(-146, -30, 292, 70, 30);
     g.fillStyle(0x121b2b, 0.85);
-    g.fillRoundedRect(-170, -34, 340, 68, 28);
+    g.fillRoundedRect(-144, -34, 288, 68, 28);
     g.lineStyle(2, 0xffffff, 0.12);
-    g.strokeRoundedRect(-169, -33, 338, 66, 27);
-    this.plaqueText = addText(this, -64, -2, 'ROUND 1/5', 30, { color: '#ffffff', weight: 700, fixed: true });
+    g.strokeRoundedRect(-143, -33, 286, 66, 27);
+    this.plaqueText = addText(this, -46, -4, 'ROUND 1/5', 28, { color: '#ffffff', weight: 700, fixed: true });
     this.plaquePips = this.add.graphics();
     this.plaqueBar = this.add.graphics();
     c.add([g, this.plaqueText, this.plaquePips, this.plaqueBar]);
@@ -194,20 +200,20 @@ export class CloneChaosScene extends BaseMinigame {
     const g = this.plaquePips;
     g.clear();
     for (let i = 0; i < ROUNDS; i++) {
-      const x = 58 + i * 22;
+      const x = 48 + i * 19;
       const done = i < this.round - 1;
       const cur = i === this.round - 1;
       g.fillStyle(cur ? 0xffe08a : done ? 0xffffff : 0xffffff, cur ? 1 : done ? 0.85 : 0.18);
-      g.fillCircle(x, -2, cur ? 8 : 6);
+      g.fillCircle(x, -4, cur ? 7.5 : 5.5);
     }
     const b = this.plaqueBar;
     b.clear();
     if (pickFrac === null) return;
     b.fillStyle(0x000000, 0.35);
-    b.fillRoundedRect(-150, 22, 300, 8, 4);
+    b.fillRoundedRect(-124, 18, 248, 8, 4);
     const col = pickFrac < 0.34 ? 0xff6b5e : 0xffe08a;
     b.fillStyle(col, 1);
-    b.fillRoundedRect(-150, 22, Math.max(8, 300 * pickFrac), 8, 4);
+    b.fillRoundedRect(-124, 18, Math.max(8, 248 * pickFrac), 8, 4);
   }
 
   /** The golden arrow and light that point out the real ninja. */
@@ -224,7 +230,8 @@ export class CloneChaosScene extends BaseMinigame {
 
   protected createPlayer(p: MgPlayer, index: number): void {
     const n = this.players.length;
-    const xs = n === 4 ? DECK_XS : n === 3 ? [540, 960, 1380] : n === 2 ? [700, 1220] : [960];
+    // the middle of the deck is kept for the round plaque
+    const xs = n === 4 ? DECK_XS : n === 3 ? [330, 660, 1590] : n === 2 ? [620, 1300] : [620];
     const x = xs[index] ?? DECK_XS[index % 4];
     const c = new Character(this, x, DECK_FEET, p.characterId, { scale: DECK_SCALE, slot: p.slot, marker: true });
     c.face(x > GAME_WIDTH / 2);
@@ -372,7 +379,8 @@ export class CloneChaosScene extends BaseMinigame {
       const d = spotDist(l.from, l.to);
       // paths never coincide: in a swap one clone vaults high while the other scurries low
       const high = i % 2 === 0;
-      const h = high ? 95 + d * 0.32 : 26 + d * 0.08;
+      const cap = Math.min(SPOTS[l.from].y, SPOTS[l.to].y) - APEX_MIN_Y;
+      const h = Math.min(cap, high ? 95 + d * 0.32 : 26 + d * 0.08);
       cl.leap = { from: l.from, to: l.to, t: 0, dur: this.stepDur, h, high };
       cl.c.face(SPOTS[l.to].x < SPOTS[l.from].x);
       cl.c.shadow?.setVisible(false);
@@ -424,8 +432,9 @@ export class CloneChaosScene extends BaseMinigame {
       b.timer = this.skill(pk.p).reaction * (1.8 + Math.random() * 1.0);
       b.n = 0;
     });
-    banner(this, 'PICK THE REAL ONE!', { y: 965, size: 76, color: CSS.goldLight, hold: 650, ribbon: true });
+    banner(this, 'PICK THE REAL ONE!', { y: CALL_Y, size: 76, color: CSS.goldLight, hold: 650, ribbon: true });
     audio.play('finalCall', { volume: 0.5 });
+    audio.play('drumroll', { volume: 0.3 });
     this.lastTick = Math.ceil(this.plan.pickMs / 1000);
   }
 
@@ -499,6 +508,7 @@ export class CloneChaosScene extends BaseMinigame {
     this.realMark.setVisible(true).setPosition(s.x, s.y + cl.c.headY * s.scale - 40).setScale(0.3);
     this.tweens.add({ targets: this.realMark, scale: 1, duration: 240, ease: 'Back.Out' });
     audio.play('goldChip', { volume: 0.8 });
+    audio.play('cymbal', { volume: 0.5 });
     let found = 0;
     this.pickers.forEach((pk) => {
       const correct = pk.spot === real;
@@ -527,15 +537,28 @@ export class CloneChaosScene extends BaseMinigame {
         c?.play('celebrate', { force: true });
         this.rumble(pk.p, 0.3, 0.4, 140);
       } else {
-        this.tweens.add({ targets: pk.marker, alpha: 0.35, y: pk.marker.y + 30, duration: 320, ease: 'Quad.In' });
+        this.tweens.add({ targets: pk.marker, alpha: 0.35, duration: 320, ease: 'Quad.In' });
         const ps = SPOTS[pk.spot];
         this.words.pop('cc-miss', pk.mx + this.markerOffset(pk), ps.y - 120 * ps.scale, { scale: 0.75, hold: 600, rise: 12, owner: pk.p.slot });
         c?.play('disappointed', { force: true });
       }
     });
+    // the quickest right answer (among several) gets a little extra fanfare
+    const right = this.pickers.filter((pk) => pk.spot === real && pk.lockMs !== null);
+    if (right.length > 1) {
+      const best = right.reduce((a, b) => ((b.lockMs ?? 1e9) < (a.lockMs ?? 1e9) ? b : a));
+      const deck = best.p.character;
+      if (deck) {
+        this.time.delayedCall(380, () => {
+          this.words.pop('cc-fast', deck.x, DECK_FEET - 250, { scale: 1, hold: 700, rise: 24, tilt: -6 });
+          audio.play('streak', { volume: 0.5, rate: 1.15 });
+          shockwave(this, deck.x, DECK_FEET - 120, { radius: 110, color: PLAYER_COLORS[best.p.slot], alpha: 0.8, duration: 360, depth: 5590 });
+        });
+      }
+    }
     const n = this.pickers.length;
     const line = found === 0 ? 'NOBODY FOUND HIM!' : found === n && n > 1 ? 'EVERYONE FOUND HIM!' : found === 1 && n > 1 ? '1 FOUND HIM!' : n === 1 ? 'FOUND HIM!' : `${found} FOUND HIM!`;
-    this.time.delayedCall(260, () => banner(this, line, { y: 965, size: 72, color: found ? CSS.goldLight : '#dfe5ee', hold: 800, ribbon: true }));
+    this.time.delayedCall(260, () => banner(this, line, { y: CALL_Y, size: 72, color: found ? CSS.goldLight : '#dfe5ee', hold: 800, ribbon: true }));
     if (found) audio.play('cheer', { volume: 0.5 });
     else audio.play('defeat', { volume: 0.45 });
   }
@@ -739,7 +762,7 @@ export class CloneChaosScene extends BaseMinigame {
       this.tweens.add({ targets: img, x: x1, angle: img.angle + 40, duration: dur, ease: 'Sine.InOut' });
       this.tweens.add({ targets: img, alpha: 0.6, duration: dur * 0.3, yoyo: true, hold: dur * 0.4, ease: 'Sine.InOut', onComplete: () => img.setVisible(false) });
     });
-    this.words.pop('cc-smoke', GAME_WIDTH / 2, 965, { hold: 500, rise: 10 });
+    this.words.pop('cc-smoke', GAME_WIDTH / 2, CALL_Y, { hold: 500, rise: 10 });
     audio.play('sweep', { volume: 0.4, rate: 0.8 });
   }
 
@@ -748,7 +771,7 @@ export class CloneChaosScene extends BaseMinigame {
     const dur = this.stepDur;
     this.tweens.killTweensOf(this.dark);
     this.tweens.add({ targets: this.dark, alpha: 0.58, duration: 120, yoyo: true, hold: Math.max(0, dur - 200), ease: 'Quad.Out' });
-    this.words.pop('cc-dark', GAME_WIDTH / 2, 965, { hold: 500, rise: 10 });
+    this.words.pop('cc-dark', GAME_WIDTH / 2, CALL_Y, { hold: 500, rise: 10 });
     audio.play('rumble', { volume: 0.3 });
   }
 

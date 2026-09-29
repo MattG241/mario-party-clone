@@ -23,7 +23,7 @@ export const SPOTS: readonly Spot[] = ROWS.flatMap((r, row) => r.xs.map((x) => (
 
 /** The deck the players stand on: their feet's y, and x per player (by index). */
 export const DECK_FEET = 1040;
-export const DECK_XS: readonly number[] = [330, 750, 1170, 1590];
+export const DECK_XS: readonly number[] = [300, 640, 1280, 1620];
 export const DECK_SCALE = 0.6;
 
 /** Where every marker starts when picking begins: the spot nearest the middle of the village. */

@@ -41,6 +41,8 @@ const GUARD_BUMP = 1000;
 const GUARD_ZAP = 1300;
 /** Riders touch within this distance (between hit centres). */
 const RIDER_R = 58;
+/** Riders side by side keep at least this far apart vertically (they jostle apart). */
+const JOSTLE_DY = 122;
 const STORM_RX = 150;
 const STORM_RY = 76;
 /** Wind gusts: warning, then blowing; the speed they push riders at. */
@@ -56,6 +58,8 @@ const GAUGE_R = 70;
 const RING_SCALE = 0.78;
 const ORB_SCALE = 0.72;
 const STORM_SCALE = 0.86;
+/** Storm clouds are darkened a touch in game, so they read as trouble against the bright sky. */
+const STORM_TINT = 0xa9a3cc;
 /** Parallax strips (screen y of their top edge, scroll factor against the course). */
 const PEAKS_Y = 380;
 const PEAKS_K = 0.3;
@@ -196,6 +200,9 @@ export class CloudRiderScene extends BaseMinigame {
   private bolt!: Phaser.GameObjects.Graphics;
   private boltT = 0;
   private ghosts: Phaser.GameObjects.Image[] = [];
+  /** Golden vapour streaming off the back of every cloud (a small pool). */
+  private vapour: { img: Phaser.GameObjects.Image; t: number; life: number; vx: number }[] = [];
+  private vapourT = 0;
   private words!: WordPops;
   private sparks?: Phaser.GameObjects.Particles.ParticleEmitter;
   private sparkTint = 0xffffff;
@@ -232,6 +239,8 @@ export class CloudRiderScene extends BaseMinigame {
     this.gustLines = [];
     this.boltT = 0;
     this.ghosts = [];
+    this.vapour = [];
+    this.vapourT = 0;
     finishDojoSprites(this, SPRITES);
     ensureArenaFxTextures(this);
     // Score pop-ups and call-outs are rendered once now, not on the first catch.
@@ -311,7 +320,9 @@ export class CloudRiderScene extends BaseMinigame {
     let hint: Phaser.GameObjects.Container | undefined;
     if (!p.isCpu) {
       const glyph = makeGlyph(this, 'A', 44, glyphKindFor(p.slot));
-      const label = addText(this, 34, 0, 'HOLD', 26, { color: '#ffffff', stroke: '#1b1530', weight: 700, align: 'left', fixed: true });
+      // a key cap ("Enter") is wider than a pad button: the word goes just past its right edge
+      const gb = glyph.getBounds();
+      const label = addText(this, gb.right - glyph.x + 10, 0, 'HOLD', 26, { color: '#ffffff', stroke: '#1b1530', weight: 700, align: 'left', fixed: true });
       hint = this.add.container(0, 0, [glyph, label]).setDepth(5500).setVisible(false);
     }
     this.riders.push({ p, c, cloud, glow, aura, gauge, x, y, vx: 0, vy: 0, charging: false, charge: 0, chimes: 0, ramT: 0, recharge: 0, dizzy: 0, guard: 0, bob: index * 1.7, streak: 0, lastRing: -1e9, popN: 0, popAt: -1e9, ghostT: 0, pose: 'balance', gustV: 0, home: y, nextRam: 2500 + index * 700, hint });
@@ -422,7 +433,7 @@ export class CloudRiderScene extends BaseMinigame {
     s.phase = this.rng.range(0, 6);
     s.flick = this.rng.range(500, 1400);
     s.seenAt = this.elapsed;
-    s.img.setVisible(true).clearTint().setAlpha(1).setPosition(x, y);
+    s.img.setVisible(true).setTint(STORM_TINT).setAlpha(1).setPosition(x, y);
     s.warning = 'on';
     this.tweens.killTweensOf(s.warn);
     s.warn.setVisible(true).setPosition(GAME_WIDTH - 70, y).setAlpha(0).setScale(0.6);
@@ -547,6 +558,7 @@ export class CloudRiderScene extends BaseMinigame {
     this.drawGust(dt);
     this.speedLines(dt);
     this.syncVisuals(dt);
+    this.vapourTrail(dt);
   }
 
   private inGust(y: number): number {
@@ -681,19 +693,20 @@ export class CloudRiderScene extends BaseMinigame {
         const b = rs[j];
         const dx = b.x - a.x;
         const dy = b.y - a.y;
-        if (Math.abs(dx) > RIDER_R * 2.1 || Math.abs(dy) > RIDER_R * 1.6) continue;
-        const who = resolveBump({ bursting: a.ramT > 0, guarded: a.guard > 0 }, { bursting: b.ramT > 0, guarded: b.guard > 0 });
+        if (Math.abs(dx) > RIDER_R * 2.1 || Math.abs(dy) > JOSTLE_DY) continue;
+        const touching = Math.abs(dy) < RIDER_R * 1.6;
+        const who = touching ? resolveBump({ bursting: a.ramT > 0, guarded: a.guard > 0 }, { bursting: b.ramT > 0, guarded: b.guard > 0 }) : null;
         if (who === 'a') this.bump(a, b);
         else if (who === 'b') this.bump(b, a);
         else if (who === 'clash') this.clash(a, b);
         else {
-          // a jostle: push apart vertically
-          const push = (RIDER_R * 1.6 - Math.abs(dy)) / 2;
+          // a jostle: ease apart vertically (so two riders never sit on top of each other)
+          const push = (JOSTLE_DY - Math.abs(dy)) / 2;
           const sy = dy >= 0 ? 1 : -1;
-          a.y -= sy * push * 0.5;
-          b.y += sy * push * 0.5;
-          a.vy -= sy * 60;
-          b.vy += sy * 60;
+          a.y -= sy * push * 0.35;
+          b.y += sy * push * 0.35;
+          a.vy -= sy * 40;
+          b.vy += sy * 40;
         }
       }
     }
@@ -910,7 +923,7 @@ export class CloudRiderScene extends BaseMinigame {
     this.loseRings(r, ringsLost(r.p.score, 'zap'), -1);
     this.drawBolt(st.x - 10, st.y + 30, r.x + 8, r.y + HIT_DY);
     st.img.setTintFill(0xf4ecff);
-    this.time.delayedCall(90, () => st.img.clearTint());
+    this.time.delayedCall(90, () => st.img.setTint(STORM_TINT));
     this.stun(r);
     this.hitStop(60);
     flashScreen(this, 0xd9ccff, 0.16, 180);
@@ -969,8 +982,8 @@ export class CloudRiderScene extends BaseMinigame {
       st.flick -= dt;
       if (st.flick <= 0) {
         st.flick = 700 + Math.random() * 1300;
-        st.img.setTint(0xe6dcff);
-        this.time.delayedCall(60, () => st.img.clearTint());
+        st.img.setTint(0xf0e8ff);
+        this.time.delayedCall(60, () => st.img.setTint(STORM_TINT));
         if (st.x < GAME_WIDTH + 100) audio.play('crack', { volume: 0.12, rate: 1.6, throttleMs: 300 });
       }
       if (st.warning === 'on' && st.warn.alpha >= 1) st.warn.setScale(1 + 0.08 * Math.sin(this.clock / 90));
@@ -1072,6 +1085,36 @@ export class CloudRiderScene extends BaseMinigame {
     this.tweens.add({ targets: g, alpha: 0, x: x - 40, duration: 220, ease: 'Quad.Out', onComplete: () => g.setVisible(false) });
   }
 
+  /** A soft trail of golden vapour behind each cloud (brighter while bursting). */
+  private vapourTrail(dt: number): void {
+    this.vapourT -= dt;
+    if (this.vapourT <= 0) {
+      this.vapourT = LITE ? 150 : 85;
+      for (const r of this.riders) {
+        let v = this.vapour.find((q) => q.t >= q.life);
+        if (!v && this.vapour.length < (LITE ? 14 : 30)) {
+          v = { img: this.add.image(0, 0, 'fx-dot').setBlendMode(Phaser.BlendModes.ADD).setVisible(false), t: 1, life: 1, vx: 0 };
+          this.vapour.push(v);
+        }
+        if (!v) break;
+        const hot = r.ramT > 0;
+        v.t = 0;
+        v.life = hot ? 520 : 420;
+        v.vx = -this.speed * (0.35 + Math.random() * 0.2);
+        v.img.setPosition(r.x - 78 + Math.random() * 10, r.cloud.y + 8 + (Math.random() - 0.5) * 22).setTint(hot ? 0xfff1a8 : 0xffd45e).setVisible(true).setDepth(D_RIDER - 2);
+      }
+    }
+    const s = dt / 1000;
+    for (const v of this.vapour) {
+      if (v.t >= v.life) continue;
+      v.t += dt;
+      const u = Math.min(1, v.t / v.life);
+      v.img.x += v.vx * s;
+      v.img.setScale(2.2 * (1 - u) + 0.4).setAlpha(0.42 * (1 - u));
+      if (u >= 1) v.img.setVisible(false);
+    }
+  }
+
   /** Streaks of wind rushing past: the sense of speed. */
   private speedLines(dt: number): void {
     if (calmMotion()) return;
@@ -1161,6 +1204,7 @@ export class CloudRiderScene extends BaseMinigame {
       }
     }
     this.syncVisuals(dt);
+    this.vapourTrail(dt);
   }
 
   protected override end(): void {
@@ -1256,7 +1300,7 @@ export class CloudRiderScene extends BaseMinigame {
         if (o === r) continue;
         // someone nearer it, or already heading for it: leave it to them
         const oy = o.p.isCpu && o.p.brain.target ? o.p.brain.target.y : o.y;
-        if (Math.abs(oy - needY) < 85) score -= Math.abs(o.y - needY) < Math.abs(r.y - needY) ? 70 : 35;
+        if (Math.abs(oy - needY) < 115) score -= Math.abs(o.y - needY) < Math.abs(r.y - needY) ? 95 : 45;
       }
       for (const st of this.storms) {
         if (st.active && Math.abs(st.x - it.x) < 280 && Math.abs(st.y - it.y) < 170) score -= 150;
