@@ -100,7 +100,7 @@ def main():
         depth = 3.2 if i in (0, 6) else 2.8
         C.building({'wall': walls[i], 'trim': trim, 'deck': deck}, x0 / 100, x1 / 100, deck_z(sy), depth=depth, bottom=C.fz(1400), wall=WALLS[i], trim=TRIMS[i], deck='#9a9fbe')
     for i, mb in enumerate(walls):
-        C.build(mb, f'block_{i}', C.facade_material(f'h_block_{i}', lit_frac=0.4 if i % 2 else 0.48, seed=10.0 + i, cell=(0.5, 0.56), win=(0.26, 0.32), glass='#26345e', emit=2.6))
+        C.build(mb, f'block_{i}', C.facade_material(f'h_block_{i}', lit_frac=0.4 if i % 2 else 0.48, seed=10.0 + i, cell=(0.5, 0.56), win=(0.26, 0.32), glass='#26345e', emit=0.9))
 
     # Vents: low exhaust grates with a warm glow in their slats.
     for (vx, sy) in VENTS:
@@ -156,20 +156,6 @@ def main():
         px = 2.5 + k * 0.62
         C.box(wood, px - 0.24, 2.2, deck_z(826), px + 0.24, 2.55, deck_z(826) + 0.2, '#8a5a3a')
         C.sphere(leaf, px, 2.37, deck_z(826) + 0.32, 0.22, r.choice(['#3f8a5a', '#4d9a62', '#357a52']), squash=(1.2, 1.0, 0.9), subdiv=1)
-    # fire escape zig-zags on two facades
-    for (fx0, fx1, sy) in [(560, 730, 700), (1430, 1660, 834)]:
-        top = deck_z(sy)
-        for k in range(1, 5):
-            z = top - 1.35 * k + 0.3
-            C.box(metal, fx0 / 100, -0.45, z, fx1 / 100, -0.05, z + 0.04, '#3c4254')
-            C.box(metal, fx0 / 100, -0.47, z + 0.04, fx1 / 100, -0.43, z + 0.36, '#3c4254')
-            s0, s1 = (fx0, fx1) if k % 2 else (fx1, fx0)
-            steps = 6
-            for j in range(steps):
-                u = j / steps
-                sx = (s0 + (s1 - s0) * (0.15 + 0.7 * u)) / 100
-                C.box(metal, sx - 0.06, -0.4, z - 1.3 + 1.3 * (1 - u), sx + 0.06, -0.1, z - 1.3 + 1.3 * (1 - u) + 0.03, '#3c4254')
-
     C.build(trim, 'trims', C.mat('paint'))
     C.build(deck, 'decks', C.mat('deck'))
     C.build(metal, 'metal', C.mat('metal'))

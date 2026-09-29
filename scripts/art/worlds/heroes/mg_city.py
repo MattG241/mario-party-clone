@@ -158,7 +158,7 @@ def facade_material(name: str, lit: str = '#ffd98a', lit_frac: float = 0.45, cel
     wall = m.mult(m.attr('col'), m.mix(nz.outputs['Fac'], col('#c9c2ba'), col('#ffffff')))
     wall = m.mult(wall, m.mix(m.ao(0.5, 8), col('#4a4c66'), col('#ffffff')))
     # a lit window varies a little in tint (warm white to amber)
-    tint = m.mix(wn.outputs['Value'], col(lit), col('#fff1c9'))
+    tint = m.mix(wn.outputs['Value'], col(lit), col('#ffe3a6'))
     c = m.mix(inwin, wall, col(glass))
     c = m.mix(warm, c, tint)
     b = m.bsdf(c, 0.7)

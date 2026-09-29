@@ -45,7 +45,7 @@ def main():
     C.build(far, 'far_city', C.facade_material('r_far', lit='#ffcf8a', lit_frac=0.3, cell=(0.24, 0.26), win=(0.1, 0.12), seed=8.0, glass='#3a2f66', emit=1.6))
     # The deck: a wide slab reaching towards us (the players hover over its front, the targets pop up
     # from its middle at DECK_Y), a bright rim, lane stripes and chevrons, lights along the front edge
-    trim, deck, metal, glow, paint, dark = (MeshBuilder() for _ in range(6))
+    trim, deck, metal, glow, paint, dark, booth = (MeshBuilder() for _ in range(7))
     dz = C.fz(DECK_Y) - 0.08
     front = -16.0
     C.box(deck, -1.0, front, dz - 3.2, 20.2, 9.0, dz, '#5a6488')
@@ -54,7 +54,7 @@ def main():
     soft = MeshBuilder()
     for k in range(12):  # lane stripes running back from the front edge
         lx = 0.6 + k * 1.64
-        C.box(soft, lx - 0.035, front + 0.6, dz + 0.001, lx + 0.035, 8.5, dz + 0.004, '#8ff0ff')
+        C.box(soft, lx - 0.03, front + 0.6, dz + 0.001, lx + 0.03, 8.5, dz + 0.004, '#7f8fc0')
     for k in range(20):  # hazard chevrons along the front
         cx = 0.3 + k * 0.98
         for sg in (-1, 1):
@@ -78,7 +78,7 @@ def main():
         C.box(glow, gx - 0.8, 5.98, dz + 3.36, gx + 0.8, 6.0, dz + 3.44, '#ff6b5e')
     # A control booth at the left and floodlight masts at both ends
     C.box(trim, 0.4, 3.0, dz, 2.6, 5.0, dz + 1.6, '#8a96b8')
-    C.box(glow, 0.6, 2.98, dz + 0.5, 2.4, 3.0, dz + 1.3, '#9fdcff')
+    C.box(booth, 0.6, 2.98, dz + 0.5, 2.4, 3.0, dz + 1.3, '#7fc8f0')
     C.box(dark, 0.3, 2.9, dz + 1.6, 2.7, 5.1, dz + 1.75, '#39405a')
     for mx in (0.4, 18.8):
         C.cyl(metal, mx, 1.5, dz, 0.1, 0.08, 4.6, '#6c7892', 12)
@@ -96,7 +96,8 @@ def main():
     C.build(glow, 'glow', C.mat('glow'))
     C.build(paint, 'paint', C.mat('paint'))
     C.build(dark, 'dark', C.mat('paint'))
-    C.build(soft, 'lanes', C.mat('softglow'))
+    C.build(booth, 'booth_window', C.mat('softglow'))
+    C.build(soft, 'lanes', C.mat('paint'))
     # Floodlight glow on the deck
     for mx in (0.4, 18.8):
         ld = bpy.data.lights.new('flood', 'SPOT')

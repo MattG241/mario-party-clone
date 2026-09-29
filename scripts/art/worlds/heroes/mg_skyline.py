@@ -133,7 +133,7 @@ def street():
     C.camera(0.5 if PREVIEW else 1.0, width_px=1920, height_px=STREET_H, cx_px=960, cy_px=STREET_TOP + STREET_H / 2)
     lib.world_light(0.8, zenith='#9a86d8', horizon='#ffb48a', ground='#5a4a5a')
     lib.sun(energy=2.2, elevation=14, azimuth=-60, angle=3.0, color='#ffb878')
-    wall, trim, glow, metal, pave, road, awn = (MeshBuilder() for _ in range(7))
+    wall, trim, glow, metal, pave, road, awn, shopglow = (MeshBuilder() for _ in range(8))
     kerb = C.fz(985)
     # road (its top fills the bottom of the strip), kerb, pavement
     C.box(road, -3.0, -9.0, kerb - 2.0, PERIOD + 3.0, 3.0, kerb - 0.16, '#3d4152')
@@ -162,7 +162,7 @@ def street():
         def shop(x0, x1, colr=colr, trimc=trimc, awc=awc, h=h, upper=upper):
             C.box(wall, x0, 1.6, kerb, x1, 2.6, kerb + h, colr)
             C.box(trim, x0 - 0.03, 1.54, kerb + h, x1 + 0.03, 2.62, kerb + h + 0.08, trimc)
-            C.box(glow, x0 + 0.2, 1.58, kerb + 0.12, x1 - 0.2, 1.62, kerb + 0.62, '#ffd08a')
+            C.box(shopglow, x0 + 0.2, 1.58, kerb + 0.12, x1 - 0.2, 1.62, kerb + 0.62, '#ffc878')
             # window mullions and a sill
             n_m = max(1, int((x1 - x0 - 0.4) / 0.55))
             for i in range(1, n_m):
@@ -174,7 +174,7 @@ def street():
                 for i in range(n_u):
                     ux = x0 + (x1 - x0) * (i + 0.5) / n_u
                     lit = (i * 7 + int(x0 * 13)) % 3 != 0
-                    C.box(glow if lit else trim, ux - 0.11, 1.585, kerb + h - 0.3, ux + 0.11, 1.61, kerb + h - 0.1, '#ffe2a8' if lit else '#2e3450')
+                    C.box(shopglow if lit else trim, ux - 0.11, 1.585, kerb + h - 0.3, ux + 0.11, 1.61, kerb + h - 0.1, '#ffd68f' if lit else '#2e3450')
             # striped awning sloping out over the pavement
             n = max(3, int((x1 - x0) / 0.25))
             for i in range(n):
@@ -205,6 +205,7 @@ def street():
     C.build(pave, 'pave', C.mat('deck'))
     C.build(road, 'road', C.mat('deck'))
     C.build(awn, 'awnings', C.mat('paint'))
+    C.build(shopglow, 'shop_windows', C.mat('softglow'))
     path = os.path.join(C.OUT, 'street_prev.png' if PREVIEW else 'street.png')
     C.render(path)
     if not PREVIEW:
@@ -246,11 +247,11 @@ def towers():
         x0 = (cx - w / 2) / 100
         x1 = (cx + w / 2) / 100
         # screen y (within the frame) of the roof line and of the anchor
-        roof_y = {'cornice': 48, 'mast': 250, 'tank': 230, 'crane': 300}[kind]
+        roof_y = {'cornice': 48, 'mast': 250, 'tank': 310, 'crane': 300}[kind]
         wall = MeshBuilder()
         top = C.fz(roof_y)
         C.building({'wall': wall, 'trim': trim, 'deck': deck}, x0, x1, top, depth=2.4, bottom=C.fz(TOWER_H + 200), wall=wall_c, trim=trim_c, deck='#9a9fbe')
-        C.build(wall, f'tower_{i}', C.facade_material(f't_wall_{i}', lit='#ffd9a0', lit_frac=0.45, seed=20.0 + i, cell=(0.46, 0.52), win=(0.24, 0.3), glass='#3a3a66', emit=2.2))
+        C.build(wall, f'tower_{i}', C.facade_material(f't_wall_{i}', lit='#ffd9a0', lit_frac=0.45, seed=20.0 + i, cell=(0.46, 0.52), win=(0.24, 0.3), glass='#3a3a66', emit=0.9))
         if kind == 'cornice':
             # a stepped crown along the roof; the anchor is its front right corner (the game flips odd ones)
             C.box(trim, x0 - 0.08, -0.12, top + 0.14, x1 + 0.08, 0.3, top + 0.3, trim_c)
