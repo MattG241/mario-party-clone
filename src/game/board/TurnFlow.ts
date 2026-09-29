@@ -117,7 +117,7 @@ export async function relocateRelic(ctx: FlowContext, buyer: PlayerState | null)
   });
   const next = ctx.rng.weighted(weighted);
   ctx.board.relicGate = next;
-  logMatch(ctx.state, `Relic moved ${old} → ${next}`);
+  logMatch(ctx.state, `Star Coin moved ${old} → ${next}`);
   await ctx.io.relicMoved(old, next);
   checkpoint(ctx);
 }
@@ -128,7 +128,7 @@ export async function offerRelic(ctx: FlowContext, p: PlayerState): Promise<void
   ctx.turn.relicOffered.add(gate);
   const price = currentRelicPrice(ctx.state);
   if (p.chips < price) {
-    await ctx.io.say([{ npc: 'packsprout', pose: 'surprised', text: `A Prism Relic costs ${price} Gleam Chips. You have ${p.chips} — come back soon!` }], p);
+    await ctx.io.say([{ npc: 'packsprout', pose: 'surprised', text: `A Star Coin costs ${price} coins. You have ${p.chips} — come back soon!` }], p);
     checkpoint(ctx);
     return;
   }
@@ -138,7 +138,7 @@ export async function offerRelic(ctx: FlowContext, p: PlayerState): Promise<void
   await spendChips(ctx, p, price, 'relic');
   p.relics += 1;
   p.stats.relicsBought += 1;
-  logMatch(ctx.state, `${p.name} bought a Prism Relic`);
+  logMatch(ctx.state, `${p.name} bought a Star Coin`);
   await ctx.io.relicGained(p, 'purchase');
   checkpoint(ctx);
   await relocateRelic(ctx, p);
@@ -195,9 +195,9 @@ async function useItem(ctx: FlowContext, p: PlayerState, item: ItemId): Promise<
     }
     case 'magnet_glove': {
       const rivals = ctx.state.players.filter((o) => o.slot !== p.slot);
-      const options: TargetOption<number>[] = rivals.map((o) => ({ value: o.slot, label: `${o.name} (${o.chips} chips)`, nodeId: o.nodeId, slot: o.slot }));
+      const options: TargetOption<number>[] = rivals.map((o) => ({ value: o.slot, label: `${o.name} (${o.chips} coins)`, nodeId: o.nodeId, slot: o.slot }));
       const cpu = p.isCpu ? BoardAI.chooseTarget(ctx, p, 'magnet', options) : undefined;
-      const target = await io.chooseTarget(p, 'Pull chips from which rival?', options, cpu);
+      const target = await io.chooseTarget(p, 'Pull coins from which rival?', options, cpu);
       checkpoint(ctx);
       if (target === null) return false;
       ItemManager.remove(p, item);
@@ -332,7 +332,7 @@ async function land(ctx: FlowContext, p: PlayerState): Promise<void> {
     }
     case 'relic':
       if (board.relicGate !== node.id) {
-        await io.say([{ npc: 'packsprout', pose: 'idle', text: 'This gate is quiet today… but the pedestal still hums. Take a few chips!' }], p);
+        await io.say([{ npc: 'packsprout', pose: 'idle', text: 'This gate is quiet today… but the pedestal still hums. Take a few coins!' }], p);
         await gainChips(ctx, p, 2, 'pedestal');
       }
       break;

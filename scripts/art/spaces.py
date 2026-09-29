@@ -130,10 +130,11 @@ def icon_texture(kind, top, hl):
             b2 = (c + math.cos(ah) * S * 0.18, c + math.sin(ah) * S * 0.18)
             d.polygon([tip, b1, b2], fill=(255, 255, 255, 255))
     elif kind == 'relic':
-        gem = [(c, c - S * 0.3), (c + S * 0.2, c - S * 0.1), (c + S * 0.13, c + S * 0.27), (c - S * 0.13, c + S * 0.27), (c - S * 0.2, c - S * 0.1)]
-        d.polygon(gem, fill=(92, 225, 255, 255), outline=(40, 120, 170, 255), width=int(S * 0.018))
-        d.polygon([(c, c - S * 0.3), (c + S * 0.2, c - S * 0.1), (c, c - S * 0.02), (c - S * 0.2, c - S * 0.1)], fill=(200, 246, 255, 255))
-        d.line([(c, c - S * 0.02), (c, c + S * 0.27)], fill=(40, 120, 170, 255), width=int(S * 0.012))
+        # the Star Coin: a thick gold coin stamped with a big star
+        d.ellipse([c - S * 0.3, c - S * 0.27, c + S * 0.3, c + S * 0.33], fill=gold_d)
+        d.ellipse([c - S * 0.3, c - S * 0.31, c + S * 0.3, c + S * 0.29], fill=gold, outline=gold_d, width=int(S * 0.018))
+        d.ellipse([c - S * 0.235, c - S * 0.246, c + S * 0.235, c + S * 0.224], outline=(255, 224, 138, 255), width=int(S * 0.014))
+        star(d, c, c - S * 0.005, S * 0.2, S * 0.085, 5, (255, 247, 210, 255), outline=gold_d, width=int(S * 0.013))
     elif kind == 'event':
         # a bold white "!" with a soft darker drop, on rose enamel
         for dy, fill in ((S * 0.012, (150, 30, 66, 255)), (0, (255, 255, 255, 255))):

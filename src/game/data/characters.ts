@@ -248,7 +248,7 @@ export const CHARACTERS: Record<CharacterId, CharacterDef> = {
     name: 'Homer',
     short: 'Homer',
     role: 'Nuclear Safety Inspector',
-    blurb: 'Mmm... Gleam Chips.',
+    blurb: 'Mmm... coins.',
     color: 0x7cb342,
     colorCss: '#7cb342',
     atlas: heroAtlas('homer'),

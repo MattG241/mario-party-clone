@@ -67,7 +67,7 @@ export const ITEMS: Record<ItemId, ItemDef> = {
   snare_seed: {
     id: 'snare_seed',
     name: 'Snare Seed',
-    description: 'Plants a trap on your space. The next rival to land there pays you 5 chips.',
+    description: 'Plants a trap on your space. The next rival to land there pays you 5 coins.',
     price: 5,
     timing: 'preRoll',
     icon: { texture: 'items', frame: '30', scale: 0.46, anim: 'seed-idle' },
@@ -85,7 +85,7 @@ export const ITEMS: Record<ItemId, ItemDef> = {
   magnet_glove: {
     id: 'magnet_glove',
     name: 'Magnet Glove',
-    description: 'Pulls up to 5 Gleam Chips from a rival of your choice.',
+    description: 'Pulls up to 5 coins from a rival of your choice.',
     price: 8,
     timing: 'preRoll',
     icon: { texture: 'item-magnet-glove', scale: 0.62 },

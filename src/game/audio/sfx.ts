@@ -364,8 +364,8 @@ export const SFX: Record<SfxKey, (v: Voice, t: number, p: number) => void> = {
 /** Subtitle captions for sounds that carry meaning. */
 export const SFX_CAPTIONS: Partial<Record<SfxKey, string>> = {
   dialStop: '[Orbit Dial chimes]',
-  chipGain: '[Gleam Chips jingle]',
-  chipLose: '[Gleam Chips scatter]',
+  chipGain: '[Coins jingle]',
+  chipLose: '[Coins scatter]',
   itemGet: '[Item fanfare]',
   portal: '[Portal hums]',
   eventAlert: '[Festival horn sounds]',
@@ -375,7 +375,7 @@ export const SFX_CAPTIONS: Partial<Record<SfxKey, string>> = {
   go: '[Starting whistle: GO!]',
   finish: '[Finish whistle]',
   drumroll: '[Drumroll]',
-  relic: '[Prism Relic shimmers]',
+  relic: '[Star Coin shimmers]',
   explosion: '[Boom!]',
   splash: '[Splash!]',
   trap: '[Snare snaps shut]',
@@ -387,6 +387,6 @@ export const SFX_CAPTIONS: Partial<Record<SfxKey, string>> = {
   crowdRoar: '[Crowd roars]',
   crowdCheer: '[Crowd cheers]',
   finalCall: '[Hurry-up fanfare]',
-  goldChip: '[Golden chip chimes]',
+  goldChip: '[Golden coin chimes]',
   alarm: '[Alarm blares]',
 };

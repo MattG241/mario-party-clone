@@ -817,6 +817,9 @@ export class CrateCrazeScene extends BaseMinigame {
    * freeze-frame and a camera kick the way they were knocked.
    */
   private stun(u: Pusher, ms: number, vx: number, vy: number, stop = 0): void {
+    // No chain-stuns: someone just knocked dizzy shrugs off another hit until they've recovered.
+    if (!this.canHit(u.p)) return;
+    this.markHit(u.p, ms + 350);
     u.stunT = Math.max(u.stunT, ms);
     u.windT = 0;
     u.dashT = 0;

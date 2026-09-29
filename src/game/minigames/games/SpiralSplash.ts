@@ -919,7 +919,7 @@ export class SpiralSplashScene extends BaseMinigame {
       for (const w of this.waders) {
         // Hoppers can be knocked out of the air; players dropping back in after a splash can't be hit.
         const target = w.state === 'hop' || (w.state === 'pad' && w.z <= 0);
-        if (w === b.owner || w.invuln > 0 || !target) continue;
+        if (w === b.owner || w.invuln > 0 || !target || !this.canHit(w.p)) continue;
         if (Math.hypot(w.x - b.x, w.y - b.y) < BLAST_R + PLAYER_R) {
           this.hit(w, b);
           break;
@@ -930,6 +930,8 @@ export class SpiralSplashScene extends BaseMinigame {
   }
 
   private hit(w: Wader, b: Blast): void {
+    // A short cooldown: rivals can still team up to push someone off, but not in one instant.
+    this.markHit(w.p, 450);
     const m = Math.hypot(b.vx, b.vy) || 1;
     const kx = b.vx / m;
     const ky = b.vy / m;

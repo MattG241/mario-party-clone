@@ -1,20 +1,28 @@
 [
  {
   "name": "title",
-  "url": "",
+  "url": "?full",
   "steps": [
    [
     "waitReal",
     "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.ready && window.__GLEAMTRAIL__.game.scene.isActive('Title')",
-    120000
+    180000
+   ],
+   [
+    "seed",
+    2
    ],
    [
     "eval",
-    "(() => { const s = window.__GLEAMTRAIL__.game.scene.getScene('Title'); for (const k of ['logo', 'pressText', 'hint', 'audioHint', 'prompts']) s[k] && s[k].setVisible(false); })()"
+    "window.__GLEAMTRAIL__.game.scene.getScene('Title').scene.restart()"
    ],
    [
     "skip",
-    0.5
+    1.0
+   ],
+   [
+    "eval",
+    "(() => { const s = window.__GLEAMTRAIL__.game.scene.getScene('Title'); for (const k of ['logo', 'pressText', 'hint', 'hintPlate', 'prompts']) s[k] && s[k].setVisible(false); s.audioHint && s.audioHint.setAlpha(0); })()"
    ],
    [
     "record",
@@ -24,296 +32,839 @@
  },
  {
   "name": "select",
-  "url": "",
+  "url": "?scene=CharacterSelect&full",
+  "pads": 4,
+  "random": 5,
+  "storage": {
+   "gleamtrail.settings.v1": {
+    "lastCharacters": [
+     null,
+     "spiderman",
+     "homer",
+     "naruto"
+    ]
+   }
+  },
   "steps": [
    [
     "waitReal",
-    "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.ready && window.__GLEAMTRAIL__.game.scene.isActive('Title')",
-    120000
-   ],
-   [
-    "wait",
-    1500
-   ],
-   [
-    "key",
-    "Enter"
-   ],
-   [
-    "wait",
-    2000
-   ],
-   [
-    "key",
-    "Enter"
-   ],
-   [
-    "waitReal",
-    "window.__GLEAMTRAIL__.game.scene.isActive('CharacterSelect')",
-    60000
-   ],
-   [
-    "wait",
-    2500
+    "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('CharacterSelect')",
+    180000
    ],
    [
     "skip",
     0.5
    ],
    [
-    "record",
-    0.6
-   ],
-   [
-    "press",
-    "Enter"
+    "mark",
+    "start"
    ],
    [
     "record",
-    1.4
+    0.4
    ],
    [
-    "press",
-    "ArrowRight"
-   ],
-   [
-    "record",
-    1.3
-   ],
-   [
-    "press",
-    "ArrowRight"
+    "pad",
+    0,
+    "A",
+    true
    ],
    [
     "record",
-    1.3
+    0.1
    ],
    [
-    "press",
-    "ArrowRight"
-   ],
-   [
-    "record",
-    1.3
-   ],
-   [
-    "press",
-    "Enter"
+    "pad",
+    1,
+    "A",
+    true
    ],
    [
     "record",
-    2.5
+    0.1
+   ],
+   [
+    "pad",
+    2,
+    "A",
+    true
+   ],
+   [
+    "record",
+    0.1
+   ],
+   [
+    "pad",
+    3,
+    "A",
+    true
+   ],
+   [
+    "record",
+    0.233
+   ],
+   [
+    "pad",
+    0,
+    "A",
+    true
+   ],
+   [
+    "record",
+    0.067
+   ],
+   [
+    "pad",
+    1,
+    "RIGHT",
+    true
+   ],
+   [
+    "record",
+    0.133
+   ],
+   [
+    "pad",
+    2,
+    "LEFT",
+    true
+   ],
+   [
+    "record",
+    0.067
+   ],
+   [
+    "pad",
+    1,
+    "RIGHT",
+    true
+   ],
+   [
+    "record",
+    0.133
+   ],
+   [
+    "pad",
+    3,
+    "LEFT",
+    true
+   ],
+   [
+    "record",
+    0.2
+   ],
+   [
+    "pad",
+    1,
+    "A",
+    true
+   ],
+   [
+    "record",
+    0.2
+   ],
+   [
+    "pad",
+    2,
+    "A",
+    true
+   ],
+   [
+    "record",
+    0.267
+   ],
+   [
+    "pad",
+    3,
+    "A",
+    true
+   ],
+   [
+    "record",
+    2.3
    ]
   ]
  },
  {
   "name": "board_intro",
-  "url": "?quick&humans=0&seed=21&speed=normal&intro&nocputag",
+  "url": "?quick&humans=0&seed=21&speed=normal&intro&nocputag&full",
+  "chars": [
+   "luffy",
+   "sonic",
+   "spongebob",
+   "goku"
+  ],
+  "random": 7,
+  "hold": true,
   "steps": [
    [
     "waitReal",
-    "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('BoardUI')",
-    120000
+    "window.__launched === true",
+    180000
+   ],
+   [
+    "until",
+    "window.__GLEAMTRAIL__.game.scene.isActive('BoardUI')",
+    60
+   ],
+   [
+    "mark",
+    "start"
+   ],
+   [
+    "watch",
+    "(() => { const m = window.__GLEAMTRAIL__.session.match; return [m.phase.kind, m.phase.index ?? -1, window.__texts(50)]; })()"
    ],
    [
     "record",
-    16
+    3.4
    ]
   ]
  },
  {
-  "name": "board_turns",
-  "url": "?quick&humans=0&seed=21&speed=normal&midgame&nocputag",
+  "name": "board_relic",
+  "url": "?quick&humans=0&seed=21&speed=normal&midgame&nocputag&full",
+  "chars": [
+   "luffy",
+   "sonic",
+   "spongebob",
+   "goku"
+  ],
+  "random": 7,
+  "hold": true,
   "steps": [
    [
     "waitReal",
-    "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('BoardUI')",
-    120000
+    "window.__launched === true",
+    180000
+   ],
+   [
+    "eval",
+    "(() => { const p = window.__GLEAMTRAIL__.session.match.players[0]; p.nodeId = 't2'; p.trail = []; p.chips = 30; })()"
+   ],
+   [
+    "until",
+    "window.__GLEAMTRAIL__.game.scene.isActive('BoardUI')",
+    60
+   ],
+   [
+    "mark",
+    "start"
+   ],
+   [
+    "watch",
+    "(() => { const m = window.__GLEAMTRAIL__.session.match; return [m.phase.kind, m.phase.index ?? -1, window.__texts(50)]; })()"
+   ],
+   [
+    "skip",
+    1.7
    ],
    [
     "record",
-    45
+    1.8
+   ],
+   [
+    "skip",
+    3.1
+   ],
+   [
+    "record",
+    11.8
+   ],
+   [
+    "skip",
+    4.0
+   ],
+   [
+    "record",
+    5.2
+   ]
+  ]
+ },
+ {
+  "name": "board_lapse",
+  "url": "?quick&humans=0&seed=21&midgame&noflow&debug&nocputag&full",
+  "chars": [
+   "luffy",
+   "sonic",
+   "spongebob",
+   "goku"
+  ],
+  "random": 7,
+  "hold": true,
+  "steps": [
+   [
+    "waitReal",
+    "window.__launched === true",
+    180000
+   ],
+   [
+    "until",
+    "window.__GLEAMTRAIL__.game.scene.isActive('BoardUI')",
+    60
+   ],
+   [
+    "skip",
+    1.0
+   ],
+   [
+    "eval",
+    "(() => { window.__GLEAMTRAIL__.game.scene.getScene('BoardUI').cameras.main.setVisible(false); const b = window.__GLEAMTRAIL__.game.scene.getScene('Board'); b.lighting.to(0.12, 0); const c = b.cameras.main; c.stopFollow(); c.setZoom(0.6); c.centerOn(2180, 1640); })()"
+   ],
+   [
+    "skip",
+    0.5
+   ],
+   [
+    "mark",
+    "start"
+   ],
+   [
+    "eval",
+    "(() => { const b = window.__GLEAMTRAIL__.game.scene.getScene('Board'); b.lighting.to(1.0, 9000); const c = b.cameras.main; c.pan(2060, 1930, 9400, 'Sine.easeInOut'); c.zoomTo(0.8, 9400, 'Sine.easeInOut'); })()"
+   ],
+   [
+    "record",
+    9.6
    ]
   ]
  },
  {
   "name": "board_final",
-  "url": "?quick&humans=0&seed=33&speed=normal&midgame&rounds=4&nocputag",
+  "url": "?quick&humans=0&seed=33&speed=normal&midgame&rounds=4&nocputag&full",
+  "chars": [
+   "luffy",
+   "sonic",
+   "spongebob",
+   "goku"
+  ],
+  "random": 7,
+  "hold": true,
   "steps": [
    [
     "waitReal",
-    "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('BoardUI')",
-    120000
+    "window.__launched === true",
+    180000
+   ],
+   [
+    "until",
+    "window.__GLEAMTRAIL__.game.scene.isActive('Board')",
+    60
+   ],
+   [
+    "eval",
+    "window.__GLEAMTRAIL__.game.scene.getScene('Board').lighting.to(0.3, 0)"
+   ],
+   [
+    "until",
+    "window.__GLEAMTRAIL__.game.scene.isActive('BoardUI')",
+    60
+   ],
+   [
+    "mark",
+    "start"
+   ],
+   [
+    "watch",
+    "(() => { const m = window.__GLEAMTRAIL__.session.match; return [m.phase.kind, m.phase.index ?? -1, window.__texts(50)]; })()"
    ],
    [
     "record",
-    24
-   ]
-  ]
- },
- {
-  "name": "intro_card",
-  "url": "?minigame=gleam-grab&humans=1&instructions=on&seed=11&nocputag",
-  "steps": [
-   [
-    "waitReal",
-    "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('MinigameIntro')",
-    120000
-   ],
-   [
-    "wait",
-    1500
+    3.6
    ],
    [
     "skip",
     0.4
    ],
    [
-    "record",
-    2.6
+    "eval",
+    "window.__GLEAMTRAIL__.game.scene.getScene('Board').ctx.interrupt = 'finishRound'"
    ],
    [
-    "press",
-    "Enter"
+    "until",
+    "window.__GLEAMTRAIL__.game.scene.getScene('BoardUI').sys.isActive() && window.__GLEAMTRAIL__.session.match.phase.kind === 'minigame'",
+    40
+   ],
+   [
+    "mark",
+    "minigame"
+   ],
+   [
+    "skip",
+    0.3
    ],
    [
     "record",
-    1.8
+    4.3
+   ]
+  ]
+ },
+ {
+  "name": "ceremony",
+  "url": "?quick&humans=0&seed=21&midgame&noflow&debug&nocputag&full",
+  "chars": [
+   "luffy",
+   "sonic",
+   "spongebob",
+   "goku"
+  ],
+  "random": 7,
+  "hold": true,
+  "steps": [
+   [
+    "waitReal",
+    "window.__launched === true",
+    180000
+   ],
+   [
+    "until",
+    "window.__GLEAMTRAIL__.game.scene.isActive('BoardUI')",
+    60
+   ],
+   [
+    "skip",
+    0.2
+   ],
+   [
+    "eval",
+    "(() => { const G = window.__GLEAMTRAIL__; const m = G.session.match; const r = [5, 4, 3, 2], c = [12, 30, 25, 18]; m.players.forEach((p, i) => { p.relics = r[i]; p.chips = c[i]; }); const sm = G.game.scene; sm.stop('BoardUI'); sm.stop('BoardBg'); sm.stop('Board'); sm.start('FinalResults', { state: m, awards: [] }); })()"
+   ],
+   [
+    "until",
+    "window.__GLEAMTRAIL__.game.scene.isActive('FinalResults')",
+    30
+   ],
+   [
+    "mark",
+    "start"
+   ],
+   [
+    "watch",
+    "window.__texts(40)"
+   ],
+   [
+    "skip",
+    10.4
+   ],
+   [
+    "record",
+    17.6
    ]
   ]
  },
  {
   "name": "mg_gleam",
-  "url": "?minigame=gleam-grab&humans=0&instructions=off&seed=11&nocputag",
+  "url": "?minigame=gleam-grab&humans=0&instructions=off&seed=5&nocputag&full",
+  "chars": [
+   "sabrina",
+   "luffy",
+   "spiderman",
+   "homer"
+  ],
+  "random": 1234,
+  "hold": true,
   "steps": [
    [
     "waitReal",
-    "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('mg-gleam-grab')",
-    120000
+    "window.__launched === true",
+    180000
+   ],
+   [
+    "until",
+    "window.__GLEAMTRAIL__.game.scene.isActive('mg-gleam-grab')",
+    90
+   ],
+   [
+    "mark",
+    "start"
+   ],
+   [
+    "watch",
+    "(() => { const s = window.__GLEAMTRAIL__.game.scene.getScene('mg-gleam-grab'); return [s.phase, s.eliminated.length, window.__texts(50)]; })()"
+   ],
+   [
+    "skip",
+    0.3
    ],
    [
     "record",
-    14
+    1.0
+   ],
+   [
+    "skip",
+    36.0
+   ],
+   [
+    "record",
+    3.0
+   ],
+   [
+    "skip",
+    7.5
+   ],
+   [
+    "record",
+    3.4
    ]
   ]
  },
  {
   "name": "mg_orbit",
-  "url": "?minigame=orbit-dodge&humans=0&instructions=off&seed=5&nocputag",
+  "url": "?minigame=orbit-dodge&humans=0&instructions=off&seed=5&nocputag&full",
+  "chars": [
+   "sonic",
+   "spongebob",
+   "goku",
+   "naruto"
+  ],
+  "random": 1234,
+  "hold": true,
   "steps": [
    [
     "waitReal",
-    "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('mg-orbit-dodge')",
-    120000
+    "window.__launched === true",
+    180000
+   ],
+   [
+    "until",
+    "window.__GLEAMTRAIL__.game.scene.isActive('mg-orbit-dodge')",
+    90
+   ],
+   [
+    "mark",
+    "start"
+   ],
+   [
+    "watch",
+    "(() => { const s = window.__GLEAMTRAIL__.game.scene.getScene('mg-orbit-dodge'); return [s.phase, s.eliminated.length, window.__texts(50)]; })()"
+   ],
+   [
+    "skip",
+    2.3
    ],
    [
     "record",
-    14
+    1.5
+   ],
+   [
+    "skip",
+    28.8
+   ],
+   [
+    "record",
+    2.6
+   ],
+   [
+    "skip",
+    1.4
+   ],
+   [
+    "record",
+    1.2
+   ],
+   [
+    "skip",
+    2.6
+   ],
+   [
+    "record",
+    5.2
    ]
   ]
  },
  {
   "name": "mg_crate",
-  "url": "?minigame=crate-craze&humans=0&instructions=off&seed=5&nocputag",
+  "url": "?minigame=crate-craze&humans=0&instructions=off&seed=5&nocputag&full",
+  "chars": [
+   "ironman",
+   "nami",
+   "elvis",
+   "zoro"
+  ],
+  "random": 1234,
+  "hold": true,
   "steps": [
    [
     "waitReal",
-    "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('mg-crate-craze')",
-    120000
+    "window.__launched === true",
+    180000
+   ],
+   [
+    "until",
+    "window.__GLEAMTRAIL__.game.scene.isActive('mg-crate-craze')",
+    90
+   ],
+   [
+    "mark",
+    "start"
+   ],
+   [
+    "watch",
+    "(() => { const s = window.__GLEAMTRAIL__.game.scene.getScene('mg-crate-craze'); return [s.phase, s.eliminated.length, window.__texts(50)]; })()"
+   ],
+   [
+    "skip",
+    1.0
    ],
    [
     "record",
-    12
+    0.9
+   ],
+   [
+    "skip",
+    25.1
+   ],
+   [
+    "record",
+    1.1
+   ],
+   [
+    "skip",
+    21.5
+   ],
+   [
+    "record",
+    2.8
    ]
   ]
  },
  {
   "name": "mg_skybridge",
-  "url": "?minigame=skybridge-scramble&humans=0&instructions=off&seed=5&nocputag",
+  "url": "?minigame=skybridge-scramble&humans=0&instructions=off&seed=5&nocputag&full",
+  "chars": [
+   "batman",
+   "spiderman",
+   "homer",
+   "zoro"
+  ],
+  "random": 1234,
+  "hold": true,
   "steps": [
    [
     "waitReal",
-    "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('mg-skybridge-scramble')",
-    120000
+    "window.__launched === true",
+    180000
+   ],
+   [
+    "until",
+    "window.__GLEAMTRAIL__.game.scene.isActive('mg-skybridge-scramble')",
+    90
+   ],
+   [
+    "mark",
+    "start"
+   ],
+   [
+    "watch",
+    "(() => { const s = window.__GLEAMTRAIL__.game.scene.getScene('mg-skybridge-scramble'); return [s.phase, s.eliminated.length, window.__texts(50)]; })()"
+   ],
+   [
+    "skip",
+    38.4
    ],
    [
     "record",
-    14
+    2.8
+   ],
+   [
+    "skip",
+    35.8
+   ],
+   [
+    "record",
+    1.2
    ]
   ]
  },
  {
   "name": "mg_totem",
-  "url": "?minigame=totem-tug&humans=0&instructions=off&seed=5&nocputag",
+  "url": "?minigame=totem-tug&humans=0&instructions=off&seed=5&nocputag&full",
+  "chars": [
+   "chappell",
+   "goku",
+   "sandler",
+   "luffy"
+  ],
+  "random": 42,
+  "hold": true,
   "steps": [
    [
     "waitReal",
-    "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('mg-totem-tug')",
-    120000
+    "window.__launched === true",
+    180000
+   ],
+   [
+    "until",
+    "window.__GLEAMTRAIL__.game.scene.isActive('mg-totem-tug')",
+    90
+   ],
+   [
+    "mark",
+    "start"
+   ],
+   [
+    "watch",
+    "(() => { const s = window.__GLEAMTRAIL__.game.scene.getScene('mg-totem-tug'); return [s.phase, s.eliminated.length, window.__texts(50)]; })()"
+   ],
+   [
+    "skip",
+    9.3
    ],
    [
     "record",
-    12
+    2.6
+   ],
+   [
+    "skip",
+    13.83
+   ],
+   [
+    "record",
+    4.0
    ]
   ]
  },
  {
   "name": "mg_splash",
-  "url": "?minigame=spiral-splash&humans=0&instructions=off&seed=5&nocputag",
+  "url": "?minigame=spiral-splash&humans=0&instructions=off&seed=5&nocputag&full",
+  "chars": [
+   "naruto",
+   "luffy",
+   "zoro",
+   "nami"
+  ],
+  "random": 99,
+  "hold": true,
   "steps": [
    [
     "waitReal",
-    "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('mg-spiral-splash')",
-    120000
+    "window.__launched === true",
+    180000
+   ],
+   [
+    "until",
+    "window.__GLEAMTRAIL__.game.scene.isActive('mg-spiral-splash')",
+    90
+   ],
+   [
+    "mark",
+    "start"
+   ],
+   [
+    "watch",
+    "(() => { const s = window.__GLEAMTRAIL__.game.scene.getScene('mg-spiral-splash'); return [s.phase, s.eliminated.length, window.__texts(50)]; })()"
+   ],
+   [
+    "skip",
+    8.0
    ],
    [
     "record",
-    12
+    0.9
+   ],
+   [
+    "skip",
+    36.6
+   ],
+   [
+    "record",
+    2.7
    ]
   ]
  },
  {
   "name": "mg_relay",
-  "url": "?minigame=relic-relay&humans=0&instructions=off&seed=5&nocputag",
+  "url": "?minigame=relic-relay&humans=0&instructions=off&seed=5&nocputag&full",
+  "chars": [
+   "sonic",
+   "spiderman",
+   "batman",
+   "ironman"
+  ],
+  "random": 99,
+  "hold": true,
   "steps": [
    [
     "waitReal",
-    "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('mg-relic-relay')",
-    120000
+    "window.__launched === true",
+    180000
+   ],
+   [
+    "until",
+    "window.__GLEAMTRAIL__.game.scene.isActive('mg-relic-relay')",
+    90
+   ],
+   [
+    "mark",
+    "start"
+   ],
+   [
+    "watch",
+    "(() => { const s = window.__GLEAMTRAIL__.game.scene.getScene('mg-relic-relay'); return [s.phase, s.eliminated.length, window.__texts(50)]; })()"
+   ],
+   [
+    "skip",
+    12.1
    ],
    [
     "record",
-    12
+    3.2
    ]
   ]
  },
  {
   "name": "mg_tower",
-  "url": "?minigame=tumble-tower&humans=0&instructions=off&seed=5&nocputag",
+  "url": "?minigame=tumble-tower&humans=0&instructions=off&seed=5&nocputag&full",
+  "chars": [
+   "sandler",
+   "goku",
+   "elvis",
+   "spongebob"
+  ],
+  "random": 1234,
+  "hold": true,
   "steps": [
    [
     "waitReal",
-    "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('mg-tumble-tower')",
-    120000
+    "window.__launched === true",
+    180000
+   ],
+   [
+    "until",
+    "window.__GLEAMTRAIL__.game.scene.isActive('mg-tumble-tower')",
+    90
+   ],
+   [
+    "mark",
+    "start"
+   ],
+   [
+    "watch",
+    "(() => { const s = window.__GLEAMTRAIL__.game.scene.getScene('mg-tumble-tower'); return [s.phase, s.eliminated.length, window.__texts(50)]; })()"
+   ],
+   [
+    "skip",
+    1.7
    ],
    [
     "record",
-    12
-   ]
-  ]
- },
- {
-  "name": "results",
-  "url": "?minigame=orbit-dodge&humans=0&instructions=off&seed=5&realtime&nocputag",
-  "steps": [
+    0.9
+   ],
    [
-    "waitReal",
-    "window.__GLEAMTRAIL__ && window.__GLEAMTRAIL__.game.scene.isActive('Results')",
-    600000
+    "skip",
+    32.2
    ],
    [
     "record",
-    7
+    2.7
+   ],
+   [
+    "skip",
+    1.6
+   ],
+   [
+    "record",
+    0.9
    ]
   ]
  }
