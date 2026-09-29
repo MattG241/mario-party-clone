@@ -535,7 +535,10 @@ export class BoardPresenter implements FlowIO {
   }
 
   async event(e: EventPresentation): Promise<void> {
-    const focusNode = e.focus ?? e.player?.nodeId;
+    // A shot of a space this board doesn't have (an event written for another board) is skipped
+    // rather than stopping the match.
+    const want = e.focus ?? e.player?.nodeId;
+    const focusNode = want && this.scene.board.graph.has(want) ? want : undefined;
     // A player's own event pushes right in on them; board-wide events frame the landmark.
     const personal = !e.focus && !!e.player;
     const color = EVENT_COLORS[e.kind];

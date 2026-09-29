@@ -367,17 +367,22 @@ export class MinigameModeScene extends Phaser.Scene {
     const cx = GRID_X + 1110;
     this.detail.add(addText(this, cx, y0 + 40, 'CONTROLS', 20, { color: CSS.creamDark, weight: 700, align: 'left' }).setOrigin(0, 0.5));
     const kind = glyphKindFor(0);
+    // status / play pill (placed first: the control labels must stop short of it)
+    const px = GAME_WIDTH - GRID_X - 36;
+    const pw = 250;
     info.controls.slice(0, 3).forEach((c, k) => {
       const gy = y0 + 84 + k * 44;
       const glyph = makeGlyph(this, c.button, 34, kind);
       glyph.setPosition(cx + 24 + Math.max(0, glyph.width - 34) / 2, gy);
       this.detail.add(glyph);
-      this.detail.add(addText(this, cx + 34 + Math.max(34, glyph.width) + 4, gy, c.label, 22, { color: CSS.cream, weight: 700, align: 'left' }).setOrigin(0, 0.5));
+      const lx = cx + 34 + Math.max(34, glyph.width) + 4;
+      const label = addText(this, lx, gy, c.label, 22, { color: CSS.cream, weight: 700, align: 'left' }).setOrigin(0, 0.5);
+      // Long labels ("Hold: pour / Tap: swirl") shrink rather than run under the PLAY pill.
+      const room = px - pw - 18 - lx;
+      if (label.width > room) label.setScale(Math.max(0.6, room / label.width));
+      this.detail.add(label);
     });
-    // status / play pill
-    const px = GAME_WIDTH - GRID_X - 36;
     const pill = this.add.graphics();
-    const pw = 250;
     if (card.playable) {
       pill.fillStyle(COLORS.goldDark, 1);
       pill.fillRoundedRect(px - pw, y0 + h / 2 - 30 + 5, pw, 60, 30);
