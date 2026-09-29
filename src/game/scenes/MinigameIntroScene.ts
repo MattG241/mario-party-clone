@@ -362,17 +362,33 @@ export class MinigameIntroScene extends Phaser.Scene {
       holder.add([g, t]);
       x += cw[i] + 12;
     });
-    // Up to four rules between the header and the controls tray.
-    const minRow = lines.length > 3 ? 62 : 70;
-    const gap = lines.length > 3 ? 7 : 10;
+    // Up to four rules between the header and the controls tray. Rows grow to fit their text
+    // (quick mode shows the whole description as one row); when long rules would run into the
+    // tray, the text steps down a size or two until everything fits.
+    const trayY = PY + PH - 58;
+    const top = PY + 90;
+    const room = trayY - 38 - 10 - top;
+    const many = lines.length > 3;
+    const steps: [number, number, number][] = many
+      ? [[24, 62, 7], [22, 56, 6], [20, 52, 5], [19, 48, 4]]
+      : [[24, 70, 10], [22, 62, 8], [20, 56, 6], [19, 52, 5]];
+    const measure = ([size, minRow, gap]: [number, number, number]) => {
+      const texts = lines.map((line) => addText(this, RX + 108, 0, line, size, { color: UI.inkCss, weight: 600, align: 'left', wrap: RW - 140 }));
+      const rows = texts.map((t) => Math.max(minRow, Math.ceil(t.height) + (size >= 22 ? 22 : 16)));
+      return { texts, rows, gap, total: rows.reduce((a, b) => a + b, 0) + gap * Math.max(0, lines.length - 1) };
+    };
+    let fit = measure(steps[0]);
+    for (let k = 1; k < steps.length && fit.total > room; k++) {
+      for (const t of fit.texts) t.destroy();
+      fit = measure(steps[k]);
+    }
     const reduced = settings.get().reducedMotion;
-    let cursor = PY + 90;
-    lines.forEach((line, i) => {
-      // Rows grow to fit their text (quick mode shows the whole description as one row).
-      const text = addText(this, RX + 108, 0, line, 24, { color: UI.inkCss, weight: 600, align: 'left', wrap: RW - 140 });
-      const rowH = Math.max(minRow, Math.ceil(text.height) + 22);
+    let cursor = top;
+    lines.forEach((_line, i) => {
+      const text = fit.texts[i];
+      const rowH = fit.rows[i];
       const y = cursor + rowH / 2;
-      cursor += rowH + gap;
+      cursor += rowH + fit.gap;
       text.setY(y);
       const row = this.add.container(0, 0);
       const g = this.add.graphics();
@@ -407,7 +423,6 @@ export class MinigameIntroScene extends Phaser.Scene {
       }
     });
     // Controls on their own tray along the bottom of the card.
-    const trayY = PY + PH - 58;
     const tray = this.add.graphics();
     tray.fillStyle(shade(UI.cardSoft, 0.95), 1);
     tray.fillRoundedRect(RX + 22, trayY - 38, RW - 44, 76, 22);
@@ -415,7 +430,11 @@ export class MinigameIntroScene extends Phaser.Scene {
     tray.strokeRoundedRect(RX + 22, trayY - 38, RW - 44, 76, 22);
     holder.add(tray);
     holder.add(addText(this, RX + 48, trayY - 38, 'CONTROLS', 15, { color: UI.inkSecondCss, weight: 700, align: 'left' }).setOrigin(0, 0.5).setBackgroundColor(css(shade(UI.cardSoft, 0.95))).setPadding(6, 1, 6, 1));
-    holder.add(new PromptBar(this, RX + RW / 2, trayY + 2, this.info.controls, { size: 44, fontSize: 27, color: UI.inkCss }));
+    const bar = new PromptBar(this, RX + RW / 2, trayY + 2, this.info.controls, { size: 44, fontSize: 27, color: UI.inkCss });
+    // Four long labels (a face button each) can outgrow the tray: shrink them to fit.
+    const barRoom = RW - 96;
+    if (bar.contentWidth > barRoom) bar.setScale(barRoom / bar.contentWidth);
+    holder.add(bar);
     return holder;
   }
 

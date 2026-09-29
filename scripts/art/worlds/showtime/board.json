@@ -1,0 +1,809 @@
+{
+ "id": "showtime",
+ "width": 3600,
+ "height": 2400,
+ "nodes": [
+  {
+   "id": "sf0",
+   "x": 1800,
+   "y": 1480,
+   "type": "start",
+   "region": "Fountain Circle",
+   "exposed": false
+  },
+  {
+   "id": "sl1",
+   "x": 1673,
+   "y": 1353,
+   "type": "gleam",
+   "region": "Fountain Circle",
+   "exposed": false
+  },
+  {
+   "id": "sl2",
+   "x": 1546,
+   "y": 1226,
+   "type": "festival",
+   "region": "Café Terrace",
+   "exposed": false
+  },
+  {
+   "id": "sl3",
+   "x": 1400,
+   "y": 1110,
+   "type": "portal",
+   "region": "Café Terrace",
+   "exposed": false
+  },
+  {
+   "id": "sl4",
+   "x": 1240,
+   "y": 1020,
+   "type": "market",
+   "region": "Pop Café",
+   "exposed": false,
+   "shop": "wrench"
+  },
+  {
+   "id": "sl5",
+   "x": 1065,
+   "y": 965,
+   "type": "event",
+   "region": "Pop Stage",
+   "exposed": false,
+   "eventId": "showtime_encore"
+  },
+  {
+   "id": "sl6",
+   "x": 885,
+   "y": 950,
+   "type": "relic",
+   "region": "Pop Stage",
+   "exposed": false
+  },
+  {
+   "id": "sl7",
+   "x": 715,
+   "y": 985,
+   "type": "gleam",
+   "region": "Pop Café",
+   "exposed": false
+  },
+  {
+   "id": "sl8",
+   "x": 565,
+   "y": 1070,
+   "type": "mischief",
+   "region": "Drive-In",
+   "exposed": false
+  },
+  {
+   "id": "sl9",
+   "x": 455,
+   "y": 1210,
+   "type": "portal",
+   "region": "Drive-In",
+   "exposed": false
+  },
+  {
+   "id": "sl10",
+   "x": 420,
+   "y": 1380,
+   "type": "festival",
+   "region": "Drive-In",
+   "exposed": false
+  },
+  {
+   "id": "sl11",
+   "x": 450,
+   "y": 1550,
+   "type": "gleam",
+   "region": "Drive-In",
+   "exposed": false
+  },
+  {
+   "id": "sl12",
+   "x": 540,
+   "y": 1700,
+   "type": "relic",
+   "region": "Drive-In",
+   "exposed": false
+  },
+  {
+   "id": "sl13",
+   "x": 680,
+   "y": 1810,
+   "type": "gleam",
+   "region": "Diner Row",
+   "exposed": false
+  },
+  {
+   "id": "sl14",
+   "x": 850,
+   "y": 1880,
+   "type": "event",
+   "region": "Diner Stage",
+   "exposed": false,
+   "eventId": "showtime_encore"
+  },
+  {
+   "id": "sl15",
+   "x": 1030,
+   "y": 1915,
+   "type": "gleam",
+   "region": "Diner Stage",
+   "exposed": false
+  },
+  {
+   "id": "sl16",
+   "x": 1210,
+   "y": 1910,
+   "type": "mischief",
+   "region": "Diner Row",
+   "exposed": false
+  },
+  {
+   "id": "sl17",
+   "x": 1385,
+   "y": 1870,
+   "type": "festival",
+   "region": "Jukebox Walk",
+   "exposed": false
+  },
+  {
+   "id": "sl18",
+   "x": 1545,
+   "y": 1760,
+   "type": "gleam",
+   "region": "Jukebox Walk",
+   "exposed": false
+  },
+  {
+   "id": "sl19",
+   "x": 1673,
+   "y": 1607,
+   "type": "mischief",
+   "region": "Fountain Circle",
+   "exposed": false
+  },
+  {
+   "id": "sr1",
+   "x": 1927,
+   "y": 1353,
+   "type": "gleam",
+   "region": "Marquee Stage",
+   "exposed": false
+  },
+  {
+   "id": "sr2",
+   "x": 2054,
+   "y": 1226,
+   "type": "event",
+   "region": "Marquee Stage",
+   "exposed": false,
+   "eventId": "showtime_spotlight"
+  },
+  {
+   "id": "sr3",
+   "x": 2200,
+   "y": 1110,
+   "type": "gleam",
+   "region": "Marquee Row",
+   "exposed": false
+  },
+  {
+   "id": "sr4",
+   "x": 2360,
+   "y": 1020,
+   "type": "festival",
+   "region": "Rhinestone Saloon",
+   "exposed": false
+  },
+  {
+   "id": "sr5",
+   "x": 2535,
+   "y": 965,
+   "type": "relic",
+   "region": "Rhinestone Saloon",
+   "exposed": false
+  },
+  {
+   "id": "sr6",
+   "x": 2715,
+   "y": 950,
+   "type": "event",
+   "region": "Rhinestone Saloon",
+   "exposed": false,
+   "eventId": "showtime_stampede"
+  },
+  {
+   "id": "sr7",
+   "x": 2885,
+   "y": 985,
+   "type": "mischief",
+   "region": "Rhinestone Saloon",
+   "exposed": false
+  },
+  {
+   "id": "sr8",
+   "x": 3035,
+   "y": 1070,
+   "type": "gleam",
+   "region": "Comedy Corner",
+   "exposed": false
+  },
+  {
+   "id": "si1",
+   "x": 3010,
+   "y": 1245,
+   "type": "gleam",
+   "region": "Ice Rink",
+   "exposed": false
+  },
+  {
+   "id": "si2",
+   "x": 2990,
+   "y": 1420,
+   "type": "mischief",
+   "region": "Ice Rink",
+   "exposed": false
+  },
+  {
+   "id": "si3",
+   "x": 3030,
+   "y": 1595,
+   "type": "gleam",
+   "region": "Ice Rink",
+   "exposed": false
+  },
+  {
+   "id": "sa1",
+   "x": 3200,
+   "y": 1150,
+   "type": "gleam",
+   "region": "Comedy Alley",
+   "exposed": false
+  },
+  {
+   "id": "sa2",
+   "x": 3320,
+   "y": 1290,
+   "type": "market",
+   "region": "Comedy Alley",
+   "exposed": false,
+   "shop": "pipper"
+  },
+  {
+   "id": "sa3",
+   "x": 3370,
+   "y": 1460,
+   "type": "portal",
+   "region": "Comedy Alley",
+   "exposed": false
+  },
+  {
+   "id": "sa4",
+   "x": 3330,
+   "y": 1630,
+   "type": "relic",
+   "region": "Comedy Alley",
+   "exposed": false
+  },
+  {
+   "id": "sa5",
+   "x": 3210,
+   "y": 1760,
+   "type": "festival",
+   "region": "Comedy Alley",
+   "exposed": false
+  },
+  {
+   "id": "sr9",
+   "x": 3045,
+   "y": 1780,
+   "type": "gleam",
+   "region": "Comedy Corner",
+   "exposed": false
+  },
+  {
+   "id": "sr10",
+   "x": 2880,
+   "y": 1870,
+   "type": "mischief",
+   "region": "Prize Wheel Promenade",
+   "exposed": false
+  },
+  {
+   "id": "sr11",
+   "x": 2700,
+   "y": 1910,
+   "type": "festival",
+   "region": "Prize Wheel Promenade",
+   "exposed": false
+  },
+  {
+   "id": "sr12",
+   "x": 2520,
+   "y": 1915,
+   "type": "portal",
+   "region": "Prize Wheel Promenade",
+   "exposed": false
+  },
+  {
+   "id": "sr13",
+   "x": 2345,
+   "y": 1875,
+   "type": "gleam",
+   "region": "Prize Wheel Promenade",
+   "exposed": false
+  },
+  {
+   "id": "sr14",
+   "x": 2200,
+   "y": 1800,
+   "type": "festival",
+   "region": "Fountain Walk",
+   "exposed": false
+  },
+  {
+   "id": "sr15",
+   "x": 2055,
+   "y": 1720,
+   "type": "gleam",
+   "region": "Fountain Walk",
+   "exposed": false
+  },
+  {
+   "id": "sr16",
+   "x": 1927,
+   "y": 1607,
+   "type": "mischief",
+   "region": "Fountain Circle",
+   "exposed": false
+  },
+  {
+   "id": "sv0",
+   "x": 2395,
+   "y": 1190,
+   "type": "gleam",
+   "region": "VIP Walk",
+   "exposed": false
+  },
+  {
+   "id": "sv1",
+   "x": 2430,
+   "y": 1360,
+   "type": "festival",
+   "region": "VIP Walk",
+   "exposed": false
+  },
+  {
+   "id": "sv2",
+   "x": 2460,
+   "y": 1530,
+   "type": "relic",
+   "region": "VIP Walk",
+   "exposed": false
+  },
+  {
+   "id": "sv3",
+   "x": 2490,
+   "y": 1740,
+   "type": "gleam",
+   "region": "VIP Walk",
+   "exposed": false
+  }
+ ],
+ "edges": [
+  {
+   "from": "sf0",
+   "to": "sl1",
+   "style": "path"
+  },
+  {
+   "from": "sf0",
+   "to": "sr1",
+   "style": "path"
+  },
+  {
+   "from": "sl1",
+   "to": "sl2",
+   "style": "steps"
+  },
+  {
+   "from": "sl2",
+   "to": "sl3",
+   "style": "path"
+  },
+  {
+   "from": "sl3",
+   "to": "sl4",
+   "style": "steps"
+  },
+  {
+   "from": "sl4",
+   "to": "sl5",
+   "style": "path"
+  },
+  {
+   "from": "sl5",
+   "to": "sl6",
+   "style": "path"
+  },
+  {
+   "from": "sl6",
+   "to": "sl7",
+   "style": "path"
+  },
+  {
+   "from": "sl7",
+   "to": "sl8",
+   "style": "steps"
+  },
+  {
+   "from": "sl8",
+   "to": "sl9",
+   "style": "path"
+  },
+  {
+   "from": "sl9",
+   "to": "sl10",
+   "style": "path"
+  },
+  {
+   "from": "sl10",
+   "to": "sl11",
+   "style": "path"
+  },
+  {
+   "from": "sl11",
+   "to": "sl12",
+   "style": "path"
+  },
+  {
+   "from": "sl12",
+   "to": "sl13",
+   "style": "steps"
+  },
+  {
+   "from": "sl13",
+   "to": "sl14",
+   "style": "path"
+  },
+  {
+   "from": "sl14",
+   "to": "sl15",
+   "style": "path"
+  },
+  {
+   "from": "sl15",
+   "to": "sl16",
+   "style": "path"
+  },
+  {
+   "from": "sl16",
+   "to": "sl17",
+   "style": "path"
+  },
+  {
+   "from": "sl17",
+   "to": "sl18",
+   "style": "steps"
+  },
+  {
+   "from": "sl18",
+   "to": "sl19",
+   "style": "path"
+  },
+  {
+   "from": "sl19",
+   "to": "sf0",
+   "style": "path"
+  },
+  {
+   "from": "sr1",
+   "to": "sr2",
+   "style": "steps"
+  },
+  {
+   "from": "sr2",
+   "to": "sr3",
+   "style": "path"
+  },
+  {
+   "from": "sr3",
+   "to": "sr4",
+   "style": "steps"
+  },
+  {
+   "from": "sr4",
+   "to": "sr5",
+   "style": "path"
+  },
+  {
+   "from": "sr4",
+   "to": "sv0",
+   "style": "steps"
+  },
+  {
+   "from": "sr5",
+   "to": "sr6",
+   "style": "path"
+  },
+  {
+   "from": "sr6",
+   "to": "sr7",
+   "style": "path"
+  },
+  {
+   "from": "sr7",
+   "to": "sr8",
+   "style": "steps"
+  },
+  {
+   "from": "sr8",
+   "to": "si1",
+   "style": "steps"
+  },
+  {
+   "from": "sr8",
+   "to": "sa1",
+   "style": "path"
+  },
+  {
+   "from": "si1",
+   "to": "si2",
+   "style": "path"
+  },
+  {
+   "from": "si2",
+   "to": "si3",
+   "style": "path"
+  },
+  {
+   "from": "si3",
+   "to": "sr9",
+   "style": "steps"
+  },
+  {
+   "from": "sa1",
+   "to": "sa2",
+   "style": "path"
+  },
+  {
+   "from": "sa2",
+   "to": "sa3",
+   "style": "path"
+  },
+  {
+   "from": "sa3",
+   "to": "sa4",
+   "style": "path"
+  },
+  {
+   "from": "sa4",
+   "to": "sa5",
+   "style": "path"
+  },
+  {
+   "from": "sa5",
+   "to": "sr9",
+   "style": "path"
+  },
+  {
+   "from": "sr9",
+   "to": "sr10",
+   "style": "steps"
+  },
+  {
+   "from": "sr10",
+   "to": "sr11",
+   "style": "path"
+  },
+  {
+   "from": "sr11",
+   "to": "sr12",
+   "style": "path"
+  },
+  {
+   "from": "sr12",
+   "to": "sr13",
+   "style": "path"
+  },
+  {
+   "from": "sr13",
+   "to": "sr14",
+   "style": "steps"
+  },
+  {
+   "from": "sr14",
+   "to": "sr15",
+   "style": "path"
+  },
+  {
+   "from": "sr15",
+   "to": "sr16",
+   "style": "steps"
+  },
+  {
+   "from": "sr16",
+   "to": "sf0",
+   "style": "path"
+  },
+  {
+   "from": "sv0",
+   "to": "sv1",
+   "style": "steps"
+  },
+  {
+   "from": "sv1",
+   "to": "sv2",
+   "style": "steps"
+  },
+  {
+   "from": "sv2",
+   "to": "sv3",
+   "style": "steps"
+  },
+  {
+   "from": "sv3",
+   "to": "sr12",
+   "style": "steps"
+  }
+ ],
+ "relicGates": [
+  "sl6",
+  "sl12",
+  "sr5",
+  "sa4",
+  "sv2"
+ ],
+ "portals": [
+  [
+   "sl9",
+   "sa3"
+  ],
+  [
+   "sl3",
+   "sr12"
+  ]
+ ],
+ "decorations": [
+  {
+   "texture": "observatory",
+   "x": 1800,
+   "y": 1080,
+   "scale": 0.78,
+   "sorted": true,
+   "id": "theatre"
+  },
+  {
+   "texture": "workshop",
+   "x": 2700,
+   "y": 870,
+   "scale": 0.6,
+   "sorted": true,
+   "id": "saloon"
+  },
+  {
+   "texture": "workshop",
+   "x": 1000,
+   "y": 1760,
+   "scale": 0.6,
+   "sorted": true,
+   "id": "diner",
+   "flipX": true
+  },
+  {
+   "texture": "stall",
+   "x": 1150,
+   "y": 900,
+   "scale": 0.5,
+   "sorted": true,
+   "id": "cafe"
+  },
+  {
+   "texture": "bunting",
+   "x": 830,
+   "y": 880,
+   "scale": 0.55,
+   "sorted": false,
+   "depth": -15
+  },
+  {
+   "texture": "windmill",
+   "x": 2700,
+   "y": 1790,
+   "scale": 0.45,
+   "sorted": true,
+   "id": "prize-wheel"
+  },
+  {
+   "texture": "windmill",
+   "x": 2890,
+   "y": 1745,
+   "scale": 0.36,
+   "sorted": true
+  },
+  {
+   "texture": "crystal-generator",
+   "x": 1800,
+   "y": 1770,
+   "scale": 0.5,
+   "sorted": true,
+   "id": "fountain"
+  },
+  {
+   "texture": "stall",
+   "x": 3385,
+   "y": 1245,
+   "scale": 0.4,
+   "sorted": true
+  },
+  {
+   "texture": "lantern",
+   "x": 1690,
+   "y": 1470,
+   "scale": 0.5,
+   "sorted": true
+  },
+  {
+   "texture": "lantern",
+   "x": 1905,
+   "y": 1470,
+   "scale": 0.5,
+   "sorted": true
+  },
+  {
+   "texture": "lantern",
+   "x": 1110,
+   "y": 1840,
+   "scale": 0.5,
+   "sorted": true
+  },
+  {
+   "texture": "lantern",
+   "x": 480,
+   "y": 1300,
+   "scale": 0.5,
+   "sorted": true
+  },
+  {
+   "texture": "lantern",
+   "x": 2620,
+   "y": 900,
+   "scale": 0.5,
+   "sorted": true
+  },
+  {
+   "texture": "lantern",
+   "x": 3120,
+   "y": 1700,
+   "scale": 0.5,
+   "sorted": true
+  },
+  {
+   "texture": "lantern",
+   "x": 2270,
+   "y": 1790,
+   "scale": 0.5,
+   "sorted": true
+  }
+ ],
+ "gates": [
+  {
+   "id": "viprope",
+   "from": "sr4",
+   "to": "sv0",
+   "prop": {
+    "x": 2378,
+    "y": 1095,
+    "scale": 0.55
+   }
+  }
+ ],
+ "hostSpot": {
+  "x": 1575,
+  "y": 1500
+ }
+}

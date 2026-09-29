@@ -238,10 +238,12 @@ export class BoardScene extends Phaser.Scene {
     await this.overview(10);
     const humans = this.state.players.filter((p) => !p.isCpu).map((p) => input.controls(p.slot));
     const sweep = this.tweens.add({ targets: this.cameras.main, scrollX: '+=200', duration: 6000, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
-    await this.ui.banner({ title: 'SUNCOIL SANCTUARY', subtitle: 'WELCOME TO THE FESTIVAL', color: COLORS.teal, sound: 'fanfare', hold: 1400, size: 96 });
+    // Every board's own name (the world boards share Suncoil's guide and rules).
+    const name = this.def.name;
+    await this.ui.banner({ title: name.toUpperCase(), subtitle: 'WELCOME TO THE FESTIVAL', color: COLORS.teal, sound: 'fanfare', hold: 1400, size: 96 });
     await this.ui.dialogLines(
       [
-        { npc: 'ora', pose: 'welcome', text: 'Welcome to Suncoil Sanctuary, adventurers! I\'m Ora, your festival guide.' },
+        { npc: 'ora', pose: 'welcome', text: `Welcome to ${name}, adventurers! I'm Ora, your festival guide.` },
         { npc: 'ora', pose: 'point', text: 'Spin the Orbit Dial to travel. Land on blue Gleam Spaces for coins, and watch out for purple Mischief!' },
         { npc: 'ora', pose: 'flag', text: 'Most Star Coins wins the festival — coins break ties. Press Y for items, X for the map and VIEW for scores.' },
       ],

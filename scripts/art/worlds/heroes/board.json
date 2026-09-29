@@ -1,0 +1,830 @@
+{
+ "id": "heroes",
+ "width": 3600,
+ "height": 2400,
+ "nodes": [
+  {
+   "id": "hp0",
+   "x": 1990,
+   "y": 2070,
+   "type": "start",
+   "region": "Midtown Plaza",
+   "exposed": false
+  },
+  {
+   "id": "hp1",
+   "x": 1810,
+   "y": 2100,
+   "type": "gleam",
+   "region": "Midtown Plaza",
+   "exposed": false
+  },
+  {
+   "id": "hp2",
+   "x": 1630,
+   "y": 2090,
+   "type": "festival",
+   "region": "Midtown Plaza",
+   "exposed": false
+  },
+  {
+   "id": "hp3",
+   "x": 1455,
+   "y": 2040,
+   "type": "gleam",
+   "region": "Midtown Plaza",
+   "exposed": false
+  },
+  {
+   "id": "hg0",
+   "x": 1285,
+   "y": 1975,
+   "type": "mischief",
+   "region": "Gothic Quarter",
+   "exposed": false
+  },
+  {
+   "id": "hg1",
+   "x": 1120,
+   "y": 1895,
+   "type": "gleam",
+   "region": "Gothic Quarter",
+   "exposed": false
+  },
+  {
+   "id": "hb0",
+   "x": 1075,
+   "y": 1725,
+   "type": "gleam",
+   "region": "Belfry Stairs",
+   "exposed": true
+  },
+  {
+   "id": "hb1",
+   "x": 1030,
+   "y": 1555,
+   "type": "event",
+   "region": "Belfry Stairs",
+   "exposed": true,
+   "eventId": "heroes_searchlight"
+  },
+  {
+   "id": "hb2",
+   "x": 950,
+   "y": 1395,
+   "type": "mischief",
+   "region": "Belfry Stairs",
+   "exposed": true
+  },
+  {
+   "id": "hl0",
+   "x": 950,
+   "y": 1880,
+   "type": "gleam",
+   "region": "Gothic Quarter",
+   "exposed": false
+  },
+  {
+   "id": "hl1",
+   "x": 780,
+   "y": 1810,
+   "type": "festival",
+   "region": "Gargoyle Ledges",
+   "exposed": false
+  },
+  {
+   "id": "hl2",
+   "x": 640,
+   "y": 1690,
+   "type": "portal",
+   "region": "Gargoyle Ledges",
+   "exposed": false
+  },
+  {
+   "id": "hl3",
+   "x": 575,
+   "y": 1525,
+   "type": "relic",
+   "region": "Gargoyle Ledges",
+   "exposed": false
+  },
+  {
+   "id": "hl4",
+   "x": 610,
+   "y": 1355,
+   "type": "gleam",
+   "region": "Gargoyle Ledges",
+   "exposed": false
+  },
+  {
+   "id": "hg2",
+   "x": 770,
+   "y": 1260,
+   "type": "gleam",
+   "region": "Gothic Quarter",
+   "exposed": false
+  },
+  {
+   "id": "hg3",
+   "x": 850,
+   "y": 1100,
+   "type": "festival",
+   "region": "Gothic Quarter",
+   "exposed": false
+  },
+  {
+   "id": "hr0",
+   "x": 960,
+   "y": 950,
+   "type": "gleam",
+   "region": "Rooftop Gardens",
+   "exposed": false
+  },
+  {
+   "id": "hr1",
+   "x": 1110,
+   "y": 860,
+   "type": "mischief",
+   "region": "Rooftop Gardens",
+   "exposed": false
+  },
+  {
+   "id": "hr2",
+   "x": 1280,
+   "y": 815,
+   "type": "relic",
+   "region": "Rooftop Gardens",
+   "exposed": false
+  },
+  {
+   "id": "hr3",
+   "x": 1455,
+   "y": 800,
+   "type": "portal",
+   "region": "Rooftop Gardens",
+   "exposed": false
+  },
+  {
+   "id": "hr4",
+   "x": 1625,
+   "y": 780,
+   "type": "gleam",
+   "region": "Rooftop Gardens",
+   "exposed": false
+  },
+  {
+   "id": "hs0",
+   "x": 1800,
+   "y": 760,
+   "type": "festival",
+   "region": "Steel Skybridge",
+   "exposed": true
+  },
+  {
+   "id": "hs1",
+   "x": 1975,
+   "y": 750,
+   "type": "gleam",
+   "region": "Steel Skybridge",
+   "exposed": true
+  },
+  {
+   "id": "hs2",
+   "x": 2150,
+   "y": 765,
+   "type": "mischief",
+   "region": "Steel Skybridge",
+   "exposed": true
+  },
+  {
+   "id": "ht0",
+   "x": 2320,
+   "y": 790,
+   "type": "gleam",
+   "region": "Tech Spire",
+   "exposed": false
+  },
+  {
+   "id": "ht1",
+   "x": 2490,
+   "y": 820,
+   "type": "market",
+   "region": "Tech Spire",
+   "exposed": false,
+   "shop": "wrench"
+  },
+  {
+   "id": "ht2",
+   "x": 2660,
+   "y": 845,
+   "type": "event",
+   "region": "Tech Spire",
+   "exposed": false,
+   "eventId": "heroes_blackout"
+  },
+  {
+   "id": "ht3",
+   "x": 2830,
+   "y": 880,
+   "type": "relic",
+   "region": "Tech Spire",
+   "exposed": false
+  },
+  {
+   "id": "ht4",
+   "x": 2990,
+   "y": 950,
+   "type": "gleam",
+   "region": "Tech Spire",
+   "exposed": false
+  },
+  {
+   "id": "hk0",
+   "x": 3100,
+   "y": 1080,
+   "type": "festival",
+   "region": "Friendly Block",
+   "exposed": false
+  },
+  {
+   "id": "hw0",
+   "x": 2980,
+   "y": 1235,
+   "type": "gleam",
+   "region": "Web Line",
+   "exposed": true
+  },
+  {
+   "id": "hw1",
+   "x": 2930,
+   "y": 1405,
+   "type": "event",
+   "region": "Web Line",
+   "exposed": true,
+   "eventId": "heroes_chase"
+  },
+  {
+   "id": "hw2",
+   "x": 2960,
+   "y": 1575,
+   "type": "gleam",
+   "region": "Web Line",
+   "exposed": true
+  },
+  {
+   "id": "hf0",
+   "x": 3260,
+   "y": 1170,
+   "type": "gleam",
+   "region": "Fire Escapes",
+   "exposed": false
+  },
+  {
+   "id": "hf1",
+   "x": 3360,
+   "y": 1320,
+   "type": "mischief",
+   "region": "Fire Escapes",
+   "exposed": false
+  },
+  {
+   "id": "hf2",
+   "x": 3385,
+   "y": 1495,
+   "type": "relic",
+   "region": "Fire Escapes",
+   "exposed": false
+  },
+  {
+   "id": "hf3",
+   "x": 3320,
+   "y": 1660,
+   "type": "portal",
+   "region": "Fire Escapes",
+   "exposed": false
+  },
+  {
+   "id": "hf4",
+   "x": 3175,
+   "y": 1770,
+   "type": "festival",
+   "region": "Fire Escapes",
+   "exposed": false
+  },
+  {
+   "id": "hk1",
+   "x": 3000,
+   "y": 1765,
+   "type": "gleam",
+   "region": "Friendly Block",
+   "exposed": false
+  },
+  {
+   "id": "hn0",
+   "x": 2840,
+   "y": 1880,
+   "type": "mischief",
+   "region": "Neon Row",
+   "exposed": false
+  },
+  {
+   "id": "hn1",
+   "x": 2670,
+   "y": 1950,
+   "type": "market",
+   "region": "Neon Row",
+   "exposed": false,
+   "shop": "pipper"
+  },
+  {
+   "id": "hn2",
+   "x": 2500,
+   "y": 2000,
+   "type": "portal",
+   "region": "Neon Row",
+   "exposed": false
+  },
+  {
+   "id": "hn3",
+   "x": 2330,
+   "y": 2040,
+   "type": "festival",
+   "region": "Neon Row",
+   "exposed": false
+  },
+  {
+   "id": "hn4",
+   "x": 2160,
+   "y": 2070,
+   "type": "gleam",
+   "region": "Neon Row",
+   "exposed": false
+  },
+  {
+   "id": "hx0",
+   "x": 1860,
+   "y": 1925,
+   "type": "gleam",
+   "region": "Sky Rail",
+   "exposed": false
+  },
+  {
+   "id": "hx1",
+   "x": 1960,
+   "y": 1770,
+   "type": "festival",
+   "region": "Sky Rail",
+   "exposed": false
+  },
+  {
+   "id": "hx2",
+   "x": 2090,
+   "y": 1640,
+   "type": "relic",
+   "region": "Sky Rail",
+   "exposed": false
+  },
+  {
+   "id": "hx3",
+   "x": 2190,
+   "y": 1490,
+   "type": "event",
+   "region": "Sky Rail",
+   "exposed": false,
+   "eventId": "heroes_searchlight"
+  },
+  {
+   "id": "hx4",
+   "x": 2240,
+   "y": 1320,
+   "type": "gleam",
+   "region": "Sky Rail",
+   "exposed": false
+  },
+  {
+   "id": "hx5",
+   "x": 2260,
+   "y": 1150,
+   "type": "mischief",
+   "region": "Sky Rail",
+   "exposed": false
+  },
+  {
+   "id": "hx6",
+   "x": 2280,
+   "y": 975,
+   "type": "festival",
+   "region": "Sky Rail",
+   "exposed": false
+  }
+ ],
+ "edges": [
+  {
+   "from": "hp0",
+   "to": "hp1",
+   "style": "path"
+  },
+  {
+   "from": "hp1",
+   "to": "hp2",
+   "style": "path"
+  },
+  {
+   "from": "hp1",
+   "to": "hx0",
+   "style": "steps"
+  },
+  {
+   "from": "hp2",
+   "to": "hp3",
+   "style": "path"
+  },
+  {
+   "from": "hp3",
+   "to": "hg0",
+   "style": "steps"
+  },
+  {
+   "from": "hg0",
+   "to": "hg1",
+   "style": "path"
+  },
+  {
+   "from": "hg1",
+   "to": "hb0",
+   "style": "steps"
+  },
+  {
+   "from": "hg1",
+   "to": "hl0",
+   "style": "path"
+  },
+  {
+   "from": "hb0",
+   "to": "hb1",
+   "style": "steps"
+  },
+  {
+   "from": "hb1",
+   "to": "hb2",
+   "style": "steps"
+  },
+  {
+   "from": "hb2",
+   "to": "hg2",
+   "style": "steps"
+  },
+  {
+   "from": "hl0",
+   "to": "hl1",
+   "style": "steps"
+  },
+  {
+   "from": "hl1",
+   "to": "hl2",
+   "style": "path"
+  },
+  {
+   "from": "hl2",
+   "to": "hl3",
+   "style": "path"
+  },
+  {
+   "from": "hl3",
+   "to": "hl4",
+   "style": "path"
+  },
+  {
+   "from": "hl4",
+   "to": "hg2",
+   "style": "path"
+  },
+  {
+   "from": "hg2",
+   "to": "hg3",
+   "style": "path"
+  },
+  {
+   "from": "hg3",
+   "to": "hr0",
+   "style": "steps"
+  },
+  {
+   "from": "hr0",
+   "to": "hr1",
+   "style": "path"
+  },
+  {
+   "from": "hr1",
+   "to": "hr2",
+   "style": "path"
+  },
+  {
+   "from": "hr2",
+   "to": "hr3",
+   "style": "path"
+  },
+  {
+   "from": "hr3",
+   "to": "hr4",
+   "style": "path"
+  },
+  {
+   "from": "hr4",
+   "to": "hs0",
+   "style": "steps"
+  },
+  {
+   "from": "hs0",
+   "to": "hs1",
+   "style": "steps"
+  },
+  {
+   "from": "hs1",
+   "to": "hs2",
+   "style": "steps"
+  },
+  {
+   "from": "hs2",
+   "to": "ht0",
+   "style": "steps"
+  },
+  {
+   "from": "ht0",
+   "to": "ht1",
+   "style": "path"
+  },
+  {
+   "from": "ht1",
+   "to": "ht2",
+   "style": "path"
+  },
+  {
+   "from": "ht2",
+   "to": "ht3",
+   "style": "path"
+  },
+  {
+   "from": "ht3",
+   "to": "ht4",
+   "style": "path"
+  },
+  {
+   "from": "ht4",
+   "to": "hk0",
+   "style": "steps"
+  },
+  {
+   "from": "hk0",
+   "to": "hw0",
+   "style": "steps"
+  },
+  {
+   "from": "hk0",
+   "to": "hf0",
+   "style": "path"
+  },
+  {
+   "from": "hw0",
+   "to": "hw1",
+   "style": "steps"
+  },
+  {
+   "from": "hw1",
+   "to": "hw2",
+   "style": "steps"
+  },
+  {
+   "from": "hw2",
+   "to": "hk1",
+   "style": "steps"
+  },
+  {
+   "from": "hf0",
+   "to": "hf1",
+   "style": "path"
+  },
+  {
+   "from": "hf1",
+   "to": "hf2",
+   "style": "path"
+  },
+  {
+   "from": "hf2",
+   "to": "hf3",
+   "style": "path"
+  },
+  {
+   "from": "hf3",
+   "to": "hf4",
+   "style": "path"
+  },
+  {
+   "from": "hf4",
+   "to": "hk1",
+   "style": "path"
+  },
+  {
+   "from": "hk1",
+   "to": "hn0",
+   "style": "steps"
+  },
+  {
+   "from": "hn0",
+   "to": "hn1",
+   "style": "path"
+  },
+  {
+   "from": "hn1",
+   "to": "hn2",
+   "style": "path"
+  },
+  {
+   "from": "hn2",
+   "to": "hn3",
+   "style": "path"
+  },
+  {
+   "from": "hn3",
+   "to": "hn4",
+   "style": "steps"
+  },
+  {
+   "from": "hn4",
+   "to": "hp0",
+   "style": "path"
+  },
+  {
+   "from": "hx0",
+   "to": "hx1",
+   "style": "steps"
+  },
+  {
+   "from": "hx1",
+   "to": "hx2",
+   "style": "steps"
+  },
+  {
+   "from": "hx2",
+   "to": "hx3",
+   "style": "steps"
+  },
+  {
+   "from": "hx3",
+   "to": "hx4",
+   "style": "steps"
+  },
+  {
+   "from": "hx4",
+   "to": "hx5",
+   "style": "steps"
+  },
+  {
+   "from": "hx5",
+   "to": "hx6",
+   "style": "steps"
+  },
+  {
+   "from": "hx6",
+   "to": "ht0",
+   "style": "steps"
+  }
+ ],
+ "relicGates": [
+  "hl3",
+  "hr2",
+  "ht3",
+  "hf2",
+  "hx2"
+ ],
+ "portals": [
+  [
+   "hl2",
+   "hf3"
+  ],
+  [
+   "hr3",
+   "hn2"
+  ]
+ ],
+ "decorations": [
+  {
+   "texture": "observatory",
+   "x": 380,
+   "y": 1370,
+   "scale": 0.8,
+   "sorted": true,
+   "id": "clock-tower"
+  },
+  {
+   "texture": "crystal-generator",
+   "x": 2600,
+   "y": 690,
+   "scale": 0.7,
+   "sorted": true,
+   "id": "tech-core"
+  },
+  {
+   "texture": "windmill",
+   "x": 3470,
+   "y": 1250,
+   "scale": 0.55,
+   "sorted": true,
+   "id": "water-tower"
+  },
+  {
+   "texture": "tree-twist",
+   "x": 1200,
+   "y": 760,
+   "scale": 0.34,
+   "sorted": true
+  },
+  {
+   "texture": "bunting",
+   "x": 1810,
+   "y": 1985,
+   "scale": 0.7,
+   "sorted": false,
+   "depth": -15
+  },
+  {
+   "texture": "stall",
+   "x": 2720,
+   "y": 1885,
+   "scale": 0.42,
+   "sorted": true
+  },
+  {
+   "texture": "lantern",
+   "x": 1545,
+   "y": 1995,
+   "scale": 0.5,
+   "sorted": true
+  },
+  {
+   "texture": "lantern",
+   "x": 2245,
+   "y": 2000,
+   "scale": 0.5,
+   "sorted": true
+  },
+  {
+   "texture": "lantern",
+   "x": 1200,
+   "y": 1905,
+   "scale": 0.5,
+   "sorted": true
+  },
+  {
+   "texture": "lantern",
+   "x": 700,
+   "y": 1760,
+   "scale": 0.5,
+   "sorted": true
+  },
+  {
+   "texture": "lantern",
+   "x": 1370,
+   "y": 760,
+   "scale": 0.5,
+   "sorted": true
+  },
+  {
+   "texture": "lantern",
+   "x": 2750,
+   "y": 810,
+   "scale": 0.5,
+   "sorted": true
+  },
+  {
+   "texture": "lantern",
+   "x": 3265,
+   "y": 1720,
+   "scale": 0.5,
+   "sorted": true
+  },
+  {
+   "texture": "lantern",
+   "x": 2140,
+   "y": 1470,
+   "scale": 0.5,
+   "sorted": true
+  }
+ ],
+ "gates": [
+  {
+   "id": "skyrail",
+   "from": "hp1",
+   "to": "hx0",
+   "prop": {
+    "x": 1835,
+    "y": 1995,
+    "scale": 0.55
+   }
+  }
+ ],
+ "hostSpot": {
+  "x": 2080,
+  "y": 1935
+ }
+}

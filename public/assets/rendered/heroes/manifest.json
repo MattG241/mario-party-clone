@@ -1,0 +1,429 @@
+{
+ "board": "heroes",
+ "origin": [
+  -120,
+  -60
+ ],
+ "scale": 1.0,
+ "bakedPaths": true,
+ "tiles": [
+  {
+   "file": "terrain_0_0.webp",
+   "x": 0,
+   "y": 0,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_1_0.webp",
+   "x": 1020,
+   "y": 0,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_2_0.webp",
+   "x": 2040,
+   "y": 0,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_3_0.webp",
+   "x": 3060,
+   "y": 0,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_0_1.webp",
+   "x": 0,
+   "y": 1020,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_1_1.webp",
+   "x": 1020,
+   "y": 1020,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_2_1.webp",
+   "x": 2040,
+   "y": 1020,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_3_1.webp",
+   "x": 3060,
+   "y": 1020,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_0_2.webp",
+   "x": 0,
+   "y": 2040,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_1_2.webp",
+   "x": 1020,
+   "y": 2040,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_2_2.webp",
+   "x": 2040,
+   "y": 2040,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_3_2.webp",
+   "x": 3060,
+   "y": 2040,
+   "w": 1024,
+   "h": 1024
+  }
+ ],
+ "props": [
+  {
+   "id": "clocktower",
+   "file": "prop_clocktower.webp",
+   "tex": "observatory",
+   "kind": "clocktower",
+   "x": 265.0,
+   "y": 718.0,
+   "w": 510.0,
+   "h": 745.0,
+   "baseY": 1330,
+   "anchorX": 380
+  },
+  {
+   "id": "techspire",
+   "file": "prop_techspire.webp",
+   "tex": "crystal-generator",
+   "kind": "crystal_gen",
+   "x": 2479.0,
+   "y": 152.0,
+   "w": 279.0,
+   "h": 660.0,
+   "baseY": 690,
+   "anchorX": 2600
+  },
+  {
+   "id": "watertower",
+   "file": "prop_watertower.webp",
+   "tex": "windmill",
+   "kind": "watertower",
+   "x": 3303.0,
+   "y": 979.0,
+   "w": 321.0,
+   "h": 431.0,
+   "baseY": 1250,
+   "anchorX": 3470
+  },
+  {
+   "id": "billboard",
+   "file": "prop_billboard.webp",
+   "tex": "",
+   "kind": "billboard",
+   "x": 1466.0,
+   "y": 1814.0,
+   "w": 346.0,
+   "h": 186.0,
+   "baseY": 1985,
+   "anchorX": 1640
+  },
+  {
+   "id": "bandstand",
+   "file": "prop_bandstand.webp",
+   "tex": "",
+   "kind": "bandstand",
+   "x": 1976.0,
+   "y": 1835.0,
+   "w": 208.0,
+   "h": 256.0,
+   "baseY": 1980,
+   "anchorX": 2080,
+   "depthY": 1880
+  },
+  {
+   "id": "lab",
+   "file": "prop_lab.webp",
+   "tex": "",
+   "kind": "lab",
+   "x": 2302.0,
+   "y": 626.0,
+   "w": 139.0,
+   "h": 159.0,
+   "baseY": 708,
+   "anchorX": 2372
+  },
+  {
+   "id": "garden-tree",
+   "file": "prop_garden-tree.webp",
+   "tex": "tree-twist",
+   "kind": "tree",
+   "x": 1094.0,
+   "y": 515.0,
+   "w": 217.0,
+   "h": 285.0,
+   "baseY": 745,
+   "anchorX": 1200
+  },
+  {
+   "id": "cart",
+   "file": "prop_cart.webp",
+   "tex": "stall",
+   "kind": "stall",
+   "x": 2679.0,
+   "y": 1796.0,
+   "w": 122.0,
+   "h": 137.0,
+   "baseY": 1880,
+   "anchorX": 2740
+  },
+  {
+   "id": "gate",
+   "file": "prop_gate.webp",
+   "tex": "prism-gate",
+   "kind": "gate",
+   "x": 1745.0,
+   "y": 1869.0,
+   "w": 179.0,
+   "h": 146.0,
+   "baseY": 1995,
+   "anchorX": 1835
+  },
+  {
+   "id": "lights-neon",
+   "file": "prop_lights-neon.webp",
+   "tex": "bunting",
+   "kind": "bunting",
+   "x": 2446.0,
+   "y": 1833.0,
+   "w": 278.0,
+   "h": 112.0,
+   "baseY": 1932,
+   "anchorX": 2585
+  },
+  {
+   "id": "lamp-0",
+   "file": "prop_lamp-0.webp",
+   "tex": "lantern",
+   "kind": "lantern",
+   "x": 1509.0,
+   "y": 1884.0,
+   "w": 72.0,
+   "h": 121.0,
+   "baseY": 1990,
+   "anchorX": 1545
+  },
+  {
+   "id": "lamp-1",
+   "file": "prop_lamp-1.webp",
+   "tex": "lantern",
+   "kind": "lantern",
+   "x": 1188.0,
+   "y": 1746.0,
+   "w": 65.0,
+   "h": 119.0,
+   "baseY": 1850,
+   "anchorX": 1205
+  },
+  {
+   "id": "lamp-2",
+   "file": "prop_lamp-2.webp",
+   "tex": "lantern",
+   "kind": "lantern",
+   "x": 689.0,
+   "y": 1666.0,
+   "w": 64.0,
+   "h": 118.0,
+   "baseY": 1770,
+   "anchorX": 705
+  },
+  {
+   "id": "lamp-3",
+   "file": "prop_lamp-3.webp",
+   "tex": "lantern",
+   "kind": "lantern",
+   "x": 1535.0,
+   "y": 616.0,
+   "w": 40.0,
+   "h": 123.0,
+   "baseY": 725,
+   "anchorX": 1555
+  },
+  {
+   "id": "lamp-4",
+   "file": "prop_lamp-4.webp",
+   "tex": "lantern",
+   "kind": "lantern",
+   "x": 2725.0,
+   "y": 691.0,
+   "w": 40.0,
+   "h": 125.0,
+   "baseY": 800,
+   "anchorX": 2745
+  },
+  {
+   "id": "lamp-5",
+   "file": "prop_lamp-5.webp",
+   "tex": "lantern",
+   "kind": "lantern",
+   "x": 3325.0,
+   "y": 1681.0,
+   "w": 40.0,
+   "h": 123.0,
+   "baseY": 1790,
+   "anchorX": 3345
+  },
+  {
+   "id": "lamp-6",
+   "file": "prop_lamp-6.webp",
+   "tex": "lantern",
+   "kind": "lantern",
+   "x": 1899.0,
+   "y": 1349.0,
+   "w": 72.0,
+   "h": 121.0,
+   "baseY": 1455,
+   "anchorX": 1935
+  },
+  {
+   "id": "lamp-7",
+   "file": "prop_lamp-7.webp",
+   "tex": "lantern",
+   "kind": "lantern",
+   "x": 684.0,
+   "y": 1066.0,
+   "w": 63.0,
+   "h": 119.0,
+   "baseY": 1170,
+   "anchorX": 700
+  },
+  {
+   "id": "subway-hl2",
+   "file": "prop_subway-hl2.webp",
+   "tex": "",
+   "kind": "lantern",
+   "x": 656.0,
+   "y": 1575.0,
+   "w": 108.0,
+   "h": 112.0,
+   "baseY": 1659.7820652193777,
+   "anchorX": 709.8151776218407
+  },
+  {
+   "id": "subway-hr3",
+   "file": "prop_subway-hr3.webp",
+   "tex": "",
+   "kind": "lantern",
+   "x": 1392.0,
+   "y": 650.0,
+   "w": 108.0,
+   "h": 113.0,
+   "baseY": 734.4391670619311,
+   "anchorX": 1446.3199154990366
+  },
+  {
+   "id": "subway-hf3",
+   "file": "prop_subway-hf3.webp",
+   "tex": "",
+   "kind": "lantern",
+   "x": 3198.0,
+   "y": 1543.0,
+   "w": 108.0,
+   "h": 113.0,
+   "baseY": 1627.8054301108482,
+   "anchorX": 3251.649968002301
+  },
+  {
+   "id": "subway-hn2",
+   "file": "prop_subway-hn2.webp",
+   "tex": "",
+   "kind": "lantern",
+   "x": 2424.0,
+   "y": 1852.0,
+   "w": 108.0,
+   "h": 113.0,
+   "baseY": 1936.8633504039099,
+   "anchorX": 2477.9932398128
+  },
+  {
+   "id": "pedestal-hl3",
+   "file": "prop_pedestal-hl3.webp",
+   "tex": "relic-pedestal",
+   "kind": "pedestal",
+   "x": 547.0,
+   "y": 1379.0,
+   "w": 56.0,
+   "h": 85.0,
+   "baseY": 1440,
+   "anchorX": 575
+  },
+  {
+   "id": "pedestal-hr2",
+   "file": "prop_pedestal-hr2.webp",
+   "tex": "relic-pedestal",
+   "kind": "pedestal",
+   "x": 1252.0,
+   "y": 669.0,
+   "w": 56.0,
+   "h": 85.0,
+   "baseY": 730,
+   "anchorX": 1280
+  },
+  {
+   "id": "pedestal-ht3",
+   "file": "prop_pedestal-ht3.webp",
+   "tex": "relic-pedestal",
+   "kind": "pedestal",
+   "x": 2802.0,
+   "y": 734.0,
+   "w": 56.0,
+   "h": 86.0,
+   "baseY": 795,
+   "anchorX": 2830
+  },
+  {
+   "id": "pedestal-hf2",
+   "file": "prop_pedestal-hf2.webp",
+   "tex": "relic-pedestal",
+   "kind": "pedestal",
+   "x": 3357.0,
+   "y": 1349.0,
+   "w": 56.0,
+   "h": 85.0,
+   "baseY": 1410,
+   "anchorX": 3385
+  },
+  {
+   "id": "pedestal-hx2",
+   "file": "prop_pedestal-hx2.webp",
+   "tex": "relic-pedestal",
+   "kind": "pedestal",
+   "x": 2062.0,
+   "y": 1494.0,
+   "w": 56.0,
+   "h": 86.0,
+   "baseY": 1555,
+   "anchorX": 2090
+  }
+ ],
+ "shadow": {
+  "file": "shadow.webp",
+  "x": -82,
+  "y": -82,
+  "w": 4044,
+  "h": 2802
+ }
+}
