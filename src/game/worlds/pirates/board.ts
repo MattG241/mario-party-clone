@@ -208,7 +208,11 @@ export const PIRATES_BOARD: BoardDef | null = {
     world: 'pirates',
     time: 'cycle',
     minigames: WORLD_GAMES.filter((id) => PIRATES_INFO.infos.some((m) => m.id === id)),
+    // the waterfall into the lagoon pool (its mist)
+    waterfalls: [{ x: 1650, y: 391, lipX: 1650, lipY: 148 }],
+    preview: 'assets/lite/previews/pirates.webp',
     // Suncoil's own crystal generators and observatory events point at its spaces.
     skipEvents: ['crystal_surge', 'portal_storm'],
+    rendered: true,
   },
 };

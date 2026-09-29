@@ -1,0 +1,406 @@
+{
+ "board": "pirates",
+ "origin": [
+  -120,
+  -60
+ ],
+ "scale": 1.0,
+ "bakedPaths": true,
+ "tiles": [
+  {
+   "file": "terrain_0_0.webp",
+   "x": 0,
+   "y": 0,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_1_0.webp",
+   "x": 1020,
+   "y": 0,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_2_0.webp",
+   "x": 2040,
+   "y": 0,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_3_0.webp",
+   "x": 3060,
+   "y": 0,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_0_1.webp",
+   "x": 0,
+   "y": 1020,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_1_1.webp",
+   "x": 1020,
+   "y": 1020,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_2_1.webp",
+   "x": 2040,
+   "y": 1020,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_3_1.webp",
+   "x": 3060,
+   "y": 1020,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_0_2.webp",
+   "x": 0,
+   "y": 2040,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_1_2.webp",
+   "x": 1020,
+   "y": 2040,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_2_2.webp",
+   "x": 2040,
+   "y": 2040,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_3_2.webp",
+   "x": 3060,
+   "y": 2040,
+   "w": 1024,
+   "h": 1024
+  }
+ ],
+ "shadow": {
+  "file": "shadow.webp",
+  "x": -72,
+  "y": -92,
+  "w": 4044,
+  "h": 2880
+ },
+ "props": [
+  {
+   "id": "galleon-rig",
+   "file": "prop_galleon-rig.webp",
+   "tex": "",
+   "kind": "rig",
+   "x": 1191.0,
+   "y": 1045.0,
+   "w": 818.0,
+   "h": 331.0,
+   "baseY": 1285,
+   "anchorX": 1520,
+   "depthY": 1250
+  },
+  {
+   "id": "lighthouse",
+   "file": "prop_lighthouse.webp",
+   "tex": "observatory",
+   "kind": "lantern",
+   "x": 3302.0,
+   "y": 1011.0,
+   "w": 219.0,
+   "h": 346.0,
+   "baseY": 1300,
+   "anchorX": 3372
+  },
+  {
+   "id": "dojo",
+   "file": "prop_dojo.webp",
+   "tex": "workshop",
+   "kind": "dojo",
+   "x": 2280.0,
+   "y": 214.0,
+   "w": 370.0,
+   "h": 227.0,
+   "baseY": 372,
+   "anchorX": 2460
+  },
+  {
+   "id": "map-room",
+   "file": "prop_map-room.webp",
+   "tex": "stall",
+   "kind": "map_room",
+   "x": 415.0,
+   "y": 1288.0,
+   "w": 170.0,
+   "h": 219.0,
+   "baseY": 1420,
+   "anchorX": 500
+  },
+  {
+   "id": "cave",
+   "file": "prop_cave.webp",
+   "tex": "",
+   "kind": "cave",
+   "x": 748.0,
+   "y": 151.0,
+   "w": 406.0,
+   "h": 252.0,
+   "baseY": 352,
+   "anchorX": 950
+  },
+  {
+   "id": "stall-fish",
+   "file": "prop_stall-fish.webp",
+   "tex": "stall",
+   "kind": "stall",
+   "x": 2508.0,
+   "y": 1461.0,
+   "w": 323.0,
+   "h": 235.0,
+   "baseY": 1640,
+   "anchorX": 2665
+  },
+  {
+   "id": "stall-fruit",
+   "file": "prop_stall-fruit.webp",
+   "tex": "stall",
+   "kind": "stall",
+   "x": 2379.0,
+   "y": 1558.0,
+   "w": 300.0,
+   "h": 221.0,
+   "baseY": 1725,
+   "anchorX": 2525
+  },
+  {
+   "id": "house-a",
+   "file": "prop_house-a.webp",
+   "tex": "",
+   "kind": "house",
+   "x": 1734.0,
+   "y": 1816.0,
+   "w": 112.0,
+   "h": 165.0,
+   "baseY": 1945,
+   "anchorX": 1790
+  },
+  {
+   "id": "house-b",
+   "file": "prop_house-b.webp",
+   "tex": "",
+   "kind": "house",
+   "x": 2246.0,
+   "y": 1726.0,
+   "w": 108.0,
+   "h": 159.0,
+   "baseY": 1850,
+   "anchorX": 2300
+  },
+  {
+   "id": "house-c",
+   "file": "prop_house-c.webp",
+   "tex": "",
+   "kind": "house",
+   "x": 2390.0,
+   "y": 1677.0,
+   "w": 100.0,
+   "h": 145.0,
+   "baseY": 1790,
+   "anchorX": 2440
+  },
+  {
+   "id": "crane",
+   "file": "prop_crane.webp",
+   "tex": "",
+   "kind": "crane",
+   "x": 2067.0,
+   "y": 1753.0,
+   "w": 150.0,
+   "h": 143.0,
+   "baseY": 1868,
+   "anchorX": 2100
+  },
+  {
+   "id": "stage",
+   "file": "prop_stage.webp",
+   "tex": "",
+   "kind": "stage",
+   "x": 1868.0,
+   "y": 1784.0,
+   "w": 214.0,
+   "h": 234.0,
+   "baseY": 1935,
+   "anchorX": 1975,
+   "depthY": 1880
+  },
+  {
+   "id": "lantern-1",
+   "file": "prop_lantern-1.webp",
+   "tex": "lantern",
+   "kind": "lantern",
+   "x": 1794.0,
+   "y": 1879.0,
+   "w": 87.0,
+   "h": 176.0,
+   "baseY": 2040,
+   "anchorX": 1810
+  },
+  {
+   "id": "lantern-2",
+   "file": "prop_lantern-2.webp",
+   "tex": "lantern",
+   "kind": "lantern",
+   "x": 2273.0,
+   "y": 1799.0,
+   "w": 89.0,
+   "h": 176.0,
+   "baseY": 1960,
+   "anchorX": 2290
+  },
+  {
+   "id": "lantern-3",
+   "file": "prop_lantern-3.webp",
+   "tex": "lantern",
+   "kind": "lantern",
+   "x": 684.0,
+   "y": 408.0,
+   "w": 84.0,
+   "h": 166.0,
+   "baseY": 560,
+   "anchorX": 700
+  },
+  {
+   "id": "lantern-4",
+   "file": "prop_lantern-4.webp",
+   "tex": "lantern",
+   "kind": "lantern",
+   "x": 1774.0,
+   "y": 300.0,
+   "w": 84.0,
+   "h": 166.0,
+   "baseY": 452,
+   "anchorX": 1790
+  },
+  {
+   "id": "lantern-5",
+   "file": "prop_lantern-5.webp",
+   "tex": "lantern",
+   "kind": "lantern",
+   "x": 2544.0,
+   "y": 1634.0,
+   "w": 88.0,
+   "h": 177.0,
+   "baseY": 1795,
+   "anchorX": 2560
+  },
+  {
+   "id": "lantern-6",
+   "file": "prop_lantern-6.webp",
+   "tex": "lantern",
+   "kind": "lantern",
+   "x": 2984.0,
+   "y": 1318.0,
+   "w": 85.0,
+   "h": 166.0,
+   "baseY": 1470,
+   "anchorX": 3000
+  },
+  {
+   "id": "bunting-harbour",
+   "file": "prop_bunting-harbour.webp",
+   "tex": "bunting",
+   "kind": "bunting",
+   "x": 1938.0,
+   "y": 1817.0,
+   "w": 244.0,
+   "h": 181.0,
+   "baseY": 1985,
+   "anchorX": 2060
+  },
+  {
+   "id": "tangerine-tree",
+   "file": "prop_tangerine-tree.webp",
+   "tex": "tree-twist",
+   "kind": "tangerine",
+   "x": 461.0,
+   "y": 1022.0,
+   "w": 196.0,
+   "h": 211.0,
+   "baseY": 1215,
+   "anchorX": 560
+  },
+  {
+   "id": "pedestal-t2",
+   "file": "prop_pedestal-t2.webp",
+   "tex": "relic-pedestal",
+   "kind": "pedestal",
+   "x": 664.0,
+   "y": 1151.0,
+   "w": 52.0,
+   "h": 82.0,
+   "baseY": 1210,
+   "anchorX": 690
+  },
+  {
+   "id": "pedestal-k1",
+   "file": "prop_pedestal-k1.webp",
+   "tex": "relic-pedestal",
+   "kind": "pedestal",
+   "x": 834.0,
+   "y": 376.0,
+   "w": 52.0,
+   "h": 81.0,
+   "baseY": 435,
+   "anchorX": 860
+  },
+  {
+   "id": "pedestal-d1",
+   "file": "prop_pedestal-d1.webp",
+   "tex": "relic-pedestal",
+   "kind": "pedestal",
+   "x": 1414.0,
+   "y": 1201.0,
+   "w": 52.0,
+   "h": 81.0,
+   "baseY": 1260,
+   "anchorX": 1440
+  },
+  {
+   "id": "pedestal-z3",
+   "file": "prop_pedestal-z3.webp",
+   "tex": "relic-pedestal",
+   "kind": "pedestal",
+   "x": 2634.0,
+   "y": 516.0,
+   "w": 52.0,
+   "h": 81.0,
+   "baseY": 575,
+   "anchorX": 2660
+  },
+  {
+   "id": "pedestal-o2",
+   "file": "prop_pedestal-o2.webp",
+   "tex": "relic-pedestal",
+   "kind": "pedestal",
+   "x": 3144.0,
+   "y": 916.0,
+   "w": 52.0,
+   "h": 81.0,
+   "baseY": 975,
+   "anchorX": 3170
+  }
+ ]
+}

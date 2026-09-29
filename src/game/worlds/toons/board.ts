@@ -162,7 +162,9 @@ export const TOONS_BOARD: BoardDef | null = {
     world: 'toons',
     time: 'day',
     minigames: WORLD_GAMES.filter((id) => TOONS_INFO.infos.some((m) => m.id === id)),
+    preview: 'assets/lite/previews/toons.webp',
     // Suncoil's own crystal generators and observatory events point at its spaces.
     skipEvents: ['crystal_surge', 'portal_storm'],
+    rendered: true,
   },
 };
