@@ -64,7 +64,6 @@ export const COMMON_SVGS: SvgAsset[] = [
   { key: 'space-portal', path: `${P}board/space_portal.svg`, width: 128, height: 88 },
   { key: 'space-relic', path: `${P}board/space_relic.svg`, width: 128, height: 88 },
   { key: 'space-event', path: `${P}board/space_event.svg`, width: 128, height: 88 },
-  { key: 'prism-relic', path: `${P}items/prism_relic.svg`, width: 220, height: 260 },
   { key: 'item-warp-charm', path: `${P}items/warp_charm.svg`, width: 180, height: 180 },
   { key: 'item-magnet-glove', path: `${P}items/magnet_glove.svg`, width: 180, height: 180 },
   { key: 'item-spring-bean', path: `${P}items/spring_bean.svg`, width: 180, height: 180 },
@@ -78,16 +77,16 @@ export const COMMON_SVGS: SvgAsset[] = [
 ];
 
 export const LOADING_TIPS = [
-  'Prism Relics decide the winner. Gleam Chips break ties.',
+  'Star Coins decide the winner. Coins break ties.',
   'Press Y on your turn to open your items before spinning the Orbit Dial.',
   'Wingstep Boots add +3 to your next Orbit Dial spin.',
   'A Bubble Shield blocks the next mishap that would hit you.',
   'Portals whisk you across the isles — but a Portal Storm can reshuffle them!',
-  'The Relic Keeper moves to a new gate every time someone buys a Prism Relic.',
-  'In the final round, Gleam Spaces pay out 5 chips instead of 3.',
-  'Three bonus Prism Relics are awarded after the final round. Watch your stats!',
+  'The Star Keeper moves to a new spot every time someone buys a Star Coin.',
+  'In the final round, Gleam Spaces pay out 5 coins instead of 3.',
+  'Three bonus Star Coins are awarded after the final round. Watch your stats!',
   'Press VIEW (or Tab) during the board game to see everyone\'s standing.',
   'Hold a Prism Key to unlock the shortcut through the Spiral Observatory.',
-  'Snare Seeds swipe chips from the next rival who lands on them.',
-  'Minigame rewards: 10 chips for 1st, 6 for 2nd, 3 for 3rd and 1 for 4th.',
+  'Snare Seeds swipe coins from the next rival who lands on them.',
+  'Minigame rewards: 10 coins for 1st, 6 for 2nd, 3 for 3rd and 1 for 4th.',
 ];

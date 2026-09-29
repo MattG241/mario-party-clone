@@ -72,6 +72,10 @@ const FINISH_FREEZE = 160;
 const FINISH_ZOOM = 1.1;
 /** Knock-outs: a freeze-frame, and when one decides the round its fall plays in slow motion. */
 const KO_STOP = 90;
+/** Real ms after one hit freeze before another ordinary one can land (keeps busy rounds from stuttering). */
+const HIT_STOP_COOLDOWN = 600;
+/** Default game ms a player shrugs off further hits after one lands (see markHit). */
+const HIT_COOLDOWN = 700;
 const KO_STOP_LAST = 120;
 const KO_SLOW = 0.3;
 const KO_SLOW_MS = 520;
@@ -199,6 +203,10 @@ export abstract class BaseMinigame extends Phaser.Scene {
   private ending = false;
   /** Real milliseconds since the scene started (HUD throttles, safety timeouts). */
   private realNow = 0;
+  /** Real time before which ordinary hit freezes are skipped (see hitStop). */
+  private freezeReadyAt = 0;
+  /** Game time until which each player shrugs off another hit (see canHit / markHit). */
+  private hitGuard = new Map<number, number>();
   /** Real milliseconds left of a hit-stop freeze and of a slow-motion stretch (see hitStop, slowMo). */
   private freezeLeft = 0;
   private slowLeft = 0;
@@ -239,6 +247,8 @@ export abstract class BaseMinigame extends Phaser.Scene {
     this.finalStretch = false;
     this.finishLead = false;
     this.realNow = 0;
+    this.freezeReadyAt = 0;
+    this.hitGuard.clear();
     this.freezeLeft = 0;
     this.slowLeft = 0;
     this.slowFactor = 1;
@@ -329,10 +339,25 @@ export abstract class BaseMinigame extends Phaser.Scene {
    * Freeze the game for a few frames (a hit landing, a pickup snapping in): the classic impact
    * freeze-frame. Game time, tweens and timers all hold, then carry on. Keep it short (40–140 ms).
    */
-  hitStop(ms: number): void {
+  hitStop(ms: number, o: { force?: boolean } = {}): void {
+    // A cooldown between freezes: in a busy four-player scramble back-to-back hits would otherwise
+    // stutter the whole game, so ordinary freezes inside the window are skipped. The round's
+    // decisive moments (a knock-out, the finish) pass { force: true } and always land.
+    if (!o.force && this.realNow < this.freezeReadyAt) return;
+    this.freezeReadyAt = this.realNow + ms + HIT_STOP_COOLDOWN;
     this.freezeLeft = Math.max(this.freezeLeft, ms);
     // Take hold at once, so anything started this frame waits for the freeze too.
     this.applyClock(0);
+  }
+
+  /** Can this player be hit right now? A hit gives a short cooldown, so hits never chain-stun anyone. */
+  protected canHit(p: MgPlayer): boolean {
+    return this.elapsed >= (this.hitGuard.get(p.slot) ?? -Infinity);
+  }
+
+  /** A hit landed on this player: start their cooldown (game ms, so it holds through freezes). */
+  protected markHit(p: MgPlayer, ms = HIT_COOLDOWN): void {
+    this.hitGuard.set(p.slot, this.elapsed + ms);
   }
 
   /** Run the game at `factor` speed (0.2–0.6) for `ms` real milliseconds: decisive moments. */
@@ -1022,7 +1047,7 @@ export abstract class BaseMinigame extends Phaser.Scene {
 
   /** The knock-out beat: a freeze-frame, a camera kick, OUT! stamped on their capsule (and slow motion if it decides the round). */
   private knockout(p: MgPlayer, last: boolean, blow?: { x: number; y: number }): void {
-    this.hitStop(last ? KO_STOP_LAST : KO_STOP);
+    this.hitStop(last ? KO_STOP_LAST : KO_STOP, { force: true });
     let kx = blow?.x ?? 0;
     let ky = blow?.y ?? 0;
     const c = p.character;
@@ -1099,7 +1124,7 @@ export abstract class BaseMinigame extends Phaser.Scene {
     }
     // Hold the final frame for a beat; both delays run on the game clock, so they wait it out.
     this.slowLeft = 0;
-    this.hitStop(FINISH_FREEZE);
+    this.hitStop(FINISH_FREEZE, { force: true });
     this.time.delayedCall(1, () => this.finishSlam(result));
     this.time.delayedCall(1700, () => goTo(this, 'Results', { result, launch: this.launch }));
   }
