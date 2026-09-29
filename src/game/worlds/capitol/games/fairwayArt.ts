@@ -49,12 +49,12 @@ export const WORD_STYLES: [string, string, readonly [string, string]][] = [
 
 /** Spectators along the edges of the lawn (clear spots in the render). */
 export const GALLERY: GallerySpot[] = [
-  { x: 118, y: 560, id: 'pipper', pose: 'happy' },
-  { x: 150, y: 700, id: 'ora', pose: 'cheer' },
-  { x: 240, y: 930, id: 'mimi', pose: 'laugh' },
-  { x: 1802, y: 560, id: 'packsprout', pose: 'cheer', flip: true },
-  { x: 1770, y: 700, id: 'wrench', pose: 'laugh', flip: true },
-  { x: 1680, y: 930, id: 'ora', pose: 'wave', flip: true },
+  { x: 78, y: 560, id: 'pipper', pose: 'happy' },
+  { x: 104, y: 720, id: 'ora', pose: 'cheer' },
+  { x: 300, y: 960, id: 'mimi', pose: 'laugh' },
+  { x: 1842, y: 560, id: 'packsprout', pose: 'cheer', flip: true },
+  { x: 1816, y: 720, id: 'wrench', pose: 'laugh', flip: true },
+  { x: 1620, y: 960, id: 'ora', pose: 'wave', flip: true },
 ];
 
 // --- Fallback art (when the rendered sprites or the green render are missing) ----------------------

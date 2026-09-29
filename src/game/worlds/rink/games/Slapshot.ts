@@ -205,7 +205,7 @@ export class SlapshotScene extends BaseMinigame {
       const frame = npcFrame(id, pose);
       const spr = this.add.sprite(x, y, NPC_ATLAS, frame);
       const o = standOrigin(NPC_ATLAS, frame);
-      spr.setOrigin(o.x, o.y).setScale(k).setDepth(y - 2000).setFlipX(x > GAME_WIDTH / 2);
+      spr.setOrigin(o.x, o.y).setScale(k).setDepth(-45 + y / 100).setFlipX(x > GAME_WIDTH / 2);
       if (k < 0.3) spr.setTint(0xd6dcf0);
       this.tweens.add({ targets: spr, angle: { from: -3, to: 3 }, duration: 760 + (i % 4) * 120, yoyo: true, repeat: -1, ease: 'Sine.InOut', delay: (i * 83) % 500 });
       this.crowd.push({ spr, y });
