@@ -28,14 +28,14 @@ interface Page {
 }
 
 const SPACE_ROWS: [string, string, string][] = [
-  ['gleam', 'Gleam Space', `+${ECONOMY.gleamSpace} chips (+${ECONOMY.gleamSpaceFinal} in the final round)`],
+  ['gleam', 'Gleam Space', `+${ECONOMY.gleamSpace} coins (+${ECONOMY.gleamSpaceFinal} in the final round)`],
   ['mischief', 'Mischief', 'Something sneaky happens…'],
   ['festival', 'Festival', 'A lucky festival surprise'],
   ['market', 'Market', 'Shop for items (even passing by)'],
   ['portal', 'Portal', 'Warp to its twin portal'],
-  ['relic', 'Relic Gate', 'Where the Relic Keeper waits'],
+  ['relic', 'Star Coin Space', 'Where the Star Keeper waits'],
   ['event', 'Event', 'Triggers this board\'s special event'],
-  ['start', 'Start', 'Where everyone begins — pays chips too'],
+  ['start', 'Start', 'Where everyone begins — pays coins too'],
 ];
 
 /** "How to Play": a short illustrated guide, presented by Ora. Left/right to turn pages. */
@@ -102,9 +102,9 @@ export class HowToPlayScene extends Phaser.Scene {
       { title: 'THE GOAL', color: COLORS.teal, ora: 'welcome', line: 'Welcome, adventurer! Here\'s how the Festival of the Spiral Isles works.', build: (s, c) => s.pageGoal(c) },
       { title: 'YOUR TURN', color: COLORS.gold, ora: 'point', line: 'Spin the Orbit Dial and follow the trail. Every fork is a choice!', build: (s, c) => s.pageTurn(c) },
       { title: 'BOARD SPACES', color: 0x39c7ea, ora: 'point', line: 'Where you land matters. Blue is good — purple, not so much!', build: (s, c) => s.pageSpaces(c) },
-      { title: 'PRISM RELICS', color: 0x7fb4e6, ora: 'flag', line: 'Packsprout trades Relics for chips. Follow the beam of light to find him.', build: (s, c) => s.pageRelics(c) },
+      { title: 'STAR COINS', color: 0x7fb4e6, ora: 'flag', line: 'Packsprout trades Star Coins for coins. Follow the beam of light to find him.', build: (s, c) => s.pageRelics(c) },
       { title: 'ITEMS', color: COLORS.coral, ora: 'wave', line: 'Market stalls sell handy items. Carry up to three and use them before you spin.', build: (s, c) => s.pageItems(c) },
-      { title: 'MINIGAMES', color: 0x8e5cd9, ora: 'cheer', line: 'After everyone moves, it\'s minigame time! Win for a big chip prize.', build: (s, c) => s.pageMinigames(c) },
+      { title: 'MINIGAMES', color: 0x8e5cd9, ora: 'cheer', line: 'After everyone moves, it\'s minigame time! Win for a big coin prize.', build: (s, c) => s.pageMinigames(c) },
       { title: 'CONTROLS', color: 0x6cc24a, ora: 'idle', line: 'Controllers or keyboard — up to four players on one screen. Have fun!', build: (s, c) => s.pageControls(c) },
     ];
   }
@@ -181,7 +181,7 @@ export class HowToPlayScene extends Phaser.Scene {
 
   pageGoal(c: Phaser.GameObjects.Container): void {
     const top = PY + HEADER + 40;
-    this.para(c, PX + 60, top, 'Travel the board, collect Gleam Chips and trade them for Prism Relics.\nWhoever holds the most Relics after the final round wins the festival — chips break ties.', 28);
+    this.para(c, PX + 60, top, 'Travel the board, collect coins and trade them for Star Coins.\nWhoever holds the most Star Coins after the final round wins the festival — coins break ties.', 28);
     const y = top + 170;
     const w = 400;
     const cols = [PX + 60, PX + 60 + w + 30, PX + 60 + 2 * (w + 30)];
@@ -198,22 +198,22 @@ export class HowToPlayScene extends Phaser.Scene {
       const chip = this.icon(c, 'items', '0', cols[0] + w / 2 + dx, y + 130 + dy, 92 - k * 6);
       chip?.setAngle(-12 + k * 9);
     });
-    c.add(addText(this, cols[0] + w / 2, y + 290, 'Earn Gleam Chips', 30, { color: '#ffffff', weight: 700 }));
-    c.add(addText(this, cols[0] + w / 2, y + 340, 'Gleam Spaces, minigames and\nlucky events pay out chips', 21, { color: CSS.creamDark, weight: 500 }));
+    c.add(addText(this, cols[0] + w / 2, y + 290, 'Earn Coins', 30, { color: '#ffffff', weight: 700 }));
+    c.add(addText(this, cols[0] + w / 2, y + 340, 'Gleam Spaces, minigames and\nlucky events pay out coins', 21, { color: CSS.creamDark, weight: 500 }));
     // 2: relic
     glow(cols[1] + w / 2, y + 150, 0x9be8ff);
     const relic = this.icon(c, 'prism-relic', undefined, cols[1] + w / 2, y + 140, 190);
     if (relic) this.tweens.add({ targets: relic, y: relic.y - 12, duration: 1300, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
-    c.add(addText(this, cols[1] + w / 2, y + 290, `${ECONOMY.relicPrice} chips = 1 Relic`, 30, { color: '#ffffff', weight: 700 }));
-    c.add(addText(this, cols[1] + w / 2, y + 340, 'Trade with Packsprout, the\nRelic Keeper, as you pass him', 21, { color: CSS.creamDark, weight: 500 }));
+    c.add(addText(this, cols[1] + w / 2, y + 290, `${ECONOMY.relicPrice} coins = 1 Star Coin`, 30, { color: '#ffffff', weight: 700 }));
+    c.add(addText(this, cols[1] + w / 2, y + 340, 'Trade with Packsprout, the\nStar Keeper, as you pass him', 21, { color: CSS.creamDark, weight: 500 }));
     // 3: winner
     glow(cols[2] + w / 2, y + 150, COLORS.goldLight);
     const hero = new Character(this, cols[2] + w / 2, y + 240, CHARACTER_IDS[0], { scale: 0.62 });
     hero.play('celebrate');
     c.add(hero);
     this.time.addEvent({ delay: 2400, loop: true, callback: () => hero.active && hero.play('celebrate', { force: true }) });
-    c.add(addText(this, cols[2] + w / 2, y + 290, 'Most Relics wins', 30, { color: '#ffffff', weight: 700 }));
-    c.add(addText(this, cols[2] + w / 2, y + 340, 'Festival Awards hand out bonus\nRelics at the very end!', 21, { color: CSS.creamDark, weight: 500 }));
+    c.add(addText(this, cols[2] + w / 2, y + 290, 'Most Star Coins wins', 30, { color: '#ffffff', weight: 700 }));
+    c.add(addText(this, cols[2] + w / 2, y + 340, 'Festival Awards hand out bonus\nStar Coins at the very end!', 21, { color: CSS.creamDark, weight: 500 }));
   }
 
   pageTurn(c: Phaser.GameObjects.Container): void {
@@ -272,10 +272,10 @@ export class HowToPlayScene extends Phaser.Scene {
   pageRelics(c: Phaser.GameObjects.Container): void {
     const x = PX + 60;
     const y0 = PY + HEADER + 40;
-    this.para(c, x, y0, 'Packsprout, the Relic Keeper, waits at one of the Relic Gates — look for the tall beam of light.', 28, 820);
+    this.para(c, x, y0, 'Packsprout, the Star Keeper, waits on one of the Star Coin spaces — look for the tall beam of light.', 28, 820);
     const steps: [string, string][] = [
       ['Reach the Keeper', 'You can trade just by passing him — you don\'t have to land on his space.'],
-      [`Pay ${ECONOMY.relicPrice} Gleam Chips`, 'You\'ll be asked whether you want to buy. Save up so you\'re ready!'],
+      [`Pay ${ECONOMY.relicPrice} coins`, 'You\'ll be asked whether you want to buy. Save up so you\'re ready!'],
       ['He moves on', 'After every sale the Keeper hops to a different gate, so plan your route.'],
     ];
     steps.forEach(([t, d], k) => this.stepCard(c, x, y0 + 150 + k * 170, 820, 150, k + 1, t, d, [0x7fb4e6, COLORS.gold, COLORS.teal][k]));
@@ -295,7 +295,7 @@ export class HowToPlayScene extends Phaser.Scene {
     const relic = this.icon(c, 'prism-relic', undefined, cx + 150, cy - 250, 150);
     if (relic) this.tweens.add({ targets: relic, y: relic.y - 14, angle: 6, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
     c.add(addText(this, cx, cy + 60, 'Packsprout', 30, { color: '#ffffff', weight: 700 }));
-    c.add(addText(this, cx, cy + 98, 'Relic Keeper', 21, { color: CSS.creamDark, weight: 500 }));
+    c.add(addText(this, cx, cy + 98, 'Star Keeper', 21, { color: CSS.creamDark, weight: 500 }));
   }
 
   pageItems(c: Phaser.GameObjects.Container): void {
@@ -315,7 +315,7 @@ export class HowToPlayScene extends Phaser.Scene {
       c.add(g);
       this.icon(c, it.icon.texture, it.icon.frame, x + 74, y + ch / 2, 96);
       c.add(addText(this, x + 146, y + 36, it.name, 26, { color: '#ffffff', weight: 700, align: 'left' }).setOrigin(0, 0.5));
-      c.add(addText(this, x + cw - 24, y + 36, `${it.price} chips`, 21, { color: CSS.goldLight, weight: 700, align: 'right' }).setOrigin(1, 0.5));
+      c.add(addText(this, x + cw - 24, y + 36, `${it.price} coins`, 21, { color: CSS.goldLight, weight: 700, align: 'right' }).setOrigin(1, 0.5));
       c.add(addText(this, x + 146, y + 62, it.description, 19, { color: CSS.creamDark, weight: 500, align: 'left', wrap: cw - 170 }).setOrigin(0, 0));
     });
   }

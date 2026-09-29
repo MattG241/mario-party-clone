@@ -1,8 +1,8 @@
 # Gleamtrail: Festival of the Spiral Isles
 
 An original local-multiplayer party game for the browser. Up to four players (controllers or
-keyboard, CPUs fill empty seats) travel a floating-island board, collect Gleam Chips, trade them
-for Prism Relics and battle it out in minigames between rounds.
+keyboard, CPUs fill empty seats) travel one of seven floating-island boards, collect coins, trade
+them for Star Coins and battle it out in 25 minigames between rounds.
 
 Built with TypeScript, Vite and Phaser 3. Environment art and the four heroes are modelled and
 pre-rendered from code in Blender (see [Art pipeline](#art-pipeline)).
@@ -83,15 +83,17 @@ load the assets.
 1. **Title → Board Game** (or **Minigames**). Everyone presses **A** to join on the character
    select screen, browses the roster along the bottom (left/right) and picks with **A**; each pick
    stands on that player's pedestal. Empty seats can be filled by CPUs, who pick at random.
-2. **Your turn:** optionally open your items (**Y**), then stop the **Orbit Dial** (**A**) and move
-   1–10 spaces. At forks, tilt the stick toward the path you want.
-3. **Spaces:** Gleam (+chips), Mischief (something sneaky), Festival (a lucky surprise), Market
-   (buy items), Portal (warp), Relic Gate, Event and Start.
-4. **Prism Relics:** pass Packsprout, the Relic Keeper, with 20 chips to buy a Relic. He moves to a
-   new gate after every sale — follow the beam of light.
-5. **Minigames:** every round ends with a minigame for everyone; placings pay 10 / 6 / 3 / 1 chips.
-6. **Winning:** most Relics after the final round (chips break ties). Festival Awards hand out bonus
-   Relics at the end.
+2. **Your turn:** optionally open your items (**Y**) or look around the board (**X**: the map —
+   pan with the stick, zoom with LB / RB, **B** to go back), then stop the **Orbit Dial** (**A**)
+   and move 1–10 spaces. At forks, tilt the stick toward the path you want. Each player's corner
+   shows how many steps they are from the Star Coin.
+3. **Spaces:** Gleam (+coins), Mischief (something sneaky), Festival (a lucky surprise), Market
+   (buy items), Portal (warp), Star Coin, Event and Start.
+4. **Star Coins:** pass Packsprout, the Star Keeper, with 20 coins to buy a Star Coin. He moves to
+   a new spot after every sale — follow the beam of light.
+5. **Minigames:** every round ends with a minigame for everyone; placings pay 10 / 6 / 3 / 1 coins.
+6. **Winning:** most Star Coins after the final round (coins break ties). Festival Awards hand out
+   bonus Star Coins at the end.
 
 The in-game **How to Play** screen covers the same ground with pictures.
 
@@ -102,11 +104,11 @@ The in-game **How to Play** screen covers the same ground with pictures.
 | Move / choose | Left stick or D-pad | W A S D / arrow keys |
 | Confirm, jump, stop the dial | A | Enter / Space |
 | Back, duck | B | Esc / Backspace |
-| Secondary action (dash, throw, grab) | X | E |
+| Secondary action (dash, throw, grab); the board map before you spin | X | E |
 | Items | Y | Q |
 | Bumpers / triggers | LB RB / LT RT | Z C / R F |
 | Aim (twin-stick minigames) | Right stick | I J K L |
-| Scores and map | View | Tab |
+| Scores (hold) | View | Tab |
 | Pause | Menu | P |
 
 Keyboard keys can be rebound in **Settings → Keyboard Controls**. **Settings → Test Controllers**
@@ -119,7 +121,7 @@ free controller takes over (press A), or the player carries on with the keyboard
 
 | Minigame | Players | Idea |
 | --- | --- | --- |
-| Gleam Grab | 1–4 | Catch falling chips; dodge the wobbly fake capsules |
+| Gleam Grab | 1–4 | Catch falling coins; dodge the wobbly fake capsules |
 | Orbit Dodge | 1–4 | Jump the low arm, duck the high arm; last one standing |
 | Crate Craze | 1–4 | Shove festival crates into your corner zone |
 | Skybridge Scramble | 1–4 | Keep your footing as platforms shake and fall |
@@ -129,7 +131,26 @@ free controller takes over (press A), or the player carries on with the keyboard
 | Tumble Tower | 1–4 | Climb a tower of moving, tipping platforms |
 
 Every minigame opens with an instruction card (rules, controls and a live preview); this can be
-set to full, quick or off in Settings. **Minigame Mode** lets you play any of them on their own.
+set to full, quick or off in Settings. **Minigame Mode** lets you play any of them on their own;
+its tabs (LB / RB) sort them by world.
+
+### Worlds: themed boards and the guests' minigames
+
+Pick the board in **Board Game → Board**. Each guest world has its own board (with its own spaces,
+events and time of day) and minigames starring its guests; on a world's board, its minigames come
+up more often. The festival (Suncoil Sanctuary and the eight minigames above) is the original set.
+
+| World | Board | Minigames |
+| --- | --- | --- |
+| Pirate Cove | Islands round a cove, a galleon shortcut, a lighthouse (day to night) | Stretch & Snatch (Luffy), Triple Slash (Zoro), Storm Navigator (Nami) |
+| Dojo Summit | Misty peaks, a rope bridge, a pagoda and training falls (day to night) | Cloud Rider (Goku), Clone Chaos (Naruto) |
+| Hero Heights | Night-time rooftops, subway portals, a clock tower and tech spire | Rooftop Glide (Batman), Web Swing (Spider-Man), Repulsor Range (Iron Man) |
+| Cartoon Coast | A boardwalk, a loop-the-loop, checkered hills and Bubble Bay | Ring Rush (Sonic), Patty Panic (SpongeBob), Donut Dash (Homer) |
+| Showtime Strip | A neon figure of eight: theatre, diner, café, saloon, drive-in (night) | Hip-Shake Hustle (Elvis), Coffee Rush (Sabrina), Rhinestone Rodeo (Chappell), Slapshot Showdown (Adam Sandler) |
+| Capitol Gardens | A park island: domed hall, reflecting pool, court and putting green | Free Throw Frenzy (Obama), Fairway Frenzy (Trump) |
+
+The guests are fan-made tributes for private, non-commercial play; every world, board and
+minigame is original. Code for a world lives in `src/game/worlds/<id>/` (see `types.ts` there).
 
 ## Settings and accessibility
 
@@ -144,8 +165,8 @@ The overlay and board shortcuts below are available in development builds, or in
 builds opened with `?debug`; the URL shortcuts work in any build:
 
 - **F2** — overlay with FPS, scene, match state and recent errors.
-- **On the board:** F3 skip turn · F4 go to the minigame · F5 +20 chips · F6 random item ·
-  F7 move to the relic · F8 finish the round.
+- **On the board:** F3 skip turn · F4 go to the minigame · F5 +20 coins · F6 random item ·
+  F7 move to the Star Coin · F8 finish the round.
 - **URL shortcuts** (never reachable from menus):
   `?quick` starts a board match immediately; `?minigame=<id>` jumps into a minigame
   (`gleam-grab`, `orbit-dodge`, `crate-craze`, `skybridge-scramble`, `totem-tug`, `spiral-splash`,
@@ -153,6 +174,29 @@ builds opened with `?debug`; the URL shortcuts work in any build:
   Modifiers: `&humans=0..4`, `&players=2..4`, `&rounds=N`, `&seed=N`, `&cpu=easy|normal|hard`,
   `&instructions=on|quick|off`, `&intro`, `&midgame` (round 4 with players spread out) and
   `&realtime` (lock game time to wall time on slow software-GL machines, used by tests).
+
+### Recording footage and the trailer
+
+`scripts/dev/record.mjs` records smooth 30 fps gameplay on machines far too slow to run the game
+in real time: it takes over the game loop and steps it on a virtual clock, saving every frame and
+the sound effects the game played. A shot is a URL plus steps (wait for a condition, skip, record,
+press keys or fake controllers, run code in the page); with a `random` seed and `hold` a run
+repeats frame for frame, so a dry run (`PROBE=1`: nothing drawn, seconds per minigame) finds the
+moments worth recording. The promo trailer is cut from `scripts/dev/trailer/shots.json`:
+
+```bash
+npx vite build && npx vite preview --port 4190 --strictPort &
+node scripts/dev/record.mjs scripts/dev/trailer/shots.json raw http://localhost:4190/
+node scripts/dev/trailer/sfx_render.mjs raw sfx          # the game's own sound effects as WAV
+python3 scripts/dev/trailer/music.py music.wav           # the score (numpy + scipy)
+python3 scripts/dev/trailer/cut.py raw                   # the cut list (edl.json) from the logs
+SFX_DIR=sfx python3 scripts/dev/trailer/edit.py raw music.wav trailer.mp4   # needs ffmpeg
+```
+
+`cut.py` places every cut so that a moment in the footage (a call-out, a sound effect, found in
+the recording logs) lands on a chosen beat, so re-recorded shots stay in sync. `edit.py` renders
+`edl.json` and poses the guests from the character renders in `art-out/chars`
+(`scripts/art/characters.py`); `--preview`, `--from/--to` and `--still` render quick checks.
 
 ## Project layout
 
@@ -173,7 +217,8 @@ scripts/
   build-sprites.mjs, build-placeholders.mjs   sprite atlas / placeholder generation
   dev/           capture.mjs and drive.mjs: headless screenshot helpers used during development;
                  record.mjs: frame-stepped gameplay recorder; trailer/: the promo trailer's shot
-                 list, score (music.py), sound-effect renderer and edit (edit.py + edl.json)
+                 list, score (music.py), sound-effect renderer, cut list (cut.py -> edl.json)
+                 and edit (edit.py)
 tests/unit, tests/e2e
 public/assets/   atlases, audio, rendered art (WebP) and manifests
 ```

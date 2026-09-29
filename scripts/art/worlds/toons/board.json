@@ -1,0 +1,806 @@
+{
+ "id": "toons",
+ "width": 3600,
+ "height": 2400,
+ "nodes": [
+  {
+   "id": "w0",
+   "x": 2000,
+   "y": 2050,
+   "type": "start",
+   "region": "Boardwalk",
+   "exposed": false
+  },
+  {
+   "id": "w1",
+   "x": 1830,
+   "y": 2080,
+   "type": "gleam",
+   "region": "Boardwalk",
+   "exposed": false
+  },
+  {
+   "id": "w2",
+   "x": 1660,
+   "y": 2085,
+   "type": "market",
+   "region": "Boardwalk",
+   "exposed": false
+  },
+  {
+   "id": "w3",
+   "x": 1490,
+   "y": 2065,
+   "type": "festival",
+   "region": "Boardwalk",
+   "exposed": false
+  },
+  {
+   "id": "w4",
+   "x": 1322,
+   "y": 2025,
+   "type": "gleam",
+   "region": "Boardwalk",
+   "exposed": false
+  },
+  {
+   "id": "w5",
+   "x": 1162,
+   "y": 1962,
+   "type": "mischief",
+   "region": "Palm Dunes",
+   "exposed": false
+  },
+  {
+   "id": "w6",
+   "x": 1015,
+   "y": 1880,
+   "type": "gleam",
+   "region": "Palm Dunes",
+   "exposed": false
+  },
+  {
+   "id": "h0",
+   "x": 895,
+   "y": 1760,
+   "type": "festival",
+   "region": "Palm Dunes",
+   "exposed": false
+  },
+  {
+   "id": "h1",
+   "x": 815,
+   "y": 1612,
+   "type": "relic",
+   "region": "Palm Dunes",
+   "exposed": false
+  },
+  {
+   "id": "h2",
+   "x": 778,
+   "y": 1448,
+   "type": "portal",
+   "region": "Palm Dunes",
+   "exposed": false
+  },
+  {
+   "id": "h3",
+   "x": 785,
+   "y": 1283,
+   "type": "gleam",
+   "region": "Checkered Hills",
+   "exposed": false
+  },
+  {
+   "id": "h4",
+   "x": 830,
+   "y": 1122,
+   "type": "gleam",
+   "region": "Checkered Hills",
+   "exposed": false
+  },
+  {
+   "id": "q0",
+   "x": 1000,
+   "y": 1082,
+   "type": "gleam",
+   "region": "Loop Lane",
+   "exposed": false
+  },
+  {
+   "id": "q1",
+   "x": 1170,
+   "y": 1062,
+   "type": "event",
+   "region": "Loop Lane",
+   "exposed": false
+  },
+  {
+   "id": "q2",
+   "x": 1340,
+   "y": 1045,
+   "type": "gleam",
+   "region": "Loop Lane",
+   "exposed": false
+  },
+  {
+   "id": "q3",
+   "x": 1498,
+   "y": 985,
+   "type": "mischief",
+   "region": "Loop Lane",
+   "exposed": false
+  },
+  {
+   "id": "u0",
+   "x": 800,
+   "y": 960,
+   "type": "gleam",
+   "region": "Checkered Hills",
+   "exposed": false
+  },
+  {
+   "id": "u1",
+   "x": 850,
+   "y": 800,
+   "type": "festival",
+   "region": "Checkered Hills",
+   "exposed": false
+  },
+  {
+   "id": "u2",
+   "x": 975,
+   "y": 690,
+   "type": "relic",
+   "region": "Checkered Hills",
+   "exposed": false
+  },
+  {
+   "id": "u3",
+   "x": 1140,
+   "y": 635,
+   "type": "gleam",
+   "region": "Checkered Hills",
+   "exposed": false
+  },
+  {
+   "id": "u4",
+   "x": 1310,
+   "y": 625,
+   "type": "mischief",
+   "region": "Checkered Hills",
+   "exposed": false
+  },
+  {
+   "id": "u5",
+   "x": 1470,
+   "y": 690,
+   "type": "gleam",
+   "region": "Checkered Hills",
+   "exposed": false
+  },
+  {
+   "id": "m0",
+   "x": 1605,
+   "y": 835,
+   "type": "gleam",
+   "region": "Maple Street",
+   "exposed": false
+  },
+  {
+   "id": "m1",
+   "x": 1765,
+   "y": 760,
+   "type": "festival",
+   "region": "Maple Street",
+   "exposed": false
+  },
+  {
+   "id": "m2",
+   "x": 1930,
+   "y": 700,
+   "type": "market",
+   "region": "Maple Street",
+   "exposed": false
+  },
+  {
+   "id": "m3",
+   "x": 2100,
+   "y": 660,
+   "type": "gleam",
+   "region": "Maple Street",
+   "exposed": false
+  },
+  {
+   "id": "m4",
+   "x": 2270,
+   "y": 600,
+   "type": "gleam",
+   "region": "Maple Street",
+   "exposed": false
+  },
+  {
+   "id": "m5",
+   "x": 2440,
+   "y": 570,
+   "type": "event",
+   "region": "Maple Street",
+   "exposed": false
+  },
+  {
+   "id": "m6",
+   "x": 2610,
+   "y": 575,
+   "type": "relic",
+   "region": "Maple Street",
+   "exposed": false
+  },
+  {
+   "id": "m7",
+   "x": 2770,
+   "y": 635,
+   "type": "gleam",
+   "region": "Maple Street",
+   "exposed": false
+  },
+  {
+   "id": "k0",
+   "x": 2240,
+   "y": 760,
+   "type": "mischief",
+   "region": "Maple Park",
+   "exposed": false
+  },
+  {
+   "id": "k1",
+   "x": 2410,
+   "y": 815,
+   "type": "gleam",
+   "region": "Maple Park",
+   "exposed": false
+  },
+  {
+   "id": "k2",
+   "x": 2580,
+   "y": 825,
+   "type": "festival",
+   "region": "Maple Park",
+   "exposed": false
+  },
+  {
+   "id": "k3",
+   "x": 2740,
+   "y": 790,
+   "type": "gleam",
+   "region": "Maple Park",
+   "exposed": false
+  },
+  {
+   "id": "m8",
+   "x": 2880,
+   "y": 745,
+   "type": "gleam",
+   "region": "Maple Street",
+   "exposed": false
+  },
+  {
+   "id": "m9",
+   "x": 2975,
+   "y": 885,
+   "type": "gleam",
+   "region": "Cliff Road",
+   "exposed": false
+  },
+  {
+   "id": "y0",
+   "x": 3130,
+   "y": 960,
+   "type": "gleam",
+   "region": "Bubble Bay",
+   "exposed": false
+  },
+  {
+   "id": "y1",
+   "x": 3235,
+   "y": 1095,
+   "type": "relic",
+   "region": "Bubble Bay",
+   "exposed": false
+  },
+  {
+   "id": "y2",
+   "x": 3275,
+   "y": 1260,
+   "type": "event",
+   "region": "Bubble Bay",
+   "exposed": false
+  },
+  {
+   "id": "y3",
+   "x": 3240,
+   "y": 1430,
+   "type": "portal",
+   "region": "Bubble Bay",
+   "exposed": false
+  },
+  {
+   "id": "y4",
+   "x": 3130,
+   "y": 1565,
+   "type": "gleam",
+   "region": "Bubble Bay",
+   "exposed": false
+  },
+  {
+   "id": "y5",
+   "x": 2975,
+   "y": 1650,
+   "type": "mischief",
+   "region": "Bubble Bay",
+   "exposed": false
+  },
+  {
+   "id": "v0",
+   "x": 2935,
+   "y": 1050,
+   "type": "gleam",
+   "region": "Cliff Road",
+   "exposed": false
+  },
+  {
+   "id": "v1",
+   "x": 2890,
+   "y": 1215,
+   "type": "festival",
+   "region": "Cliff Road",
+   "exposed": false
+  },
+  {
+   "id": "v2",
+   "x": 2850,
+   "y": 1380,
+   "type": "gleam",
+   "region": "Cliff Road",
+   "exposed": false
+  },
+  {
+   "id": "g0",
+   "x": 2810,
+   "y": 1545,
+   "type": "gleam",
+   "region": "Seaside Pier",
+   "exposed": false
+  },
+  {
+   "id": "g1",
+   "x": 2690,
+   "y": 1680,
+   "type": "festival",
+   "region": "Seaside Pier",
+   "exposed": false
+  },
+  {
+   "id": "g2",
+   "x": 2545,
+   "y": 1790,
+   "type": "gleam",
+   "region": "Seaside Pier",
+   "exposed": false
+  },
+  {
+   "id": "g3",
+   "x": 2375,
+   "y": 1880,
+   "type": "relic",
+   "region": "Seaside Pier",
+   "exposed": false
+  },
+  {
+   "id": "g4",
+   "x": 2180,
+   "y": 1965,
+   "type": "gleam",
+   "region": "Boardwalk",
+   "exposed": false
+  }
+ ],
+ "edges": [
+  {
+   "from": "w0",
+   "to": "w1",
+   "style": "path"
+  },
+  {
+   "from": "w1",
+   "to": "w2",
+   "style": "path"
+  },
+  {
+   "from": "w2",
+   "to": "w3",
+   "style": "path"
+  },
+  {
+   "from": "w3",
+   "to": "w4",
+   "style": "path"
+  },
+  {
+   "from": "w4",
+   "to": "w5",
+   "style": "path"
+  },
+  {
+   "from": "w5",
+   "to": "w6",
+   "style": "path"
+  },
+  {
+   "from": "w6",
+   "to": "h0",
+   "style": "path"
+  },
+  {
+   "from": "h0",
+   "to": "h1",
+   "style": "path"
+  },
+  {
+   "from": "h1",
+   "to": "h2",
+   "style": "path"
+  },
+  {
+   "from": "h2",
+   "to": "h3",
+   "style": "path"
+  },
+  {
+   "from": "h3",
+   "to": "h4",
+   "style": "path"
+  },
+  {
+   "from": "h4",
+   "to": "q0",
+   "style": "path"
+  },
+  {
+   "from": "h4",
+   "to": "u0",
+   "style": "path"
+  },
+  {
+   "from": "q0",
+   "to": "q1",
+   "style": "path"
+  },
+  {
+   "from": "q1",
+   "to": "q2",
+   "style": "path"
+  },
+  {
+   "from": "q2",
+   "to": "q3",
+   "style": "path"
+  },
+  {
+   "from": "q3",
+   "to": "m0",
+   "style": "path"
+  },
+  {
+   "from": "u0",
+   "to": "u1",
+   "style": "path"
+  },
+  {
+   "from": "u1",
+   "to": "u2",
+   "style": "path"
+  },
+  {
+   "from": "u2",
+   "to": "u3",
+   "style": "path"
+  },
+  {
+   "from": "u3",
+   "to": "u4",
+   "style": "path"
+  },
+  {
+   "from": "u4",
+   "to": "u5",
+   "style": "path"
+  },
+  {
+   "from": "u5",
+   "to": "m0",
+   "style": "path"
+  },
+  {
+   "from": "m0",
+   "to": "m1",
+   "style": "path"
+  },
+  {
+   "from": "m1",
+   "to": "m2",
+   "style": "path"
+  },
+  {
+   "from": "m2",
+   "to": "m3",
+   "style": "path"
+  },
+  {
+   "from": "m3",
+   "to": "m4",
+   "style": "path"
+  },
+  {
+   "from": "m3",
+   "to": "k0",
+   "style": "path"
+  },
+  {
+   "from": "m4",
+   "to": "m5",
+   "style": "path"
+  },
+  {
+   "from": "m5",
+   "to": "m6",
+   "style": "path"
+  },
+  {
+   "from": "m6",
+   "to": "m7",
+   "style": "path"
+  },
+  {
+   "from": "m7",
+   "to": "m8",
+   "style": "path"
+  },
+  {
+   "from": "k0",
+   "to": "k1",
+   "style": "path"
+  },
+  {
+   "from": "k1",
+   "to": "k2",
+   "style": "path"
+  },
+  {
+   "from": "k2",
+   "to": "k3",
+   "style": "path"
+  },
+  {
+   "from": "k3",
+   "to": "m8",
+   "style": "path"
+  },
+  {
+   "from": "m8",
+   "to": "m9",
+   "style": "path"
+  },
+  {
+   "from": "m9",
+   "to": "y0",
+   "style": "steps"
+  },
+  {
+   "from": "m9",
+   "to": "v0",
+   "style": "path"
+  },
+  {
+   "from": "y0",
+   "to": "y1",
+   "style": "steps"
+  },
+  {
+   "from": "y1",
+   "to": "y2",
+   "style": "steps"
+  },
+  {
+   "from": "y2",
+   "to": "y3",
+   "style": "steps"
+  },
+  {
+   "from": "y3",
+   "to": "y4",
+   "style": "steps"
+  },
+  {
+   "from": "y4",
+   "to": "y5",
+   "style": "steps"
+  },
+  {
+   "from": "y5",
+   "to": "g0",
+   "style": "steps"
+  },
+  {
+   "from": "v0",
+   "to": "v1",
+   "style": "path"
+  },
+  {
+   "from": "v1",
+   "to": "v2",
+   "style": "path"
+  },
+  {
+   "from": "v2",
+   "to": "g0",
+   "style": "path"
+  },
+  {
+   "from": "g0",
+   "to": "g1",
+   "style": "path"
+  },
+  {
+   "from": "g1",
+   "to": "g2",
+   "style": "path"
+  },
+  {
+   "from": "g2",
+   "to": "g3",
+   "style": "path"
+  },
+  {
+   "from": "g3",
+   "to": "g4",
+   "style": "path"
+  },
+  {
+   "from": "g4",
+   "to": "w0",
+   "style": "path"
+  }
+ ],
+ "relicGates": [
+  "h1",
+  "u2",
+  "m6",
+  "y1",
+  "g3"
+ ],
+ "portals": [
+  [
+   "h2",
+   "y3"
+  ]
+ ],
+ "decorations": [
+  {
+   "texture": "stall",
+   "x": 1600,
+   "y": 1990,
+   "scale": 0.42,
+   "sorted": true,
+   "id": "boardwalk-stall"
+  },
+  {
+   "texture": "bunting",
+   "x": 1860,
+   "y": 1980,
+   "scale": 0.65,
+   "sorted": false,
+   "depth": -15
+  },
+  {
+   "texture": "lantern",
+   "x": 1400,
+   "y": 1965,
+   "scale": 0.5,
+   "sorted": true,
+   "bob": 4
+  },
+  {
+   "texture": "lantern",
+   "x": 2110,
+   "y": 1950,
+   "scale": 0.5,
+   "sorted": true,
+   "bob": 5
+  },
+  {
+   "texture": "props",
+   "frame": "21",
+   "x": 940,
+   "y": 1172,
+   "scale": 0.3,
+   "sorted": true
+  },
+  {
+   "texture": "props",
+   "frame": "21",
+   "x": 1452,
+   "y": 1112,
+   "scale": 0.3,
+   "sorted": true
+  },
+  {
+   "texture": "props",
+   "frame": "25",
+   "x": 700,
+   "y": 1110,
+   "scale": 0.34,
+   "sorted": true
+  },
+  {
+   "texture": "stall",
+   "x": 2445,
+   "y": 480,
+   "scale": 0.4,
+   "sorted": true,
+   "tint": 16762592,
+   "id": "donut-shop"
+  },
+  {
+   "texture": "workshop",
+   "x": 2640,
+   "y": 490,
+   "scale": 0.42,
+   "sorted": true,
+   "id": "family-house"
+  },
+  {
+   "texture": "props",
+   "frame": "25",
+   "x": 2120,
+   "y": 800,
+   "scale": 0.34,
+   "sorted": true
+  },
+  {
+   "texture": "tree-twist",
+   "x": 2420,
+   "y": 945,
+   "scale": 0.24,
+   "sorted": true
+  },
+  {
+   "texture": "workshop",
+   "x": 3390,
+   "y": 1150,
+   "scale": 0.36,
+   "sorted": true,
+   "tint": 16761930,
+   "id": "pineapple-house"
+  },
+  {
+   "texture": "props",
+   "frame": "25",
+   "x": 3060,
+   "y": 860,
+   "scale": 0.34,
+   "sorted": true
+  },
+  {
+   "texture": "lantern",
+   "x": 2990,
+   "y": 1300,
+   "scale": 0.46,
+   "sorted": true,
+   "bob": 4
+  }
+ ],
+ "hostSpot": {
+  "x": 1905,
+  "y": 1950
+ }
+}

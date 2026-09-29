@@ -5,8 +5,9 @@
 import Phaser from 'phaser';
 import { LITE } from '../perf';
 import { inflateTexture } from '../util/texture';
+import { WORLD_MINIGAME_RENDERS } from '../worlds/infos';
 
-interface RenderSet {
+export interface RenderSet {
   /** Full-screen images: texture `rendered-scene-<name>` from scene_<name>.webp. */
   images: string[];
   /** The Orbit Dodge arm frames (an atlas). */
@@ -22,6 +23,8 @@ export const MINIGAME_RENDERS: Record<string, RenderSet> = {
   'totem-tug': { images: ['totem'] },
   'spiral-splash': { images: ['pond'] },
   'relic-relay': { images: ['relay'] },
+  // The guests' worlds (src/game/worlds/<id>/info.ts).
+  ...(WORLD_MINIGAME_RENDERS as Record<string, RenderSet>),
 };
 
 const ARMS = 'rendered-orbit-arms';

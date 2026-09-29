@@ -27,6 +27,7 @@ import { SettingsScene } from './scenes/SettingsScene';
 import { SystemScene } from './scenes/SystemScene';
 import { TitleScene } from './scenes/TitleScene';
 import { guardStaleText } from './util/staleText';
+import { MINIGAMES } from './minigames/MinigameManager';
 
 declare global {
   interface Window {
@@ -95,6 +96,17 @@ export function createGame(parent: HTMLElement): Phaser.Game {
   window.addEventListener('unhandledrejection', (e) => {
     logError(String(e.reason));
     window.__GLEAMTRAIL__?.errors.push(String(e.reason));
+  });
+  // Every world minigame needs its scene registered too (src/game/worlds/<id>/scenes.ts): a card
+  // without one would offer a game that can't start.
+  game.events.once(Phaser.Core.Events.READY, () => {
+    for (const m of MINIGAMES) {
+      if ((m.world ?? 'festival') === 'festival' || game.scene.getScene(m.sceneKey)) continue;
+      const msg = `World minigame "${m.id}" has no registered scene (${m.sceneKey})`;
+      console.warn(msg);
+      logError(msg);
+      window.__GLEAMTRAIL__?.errors.push(msg);
+    }
   });
   return game;
 }

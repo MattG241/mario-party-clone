@@ -12,7 +12,9 @@ import { PathChooser } from '../board/PathChooser';
 import { runMatch } from '../board/TurnManager';
 import type { Character } from '../characters/Character';
 import { CAMERA_ZOOM, COLORS, CSS, DEPTH, GAME_HEIGHT, GAME_WIDTH } from '../constants';
-import { findBoard } from '../data/boards';
+import type { BoardDef } from '../board/types';
+import { findBoard, SUNCOIL } from '../data/boards';
+import { queueBoardArt } from '../data/rendered';
 import { ITEM_IDS } from '../data/items';
 import { clearDebugInfo, DEBUG_ENABLED, logError, setDebugInfo, URL_PARAMS } from '../debug/debug';
 import { EffectsManager } from '../effects/EffectsManager';
@@ -23,7 +25,7 @@ import { minigameInfo, type MinigameLaunch, type MinigameResult } from '../minig
 import { LITE } from '../perf';
 import { saves } from '../save/SaveManager';
 import { settings } from '../save/SettingsManager';
-import { isFinalRound, type MatchState } from '../state/MatchState';
+import { isFinalRound, type MatchState, type PlayerState } from '../state/MatchState';
 import type { BonusAward } from '../state/scoring';
 import { session } from '../state/Session';
 import { drawPanel } from '../ui/Panel';
@@ -60,6 +62,8 @@ export class BoardScene extends Phaser.Scene {
   juice!: BoardJuice;
   ctx!: FlowContext;
   private data0: BoardSceneData = {};
+  /** The board being played. */
+  private def: BoardDef = SUNCOIL;
   private offDebug: (() => void) | null = null;
   private running = false;
   private pauseOpen = false;
@@ -85,6 +89,9 @@ export class BoardScene extends Phaser.Scene {
 
   init(data: BoardSceneData): void {
     this.data0 = data ?? {};
+    // The match's board (a saved match's, when continuing), Suncoil if it's unknown.
+    const boardId = (this.data0.continue ? saves.load() : session.match)?.config.boardId ?? 'suncoil';
+    this.def = findBoard(boardId) ?? SUNCOIL;
     this.running = false;
     this.pauseOpen = false;
     this.following = null;
@@ -93,13 +100,14 @@ export class BoardScene extends Phaser.Scene {
     this.vignette = null;
   }
 
+  preload(): void {
+    // World boards' art loads on demand (Suncoil's comes with start-up); other boards' terrain is released.
+    if (this.def.id === 'suncoil' || this.def.theme?.rendered) queueBoardArt(this, this.def.id);
+  }
+
   create(): void {
     enterScene(this, 400);
-    const def = findBoard('suncoil');
-    if (!def) {
-      goTo(this, 'Title');
-      return;
-    }
+    const def = this.def;
     const nodes = new Set(def.nodes.map((n) => n.id));
     let state: MatchState | null = session.match;
     if (this.data0.continue) {
@@ -118,6 +126,8 @@ export class BoardScene extends Phaser.Scene {
     this.scene.launch('BoardUI', { state });
     this.bg = this.scene.get('BoardBg') as BoardBgScene;
     this.ui = this.scene.get('BoardUI') as BoardUIScene;
+    // The HUD shows how far each player is from the Star Coin.
+    this.ui.stepsTo = (p) => (this.board ? this.stepsToStarCoin(p) : NaN);
     this.fx = new EffectsManager(this);
     ensureAmbientTextures(this);
     this.board = new BoardManager(this, def);
@@ -228,12 +238,14 @@ export class BoardScene extends Phaser.Scene {
     await this.overview(10);
     const humans = this.state.players.filter((p) => !p.isCpu).map((p) => input.controls(p.slot));
     const sweep = this.tweens.add({ targets: this.cameras.main, scrollX: '+=200', duration: 6000, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
-    await this.ui.banner({ title: 'SUNCOIL SANCTUARY', subtitle: 'WELCOME TO THE FESTIVAL', color: COLORS.teal, sound: 'fanfare', hold: 1400, size: 96 });
+    // Every board's own name (the world boards share Suncoil's guide and rules).
+    const name = this.def.name;
+    await this.ui.banner({ title: name.toUpperCase(), subtitle: 'WELCOME TO THE FESTIVAL', color: COLORS.teal, sound: 'fanfare', hold: 1400, size: 96 });
     await this.ui.dialogLines(
       [
-        { npc: 'ora', pose: 'welcome', text: 'Welcome to Suncoil Sanctuary, adventurers! I\'m Ora, your festival guide.' },
-        { npc: 'ora', pose: 'point', text: 'Spin the Orbit Dial to travel. Land on blue Gleam Spaces for chips, and watch out for purple Mischief!' },
-        { npc: 'ora', pose: 'flag', text: 'Most Prism Relics wins the festival — Gleam Chips break ties. Press Y for items and VIEW for scores.' },
+        { npc: 'ora', pose: 'welcome', text: `Welcome to ${name}, adventurers! I'm Ora, your festival guide.` },
+        { npc: 'ora', pose: 'point', text: 'Spin the Orbit Dial to travel. Land on blue Gleam Spaces for coins, and watch out for purple Mischief!' },
+        { npc: 'ora', pose: 'flag', text: 'Most Star Coins wins the festival — coins break ties. Press Y for items, X for the map and VIEW for scores.' },
       ],
       humans,
       humans.length === 0,
@@ -242,9 +254,14 @@ export class BoardScene extends Phaser.Scene {
     const rp = this.board.relicPos();
     await this.focus(rp.x, rp.y + 80, 0.95, 900);
     this.board.keeperSprite().setFrame('27');
-    await this.ui.dialogLines([{ npc: 'packsprout', pose: 'cheer', text: 'Bring me 20 Gleam Chips and I\'ll trade you a Prism Relic! I move to a new gate after every sale.' }], humans, humans.length === 0);
+    await this.ui.dialogLines([{ npc: 'packsprout', pose: 'cheer', text: 'Bring me 20 coins and I\'ll trade you a Star Coin! I move to a new spot after every sale.' }], humans, humans.length === 0);
     this.board.keeperSprite().setFrame('26');
     await this.overview(900);
+  }
+
+  /** Steps from a player's space to the Star Coin, walking forward (Infinity if there's no way now). */
+  stepsToStarCoin(p: PlayerState): number {
+    return this.board.graph.distance(p.nodeId, this.state.board.relicGate, this.state.board, ItemManager.has(p, 'prism_key'));
   }
 
   // --- Camera -------------------------------------------------------------------------------------

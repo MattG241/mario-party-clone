@@ -2,6 +2,7 @@
 // spiral-powered observatory. Movement runs clockwise: Festival Plaza → Twisting Grove →
 // Crystal Works → Sky Bridge → Brass Terrace → Windy Ledge → Lantern Docks → Plaza.
 import type { BoardDef, BoardNodeDef, NodeMeta, SpaceType } from '../board/types';
+import { WORLD_BOARDS } from '../worlds/boards';
 
 function n(id: string, x: number, y: number, type: SpaceType, next: string[], extra: { eventId?: string; meta?: NodeMeta } = {}): BoardNodeDef {
   return { id, x, y, type, next, eventId: extra.eventId, metadata: extra.meta };
@@ -89,7 +90,7 @@ export const SUNCOIL: BoardDef = {
   name: 'Suncoil Sanctuary',
   subtitle: 'Floating festival of the spiral observatory',
   description:
-    'Rope bridges, crystal generators and brass machines ring an ancient observatory. Follow the trails, dodge the mischief, and chase the Relic Keeper from gate to gate.',
+    'Rope bridges, crystal generators and brass machines ring an ancient observatory. Follow the trails, dodge the mischief, and chase the Star Keeper from spot to spot.',
   width: 4200,
   height: 2800,
   nodes: suncoilNodes,
@@ -194,7 +195,8 @@ export const SUNCOIL: BoardDef = {
   hostSpot: { x: 2252, y: 2080 },
 };
 
-export const BOARDS: BoardDef[] = [SUNCOIL];
+/** Every board: Suncoil Sanctuary, then the guests' world boards (src/game/worlds/<id>/board.ts). */
+export const BOARDS: BoardDef[] = [SUNCOIL, ...WORLD_BOARDS];
 
 export function findBoard(id: string): BoardDef | undefined {
   return BOARDS.find((b) => b.id === id);

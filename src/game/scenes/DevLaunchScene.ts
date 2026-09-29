@@ -141,8 +141,8 @@ export class DevLaunchScene extends Phaser.Scene {
       return null;
     }
     if (this.data0.quick) {
-      const board = findBoard('suncoil');
-      if (!board) return 'Board data missing';
+      const board = findBoard(URL_PARAMS.get('board') ?? 'suncoil');
+      if (!board) return `Unknown board "${URL_PARAMS.get('board')}"`;
       session.mode = 'board';
       const parts = this.participants();
       const level = parts.find((p) => p.isCpu)?.cpuLevel ?? 'normal';

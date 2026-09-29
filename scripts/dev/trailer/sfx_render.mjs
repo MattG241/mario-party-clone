@@ -6,7 +6,8 @@
 //   node scripts/dev/trailer/sfx_render.mjs <rawDir> <outDir> [sampleRate]
 //
 // Renders every (key, rate) pair listed in <rawDir>/*/sfx.json (written by scripts/dev/record.mjs)
-// as <outDir>/<key>@<rate>.wav (mono, 16-bit), skipping files that already exist.
+// as <outDir>/<key>@<rate>.wav (mono, 16-bit), skipping files that already exist. EXTRA_SFX adds
+// pairs the edit uses on its own (e.g. EXTRA_SFX=whoosh@1,pop@1.2 for its graphics).
 import { chromium } from '@playwright/test';
 import { build } from 'esbuild';
 import fs from 'node:fs';
@@ -24,6 +25,7 @@ for (const d of fs.readdirSync(rawDir)) {
   if (!fs.existsSync(f)) continue;
   for (const [, key, rate] of JSON.parse(fs.readFileSync(f, 'utf8')).events) wanted.add(`${key}@${rate}`);
 }
+for (const item of (process.env.EXTRA_SFX ?? '').split(',').filter(Boolean)) wanted.add(item);
 fs.mkdirSync(outDir, { recursive: true });
 
 const bundle = await build({ entryPoints: ['src/game/audio/sfx.ts'], bundle: true, format: 'iife', globalName: 'GT_SFX', write: false, target: 'es2020' });

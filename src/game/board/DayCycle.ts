@@ -102,6 +102,16 @@ export function dayTime(round: number, rounds: number, phase: MatchPhase, player
   return 0.82 * clamp01((round - 1) / Math.max(1, rounds - 2));
 }
 
+/**
+ * A board's own hours: the festival day (default), a match that stays in daylight (morning to golden
+ * hour), or one held at night (dusk deepening to full night).
+ */
+export function themedTime(t: number, time: 'cycle' | 'day' | 'night' = 'cycle'): number {
+  if (time === 'day') return 0.62 * t;
+  if (time === 'night') return 0.9 + 0.1 * t;
+  return t;
+}
+
 /** What the players would call a moment of the day (named on the round banner when it changes). */
 export function dayName(t: number): string {
   if (t < 0.18) return 'MORNING';

@@ -1,0 +1,394 @@
+{
+ "board": "toons",
+ "origin": [
+  -120,
+  -60
+ ],
+ "scale": 1.0,
+ "bakedPaths": true,
+ "tiles": [
+  {
+   "file": "terrain_0_0.webp",
+   "x": 0,
+   "y": 0,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_1_0.webp",
+   "x": 1020,
+   "y": 0,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_2_0.webp",
+   "x": 2040,
+   "y": 0,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_3_0.webp",
+   "x": 3060,
+   "y": 0,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_0_1.webp",
+   "x": 0,
+   "y": 1020,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_1_1.webp",
+   "x": 1020,
+   "y": 1020,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_2_1.webp",
+   "x": 2040,
+   "y": 1020,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_3_1.webp",
+   "x": 3060,
+   "y": 1020,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_0_2.webp",
+   "x": 0,
+   "y": 2040,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_1_2.webp",
+   "x": 1020,
+   "y": 2040,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_2_2.webp",
+   "x": 2040,
+   "y": 2040,
+   "w": 1024,
+   "h": 1024
+  },
+  {
+   "file": "terrain_3_2.webp",
+   "x": 3060,
+   "y": 2040,
+   "w": 1024,
+   "h": 1024
+  }
+ ],
+ "shadow": {
+  "file": "shadow.webp",
+  "x": -72,
+  "y": -92,
+  "w": 4044,
+  "h": 2880
+ },
+ "props": [
+  {
+   "id": "loop",
+   "file": "prop_loop.webp",
+   "tex": "",
+   "kind": "loop",
+   "x": 977.0,
+   "y": 682.0,
+   "w": 386.0,
+   "h": 411.0,
+   "baseY": 1062,
+   "anchorX": 1170,
+   "depthY": 1062
+  },
+  {
+   "id": "pineapple-house",
+   "file": "prop_pineapple-house.webp",
+   "tex": "workshop",
+   "kind": "pineapple",
+   "x": 3368.0,
+   "y": 883.0,
+   "w": 144.0,
+   "h": 266.0,
+   "baseY": 1080,
+   "anchorX": 3440
+  },
+  {
+   "id": "tiki-hut",
+   "file": "prop_tiki-hut.webp",
+   "tex": "",
+   "kind": "tiki",
+   "x": 3363.0,
+   "y": 1275.0,
+   "w": 209.0,
+   "h": 256.0,
+   "baseY": 1445,
+   "anchorX": 3450
+  },
+  {
+   "id": "family-house",
+   "file": "prop_family-house.webp",
+   "tex": "workshop",
+   "kind": "house",
+   "x": 2528.0,
+   "y": 244.0,
+   "w": 290.0,
+   "h": 265.0,
+   "baseY": 400,
+   "anchorX": 2640
+  },
+  {
+   "id": "donut-shop",
+   "file": "prop_donut-shop.webp",
+   "tex": "stall",
+   "kind": "donut",
+   "x": 2346.0,
+   "y": 283.0,
+   "w": 167.0,
+   "h": 217.0,
+   "baseY": 455,
+   "anchorX": 2430
+  },
+  {
+   "id": "garage",
+   "file": "prop_garage.webp",
+   "tex": "",
+   "kind": "garage",
+   "x": 1770.0,
+   "y": 449.0,
+   "w": 184.0,
+   "h": 156.0,
+   "baseY": 560,
+   "anchorX": 1880
+  },
+  {
+   "id": "house-west",
+   "file": "prop_house-west.webp",
+   "tex": "",
+   "kind": "house",
+   "x": 1995.0,
+   "y": 337.0,
+   "w": 246.0,
+   "h": 226.0,
+   "baseY": 470,
+   "anchorX": 2090
+  },
+  {
+   "id": "house-east",
+   "file": "prop_house-east.webp",
+   "tex": "",
+   "kind": "house",
+   "x": 2780.0,
+   "y": 435.0,
+   "w": 232.0,
+   "h": 213.0,
+   "baseY": 560,
+   "anchorX": 2870
+  },
+  {
+   "id": "ferris",
+   "file": "prop_ferris.webp",
+   "tex": "",
+   "kind": "ferris",
+   "x": 2186.0,
+   "y": 1946.0,
+   "w": 288.0,
+   "h": 228.0,
+   "baseY": 2140,
+   "anchorX": 2330
+  },
+  {
+   "id": "stall-a",
+   "file": "prop_stall-a.webp",
+   "tex": "stall",
+   "kind": "stall",
+   "x": 1348.0,
+   "y": 1772.0,
+   "w": 312.0,
+   "h": 228.0,
+   "baseY": 1945,
+   "anchorX": 1500
+  },
+  {
+   "id": "stall-b",
+   "file": "prop_stall-b.webp",
+   "tex": "stall",
+   "kind": "stall",
+   "x": 1504.0,
+   "y": 1768.0,
+   "w": 300.0,
+   "h": 220.0,
+   "baseY": 1935,
+   "anchorX": 1650
+  },
+  {
+   "id": "stage",
+   "file": "prop_stage.webp",
+   "tex": "",
+   "kind": "stage",
+   "x": 1798.0,
+   "y": 1799.0,
+   "w": 214.0,
+   "h": 234.0,
+   "baseY": 1950,
+   "anchorX": 1905,
+   "depthY": 1900
+  },
+  {
+   "id": "lantern-1",
+   "file": "prop_lantern-1.webp",
+   "tex": "lantern",
+   "kind": "lantern",
+   "x": 1384.0,
+   "y": 1804.0,
+   "w": 89.0,
+   "h": 176.0,
+   "baseY": 1965,
+   "anchorX": 1400
+  },
+  {
+   "id": "lantern-2",
+   "file": "prop_lantern-2.webp",
+   "tex": "lantern",
+   "kind": "lantern",
+   "x": 2094.0,
+   "y": 1789.0,
+   "w": 88.0,
+   "h": 176.0,
+   "baseY": 1950,
+   "anchorX": 2110
+  },
+  {
+   "id": "lantern-3",
+   "file": "prop_lantern-3.webp",
+   "tex": "lantern",
+   "kind": "lantern",
+   "x": 2174.0,
+   "y": 548.0,
+   "w": 84.0,
+   "h": 166.0,
+   "baseY": 700,
+   "anchorX": 2190
+  },
+  {
+   "id": "lantern-4",
+   "file": "prop_lantern-4.webp",
+   "tex": "lantern",
+   "kind": "lantern",
+   "x": 2674.0,
+   "y": 548.0,
+   "w": 84.0,
+   "h": 166.0,
+   "baseY": 700,
+   "anchorX": 2690
+  },
+  {
+   "id": "lantern-5",
+   "file": "prop_lantern-5.webp",
+   "tex": "lantern",
+   "kind": "lantern",
+   "x": 2974.0,
+   "y": 1148.0,
+   "w": 84.0,
+   "h": 165.0,
+   "baseY": 1300,
+   "anchorX": 2990
+  },
+  {
+   "id": "bunting-boardwalk",
+   "file": "prop_bunting-boardwalk.webp",
+   "tex": "bunting",
+   "kind": "bunting",
+   "x": 1743.0,
+   "y": 1812.0,
+   "w": 234.0,
+   "h": 181.0,
+   "baseY": 1980,
+   "anchorX": 1860
+  },
+  {
+   "id": "park-tree",
+   "file": "prop_park-tree.webp",
+   "tex": "tree-twist",
+   "kind": "tree",
+   "x": 2334.0,
+   "y": 727.0,
+   "w": 188.0,
+   "h": 224.0,
+   "baseY": 930,
+   "anchorX": 2420
+  },
+  {
+   "id": "pedestal-h1",
+   "file": "prop_pedestal-h1.webp",
+   "tex": "relic-pedestal",
+   "kind": "pedestal",
+   "x": 789.0,
+   "y": 1468.0,
+   "w": 52.0,
+   "h": 81.0,
+   "baseY": 1527,
+   "anchorX": 815
+  },
+  {
+   "id": "pedestal-u2",
+   "file": "prop_pedestal-u2.webp",
+   "tex": "relic-pedestal",
+   "kind": "pedestal",
+   "x": 949.0,
+   "y": 546.0,
+   "w": 52.0,
+   "h": 81.0,
+   "baseY": 605,
+   "anchorX": 975
+  },
+  {
+   "id": "pedestal-m6",
+   "file": "prop_pedestal-m6.webp",
+   "tex": "relic-pedestal",
+   "kind": "pedestal",
+   "x": 2584.0,
+   "y": 431.0,
+   "w": 52.0,
+   "h": 81.0,
+   "baseY": 490,
+   "anchorX": 2610
+  },
+  {
+   "id": "pedestal-y1",
+   "file": "prop_pedestal-y1.webp",
+   "tex": "relic-pedestal",
+   "kind": "pedestal",
+   "x": 3209.0,
+   "y": 966.0,
+   "w": 52.0,
+   "h": 81.0,
+   "baseY": 1025,
+   "anchorX": 3235
+  },
+  {
+   "id": "pedestal-g3",
+   "file": "prop_pedestal-g3.webp",
+   "tex": "relic-pedestal",
+   "kind": "pedestal",
+   "x": 2349.0,
+   "y": 1736.0,
+   "w": 52.0,
+   "h": 80.0,
+   "baseY": 1795,
+   "anchorX": 2375
+  }
+ ]
+}

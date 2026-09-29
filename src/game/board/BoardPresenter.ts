@@ -17,7 +17,8 @@ import type { BoardScene } from '../scenes/BoardScene';
 import { addText } from '../ui/theme';
 import { centerOrigin } from '../util/spriteUtil';
 import { SPACE_COLORS } from './boardStyle';
-import { dayName, dayTime } from './DayCycle';
+import { dayName, dayTime, themedTime } from './DayCycle';
+import { mapView } from './MapView';
 import type { DialogLineSpec, EventPresentation, FlowIO, JumpKind, MinigameRewardView, PathOption, PreRollDecision, ShopOffer, TargetOption } from './flowTypes';
 import type { BoardNodeDef } from './types';
 import { registeredMinigames } from '../minigames/registry';
@@ -84,8 +85,9 @@ export class BoardPresenter implements FlowIO {
     if (final) return;
     // When the light turns a corner (golden hour, sunset) the banner says so.
     const n = this.state.players.length;
-    const now = dayName(dayTime(round, total, { kind: 'roundStart' }, n));
-    const turned = round > 1 && dayName(dayTime(round - 1, total, { kind: 'roundStart' }, n)) !== now;
+    const hours = this.scene.board.graph.def.theme?.time;
+    const now = dayName(themedTime(dayTime(round, total, { kind: 'roundStart' }, n), hours));
+    const turned = round > 1 && dayName(themedTime(dayTime(round - 1, total, { kind: 'roundStart' }, n), hours)) !== now;
     const left = `${total - round + 1} ROUNDS TO PLAY`;
     await this.ui.banner({ title: `ROUND ${round} OF ${total}`, subtitle: round === 1 ? 'LET THE FESTIVAL BEGIN!' : turned ? `${now} · ${left}` : left, color: COLORS.teal, sound: 'fanfare', hold: this.dur(900) });
   }
@@ -102,7 +104,7 @@ export class BoardPresenter implements FlowIO {
     await this.ui.dialogLines(
       [
         { npc: 'ora', pose: 'flag', text: 'The final round is here! The festival lights are at full blaze!' },
-        { npc: 'ora', pose: 'cheer', text: 'Gleam Spaces now pay 5 chips, event spaces sparkle with bonus chips, and the shops have one extra treasure!' },
+        { npc: 'ora', pose: 'cheer', text: 'Gleam Spaces now pay 5 coins, event spaces sparkle with bonus coins, and the shops have one extra treasure!' },
       ],
       this.humanControls(),
       true,
@@ -151,15 +153,20 @@ export class BoardPresenter implements FlowIO {
         [
           { button: 'A', label: 'Spin the Orbit Dial' },
           { button: 'Y', label: `Items (${p.items.length}/3)` },
+          { button: 'X', label: 'Map' },
           { button: 'VIEW', label: 'Scores' },
         ],
         p.slot,
       );
       setDebugInfo('awaitRoll', true);
-      const b = await this.ui.waitButton(c, ['A', 'Y']);
+      const b = await this.ui.waitButton(c, ['A', 'Y', 'X']);
       setDebugInfo('awaitRoll', false);
       this.ui.setPrompts([]);
       if (b === null || b === 'A') return { kind: 'roll' };
+      if (b === 'X') {
+        await mapView(this.scene, c, p);
+        continue;
+      }
       const item = await this.ui.itemRadial(p, usable, c);
       if (item) return { kind: 'item', item };
     }
@@ -263,7 +270,7 @@ export class BoardPresenter implements FlowIO {
     const c = this.controls(p);
     const idx = await this.ui.listMenu({
       title: offer.shop.name,
-      subtitle: `You have ${p.chips} Gleam Chips · ${p.items.length}/3 items`,
+      subtitle: `You have ${p.chips} coins · ${p.items.length}/3 items`,
       npc: { id: npc, pose: npc === 'wrench' ? 'gadget' : 'gift' },
       options: offer.items.map((it) => ({ label: ITEMS[it.id].name, detail: ITEMS[it.id].description, right: `${it.price}`, icon: ITEMS[it.id].icon, disabled: it.price > p.chips })),
       controls: c,
@@ -285,11 +292,11 @@ export class BoardPresenter implements FlowIO {
     await this.scene.focus(rp.x, rp.y + 60, 1.05, this.dur(420));
     this.scene.board.keeperSprite().setFrame('26');
     const idx = await this.ui.listMenu({
-      title: 'Prism Relic',
-      subtitle: `Packsprout offers a Prism Relic for ${price} Gleam Chips. You have ${p.chips}.`,
+      title: 'Star Coin',
+      subtitle: `Packsprout offers a Star Coin for ${price} coins. You have ${p.chips}.`,
       npc: { id: 'packsprout', pose: 'gift' },
       options: [
-        { label: 'Buy the Prism Relic!', right: `${price}`, icon: { texture: 'prism-relic', scale: 0.5 } },
+        { label: 'Buy the Star Coin!', right: `${price}`, icon: { texture: 'prism-relic', scale: 0.5 } },
         { label: 'Not right now' },
       ],
       controls: this.controls(p),
@@ -407,7 +414,7 @@ export class BoardPresenter implements FlowIO {
       c.rumble(0.7, 0.7, 150);
       this.scene.time.delayedCall(250, () => c.rumble(0.7, 0.7, 150));
     }
-    await this.ui.banner({ title: 'PRISM RELIC!', subtitle: `${CHARACTERS[p.characterId].name.toUpperCase()} NOW HAS ${p.relics}`, color: PLAYER_COLORS[p.slot], sound: null, hold: 900 });
+    await this.ui.banner({ title: 'STAR COIN!', subtitle: `${CHARACTERS[p.characterId].name.toUpperCase()} NOW HAS ${p.relics}`, color: PLAYER_COLORS[p.slot], sound: null, hold: 900 });
     const s = this.toScreen(relic.x, relic.y);
     relic.destroy();
     const anchor = this.ui.hud.relicAnchor(p.slot);
@@ -439,7 +446,7 @@ export class BoardPresenter implements FlowIO {
     });
     this.scene.board.keeperSprite().setFrame('27');
     const region = this.scene.board.graph.node(to).metadata?.region ?? 'a new gate';
-    await this.ui.dialogLines([{ npc: 'packsprout', pose: 'cheer', text: `I've carried the next Prism Relic to ${region}. Come and find me!` }], this.humanControls(), true);
+    await this.ui.dialogLines([{ npc: 'packsprout', pose: 'cheer', text: `I've carried the next Star Coin to ${region}. Come and find me!` }], this.humanControls(), true);
     this.scene.board.keeperSprite().setFrame('26');
   }
 
@@ -528,7 +535,10 @@ export class BoardPresenter implements FlowIO {
   }
 
   async event(e: EventPresentation): Promise<void> {
-    const focusNode = e.focus ?? e.player?.nodeId;
+    // A shot of a space this board doesn't have (an event written for another board) is skipped
+    // rather than stopping the match.
+    const want = e.focus ?? e.player?.nodeId;
+    const focusNode = want && this.scene.board.graph.has(want) ? want : undefined;
     // A player's own event pushes right in on them; board-wide events frame the landmark.
     const personal = !e.focus && !!e.player;
     const color = EVENT_COLORS[e.kind];
@@ -563,7 +573,7 @@ export class BoardPresenter implements FlowIO {
   // --- Minigames and the end ----------------------------------------------------------------------
   async playMinigame(): Promise<Placement[]> {
     const pool = availableMinigames(registeredMinigames());
-    const info = pickMinigame(pool, this.state.minigameHistory, this.state.players.length, this.scene.ctx.rng);
+    const info = pickMinigame(pool, this.state.minigameHistory, this.state.players.length, this.scene.ctx.rng, this.scene.board.graph.def.theme?.minigames);
     this.state.minigameHistory.push(info.id);
     this.moves.activeSlot = null;
     this.ui.hud.setActive(null);

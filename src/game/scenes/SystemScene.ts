@@ -225,7 +225,7 @@ export class SystemScene extends Phaser.Scene {
       lines.push('Errors:');
       for (const e of errorLog) lines.push(`  ${e.slice(0, 90)}`);
     }
-    lines.push('F3 skip turn · F4 minigame · F5 +20 chips · F6 item · F7 to relic · F8 finish round');
+    lines.push('F3 skip turn · F4 minigame · F5 +20 coins · F6 item · F7 to the Star Coin · F8 finish round');
     this.debugText.setText(lines.join('\n'));
     this.debugBg.clear();
     this.debugBg.fillStyle(0x03121a, 0.82);

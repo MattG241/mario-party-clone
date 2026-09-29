@@ -5,6 +5,8 @@ import { CHARACTER_IDS } from '../data/characters';
 import { arenaThumbKey, queueArenaThumbs, releaseArenaThumbs } from '../data/minigameRenders';
 import { input } from '../input/InputManager';
 import { MINIGAMES, type MinigameInfo, type MinigameLaunch, type MinigamePlayer } from '../minigames/MinigameManager';
+import { WORLDS } from '../worlds';
+import type { WorldDef } from '../worlds/types';
 import { registeredMinigames } from '../minigames/registry';
 import { settings } from '../save/SettingsManager';
 import { session } from '../state/Session';
@@ -18,11 +20,13 @@ import { randomSeed } from '../util/Random';
 
 const COLS = 4;
 const CARD_W = 392;
-const CARD_H = 292;
-const GAP = 26;
+const CARD_H = 264;
+const GAP = 22;
 const GRID_X = (GAME_WIDTH - (COLS * CARD_W + (COLS - 1) * GAP)) / 2;
-const GRID_Y = 176;
-const ART_H = 200;
+const GRID_Y = 228;
+const ART_H = 180;
+/** The world tabs (one per world with minigames), between the title and the grid. */
+const TAB_Y = 178;
 
 interface Card {
   info: MinigameInfo;
@@ -41,6 +45,11 @@ interface Card {
 export class MinigameModeScene extends Phaser.Scene {
   private cards: Card[] = [];
   private index = 0;
+  /** Worlds that have minigames, each with its games, and the one shown. */
+  private tabs: { world: WorldDef; infos: MinigameInfo[] }[] = [];
+  private tab = 0;
+  private tabLayer!: Phaser.GameObjects.Container;
+  private cardLayer!: Phaser.GameObjects.Container;
   private players: MinigamePlayer[] = [];
   private detail!: Phaser.GameObjects.Container;
   private leaving = false;
@@ -51,6 +60,7 @@ export class MinigameModeScene extends Phaser.Scene {
 
   init(): void {
     this.cards = [];
+    this.tabs = [];
     this.leaving = false;
   }
 
@@ -69,27 +79,83 @@ export class MinigameModeScene extends Phaser.Scene {
     this.players = this.resolvePlayers();
     this.buildPlayerStrip();
 
+    // One tab per world that has minigames (the original set first).
+    this.tabs = WORLDS.map((world) => ({ world, infos: MINIGAMES.filter((m) => (m.world ?? 'festival') === world.id) })).filter((t) => t.infos.length > 0);
+    const last = this.registry.get('mgmode-last') as string | undefined;
+    const lastWorld = MINIGAMES.find((m) => m.id === last)?.world ?? 'festival';
+    this.tab = Math.max(0, this.tabs.findIndex((t) => t.world.id === lastWorld));
+    this.tabLayer = this.add.container(0, 0);
+    this.cardLayer = this.add.container(0, 0);
+    this.detail = this.add.container(0, 0);
+    const prompts: { button: 'STICK' | 'A' | 'Y' | 'B' | 'LB'; label: string }[] = [
+      { button: 'STICK', label: 'Choose' },
+      { button: 'A', label: 'Play' },
+      { button: 'Y', label: 'Random' },
+      { button: 'B', label: 'Back' },
+    ];
+    if (this.tabs.length > 1) prompts.splice(1, 0, { button: 'LB', label: 'World' });
+    new PromptBar(this, GAME_WIDTH / 2, GAME_HEIGHT - 42, prompts, { size: 34, fontSize: 22 });
+    this.showTab(this.tab, last, true);
+  }
+
+  /** The world tabs: the shown world filled in its colour, the others as quiet chips. */
+  private drawTabs(): void {
+    this.tabLayer.removeAll(true);
+    if (this.tabs.length < 2) return;
+    const h = 44;
+    const pad = 26;
+    const gap = 12;
+    const labels = this.tabs.map((t) => addText(this, 0, TAB_Y, t.world.short.toUpperCase(), 20, { color: '#ffffff', weight: 700 }));
+    const widths = labels.map((l) => l.width + pad * 2);
+    const total = widths.reduce((a, b) => a + b, 0) + gap * (widths.length - 1);
+    let x = GAME_WIDTH / 2 - total / 2;
+    const kind = glyphKindFor(0);
+    const lb = makeGlyph(this, 'LB', 30, kind).setPosition(x - 40, TAB_Y);
+    const rb = makeGlyph(this, 'RB', 30, kind).setPosition(x + total + 40, TAB_Y);
+    this.tabLayer.add([lb, rb]);
+    this.tabs.forEach((t, i) => {
+      const w = widths[i];
+      const on = i === this.tab;
+      const g = this.add.graphics();
+      if (on) {
+        g.fillStyle(0x06141a, 0.35);
+        g.fillRoundedRect(x + 3, TAB_Y - h / 2 + 5, w, h, h / 2);
+        g.fillStyle(t.world.color, 1);
+        g.fillRoundedRect(x, TAB_Y - h / 2, w, h, h / 2);
+        g.lineStyle(3, 0xfff4dc, 1);
+        g.strokeRoundedRect(x, TAB_Y - h / 2, w, h, h / 2);
+      } else {
+        g.fillStyle(0x0c2630, 0.8);
+        g.fillRoundedRect(x, TAB_Y - h / 2, w, h, h / 2);
+        g.lineStyle(2, t.world.color, 0.9);
+        g.strokeRoundedRect(x, TAB_Y - h / 2, w, h, h / 2);
+      }
+      labels[i].setX(x + w / 2).setColor(on ? '#ffffff' : CSS.cream).setAlpha(on ? 1 : 0.85);
+      this.tabLayer.add([g, labels[i]]);
+      x += w + gap;
+    });
+  }
+
+  /** Show a world's minigames (focusing `focusId` if it's among them, else the first playable). */
+  private showTab(t: number, focusId?: string, instant = false): void {
+    this.tab = (t + this.tabs.length) % this.tabs.length;
+    this.drawTabs();
+    this.cardLayer.removeAll(true);
+    this.cards = [];
     const registered = registeredMinigames();
-    MINIGAMES.forEach((info, i) => {
+    this.tabs[this.tab].infos.forEach((info, i) => {
       const x = GRID_X + (i % COLS) * (CARD_W + GAP);
       const y = GRID_Y + Math.floor(i / COLS) * (CARD_H + GAP);
       let reason = '';
       if (!registered.has(info.sceneKey)) reason = 'COMING SOON';
       else if (info.teamGame && this.players.length < 3) reason = 'NEEDS 3+ PLAYERS';
-      this.cards.push(this.buildCard(info, x, y, reason));
+      const card = this.buildCard(info, x, y, reason);
+      this.cardLayer.add(card.root);
+      this.cards.push(card);
     });
-    const last = this.registry.get('mgmode-last') as string | undefined;
-    const fromLast = this.cards.findIndex((c) => c.info.id === last);
-    this.index = fromLast >= 0 ? fromLast : Math.max(0, this.cards.findIndex((c) => c.playable));
-
-    this.detail = this.add.container(0, 0);
-    new PromptBar(this, GAME_WIDTH / 2, GAME_HEIGHT - 42, [
-      { button: 'STICK', label: 'Choose' },
-      { button: 'A', label: 'Play' },
-      { button: 'Y', label: 'Random' },
-      { button: 'B', label: 'Back' },
-    ], { size: 34, fontSize: 22 });
-    this.focus(this.index, true);
+    const fromId = this.cards.findIndex((c) => c.info.id === focusId);
+    this.index = fromId >= 0 ? fromId : Math.max(0, this.cards.findIndex((c) => c.playable));
+    this.focus(this.index, instant);
   }
 
   /** Everyone chosen on the select screen; if there's nobody (direct launch), P1 plus three CPUs. */
@@ -193,6 +259,12 @@ export class MinigameModeScene extends Phaser.Scene {
       corners.fillPath();
     }
     root.add(corners);
+    // The guests a world minigame is themed on, as portraits on the art's corner.
+    (info.characters ?? []).slice(0, 3).forEach((id, k) => {
+      const px = L + 34 + k * 50;
+      const py = T + 34;
+      root.add(addPortrait(this, id, 0, 24, { worldX: root.x + px, worldY: root.y + py }).setPosition(px, py));
+    });
 
     // colour band + name plate
     const plate = this.add.graphics();
@@ -295,17 +367,22 @@ export class MinigameModeScene extends Phaser.Scene {
     const cx = GRID_X + 1110;
     this.detail.add(addText(this, cx, y0 + 40, 'CONTROLS', 20, { color: CSS.creamDark, weight: 700, align: 'left' }).setOrigin(0, 0.5));
     const kind = glyphKindFor(0);
+    // status / play pill (placed first: the control labels must stop short of it)
+    const px = GAME_WIDTH - GRID_X - 36;
+    const pw = 250;
     info.controls.slice(0, 3).forEach((c, k) => {
       const gy = y0 + 84 + k * 44;
       const glyph = makeGlyph(this, c.button, 34, kind);
       glyph.setPosition(cx + 24 + Math.max(0, glyph.width - 34) / 2, gy);
       this.detail.add(glyph);
-      this.detail.add(addText(this, cx + 34 + Math.max(34, glyph.width) + 4, gy, c.label, 22, { color: CSS.cream, weight: 700, align: 'left' }).setOrigin(0, 0.5));
+      const lx = cx + 34 + Math.max(34, glyph.width) + 4;
+      const label = addText(this, lx, gy, c.label, 22, { color: CSS.cream, weight: 700, align: 'left' }).setOrigin(0, 0.5);
+      // Long labels ("Hold: pour / Tap: swirl") shrink rather than run under the PLAY pill.
+      const room = px - pw - 18 - lx;
+      if (label.width > room) label.setScale(Math.max(0.6, room / label.width));
+      this.detail.add(label);
     });
-    // status / play pill
-    const px = GAME_WIDTH - GRID_X - 36;
     const pill = this.add.graphics();
-    const pw = 250;
     if (card.playable) {
       pill.fillStyle(COLORS.goldDark, 1);
       pill.fillRoundedRect(px - pw, y0 + h / 2 - 30 + 5, pw, 60, 30);
@@ -363,17 +440,26 @@ export class MinigameModeScene extends Phaser.Scene {
       let next = this.index;
       if (dir === 'left') next = col === 0 ? this.index + COLS - 1 : this.index - 1;
       else if (dir === 'right') next = col === COLS - 1 ? this.index - COLS + 1 : this.index + 1;
-      else if (dir === 'up' || dir === 'down') next = (this.index + COLS) % n;
+      else if ((dir === 'up' || dir === 'down') && n > COLS) next = (this.index + COLS) % n;
       next = Math.min(n - 1, Math.max(0, next));
       if (next !== this.index) this.focus(next);
     }
+    if (this.tabs.length > 1 && (c.pressed('LB') || c.pressed('RB'))) {
+      audio.play('menuMove');
+      this.showTab(this.tab + (c.pressed('RB') ? 1 : -1));
+      return;
+    }
     if (c.pressed('A')) this.play(this.cards[this.index]);
     else if (c.pressed('Y')) {
-      const pool = this.cards.map((_, k) => k).filter((k) => this.cards[k].playable);
+      // Any playable minigame from any world: hop to its tab, focus it, then play.
+      const registered = registeredMinigames();
+      const pool = this.tabs.flatMap((t, ti) => t.infos.filter((m) => registered.has(m.sceneKey) && !(m.teamGame && this.players.length < 3)).map((m) => ({ ti, id: m.id })));
       if (pool.length) {
         const pick = pool[Math.floor(Math.random() * pool.length)];
-        this.focus(pick);
-        this.time.delayedCall(260, () => this.play(this.cards[pick]));
+        if (pick.ti !== this.tab) this.showTab(pick.ti, pick.id);
+        const k = this.cards.findIndex((cd) => cd.info.id === pick.id);
+        this.focus(k);
+        this.time.delayedCall(260, () => this.play(this.cards[k]));
       }
     } else if (c.pressed('B')) {
       this.leaving = true;

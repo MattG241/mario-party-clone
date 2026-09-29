@@ -4,6 +4,7 @@ import type { CharacterId } from '../data/characters';
 import type { Placement } from '../state/scoring';
 import type { PromptButton } from '../ui/ControllerPrompt';
 import type { Random } from '../util/Random';
+import { WORLD_MINIGAME_INFOS } from '../worlds/infos';
 
 export interface MinigameInfo {
   id: string;
@@ -25,6 +26,10 @@ export interface MinigameInfo {
   arena?: string;
   /** Optional icon per instruction line on the intro card (atlas frame or texture). */
   ruleIcons?: ({ texture: string; frame?: string } | null)[];
+  /** The world it belongs to (src/game/worlds/index.ts); the original set is 'festival'. */
+  world?: string;
+  /** The guests it's themed on (shown on its card, favoured on their world's board). */
+  characters?: CharacterId[];
 }
 
 export interface MinigamePlayer {
@@ -51,14 +56,15 @@ export interface MinigameResult {
 
 const MG = 'assets/placeholders/minigames/';
 
-export const MINIGAMES: MinigameInfo[] = [
+/** The original Spiral Isles set. */
+const CORE_MINIGAMES: MinigameInfo[] = [
   {
     id: 'gleam-grab',
     sceneKey: 'mg-gleam-grab',
     name: 'Gleam Grab',
-    tagline: 'Chips are raining from the sky!',
-    description: 'Scramble around the plaza catching falling Gleam Chips. Dodge the wobbly fake capsules — they pop and knock you back.',
-    instructions: ['Catch falling chips — golden ones are worth 3!', 'Fake capsules wobble before they burst — keep clear', 'Dash to reach chips first (short cooldown)', 'Most chips after 45 seconds wins'],
+    tagline: 'Coins are raining from the sky!',
+    description: 'Scramble around the plaza catching falling coins. Dodge the wobbly fake capsules — they pop and knock you back.',
+    instructions: ['Catch falling coins — the big shiny ones are worth 3!', 'Fake capsules wobble before they burst — keep clear', 'Dash to reach coins first (short cooldown)', 'Most coins after 45 seconds wins'],
     controls: [
       { button: 'STICK', label: 'Move' },
       { button: 'A', label: 'Dash' },
@@ -213,6 +219,9 @@ export const MINIGAMES: MinigameInfo[] = [
   },
 ];
 
+/** Every minigame: the original set, then each world's (src/game/worlds/<id>/info.ts). */
+export const MINIGAMES: MinigameInfo[] = [...CORE_MINIGAMES, ...WORLD_MINIGAME_INFOS];
+
 export function minigameInfo(id: string): MinigameInfo | undefined {
   return MINIGAMES.find((m) => m.id === id);
 }
@@ -226,9 +235,15 @@ export function availableMinigames(registered: Set<string>): MinigameInfo[] {
  * Pick the next board minigame: never the same as the last two, and prefer ones played least.
  * Team games need at least three players.
  */
-export function pickMinigame(pool: MinigameInfo[], history: readonly string[], playerCount: number, rng: Random): MinigameInfo {
+export function pickMinigame(pool: MinigameInfo[], history: readonly string[], playerCount: number, rng: Random, favour: readonly string[] = []): MinigameInfo {
   let candidates = pool.filter((m) => !(m.teamGame && playerCount < 3));
   if (candidates.length === 0) candidates = pool;
+  // A themed board leans on its own world's games: about half the time, if one is fresh.
+  if (favour.length && rng.next() < 0.5) {
+    const recent2 = history.slice(-2);
+    const themed = candidates.filter((m) => favour.includes(m.id) && !recent2.includes(m.id));
+    if (themed.length) candidates = themed;
+  }
   const recent = history.slice(-2);
   const fresh = candidates.filter((m) => !recent.includes(m.id));
   const list = fresh.length ? fresh : candidates;

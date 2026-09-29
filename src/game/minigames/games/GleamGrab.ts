@@ -325,7 +325,7 @@ export class GleamGrabScene extends BaseMinigame {
   /** The last ten seconds: the chip storm, announced under "FINAL 10 SECONDS!". */
   protected override onFinalStretch(): void {
     this.storm = true;
-    this.showFinalStretch('CHIP STORM!');
+    this.showFinalStretch('COIN STORM!');
     audio.play('cheer', { volume: 0.6 });
     this.crowdCheer();
     // Kick it off with a burst of chips spread over the plaza.
@@ -557,7 +557,8 @@ export class GleamGrabScene extends BaseMinigame {
     let first: Grabber | null = null;
     for (const g of this.grabbers) {
       const dd = dist(g.x, g.y, d.x, d.y);
-      if (dd < BLAST) {
+      if (dd < BLAST && this.canHit(g.p)) {
+        this.markHit(g.p, 1100);
         const ang = Math.atan2(g.y - d.y, g.x - d.x);
         const weight = CHARACTERS[g.p.characterId].handling.weight;
         const force = 1050 / weight;
@@ -889,6 +890,6 @@ export class GleamGrabScene extends BaseMinigame {
   }
 
   protected finalScores(): { slot: number; score: number; label: string }[] {
-    return this.players.map((p) => ({ slot: p.slot, score: p.score, label: `${p.score} chips` }));
+    return this.players.map((p) => ({ slot: p.slot, score: p.score, label: `${p.score} coins` }));
   }
 }

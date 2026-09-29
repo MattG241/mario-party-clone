@@ -3,7 +3,7 @@
 import Phaser from 'phaser';
 import { GradePipeline } from '../effects/GradePipeline';
 import type { BoardScene } from '../scenes/BoardScene';
-import { dayTime, lookAt } from './DayCycle';
+import { dayTime, lookAt, themedTime } from './DayCycle';
 
 export class Lighting {
   private holder = { t: 0 };
@@ -26,7 +26,7 @@ export class Lighting {
   /** Time of day the match is at right now. */
   target(): number {
     const s = this.scene.state;
-    return dayTime(s.round, s.config.rounds, s.phase, s.players.length);
+    return themedTime(dayTime(s.round, s.config.rounds, s.phase, s.players.length), this.scene.board.graph.def.theme?.time);
   }
 
   get time(): number {
