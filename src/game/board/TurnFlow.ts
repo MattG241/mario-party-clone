@@ -5,6 +5,7 @@ import { currentRelicPrice, isFinalRound, logMatch, type PlayerState } from '../
 import { BoardAI } from './BoardAI';
 import { runEvent, runRandomEvent } from './EventManager';
 import { checkpoint, freshTurn, type FlowContext, type JumpKind, type PathOption, type TargetOption } from './flowTypes';
+import { maybeHiddenBlock } from './MatchBeats';
 
 // -------------------------------------------------------------------------------------------
 // Shared helpers (also used by board events)
@@ -337,6 +338,8 @@ async function land(ctx: FlowContext, p: PlayerState): Promise<void> {
       }
       break;
   }
+  // Now and then an ordinary space hides a block with coins (or, rarely, a Star Coin) in it.
+  await maybeHiddenBlock(ctx, p, node.type);
   // Spring pads stay bouncy for a while after the Bouncy Trail event.
   if (!ctx.turn.bounced && board.bouncy && board.bouncy.nodes.includes(p.nodeId)) {
     ctx.turn.bounced = true;

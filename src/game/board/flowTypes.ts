@@ -79,7 +79,13 @@ export interface FlowIO {
   jumpTo(p: PlayerState, from: string, to: string, kind: JumpKind): Promise<void>;
   landed(p: PlayerState, node: BoardNodeDef): Promise<void>;
   chips(p: PlayerState, delta: number, reason: string): Promise<void>;
-  relicGained(p: PlayerState, source: 'purchase' | 'bonus'): Promise<void>;
+  relicGained(p: PlayerState, source: 'purchase' | 'bonus' | 'hidden'): Promise<void>;
+  /** A headline across the screen (who goes first, the final stretch). */
+  headline(title: string, subtitle: string): Promise<void>;
+  /** The turn order is settled (players are in their new order): clear the spins shown. */
+  orderDecided(order: PlayerState[]): Promise<void>;
+  /** A hidden block pops out over a player's head (its prize follows as coins or a Star Coin). */
+  hiddenBlock(p: PlayerState, prize: 'coins' | 'star'): Promise<void>;
   relicMoved(from: string, to: string): Promise<void>;
   item(p: PlayerState, item: ItemId, kind: 'gain' | 'use' | 'lose' | 'discard'): Promise<void>;
   shield(p: PlayerState, kind: 'up' | 'block'): Promise<void>;

@@ -262,9 +262,15 @@ describe('full match simulation', () => {
     expect(io.awards).toHaveLength(3);
     const totalBought = state.players.reduce((s, p) => s + p.stats.relicsBought, 0);
     const totalBonus = io.awards.reduce((s, a) => s + a.winners.length, 0);
-    expect(state.players.reduce((s, p) => s + p.relics, 0)).toBe(totalBought + totalBonus);
+    const hidden = io.events.filter((e) => e === 'hidden:star').length;
+    expect(state.players.reduce((s, p) => s + p.relics, 0)).toBe(totalBought + totalBonus + hidden);
     validate(state);
     expect(io.saves).toBeGreaterThan(10);
+    // The party beats: who goes first at the start, the final stretch three rounds from the end.
+    expect(state.orderRolled).toBe(true);
+    expect(state.stretchDone).toBe(true);
+    expect(io.events).toContain('headline:WHO GOES FIRST?');
+    expect(io.events).toContain('headline:FINAL STRETCH!');
   });
 
   it('plays chaotic 15-round matches on several seeds', async () => {

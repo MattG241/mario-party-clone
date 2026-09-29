@@ -17,7 +17,7 @@ export interface PlayerStats {
 }
 
 export interface PlayerState {
-  /** Player slot 0–3 (P1–P4); also the index into MatchState.players. */
+  /** Player slot 0–3 (P1–P4): their colour, HUD corner and controller. Turn order is MatchState.players' order. */
   slot: number;
   characterId: CharacterId;
   name: string;
@@ -69,6 +69,10 @@ export interface MatchState {
   /** Serialised RNG state. */
   rng: number;
   minigameHistory: string[];
+  /** Who-goes-first has been spun (players are then in turn order). */
+  orderRolled?: boolean;
+  /** The final-stretch shake-up has happened. */
+  stretchDone?: boolean;
   bonusCategories: BonusId[];
   /** Short log of notable things (shown in debug). */
   log: string[];

@@ -53,6 +53,13 @@ export class HeadlessIO implements FlowIO {
   async landed(): Promise<void> {}
   async chips(): Promise<void> {}
   async relicGained(): Promise<void> {}
+  async headline(title: string): Promise<void> {
+    this.events.push(`headline:${title}`);
+  }
+  async orderDecided(): Promise<void> {}
+  async hiddenBlock(_p: PlayerState, prize: 'coins' | 'star'): Promise<void> {
+    this.events.push(`hidden:${prize}`);
+  }
   async relicMoved(): Promise<void> {}
   async item(): Promise<void> {}
   async shield(): Promise<void> {}

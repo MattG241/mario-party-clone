@@ -2,6 +2,7 @@ import { isFinalRound, logMatch, type MatchPhase, type MatchState } from '../sta
 import { computeBonusAwards, minigameRewards, type Placement } from '../state/scoring';
 import { runEvent, runGlobalEvent } from './EventManager';
 import { checkpoint, FlowInterrupt, freshTurn, type FlowContext, type MinigameRewardView } from './flowTypes';
+import { finalStretch, isFinalStretchStart, rollTurnOrder } from './MatchBeats';
 import { runTurn } from './TurnFlow';
 
 /** Phase that follows a completed turn. */
@@ -57,6 +58,8 @@ export async function runMatch(ctx: FlowContext): Promise<void> {
       let skipToMinigame = false;
       try {
         await io.roundStart(s.round, s.config.rounds, isFinalRound(s));
+        if (s.round === 1 && !s.orderRolled) await rollTurnOrder(ctx);
+        if (isFinalStretchStart(s)) await finalStretch(ctx);
         if (bridgeRepaired) await runEvent(ctx, 'bridge_repair', null);
         if (isFinalRound(s)) await io.finalRoundIntro();
         if (s.config.events === 'chaotic' || isFinalRound(s)) await runGlobalEvent(ctx);

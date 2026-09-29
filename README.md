@@ -83,15 +83,19 @@ load the assets.
 1. **Title → Board Game** (or **Minigames**). Everyone presses **A** to join on the character
    select screen, browses the roster along the bottom (left/right) and picks with **A**; each pick
    stands on that player's pedestal. Empty seats can be filled by CPUs, who pick at random.
+   Before the first turn everyone spins the Orbit Dial: the highest spin goes first.
 2. **Your turn:** optionally open your items (**Y**) or look around the board (**X**: the map —
    pan with the stick, zoom with LB / RB, **B** to go back), then stop the **Orbit Dial** (**A**)
    and move 1–10 spaces. At forks, tilt the stick toward the path you want. Each player's corner
    shows how many steps they are from the Star Coin.
 3. **Spaces:** Gleam (+coins), Mischief (something sneaky), Festival (a lucky surprise), Market
-   (buy items), Portal (warp), Star Coin, Event and Start.
+   (buy items), Portal (warp), Star Coin, Event and Start. Now and then an ordinary space turns
+   up a hidden block with 10 coins, or even a Star Coin.
 4. **Star Coins:** pass Packsprout, the Star Keeper, with 20 coins to buy a Star Coin. He moves to
    a new spot after every sale — follow the beam of light.
 5. **Minigames:** every round ends with a minigame for everyone; placings pay 10 / 6 / 3 / 1 coins.
+   **Final stretch:** three rounds from the end, the player in last gets 10 coins and the festival
+   wheel picks a twist that lasts to the end: a Star Coin sale, double Gleam Spaces or a gift.
 6. **Winning:** most Star Coins after the final round (coins break ties). Festival Awards hand out
    bonus Star Coins at the end.
 

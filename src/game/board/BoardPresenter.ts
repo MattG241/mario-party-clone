@@ -134,6 +134,47 @@ export class BoardPresenter implements FlowIO {
     await this.ui.turnBanner(p);
   }
 
+  async headline(title: string, subtitle: string): Promise<void> {
+    this.ui.setPrompts([]);
+    await this.ui.banner({ title, subtitle, color: COLORS.teal, sound: 'fanfare', hold: this.dur(1000) });
+  }
+
+  async orderDecided(order: PlayerState[]): Promise<void> {
+    for (const p of order) this.moves.setCounter(p.slot, null);
+    this.ui.refresh(this.state);
+    await this.ui.wait(this.dur(200));
+  }
+
+  /** A hidden block pops up over the hero, who jumps and knocks it open; its prize follows. */
+  async hiddenBlock(p: PlayerState, prize: 'coins' | 'star'): Promise<void> {
+    const t = this.moves.token(p.slot);
+    this.scene.cameras.main.stopFollow();
+    await this.scene.focus(t.x, t.y - 190, 1.3, this.dur(380));
+    const y = t.y - 350;
+    const o = centerOrigin('items', '12');
+    const block = this.scene.add.sprite(t.x, y, 'items', '12').setOrigin(o.x, o.y).setScale(0).setDepth(9000);
+    const glow = this.scene.add.image(t.x, y, 'fx-dot').setTint(prize === 'star' ? 0xffe27a : 0xfff4dc).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.7).setScale(0).setDepth(8999);
+    audio.play('eventAlert');
+    this.scene.tweens.add({ targets: glow, scale: 3.2, duration: 300, ease: 'Quad.Out' });
+    await new Promise<void>((r) => this.scene.tweens.add({ targets: block, scale: 0.85, duration: 280, ease: 'Back.Out', onComplete: () => r() }));
+    banner(this.ui, 'HIDDEN BLOCK!', { size: 80, color: CSS.goldLight, hold: 800, y: 300 });
+    t.play('jump');
+    await this.ui.wait(this.dur(380));
+    audio.play('pop');
+    this.fx.shake(0.003, 120);
+    block.setFrame('15');
+    this.scene.tweens.add({ targets: block, scale: 0.95, duration: 120, yoyo: true });
+    this.fx.sparks(t.x, y, prize === 'star' ? (LITE ? 18 : 32) : 14);
+    this.scene.time.delayedCall(this.dur(160), () => block.setFrame('16'));
+    if (prize === 'star') {
+      audio.play('cheer');
+      this.fx.confetti(t.x, y - 40, LITE ? 50 : 90);
+    }
+    await this.ui.wait(this.dur(520));
+    this.scene.tweens.add({ targets: [block, glow], alpha: 0, y: y - 40, duration: 260, onComplete: () => { block.destroy(); glow.destroy(); } });
+    t.play(prize === 'star' ? 'victory' : 'celebrate');
+  }
+
   async turnEnd(p: PlayerState): Promise<void> {
     this.ui.setPrompts([]);
     this.moves.setCounter(p.slot, null);
@@ -383,14 +424,15 @@ export class BoardPresenter implements FlowIO {
     this.ui.refresh(this.state);
   }
 
-  async relicGained(p: PlayerState, source: 'purchase' | 'bonus'): Promise<void> {
+  async relicGained(p: PlayerState, source: 'purchase' | 'bonus' | 'hidden'): Promise<void> {
     const t = this.moves.token(p.slot);
     const board = this.scene.board;
-    const rp = board.relicPos();
+    // A hidden block's Star Coin comes out of the block over the hero's head, not the Star Coin's space.
+    const rp = source === 'hidden' ? { x: t.x, y: t.y - 330 } : board.relicPos();
     // Push in on the moment.
     this.scene.cameras.main.stopFollow();
     await this.scene.focus((t.x + rp.x) / 2, t.y - 170, 1.28, this.dur(380));
-    board.beacon.flash();
+    if (source !== 'hidden') board.beacon.flash();
     const relic = this.scene.add.image(rp.x, rp.y, 'prism-relic').setScale(0.4).setDepth(9000);
     audio.play('relic');
     // It floats over to the hero trailing sparkles.
