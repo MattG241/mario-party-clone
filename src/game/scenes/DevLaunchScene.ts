@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import type { CpuLevel } from '../constants';
 import { BoardGraph } from '../board/BoardGraph';
 import type { BoardDef } from '../board/types';
-import { findBoard } from '../data/boards';
+import { BOARDS, findBoard } from '../data/boards';
 import type { ItemId } from '../data/items';
 import { CHARACTER_IDS } from '../data/characters';
 import { URL_PARAMS } from '../debug/debug';
@@ -142,7 +142,7 @@ export class DevLaunchScene extends Phaser.Scene {
       return null;
     }
     if (this.data0.quick) {
-      const board = findBoard(URL_PARAMS.get('board') ?? 'suncoil');
+      const board = findBoard(URL_PARAMS.get('board') ?? BOARDS[0].id);
       if (!board) return `Unknown board "${URL_PARAMS.get('board')}"`;
       session.mode = 'board';
       const parts = this.participants();

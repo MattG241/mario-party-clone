@@ -26,8 +26,8 @@ import { DEBUG_ENABLED, setDebugInfo, URL_PARAMS } from '../debug/debug';
 
 const EVENT_COLORS: Record<EventPresentation['kind'], number> = {
   festival: 0xff9a2e,
-  mischief: 0x8e5cd9,
-  board: 0x1fa5a0,
+  mischief: 0xe63d4d,
+  board: 0x2fae4e,
   global: 0xd6307a,
 };
 
@@ -89,22 +89,22 @@ export class BoardPresenter implements FlowIO {
     const now = dayName(themedTime(dayTime(round, total, { kind: 'roundStart' }, n), hours));
     const turned = round > 1 && dayName(themedTime(dayTime(round - 1, total, { kind: 'roundStart' }, n), hours)) !== now;
     const left = `${total - round + 1} ROUNDS TO PLAY`;
-    await this.ui.banner({ title: `ROUND ${round} OF ${total}`, subtitle: round === 1 ? 'LET THE FESTIVAL BEGIN!' : turned ? `${now} · ${left}` : left, color: COLORS.teal, sound: 'fanfare', hold: this.dur(900) });
+    await this.ui.banner({ title: `ROUND ${round} OF ${total}`, subtitle: round === 1 ? 'LET THE PARTY BEGIN!' : turned ? `${now} · ${left}` : left, color: COLORS.teal, sound: 'fanfare', hold: this.dur(900) });
   }
 
   async finalRoundIntro(): Promise<void> {
     audio.playMusic('boardFinal');
     // Dusk falls for the finale: lanterns and spaces light up, fireflies come out.
     void this.scene.lighting.follow(2200);
-    await this.ui.banner({ title: 'FINAL ROUND', subtitle: 'THE FESTIVAL LIGHTS BLAZE!', color: COLORS.coral, sound: 'fanfare', hold: 1400, size: 110 });
+    await this.ui.banner({ title: 'FINAL ROUND', subtitle: 'LAST CHANCE FOR STAR COINS!', color: COLORS.coral, sound: 'fanfare', hold: 1400, size: 110 });
     // Camera sweep across the board while everyone reacts.
     await this.scene.overview(this.dur(1400));
     this.state.players.forEach((p, i) => this.scene.time.delayedCall(i * 150, () => this.moves.token(p.slot).play(i % 2 ? 'surprised' : 'celebrate')));
     this.fx.confetti(this.scene.cameras.main.midPoint.x, this.scene.cameras.main.worldView.y + 200, 90);
     await this.ui.dialogLines(
       [
-        { npc: 'ora', pose: 'flag', text: 'The final round is here! The festival lights are at full blaze!' },
-        { npc: 'ora', pose: 'cheer', text: 'Gleam Spaces now pay 5 coins, event spaces sparkle with bonus coins, and the shops have one extra treasure!' },
+        { npc: 'ora', pose: 'flag', text: 'The final round is here! Last chance to grab those Star Coins!' },
+        { npc: 'ora', pose: 'cheer', text: 'Blue Spaces now pay 5 coins, event spaces sparkle with bonus coins, and the shops have one extra treasure!' },
       ],
       this.humanControls(),
       true,
@@ -192,7 +192,7 @@ export class BoardPresenter implements FlowIO {
     for (;;) {
       this.ui.setPrompts(
         [
-          { button: 'A', label: 'Spin the Orbit Dial' },
+          { button: 'A', label: 'Hit the Dice Block' },
           { button: 'Y', label: `Items (${p.items.length}/3)` },
           { button: 'X', label: 'Map' },
           { button: 'VIEW', label: 'Scores' },
@@ -252,7 +252,7 @@ export class BoardPresenter implements FlowIO {
     const c = this.controls(p);
     const t = this.moves.token(p.slot);
     await this.scene.focus(t.x, t.y - 170, CAMERA_ZOOM.dial, this.dur(420));
-    if (c) this.ui.setPrompts([{ button: 'A', label: 'Stop the Orbit Dial!' }], p.slot);
+    if (c) this.ui.setPrompts([{ button: 'A', label: 'Hit the block!' }], p.slot);
     // The dial takes the marker's place above the head while it spins.
     this.moves.setTagHidden(p.slot, true);
     await this.scene.dial.spin(t, result, bonus, {
@@ -277,11 +277,11 @@ export class BoardPresenter implements FlowIO {
 
   async offerReroll(p: PlayerState, result: number, cpu?: boolean): Promise<boolean> {
     const idx = await this.ui.listMenu({
-      title: `You spun a ${result}!`,
-      subtitle: 'Eat your Spring Bean to spin again?',
+      title: `You rolled a ${result}!`,
+      subtitle: 'Eat your Spring Bean to roll again?',
       options: [
         { label: `Keep ${result}`, detail: 'Move now.' },
-        { label: 'Re-spin!', detail: 'Uses your Spring Bean.', icon: ITEMS.spring_bean.icon },
+        { label: 'Re-roll!', detail: 'Uses your Spring Bean.', icon: ITEMS.spring_bean.icon },
       ],
       controls: this.controls(p),
       slot: p.slot,
@@ -334,7 +334,7 @@ export class BoardPresenter implements FlowIO {
     this.scene.board.keeperSprite().setFrame('26');
     const idx = await this.ui.listMenu({
       title: 'Star Coin',
-      subtitle: `Packsprout offers a Star Coin for ${price} coins. You have ${p.chips}.`,
+      subtitle: `Nami offers a Star Coin for ${price} coins. You have ${p.chips}.`,
       npc: { id: 'packsprout', pose: 'gift' },
       options: [
         { label: 'Buy the Star Coin!', right: `${price}`, icon: { texture: 'prism-relic', scale: 0.5 } },
@@ -592,7 +592,7 @@ export class BoardPresenter implements FlowIO {
       this.scene.juice.eventFlare(pos.x, pos.y - (personal ? 120 : 60), color);
     }
     audio.play('eventAlert');
-    const sub = e.kind === 'festival' ? 'FESTIVAL SPACE' : e.kind === 'mischief' ? 'MISCHIEF SPACE' : e.kind === 'board' ? 'BOARD EVENT' : 'SURPRISE!';
+    const sub = e.kind === 'festival' ? 'LUCKY SPACE' : e.kind === 'mischief' ? 'BAD LUCK SPACE' : e.kind === 'board' ? 'HAPPENING SPACE' : 'SURPRISE!';
     try {
       await this.ui.banner({ title: e.title, subtitle: sub, color, sound: null, hold: this.dur(800), size: 88 });
       await this.scene.playEventFx(e.fx);
@@ -644,7 +644,7 @@ export class BoardPresenter implements FlowIO {
 
   async bonusAwards(awards: BonusAward[]): Promise<void> {
     this.pendingAwards = awards;
-    await this.ui.banner({ title: 'THE FESTIVAL ENDS!', subtitle: 'TIME FOR THE BONUS AWARDS', color: COLORS.coral, sound: 'fanfare', hold: 1200 });
+    await this.ui.banner({ title: "THAT'S THE GAME!", subtitle: 'TIME FOR THE BONUS STARS', color: COLORS.coral, sound: 'fanfare', hold: 1200 });
   }
 
   async finalResults(): Promise<void> {

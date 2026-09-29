@@ -46,8 +46,8 @@ export interface RenderedBoard {
   shadow?: { file: string; x: number; y: number; w: number; h: number };
 }
 
-/** Boards whose rendered art loads at start-up (Suncoil: the default board, whose props other screens borrow). */
-export const RENDERED_BOARDS = ['suncoil'] as const;
+/** Boards whose rendered art loads at start-up (none: each board's art loads when it's played). */
+export const RENDERED_BOARDS: readonly string[] = [];
 
 export const renderedManifestKey = (board: string): string => `rendered-${board}`;
 export const renderedTileKey = (board: string, file: string): string => `rendered-${board}-${file}`;

@@ -184,7 +184,7 @@ export class FinalResultsScene extends Phaser.Scene {
   }
 
   private async sequence(): Promise<void> {
-    this.setTitle('FESTIVAL AWARDS');
+    this.setTitle('BONUS STARS');
     audio.play('fanfare');
     await this.wait(900);
     for (const award of this.awards) {
@@ -549,7 +549,7 @@ export class FinalResultsScene extends Phaser.Scene {
       title: tie ? "IT'S A TIE!" : `${names[0]} WINS!`,
       color,
       portraits: winCols.map((w) => ({ characterId: w.p.characterId, slot: w.p.slot })),
-      subtitle: tie ? names.join(' & ') : `FESTIVAL CHAMPION · ${first.p.relics} STAR COIN${first.p.relics === 1 ? '' : 'S'}`,
+      subtitle: tie ? names.join(' & ') : `SUPERSTAR · ${first.p.relics} STAR COIN${first.p.relics === 1 ? '' : 'S'}`,
       size: 66,
       depth: 50,
     });

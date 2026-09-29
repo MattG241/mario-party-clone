@@ -305,7 +305,7 @@ export class BoardUIScene extends Phaser.Scene {
       if (cur) {
         const def = ITEMS[cur.id];
         nameText.setText(def.name);
-        descText.setText(cur.ok ? def.description : def.timing === 'passive' ? 'Used automatically at Prism Gates.' : def.timing === 'postRoll' ? 'Offered after you spin.' : 'Can’t be used right now.');
+        descText.setText(cur.ok ? def.description : def.timing === 'passive' ? 'Used automatically at Key Gates.' : def.timing === 'postRoll' ? 'Offered after you roll.' : 'Can’t be used right now.');
       } else {
         nameText.setText('No items');
         descText.setText('Buy items at markets or win them at events.');

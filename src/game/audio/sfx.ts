@@ -363,12 +363,12 @@ export const SFX: Record<SfxKey, (v: Voice, t: number, p: number) => void> = {
 
 /** Subtitle captions for sounds that carry meaning. */
 export const SFX_CAPTIONS: Partial<Record<SfxKey, string>> = {
-  dialStop: '[Orbit Dial chimes]',
+  dialStop: '[Dice Block rings]',
   chipGain: '[Coins jingle]',
   chipLose: '[Coins scatter]',
   itemGet: '[Item fanfare]',
-  portal: '[Portal hums]',
-  eventAlert: '[Festival horn sounds]',
+  portal: '[Warp whooshes]',
+  eventAlert: '[Party horn sounds]',
   victory: '[Victory fanfare]',
   defeat: '[Deflated trombone]',
   countdown: '[Countdown beep]',

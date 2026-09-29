@@ -1,8 +1,7 @@
 import type { WorldDef } from './types';
 
-/** Every world, in menu order ('festival' is the original Spiral Isles set). */
+/** Every world, in menu order. */
 export const WORLDS: WorldDef[] = [
-  { id: 'festival', name: 'Festival Classics', short: 'Festival', cast: [], color: 0xf4b83b },
   { id: 'pirates', name: 'Pirate Cove', short: 'Pirate Cove', cast: ['luffy', 'zoro', 'nami'], color: 0xe5484d },
   { id: 'dojo', name: 'Dojo Summit', short: 'Dojo Summit', cast: ['goku', 'naruto'], color: 0xf28c28 },
   { id: 'heroes', name: 'Hero Heights', short: 'Hero Heights', cast: ['batman', 'spiderman', 'ironman'], color: 0x5b6ee1 },

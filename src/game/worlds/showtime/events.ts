@@ -74,7 +74,7 @@ const encore: BoardEventDef = {
   title: 'ENCORE!',
   kind: 'board',
   boards: [BOARD],
-  summary: 'The crowd wants more: spin the Orbit Dial again and dance that many spaces on.',
+  summary: 'The crowd wants more: roll the Dice Block again and dance that many spaces on.',
   async run(ctx, p) {
     if (!p) return;
     await present(
@@ -82,7 +82,7 @@ const encore: BoardEventDef = {
       this,
       [
         { npc: 'ora', pose: 'cheer', text: 'Listen to that crowd! They want an ENCORE!' },
-        { npc: 'ora', pose: 'point', text: 'Spin the Orbit Dial again and dance right on down the strip!' },
+        { npc: 'ora', pose: 'point', text: 'Roll the Dice Block again and dance right on down the strip!' },
       ],
       { fx: 'parade', player: p },
     );

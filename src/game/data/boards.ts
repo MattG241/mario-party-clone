@@ -196,7 +196,8 @@ export const SUNCOIL: BoardDef = {
 };
 
 /** Every board: Suncoil Sanctuary, then the guests' world boards (src/game/worlds/<id>/board.ts). */
-export const BOARDS: BoardDef[] = [SUNCOIL, ...WORLD_BOARDS];
+/** The boards on offer: the characters' worlds. (SUNCOIL, the original board, is retired and kept as a test fixture.) */
+export const BOARDS: BoardDef[] = [...WORLD_BOARDS];
 
 export function findBoard(id: string): BoardDef | undefined {
   return BOARDS.find((b) => b.id === id);

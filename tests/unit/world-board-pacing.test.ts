@@ -3,7 +3,7 @@ import { BoardGraph } from '../../src/game/board/BoardGraph';
 import { createFlowContext, HeadlessIO } from '../../src/game/board/HeadlessIO';
 import { runMatch } from '../../src/game/board/TurnManager';
 import type { BoardDef } from '../../src/game/board/types';
-import { findBoard } from '../../src/game/data/boards';
+import { findBoard, SUNCOIL } from '../../src/game/data/boards';
 import { createMatch } from '../../src/game/state/MatchState';
 import { CONFIG, FOUR } from './fixtures';
 
@@ -19,12 +19,12 @@ async function starCoinRate(board: BoardDef, matches = 24): Promise<number> {
   return bought / matches;
 }
 
-// The Star Keeper's pace is part of the festival's feel: a world board should hand out Star Coins at
-// about Suncoil's rate. (One Star Coin spot behind a key gate is what holds that pace: without it the
+// The Star Keeper's pace is part of the game's feel: a world board should hand out Star Coins at
+// about the rate of the original tuning board (SUNCOIL, kept as a fixture). (One Star Coin spot behind a key gate is what holds that pace: without it the
 // Keeper is always in reach and matches see two to three times as many.)
 describe('world board pacing', () => {
   it('buys Star Coins at about Suncoil’s rate on Dojo Summit and Capitol Gardens', async () => {
-    const base = await starCoinRate(findBoard('suncoil')!);
+    const base = await starCoinRate(SUNCOIL);
     for (const id of ['dojo', 'capitol']) {
       const r = await starCoinRate(findBoard(id)!);
       expect(r, `${id}: ${r.toFixed(2)} vs suncoil ${base.toFixed(2)}`).toBeGreaterThan(base * 0.6);

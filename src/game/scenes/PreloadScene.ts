@@ -7,13 +7,13 @@ import { ATLAS_KEYS, COMMON_SVGS, LOADING_TIPS } from '../data/assets';
 import { isOptionalAsset, RENDERED_BOARDS, renderedManifestKey, renderedPath, renderedTileKey, type RenderedBoard } from '../data/rendered';
 import { URL_PARAMS } from '../debug/debug';
 import { generateFxTextures, registerCommonAnimations } from '../effects/animations';
-import { drawPanel, drawSpiral } from '../ui/Panel';
+import { drawPanel } from '../ui/Panel';
 import { addText, addTitle } from '../ui/theme';
 import { goTo } from '../ui/Transition';
 import { inflateTexture } from '../util/texture';
 
 /**
- * Loading screen: logo, animated spiral, percentage and tips. Preloads every common asset
+ * Loading screen: logo, animated star, percentage and tips. Preloads every common asset
  * (sprite atlases + placeholder art). Minigame-specific art is lazy-loaded by the minigame
  * intro screen. Failures are reported on screen instead of leaving a blank page.
  */
@@ -106,13 +106,21 @@ export class PreloadScene extends Phaser.Scene {
       glow.fillStyle(COLORS.teal, 0.018);
       glow.fillCircle(cx, 420, r);
     }
-    const spiral = this.add.graphics({ x: cx, y: 420 });
-    spiral.lineStyle(14, COLORS.gold, 1);
-    drawSpiral(spiral, 0, 0, 6, 150, 3.2, 0, 140);
-    spiral.lineStyle(5, COLORS.crystal, 0.8);
-    drawSpiral(spiral, 0, 0, 16, 170, 3.2, Math.PI, 140);
-    this.tweens.add({ targets: spiral, rotation: Math.PI * 2, duration: 2600, repeat: -1 });
-    this.tweens.add({ targets: spiral, scale: { from: 0.94, to: 1.04 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+    // A big gold star (drawn: nothing has loaded yet) that spins and pulses while the game loads.
+    const star = this.add.graphics({ x: cx, y: 420 });
+    const pts = (r0: number, r1: number) => Array.from({ length: 10 }, (_, i) => {
+      const a = (i * Math.PI) / 5 - Math.PI / 2;
+      const r = i % 2 ? r1 : r0;
+      return new Phaser.Math.Vector2(Math.cos(a) * r, Math.sin(a) * r);
+    });
+    star.fillStyle(0xffffff, 1);
+    star.fillPoints(pts(170, 80), true);
+    star.fillStyle(COLORS.gold, 1);
+    star.fillPoints(pts(150, 68), true);
+    star.fillStyle(0xffe79a, 1);
+    star.fillPoints(pts(92, 42), true);
+    this.tweens.add({ targets: star, angle: { from: -8, to: 8 }, duration: 1300, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+    this.tweens.add({ targets: star, scale: { from: 0.94, to: 1.04 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
     addTitle(this, cx, 650, TITLE, 118);
     addText(this, cx, 735, SUBTITLE, 40, { color: CSS.goldLight, weight: 600, stroke: '#0b2a33', strokeThickness: 6 });
     const bar = this.add.graphics();
@@ -186,6 +194,6 @@ export class PreloadScene extends Phaser.Scene {
       { color: CSS.ink, weight: 500, wrap: 1300 },
     );
     this.pctText.setText('Error');
-    console.error('[Gleamtrail] Failed to load:', this.failed);
+    console.error('[All-Star Party] Failed to load:', this.failed);
   }
 }

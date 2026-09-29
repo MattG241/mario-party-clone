@@ -60,7 +60,7 @@ const nodes: BoardNodeDef[] = [
   n('sr1', 1927, 1353, 'gleam', ['sr2'], { meta: MARQUEE }),
   n('sr2', 2054, 1226, 'event', ['sr3'], { eventId: 'showtime_spotlight', meta: MARQUEE }),
   n('sr3', 2200, 1110, 'gleam', ['sr4'], { meta: MARQUEEROW }),
-  n('sr4', 2360, 1020, 'festival', ['sr5', 'sv0'], { meta: { ...SALOON, signs: { sr5: 'Rhinestone Saloon', sv0: 'VIP Walk (Prism Key)' } } }),
+  n('sr4', 2360, 1020, 'festival', ['sr5', 'sv0'], { meta: { ...SALOON, signs: { sr5: 'Rhinestone Saloon', sv0: 'VIP Walk (Skeleton Key)' } } }),
   n('sr5', 2535, 965, 'relic', ['sr6'], { meta: SALOON }),
   n('sr6', 2715, 950, 'event', ['sr7'], { eventId: 'showtime_stampede', meta: SALOON }),
   n('sr7', 2885, 985, 'mischief', ['sr8'], { meta: SALOON }),

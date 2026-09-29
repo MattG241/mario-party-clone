@@ -56,8 +56,8 @@ test.describe('Gleamtrail smoke', () => {
   });
 
   test('an all-CPU minigame reaches the results podium', async ({ page }) => {
-    await page.goto('/?minigame=orbit-dodge&humans=0&instructions=off&realtime&seed=5');
-    await waitForScene(page, 'mg-orbit-dodge', 90_000);
+    await page.goto('/?minigame=triple-slash&humans=0&instructions=off&realtime&seed=5');
+    await waitForScene(page, 'mg-triple-slash', 90_000);
     await waitForScene(page, 'Results', 200_000);
     expect(await runtimeErrors(page)).toEqual([]);
   });
@@ -66,8 +66,8 @@ test.describe('Gleamtrail smoke', () => {
     // A board turn, a whole minigame and the results run end to end; software GL renders them at
     // 1–3 fps, where ?realtime stretches game time, so this needs a generous budget.
     test.setTimeout(600_000);
-    // A fixed-length minigame (45 s), so the run's length doesn't depend on which of the 25 the seed picks.
-    await page.goto('/?quick&humans=0&rounds=1&realtime&seed=33&boardgame=gleam-grab');
+    // A fixed-length minigame (45 s), so the run's length doesn't depend on which one the seed picks.
+    await page.goto('/?quick&humans=0&rounds=1&realtime&seed=33&boardgame=ring-rush');
     await waitForScene(page, 'Board', 90_000);
     // Debug shortcut (dev builds): end the round's turns and go straight to the minigame.
     await page.waitForTimeout(6000);

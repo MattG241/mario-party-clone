@@ -119,7 +119,7 @@ export class PauseScene extends Phaser.Scene {
       this.root.add(g);
       const rows: [string, string][] = [
         ['Left stick / D-pad', 'Move · menu navigation'],
-        ['A', 'Confirm · jump · primary action · spin the Orbit Dial'],
+        ['A', 'Confirm · jump · primary action · hit the Dice Block'],
         ['B', 'Back · cancel · duck'],
         ['X', 'Secondary action (dash, grab, throw)'],
         ['Y', 'Use / inspect items'],

@@ -28,7 +28,7 @@ const STAIRS = { region: 'Cherry Stairs' };
 const nodes: BoardNodeDef[] = [
   // Lantern Gate (start). s1 forks: west into the village, or up the Cherry Stairs with a key.
   n('s0', 1880, 2080, 'start', ['s1'], { meta: GATE }),
-  n('s1', 1720, 2110, 'gleam', ['s2', 'c0'], { meta: { ...GATE, signs: { s2: 'Ninja Village', c0: 'Cherry Stairs (Prism Key)' } } }),
+  n('s1', 1720, 2110, 'gleam', ['s2', 'c0'], { meta: { ...GATE, signs: { s2: 'Ninja Village', c0: 'Cherry Stairs (Skeleton Key)' } } }),
   n('s2', 1550, 2100, 'festival', ['s3'], { meta: GATE }),
   n('s3', 1390, 2050, 'gleam', ['v0'], { meta: GATE }),
   // Ninja Village: the short rooftop run (exposed to the wind) or Market Street past the noodle stall.

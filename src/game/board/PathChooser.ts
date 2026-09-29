@@ -34,7 +34,7 @@ export class PathChooser {
       root.add([img, label]);
       if (o.needsKey) {
         const key = s.add.sprite(-Math.sin(angle) * 70, Math.cos(angle) * 70 - 20, 'items', '6').play('key-spin').setScale(0.22);
-        const kt = addText(s, -Math.sin(angle) * 70, Math.cos(angle) * 70 + 30, 'uses Prism Key', 20, { color: CSS.goldLight, weight: 700, stroke: '#1b1530', strokeThickness: 5, fixed: true });
+        const kt = addText(s, -Math.sin(angle) * 70, Math.cos(angle) * 70 + 30, 'uses Skeleton Key', 20, { color: CSS.goldLight, weight: 700, stroke: '#1b1530', strokeThickness: 5, fixed: true });
         root.add([key, kt]);
       }
       root.setScale(0);

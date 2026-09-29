@@ -27,7 +27,7 @@ const RAIL = { region: 'Sky Rail' };
 const nodes: BoardNodeDef[] = [
   // Midtown Plaza (start). hp1 forks onto the Sky Rail behind the turnstile (Prism Key).
   n('hp0', 1990, 2070, 'start', ['hp1'], { meta: PLAZA }),
-  n('hp1', 1810, 2100, 'gleam', ['hp2', 'hx0'], { meta: { ...PLAZA, signs: { hp2: 'Gothic Quarter', hx0: 'Sky Rail (Prism Key)' } } }),
+  n('hp1', 1810, 2100, 'gleam', ['hp2', 'hx0'], { meta: { ...PLAZA, signs: { hp2: 'Gothic Quarter', hx0: 'Sky Rail (Skeleton Key)' } } }),
   n('hp2', 1630, 2090, 'festival', ['hp3'], { meta: PLAZA }),
   n('hp3', 1455, 2040, 'gleam', ['hg0'], { meta: PLAZA }),
   // Gothic Quarter: the Belfry Stairs climb straight past the clock tower (short, but the
@@ -95,7 +95,7 @@ export const HEROES_BOARD: BoardDef = {
   name: 'Hero Heights',
   subtitle: 'Rooftop skyline of the night heroes',
   description:
-    'Skybridges, fire escapes and web lines link a gothic clock tower, a gleaming tech spire and a web-strung water tower. Ride the subway portals and chase the Star Coin from roof to roof.',
+    'Skybridges, fire escapes and web lines link a gothic clock tower, a gleaming tech spire and a web-strung water tower. Ride the subway warps and chase the Star Coin from roof to roof.',
   width: 3600,
   height: 2400,
   nodes,

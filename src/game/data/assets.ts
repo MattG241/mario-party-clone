@@ -78,15 +78,15 @@ export const COMMON_SVGS: SvgAsset[] = [
 
 export const LOADING_TIPS = [
   'Star Coins decide the winner. Coins break ties.',
-  'Press Y on your turn to open your items before spinning the Orbit Dial.',
-  'Wingstep Boots add +3 to your next Orbit Dial spin.',
+  'Press Y on your turn to open your items before you hit the Dice Block.',
+  'Wingstep Boots add +3 to your next roll.',
   'A Bubble Shield blocks the next mishap that would hit you.',
-  'Portals whisk you across the isles — but a Portal Storm can reshuffle them!',
+  'Warp Spaces whisk you across the board to their twin.',
   'The Star Keeper moves to a new spot every time someone buys a Star Coin.',
-  'In the final round, Gleam Spaces pay out 5 coins instead of 3.',
+  'In the final round, Blue Spaces pay out 5 coins instead of 3.',
   'Three bonus Star Coins are awarded after the final round. Watch your stats!',
   'Press VIEW (or Tab) during the board game to see everyone\'s standing.',
-  'Hold a Prism Key to unlock the shortcut through the Spiral Observatory.',
+  'Hold a Skeleton Key to open the locked shortcut gates.',
   'Snare Seeds swipe coins from the next rival who lands on them.',
   'Minigame rewards: 10 coins for 1st, 6 for 2nd, 3 for 3rd and 1 for 4th.',
 ];

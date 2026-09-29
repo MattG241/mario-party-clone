@@ -26,7 +26,7 @@ const AVENUE = { region: 'Cherry Avenue' };
 const nodes: BoardNodeDef[] = [
   // Bandstand Green (start). a1 forks: west to the Rose Garden, or up the Cherry Avenue with a key.
   n('a0', 1860, 2090, 'start', ['a1'], { meta: GREEN }),
-  n('a1', 1690, 2120, 'gleam', ['a2', 'w0'], { meta: { ...GREEN, signs: { a2: 'Rose Garden', w0: 'Cherry Avenue (Prism Key)' } } }),
+  n('a1', 1690, 2120, 'gleam', ['a2', 'w0'], { meta: { ...GREEN, signs: { a2: 'Rose Garden', w0: 'Cherry Avenue (Skeleton Key)' } } }),
   n('a2', 1520, 2100, 'festival', ['a3'], { meta: GREEN }),
   n('a3', 1350, 2050, 'gleam', ['r0'], { meta: GREEN }),
   // Rose Garden: under the rose arbor (short) or along the hedge walk past Pipper's stall.

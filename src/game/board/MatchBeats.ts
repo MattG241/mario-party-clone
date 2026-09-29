@@ -30,7 +30,7 @@ export async function rollTurnOrder(ctx: FlowContext): Promise<void> {
   const { state: s, io, rng } = ctx;
   s.orderRolled = true;
   if (s.players.length < 2) return;
-  await io.headline('WHO GOES FIRST?', 'EVERYONE SPINS THE ORBIT DIAL');
+  await io.headline('WHO GOES FIRST?', 'EVERYONE HITS THE DICE BLOCK');
   const lots = rng.shuffle(Array.from({ length: DIAL_MAX - DIAL_MIN + 1 }, (_, i) => DIAL_MIN + i));
   const spin = new Map<number, number>();
   for (const [i, p] of s.players.entries()) {
@@ -40,7 +40,7 @@ export async function rollTurnOrder(ctx: FlowContext): Promise<void> {
   }
   s.players.sort((a, b) => spin.get(b.slot)! - spin.get(a.slot)!);
   const [first, ...rest] = s.players.map((p) => p.name);
-  await io.say([{ npc: 'ora', pose: 'flag', text: `${first} spun highest and goes first! Then ${listNames(rest)}.` }]);
+  await io.say([{ npc: 'ora', pose: 'flag', text: `${first} rolled highest and goes first! Then ${listNames(rest)}.` }]);
   await io.orderDecided(s.players);
   io.boardChanged();
 }
@@ -54,7 +54,7 @@ type Twist = 'sale' | 'surge' | 'gift';
 
 /**
  * Three rounds to go: Ora checks the standings, the player in last place gets a boost, and the
- * festival wheel picks a twist that lasts to the end: a Star Coin sale, every Gleam Space paying
+ * party wheel picks a twist that lasts to the end: a Star Coin sale, every Blue Space paying
  * double, or a gift for the trailing player.
  */
 export async function finalStretch(ctx: FlowContext): Promise<void> {
@@ -66,7 +66,7 @@ export async function finalStretch(ctx: FlowContext): Promise<void> {
   const lastSlot = rng.pick(standings.filter((x) => x.place === worst).map((x) => x.slot));
   const last = s.players.find((p) => p.slot === lastSlot) as PlayerState;
   await io.say([
-    { npc: 'ora', pose: 'flag', text: "Only three rounds left, and it's still anyone's festival!" },
+    { npc: 'ora', pose: 'flag', text: "Only three rounds left, and it's still anyone's party!" },
     { npc: 'ora', pose: 'cheer', text: `${last.name}, you're trailing, so here's a boost to catch up!` },
   ]);
   await gainChips(ctx, last, STRETCH_BOOST, 'stretch');
@@ -74,12 +74,12 @@ export async function finalStretch(ctx: FlowContext): Promise<void> {
   const until = s.config.rounds;
   if (twist === 'sale') {
     s.board.relicPrice = { price: STRETCH_SALE_PRICE, untilRound: until };
-    await io.say([{ npc: 'packsprout', pose: 'cheer', text: `The festival wheel says… STAR COIN SALE! Just ${STRETCH_SALE_PRICE} coins each until the very end!` }]);
+    await io.say([{ npc: 'packsprout', pose: 'cheer', text: `The party wheel says… STAR COIN SALE! Just ${STRETCH_SALE_PRICE} coins each until the very end!` }]);
   } else if (twist === 'surge') {
     s.board.surge = { nodes: ctx.graph.nodesOfType('gleam').map((n) => n.id), untilRound: until };
-    await io.say([{ npc: 'wrench', pose: 'gadget', text: 'The festival wheel says… GLEAM SURGE! Every Gleam Space pays double from now on!' }]);
+    await io.say([{ npc: 'wrench', pose: 'gadget', text: 'The party wheel says… COIN SURGE! Every Blue Space pays double from now on!' }]);
   } else {
-    await io.say([{ npc: 'packsprout', pose: 'gift', text: `The festival wheel says… MYSTERY GIFT! ${last.name}, this one's for you too!` }], last);
+    await io.say([{ npc: 'packsprout', pose: 'gift', text: `The party wheel says… MYSTERY GIFT! ${last.name}, this one's for you too!` }], last);
     await giveItem(ctx, last, rng.pick(ITEM_IDS));
   }
   io.boardChanged();

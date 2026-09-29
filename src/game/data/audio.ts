@@ -14,7 +14,7 @@ import type { SfxKey } from '../audio/sfx';
 export const AUDIO_FILES: Partial<Record<SfxKey | MusicKey, string>> = {};
 
 export const MUSIC_CAPTIONS: Record<MusicKey, string> = {
-  menu: '♪ Festival welcome theme ♪',
+  menu: '♪ Party welcome theme ♪',
   board: '♪ Suncoil stroll ♪',
   boardFinal: '♪ Final round fanfare-march ♪',
   minigame: '♪ Quickstep clash ♪',

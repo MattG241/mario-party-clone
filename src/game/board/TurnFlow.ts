@@ -215,7 +215,7 @@ async function useItem(ctx: FlowContext, p: PlayerState, item: ItemId): Promise<
       for (const portal of Object.keys(ctx.board.portalLinks)) {
         if (portal !== p.nodeId && !options.some((x) => x.value === portal)) {
           const region = ctx.graph.node(portal).metadata?.region ?? 'portal';
-          options.push({ value: portal, label: `Portal · ${region}`, nodeId: portal });
+          options.push({ value: portal, label: `Warp · ${region}`, nodeId: portal });
         }
       }
       if (!options.length) return false;

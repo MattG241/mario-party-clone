@@ -8,13 +8,13 @@ export const GROUND_SQUASH = Math.cos((38 * Math.PI) / 180);
 /** Each space type's signature colour: landing bursts, night halos and route accents. */
 export const SPACE_COLORS: Record<SpaceType, number> = {
   start: 0x79dcd5,
-  gleam: 0x5ce1ff,
+  gleam: 0x6fa3ff,
   festival: 0xffb050,
-  mischief: 0xc49bff,
+  mischief: 0xff7d88,
   market: 0xffe08a,
   portal: 0x9bf2e8,
   relic: 0xffffff,
-  event: 0xff8fa3,
+  event: 0x7fe39a,
 };
 
 /** How far the camera is pulled back, as a growth factor for markers that must stay readable. */

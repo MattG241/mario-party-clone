@@ -34,7 +34,7 @@ const bridgeBreak: BoardEventDef = {
   id: 'bridge_break',
   title: 'BRIDGE BREAK',
   kind: 'board',
-  summary: 'The Sky Bridge snaps! The Cloud Steps detour opens until Wrench repairs it.',
+  summary: 'The Sky Bridge snaps! The Cloud Steps detour opens until Iron Man repairs it.',
   async run(ctx, p) {
     const bridge = ctx.graph.def.bridges[0];
     if (!bridge) return;
@@ -126,10 +126,10 @@ const cannonBlast: BoardEventDef = {
   id: 'cannon_blast',
   title: 'CANNON BLAST',
   kind: 'board',
-  summary: "Wrench's festival cannon launches you far ahead along the trail.",
+  summary: "Iron Man's party cannon launches you far ahead along the trail.",
   async run(ctx, p) {
     if (!p) return;
-    await present(ctx, this, [{ npc: 'wrench', pose: 'laugh', text: 'Climb in! My festival cannon is perfectly safe. Mostly!' }], { fx: 'cannon', focus: p.nodeId });
+    await present(ctx, this, [{ npc: 'wrench', pose: 'laugh', text: 'Climb in! My party cannon is perfectly safe. Mostly!' }], { fx: 'cannon', focus: p.nodeId });
     const steps = ctx.rng.int(6, 11);
     const dest = ctx.graph.aheadOf(p.nodeId, steps, ctx.board);
     await teleport(ctx, p, dest, 'cannon');
@@ -172,7 +172,7 @@ const rollingLog: BoardEventDef = {
   id: 'rolling_log',
   title: 'ROLLING LOG',
   kind: 'board',
-  summary: 'A spiked festival log tumbles down the docks, bonking everyone on them.',
+  summary: 'A spiked parade log tumbles down the docks, bonking everyone on them.',
   async run(ctx, p) {
     await present(ctx, this, [{ npc: 'packsprout', pose: 'surprised', text: 'Look out! The spiky parade log came loose!' }], { fx: 'log', focus: 'd4' });
     const victims = ctx.state.players.filter((pl) => ctx.graph.node(pl.nodeId).metadata?.region === 'Lantern Docks' || pl === p);
@@ -188,7 +188,7 @@ const rollingLog: BoardEventDef = {
 
 const parade: BoardEventDef = {
   id: 'festival_parade',
-  title: 'FESTIVAL PARADE',
+  title: 'PARTY PARADE',
   kind: 'festival',
   summary: 'A parade marches past and everyone receives 5 coins.',
   async run(ctx) {
@@ -204,12 +204,12 @@ const relicRush: BoardEventDef = {
   title: 'STAR COIN SALE',
   kind: 'festival',
   weight: 0.8,
-  summary: 'Festival discount! Star Coins cost 15 coins until the end of next round.',
+  summary: 'Star Coin sale! Star Coins cost 15 coins until the end of next round.',
   available: (ctx) => !ctx.board.relicPrice,
   async run(ctx) {
     ctx.board.relicPrice = { price: 15, untilRound: ctx.state.round + 1 };
     await present(ctx, this, [
-      { npc: 'packsprout', pose: 'cheer', text: 'Festival special! Star Coins cost just 15 coins until the end of next round!' },
+      { npc: 'packsprout', pose: 'cheer', text: 'Flash sale! Star Coins cost just 15 coins until the end of next round!' },
     ], { fx: 'relic-rush', focus: ctx.board.relicGate });
     ctx.io.boardChanged();
   },
@@ -224,7 +224,7 @@ const lanternShower: BoardEventDef = {
   async run(ctx, p) {
     if (!p) return;
     const n = scale(ctx, ctx.rng.int(4, 8));
-    await present(ctx, this, [{ npc: 'ora', pose: 'cheer', text: `The festival lanterns are raining coins on you!` }], { fx: 'lanterns', player: p });
+    await present(ctx, this, [{ npc: 'ora', pose: 'cheer', text: `The party lanterns are raining coins on you!` }], { fx: 'lanterns', player: p });
     await gainChips(ctx, p, n, 'festival');
   },
 };
@@ -234,11 +234,11 @@ const delivery: BoardEventDef = {
   title: 'SPECIAL DELIVERY',
   kind: 'festival',
   weight: 1.2,
-  summary: 'Packsprout arrives with a parcel containing a random item.',
+  summary: 'Nami tosses you a parcel containing a random item.',
   async run(ctx, p) {
     if (!p) return;
     const item = ItemManager.randomItem(ctx.rng);
-    await present(ctx, this, [{ npc: 'packsprout', pose: 'gift', text: `Special delivery! One ${ITEMS[item].name}, signed, sealed and sprouted!` }], { fx: 'delivery', player: p });
+    await present(ctx, this, [{ npc: 'packsprout', pose: 'gift', text: `Special delivery! One ${ITEMS[item].name}, signed, sealed and delivered!` }], { fx: 'delivery', player: p });
     await giveItem(ctx, p, item);
   },
 };
@@ -247,7 +247,7 @@ const tailwind: BoardEventDef = {
   id: 'mimi_tailwind',
   title: "MIMI'S TAILWIND",
   kind: 'festival',
-  summary: 'Mimi flaps her giant ears and pushes you 3 spaces forward.',
+  summary: 'Sonic zooms in and rushes you 3 spaces forward.',
   async run(ctx, p) {
     if (!p) return;
     await present(ctx, this, [{ npc: 'mimi', pose: 'happy', text: 'Hold still… FLAP FLAP! Off you go!' }], { fx: 'tailwind', player: p });
@@ -260,7 +260,7 @@ const oraGuide: BoardEventDef = {
   title: "ORA'S SHORTCUT",
   kind: 'festival',
   weight: 0.7,
-  summary: 'Ora whisks you to a spot a few steps before the Star Keeper.',
+  summary: 'SpongeBob whisks you to a spot a few steps before the Star Keeper.',
   available: (ctx, p) => !!p && ctx.graph.distance(p.nodeId, ctx.board.relicGate, ctx.board) > 6,
   async run(ctx, p) {
     if (!p) return;
@@ -283,11 +283,11 @@ const popupShop: BoardEventDef = {
   title: 'POP-UP SHOP',
   kind: 'festival',
   weight: 0.8,
-  summary: 'Pipper sets up a travelling stall right where you landed.',
+  summary: 'Homer sets up a travelling stall right where you landed.',
   available: (_ctx, p) => !!p && p.chips >= 4,
   async run(ctx, p) {
     if (!p) return;
-    await present(ctx, this, [{ npc: 'pipper', pose: 'wave', text: 'Psst! Pipper\'s pop-up is open — just for you!' }], { fx: 'popup', player: p });
+    await present(ctx, this, [{ npc: 'pipper', pose: 'wave', text: 'Psst! Homer\'s pop-up shop is open — just for you!' }], { fx: 'popup', player: p });
     await visitShop(ctx, p, 'pipper');
   },
 };
@@ -297,7 +297,7 @@ const popupShop: BoardEventDef = {
 
 const swapSpiral: BoardEventDef = {
   id: 'swap_spiral',
-  title: 'SWAP SPIRAL',
+  title: 'SHUFFLE SWAP',
   kind: 'mischief',
   summary: 'A spiral whirlwind swaps you with a random rival.',
   available: (ctx, p) => !!p && ctx.state.players.some((o) => o.slot !== p.slot && o.nodeId !== p.nodeId),
@@ -305,7 +305,7 @@ const swapSpiral: BoardEventDef = {
     if (!p) return;
     const others = ctx.state.players.filter((o) => o.slot !== p.slot && o.nodeId !== p.nodeId);
     const other = ctx.rng.pick(others);
-    await present(ctx, this, [{ npc: 'mimi', pose: 'surprised', text: `Whoooosh! You and ${other.name} are caught in a Swap Spiral!` }], { fx: 'swap', player: p });
+    await present(ctx, this, [{ npc: 'mimi', pose: 'surprised', text: `Whoooosh! You and ${other.name} are caught in a Shuffle Swap!` }], { fx: 'swap', player: p });
     if (await shieldBlocks(ctx, p)) return;
     const a = p.nodeId;
     const b = other.nodeId;
@@ -419,7 +419,7 @@ const bridgeRepair: BoardEventDef = {
   id: 'bridge_repair',
   title: 'BRIDGE REPAIRED',
   kind: 'global',
-  summary: 'Wrench finishes repairing the Sky Bridge.',
+  summary: 'Iron Man finishes repairing the Sky Bridge.',
   async run(ctx) {
     ctx.board.bridgeBroken = null;
     await present(ctx, this, [{ npc: 'wrench', pose: 'laugh', text: 'Good as new! The Sky Bridge is open again — the Cloud Steps are closing.' }], { fx: 'bridge-repair', focus: ctx.graph.def.bridges[0]?.nodes[1] });

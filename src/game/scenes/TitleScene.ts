@@ -267,11 +267,11 @@ export class TitleScene extends Phaser.Scene {
     this.logo = this.add.container(440, 0).setDepth(400);
     let title: Phaser.GameObjects.Image | Phaser.GameObjects.Text;
     if (this.textures.exists('rendered-ui-logo')) {
-      const img = this.add.image(0, 420, 'rendered-ui-logo');
+      const img = this.add.image(0, 390, 'rendered-ui-logo');
       img.setScale(Math.min(1, 820 / img.width));
       title = img;
-    } else title = addTitle(this, 0, 420, TITLE, 124);
-    const sub = addTitle(this, 0, 528, SUBTITLE, 40);
+    } else title = addTitle(this, 0, 420, TITLE, 110);
+    const sub = addTitle(this, 0, title.y + title.displayHeight / 2 + 34, SUBTITLE, 40);
     // The wordmark floats gently inside the logo group (which the menu moves and scales).
     const mark = this.add.container(0, 0, [title, sub]);
     this.logo.add(mark);
@@ -288,10 +288,10 @@ export class TitleScene extends Phaser.Scene {
       470,
       770,
       [
-        { label: 'PLAY', hint: 'Start a new board match on the Spiral Isles.', onSelect: () => this.startPlay('board') },
+        { label: 'PLAY', hint: 'Start a new board game: roll, race for Star Coins, play minigames.', onSelect: () => this.startPlay('board') },
         { label: 'CONTINUE', hint: 'Resume your saved board match.', disabled: () => !hasSave, onSelect: () => goTo(this, 'Board', { continue: true }) },
         { label: 'MINIGAME MODE', hint: 'Jump straight into minigames with friends.', onSelect: () => this.startPlay('minigame') },
-        { label: 'HOW TO PLAY', hint: 'Ora explains the festival rules.', onSelect: () => goTo(this, 'HowToPlay') },
+        { label: 'HOW TO PLAY', hint: 'The rules of the party, step by step.', onSelect: () => goTo(this, 'HowToPlay') },
         { label: 'SETTINGS', hint: 'Audio, accessibility, controls and controller test.', onSelect: () => goTo(this, 'Settings', { from: 'Title' }) },
       ],
       {

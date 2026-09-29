@@ -30,8 +30,8 @@ export interface ItemDef {
 export const ITEMS: Record<ItemId, ItemDef> = {
   prism_key: {
     id: 'prism_key',
-    name: 'Prism Key',
-    description: 'Unlocks a Prism Gate shortcut. Used automatically when you pass one.',
+    name: 'Skeleton Key',
+    description: 'Unlocks a Key Gate shortcut. Used automatically when you pass one.',
     price: 8,
     timing: 'passive',
     icon: { texture: 'items', frame: '6', scale: 0.46, anim: 'key-spin' },
@@ -49,7 +49,7 @@ export const ITEMS: Record<ItemId, ItemDef> = {
   wingstep_boots: {
     id: 'wingstep_boots',
     name: 'Wingstep Boots',
-    description: 'Adds +3 to your next Orbit Dial spin.',
+    description: 'Adds +3 to your next roll.',
     price: 6,
     timing: 'preRoll',
     icon: { texture: 'items', frame: '18', scale: 0.46, anim: 'boots-idle' },
@@ -76,7 +76,7 @@ export const ITEMS: Record<ItemId, ItemDef> = {
   warp_charm: {
     id: 'warp_charm',
     name: 'Warp Charm',
-    description: 'Warp to a rival or to any portal before you spin.',
+    description: 'Warp to a rival or to any Warp Space before you roll.',
     price: 10,
     timing: 'preRoll',
     icon: { texture: 'item-warp-charm', scale: 0.62 },
@@ -94,7 +94,7 @@ export const ITEMS: Record<ItemId, ItemDef> = {
   spring_bean: {
     id: 'spring_bean',
     name: 'Spring Bean',
-    description: 'Lets you re-spin the Orbit Dial once after seeing the result.',
+    description: 'Lets you re-roll the Dice Block once after seeing the result.',
     price: 4,
     timing: 'postRoll',
     icon: { texture: 'item-spring-bean', scale: 0.62 },
@@ -117,14 +117,14 @@ export const SHOPS: Record<ShopId, ShopDef> = {
   wrench: {
     id: 'wrench',
     npc: 'wrench',
-    name: "Wrench's Workshop",
+    name: "Iron Man's Workshop",
     stock: ['wingstep_boots', 'magnet_glove', 'prism_key', 'spring_bean'],
     finalRoundExtra: 'warp_charm',
   },
   pipper: {
     id: 'pipper',
     npc: 'pipper',
-    name: "Pipper's Curios",
+    name: "Homer's Bargain Bin",
     stock: ['mystery_capsule', 'bubble_shield', 'snare_seed', 'warp_charm'],
     finalRoundExtra: 'prism_key',
   },

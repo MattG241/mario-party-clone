@@ -4,8 +4,8 @@ export const GAME_WIDTH = 1920;
 export const GAME_HEIGHT = 1080;
 export const MAX_PLAYERS = 4;
 
-export const TITLE = 'GLEAMTRAIL';
-export const SUBTITLE = 'Festival of the Spiral Isles';
+export const TITLE = 'ALL-STAR PARTY';
+export const SUBTITLE = 'The Crossover Board Game';
 
 /** Font stack: Fredoka is bundled via @fontsource; the rest are safety fallbacks. */
 export const FONT = 'Fredoka, "Trebuchet MS", "Segoe UI", sans-serif';

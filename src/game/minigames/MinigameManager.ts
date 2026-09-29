@@ -56,8 +56,8 @@ export interface MinigameResult {
 
 const MG = 'assets/placeholders/minigames/';
 
-/** The original Spiral Isles set. */
-const CORE_MINIGAMES: MinigameInfo[] = [
+/** The original festival set: retired from the game (not registered or offered), kept for reference. */
+export const RETIRED_MINIGAMES: MinigameInfo[] = [
   {
     id: 'gleam-grab',
     sceneKey: 'mg-gleam-grab',
@@ -219,8 +219,8 @@ const CORE_MINIGAMES: MinigameInfo[] = [
   },
 ];
 
-/** Every minigame: the original set, then each world's (src/game/worlds/<id>/info.ts). */
-export const MINIGAMES: MinigameInfo[] = [...CORE_MINIGAMES, ...WORLD_MINIGAME_INFOS];
+/** Every minigame: each character world's set (src/game/worlds/<id>/info.ts). */
+export const MINIGAMES: MinigameInfo[] = [...WORLD_MINIGAME_INFOS];
 
 export function minigameInfo(id: string): MinigameInfo | undefined {
   return MINIGAMES.find((m) => m.id === id);

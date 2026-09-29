@@ -36,13 +36,13 @@ os.makedirs(PUB, exist_ok=True)
 
 # (side, top, highlight) colours per type — the same families as the UI legend.
 TYPES = {
-    'gleam': ('#197a9d', '#39c7ea', '#8fe7f8'),
+    'gleam': ('#1a44a8', '#3b7cf0', '#9ec2ff'),  # Blue Space
     'festival': ('#b85a16', '#ff9a2e', '#ffc978'),
-    'mischief': ('#56308c', '#9b5de5', '#c7a0ff'),
+    'mischief': ('#96202c', '#e63d4d', '#ff9ea6'),  # Bad Luck Space (red)
     'market': ('#a67a18', '#f2c14e', '#ffe39a'),
     'portal': ('#18867b', '#34cdbd', '#9bf2e8'),
     'relic': ('#6f8fb0', '#dcefff', '#ffffff'),
-    'event': ('#a3294a', '#ff5c7a', '#ffa3b5'),
+    'event': ('#1e7a36', '#3ec35c', '#a8efb6'),  # Happening Space (green)
     'start': ('#0f6f6b', '#1fa5a0', '#79dcd5'),
 }
 R_TOP = 0.5

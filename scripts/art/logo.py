@@ -1,9 +1,9 @@
-"""The GLEAMTRAIL wordmark as a chunky extruded 3D logo.
+"""The game's wordmark (ALL-STAR / PARTY, two lines) as a chunky extruded 3D logo.
 
-    .artenv/bin/python scripts/art/logo.py [--preview]
+    .artenv/bin/python scripts/art/logo.py [--preview] [--text "LINE ONE|LINE TWO"]
 
 Fredoka Bold (the game's UI font, from node_modules/@fontsource/fredoka) is converted to TTF with
-fontTools (overlapping contours merged with skia-pathops), extruded and bevelled, given a cream-to-gold gradient face, dark teal sides and a thick
+fontTools (overlapping contours merged with skia-pathops), extruded and bevelled, given a cream-to-gold gradient face, deep blue sides and a thick
 navy outline, and rendered with a transparent background to public/assets/rendered/ui_logo.webp.
 """
 from __future__ import annotations
@@ -22,7 +22,7 @@ from PIL import Image  # noqa: E402
 
 p = argparse.ArgumentParser()
 p.add_argument('--preview', action='store_true')
-p.add_argument('--text', default='GLEAMTRAIL')
+p.add_argument('--text', default='ALL-STAR|PARTY', help='| starts a new line')
 A = p.parse_args(sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else sys.argv[1:])
 
 OUT = os.path.join(lib.ROOT, 'art-out', 'logo')
@@ -47,7 +47,8 @@ font = bpy.data.fonts.load(TTF)
 
 def text_curve(name, extrude, bevel, offset):
     cu = bpy.data.curves.new(name, 'FONT')
-    cu.body = A.text
+    cu.body = A.text.replace('|', '\n')
+    cu.space_line = 0.86
     cu.font = font
     cu.size = 1.0
     cu.space_character = 1.02
@@ -111,7 +112,7 @@ def backing_object(name, extrude, bevel, offset, z, material):
 
 
 def face_material():
-    """Gradient face (cream top -> gold -> warm orange bottom) with gloss; sides dark teal."""
+    """Gradient face (cream top -> gold -> warm orange bottom) with gloss; sides deep blue."""
     m = lib.NT('logo_face')
     tc = m.node('ShaderNodeTexCoord')
     sep = m.node('ShaderNodeSeparateXYZ')
@@ -126,7 +127,7 @@ def face_material():
     nsep = m.node('ShaderNodeSeparateXYZ')
     m.link(vt.outputs['Vector'], nsep.inputs[0])
     front = m.maprange(nsep.outputs['Z'], 0.55, 0.95)
-    side = col('#0f5a60')
+    side = col('#1b3f9a')
     c = m.mix(front, side, grad)
     # a bright rim where the bevel turns toward the light
     rim = m.maprange(nsep.outputs['Z'], 0.25, 0.55)
@@ -138,7 +139,7 @@ def face_material():
 
 def outline_material():
     m = lib.NT('logo_outline')
-    m.bsdf(col('#0a2e38'), 0.5, coat=0.2)
+    m.bsdf(col('#0b1f4d'), 0.5, coat=0.2)
     return m.mat
 
 
@@ -153,7 +154,8 @@ sc.collection.objects.link(cam)
 sc.camera = cam
 cam.location = (0.0, 0.0, 30.0)
 cam.rotation_euler = (0.0, 0.0, 0.0)
-w, h = (800, 220) if A.preview else (1600, 440)
+lines = A.text.count('|') + 1
+w, h = (800, 220 * lines) if A.preview else (1600, 440 * lines)
 sc.render.resolution_x, sc.render.resolution_y = w, h
 path = os.path.join(OUT, 'logo.png')
 lib.render_to(path)

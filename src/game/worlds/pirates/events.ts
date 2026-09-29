@@ -18,7 +18,7 @@ const cannonVolley: BoardEventDef = {
       ctx,
       this,
       [
-        { npc: 'wrench', pose: 'gadget', text: "I packed the galleon's cannons with festival confetti. Light the fuse!" },
+        { npc: 'wrench', pose: 'gadget', text: "I packed the galleon's cannons with party confetti. Light the fuse!" },
         targets.length
           ? { npc: 'wrench', pose: 'laugh', text: 'KA-BOOM! That volley is headed for everyone up ahead!' }
           : { npc: 'wrench', pose: 'idea', text: 'Not a soul in range! The crew loved the fireworks anyway. Here, a few coins!' },

@@ -5,9 +5,9 @@ import { REALTIME_CLOCK } from '../debug/debug';
 import { settings } from '../save/SettingsManager';
 
 /**
- * The festival scene wipe: a ribbon of the four player colours leads a navy sash across the
+ * The scene wipe: a ribbon of the four player colours leads a navy sash across the
  * screen, the next scene is swapped in underneath, and the sash sweeps on off the other side with
- * the colours trailing (a ribbon passing the camera). The spiral emblem rides in the middle of the
+ * the colours trailing (a ribbon passing the camera). The Star Coin emblem rides in the middle of the
  * sash, so a slow load simply shows the emblem. One Graphics redrawn only while it is up: a dozen
  * flat polygons, cheap on TV chips. Reduced Motion gets a plain navy fade instead.
  *
@@ -233,7 +233,9 @@ export class Wipe {
   }
 
   private emblemImage(): Phaser.GameObjects.Image | null {
-    if (!this.emblem && this.scene.textures.exists('emblem')) this.emblem = this.scene.add.image(0, GAME_HEIGHT / 2, 'emblem').setDepth(this.depth + 1).setScale(0.9).setVisible(false);
+    // The Star Coin once it has loaded (the drawn emblem before that).
+    const key = this.scene.textures.exists('prism-relic') ? 'prism-relic' : 'emblem';
+    if (!this.emblem && this.scene.textures.exists(key)) this.emblem = this.scene.add.image(0, GAME_HEIGHT / 2, key).setDepth(this.depth + 1).setScale(0.9).setVisible(false);
     return this.emblem;
   }
 

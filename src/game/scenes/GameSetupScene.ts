@@ -88,7 +88,7 @@ export class GameSetupScene extends Phaser.Scene {
             this.registry.set('setup-board', BOARDS[this.boardIndex].id);
             this.renderBoardCard();
           },
-          hint: 'Where the match is played: Suncoil Sanctuary, or one of the guests\u2019 home isles.',
+          hint: 'Where the match is played: one of the characters\u2019 home worlds.',
         },
         { label: 'Rounds', value: () => String(this.rounds), onChange: (d) => (this.rounds = cycle(ROUND_OPTIONS, this.rounds, d)), hint: 'How many rounds the match lasts. Each round: everyone moves, then a minigame.' },
         {
@@ -108,7 +108,7 @@ export class GameSetupScene extends Phaser.Scene {
         { label: 'Minigame Instructions', value: () => cap(this.instructions), onChange: (d) => (this.instructions = cycle(['on', 'quick', 'off'] as const, this.instructions, d)), hint: 'On: full instruction screen · Quick: controls only · Off: straight to the countdown.' },
         { label: 'Board Events', value: () => cap(this.eventMode), onChange: (d) => (this.eventMode = cycle(["normal", "chaotic"] as const, this.eventMode, d)), hint: 'Chaotic: an extra surprise event kicks off every round.' },
         { label: 'Game Speed', value: () => cap(this.speed), onChange: (d) => (this.speed = cycle(['normal', 'fast'] as const, this.speed, d)), hint: 'Fast shortens board animations and CPU thinking time.' },
-        { label: 'START ADVENTURE', onSelect: () => this.start(), hint: 'Travel to the board and let the festival begin!' },
+        { label: 'START PARTY', onSelect: () => this.start(), hint: 'Head to the board and let the party begin!' },
       ],
       { width: 760, itemHeight: 60, gap: 10, fontSize: 30, onCancel: () => goTo(this, 'CharacterSelect'), onFocus: (it) => this.hint?.setText(it.hint ?? '') },
     );

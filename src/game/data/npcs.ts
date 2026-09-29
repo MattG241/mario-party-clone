@@ -1,4 +1,5 @@
-// Festival NPCs (one row of six poses per NPC in the NPC atlas).
+// The board cast: roster characters in fixed roles (one row of six poses each in the cast atlas,
+// composed by scripts/art/cast_sheet.py). The ids are the roles' original names.
 import { NPC_SHEET } from './npcSprites.generated';
 
 /** Texture key of the NPC poses: the rendered 3D sheet (scripts/art/npcs.py) when present, else the 2D sheet. */
@@ -18,15 +19,15 @@ export interface NpcDef {
 export const NPCS: Record<NpcId, NpcDef> = {
   ora: {
     id: 'ora',
-    name: 'Ora',
-    role: 'Festival Guide',
+    name: 'SpongeBob',
+    role: 'Party Host',
     row: 0,
     poses: { idle: 0, wave: 1, welcome: 2, point: 3, flag: 4, cheer: 5 },
     color: 0x1fa5a0,
   },
   wrench: {
     id: 'wrench',
-    name: 'Wrench',
+    name: 'Iron Man',
     role: 'Inventor',
     row: 1,
     poses: { idle: 0, tool: 1, laugh: 2, idea: 3, gadget: 4, surprised: 5 },
@@ -34,7 +35,7 @@ export const NPCS: Record<NpcId, NpcDef> = {
   },
   pipper: {
     id: 'pipper',
-    name: 'Pipper',
+    name: 'Homer',
     role: 'Travelling Merchant',
     row: 2,
     poses: { idle: 0, wave: 1, gift: 2, point: 3, coin: 4, happy: 5 },
@@ -42,16 +43,16 @@ export const NPCS: Record<NpcId, NpcDef> = {
   },
   mimi: {
     id: 'mimi',
-    name: 'Mimi',
-    role: 'Creature Helper',
+    name: 'Sonic',
+    role: 'Speedy Helper',
     row: 3,
     poses: { idle: 0, happy: 1, laugh: 2, alert: 3, apple: 4, surprised: 5 },
     color: 0x5ca8ff,
   },
   packsprout: {
     id: 'packsprout',
-    name: 'Packsprout',
-    role: 'Delivery Sprout',
+    name: 'Nami',
+    role: 'Star Keeper',
     row: 4,
     poses: { idle: 0, happy: 1, gift: 2, cheer: 3, surprised: 4, star: 5 },
     color: 0x6cc24a,

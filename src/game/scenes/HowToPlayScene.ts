@@ -1,3 +1,4 @@
+import { drawDiceCube } from '../board/DiceBlock';
 import Phaser from 'phaser';
 import { audio } from '../audio/AudioManager';
 import { Character } from '../characters/Character';
@@ -28,13 +29,13 @@ interface Page {
 }
 
 const SPACE_ROWS: [string, string, string][] = [
-  ['gleam', 'Gleam Space', `+${ECONOMY.gleamSpace} coins (+${ECONOMY.gleamSpaceFinal} in the final round)`],
-  ['mischief', 'Mischief', 'Something sneaky happens…'],
-  ['festival', 'Festival', 'A lucky festival surprise'],
-  ['market', 'Market', 'Shop for items (even passing by)'],
-  ['portal', 'Portal', 'Warp to its twin portal'],
+  ['gleam', 'Blue Space', `+${ECONOMY.gleamSpace} coins (+${ECONOMY.gleamSpaceFinal} in the final round)`],
+  ['mischief', 'Bad Luck', 'Something sneaky happens…'],
+  ['festival', 'Lucky', 'A lucky surprise'],
+  ['market', 'Item Shop', 'Shop for items (even passing by)'],
+  ['portal', 'Warp', 'Warp to its twin Warp Space'],
   ['relic', 'Star Coin Space', 'Where the Star Keeper waits'],
-  ['event', 'Event', 'Triggers this board\'s special event'],
+  ['event', 'Happening', 'Triggers this board\'s special happening'],
   ['start', 'Start', 'Where everyone begins — pays coins too'],
 ];
 
@@ -99,11 +100,11 @@ export class HowToPlayScene extends Phaser.Scene {
 
   private definePages(): Page[] {
     return [
-      { title: 'THE GOAL', color: COLORS.teal, ora: 'welcome', line: 'Welcome, adventurer! Here\'s how the Festival of the Spiral Isles works.', build: (s, c) => s.pageGoal(c) },
-      { title: 'YOUR TURN', color: COLORS.gold, ora: 'point', line: 'Spin the Orbit Dial and follow the trail. Every fork is a choice!', build: (s, c) => s.pageTurn(c) },
+      { title: 'THE GOAL', color: COLORS.teal, ora: 'welcome', line: 'Hi there, I\'m SpongeBob, your host! Here\'s how the party works.', build: (s, c) => s.pageGoal(c) },
+      { title: 'YOUR TURN', color: COLORS.gold, ora: 'point', line: 'Hit the Dice Block and follow the trail. Every fork is a choice!', build: (s, c) => s.pageTurn(c) },
       { title: 'BOARD SPACES', color: 0x39c7ea, ora: 'point', line: 'Where you land matters. Blue is good — purple, not so much!', build: (s, c) => s.pageSpaces(c) },
-      { title: 'STAR COINS', color: 0x7fb4e6, ora: 'flag', line: 'Packsprout trades Star Coins for coins. Follow the beam of light to find him.', build: (s, c) => s.pageRelics(c) },
-      { title: 'ITEMS', color: COLORS.coral, ora: 'wave', line: 'Market stalls sell handy items. Carry up to three and use them before you spin.', build: (s, c) => s.pageItems(c) },
+      { title: 'STAR COINS', color: 0x7fb4e6, ora: 'flag', line: 'Nami trades Star Coins for coins. Follow the beam of light to find her.', build: (s, c) => s.pageRelics(c) },
+      { title: 'ITEMS', color: COLORS.coral, ora: 'wave', line: 'Item Shops sell handy items. Carry up to three and use them before you roll.', build: (s, c) => s.pageItems(c) },
       { title: 'MINIGAMES', color: 0x8e5cd9, ora: 'cheer', line: 'After everyone moves, it\'s minigame time! Win for a big coin prize.', build: (s, c) => s.pageMinigames(c) },
       { title: 'CONTROLS', color: 0x6cc24a, ora: 'idle', line: 'Controllers or keyboard — up to four players on one screen. Have fun!', build: (s, c) => s.pageControls(c) },
     ];
@@ -181,7 +182,7 @@ export class HowToPlayScene extends Phaser.Scene {
 
   pageGoal(c: Phaser.GameObjects.Container): void {
     const top = PY + HEADER + 40;
-    this.para(c, PX + 60, top, 'Travel the board, collect coins and trade them for Star Coins.\nWhoever holds the most Star Coins after the final round wins the festival — coins break ties.', 28);
+    this.para(c, PX + 60, top, 'Travel the board, collect coins and trade them for Star Coins.\nWhoever holds the most Star Coins after the final round wins the party — coins break ties.', 28);
     const y = top + 170;
     const w = 400;
     const cols = [PX + 60, PX + 60 + w + 30, PX + 60 + 2 * (w + 30)];
@@ -199,13 +200,13 @@ export class HowToPlayScene extends Phaser.Scene {
       chip?.setAngle(-12 + k * 9);
     });
     c.add(addText(this, cols[0] + w / 2, y + 290, 'Earn Coins', 30, { color: '#ffffff', weight: 700 }));
-    c.add(addText(this, cols[0] + w / 2, y + 340, 'Gleam Spaces, minigames and\nlucky events pay out coins', 21, { color: CSS.creamDark, weight: 500 }));
+    c.add(addText(this, cols[0] + w / 2, y + 340, 'Blue Spaces, minigames and\nLucky Spaces pay out coins', 21, { color: CSS.creamDark, weight: 500 }));
     // 2: relic
     glow(cols[1] + w / 2, y + 150, 0x9be8ff);
     const relic = this.icon(c, 'prism-relic', undefined, cols[1] + w / 2, y + 140, 190);
     if (relic) this.tweens.add({ targets: relic, y: relic.y - 12, duration: 1300, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
     c.add(addText(this, cols[1] + w / 2, y + 290, `${ECONOMY.relicPrice} coins = 1 Star Coin`, 30, { color: '#ffffff', weight: 700 }));
-    c.add(addText(this, cols[1] + w / 2, y + 340, 'Trade with Packsprout, the\nStar Keeper, as you pass him', 21, { color: CSS.creamDark, weight: 500 }));
+    c.add(addText(this, cols[1] + w / 2, y + 340, 'Trade with Nami, the\nStar Keeper, as you pass her', 21, { color: CSS.creamDark, weight: 500 }));
     // 3: winner
     glow(cols[2] + w / 2, y + 150, COLORS.goldLight);
     const hero = new Character(this, cols[2] + w / 2, y + 240, CHARACTER_IDS[0], { scale: 0.62 });
@@ -213,7 +214,7 @@ export class HowToPlayScene extends Phaser.Scene {
     c.add(hero);
     this.time.addEvent({ delay: 2400, loop: true, callback: () => hero.active && hero.play('celebrate', { force: true }) });
     c.add(addText(this, cols[2] + w / 2, y + 290, 'Most Star Coins wins', 30, { color: '#ffffff', weight: 700 }));
-    c.add(addText(this, cols[2] + w / 2, y + 340, 'Festival Awards hand out bonus\nStar Coins at the very end!', 21, { color: CSS.creamDark, weight: 500 }));
+    c.add(addText(this, cols[2] + w / 2, y + 340, 'Bonus Stars hand out extra\nStar Coins at the very end!', 21, { color: CSS.creamDark, weight: 500 }));
   }
 
   pageTurn(c: Phaser.GameObjects.Container): void {
@@ -221,20 +222,21 @@ export class HowToPlayScene extends Phaser.Scene {
     const y0 = PY + HEADER + 40;
     const w = 780;
     const steps: [string, string][] = [
-      ['Use an item (optional)', 'Press Y before you spin to open your item bag — boots, warps, traps and more.'],
-      ['Spin the Orbit Dial', `Press A to stop the dial. You move ${1}–${10} spaces, one at a time.`],
-      ['Choose your path', 'At a fork, tilt the stick toward the trail you want. Gates may need a Prism Key.'],
+      ['Use an item (optional)', 'Press Y before you roll to open your item bag — boots, warps, traps and more.'],
+      ['Hit the Dice Block', `Press A to hit the block. You move ${1}–${10} spaces, one at a time.`],
+      ['Choose your path', 'At a fork, tilt the stick toward the trail you want. Gates may need a Skeleton Key.'],
       ['Land and react', 'Wherever you stop, that space takes effect. Passing the Keeper or a market lets you trade.'],
     ];
     steps.forEach(([t, d], k) => this.stepCard(c, x, y0 + k * 160, w, 140, k + 1, t, d, [COLORS.teal, COLORS.gold, COLORS.coral, 0x8e5cd9][k]));
     const cx = PX + PW - 290;
     const cy = PY + HEADER + 300;
     c.add(this.add.image(cx, cy + 190, 'fx-shadow').setScale(2.6, 0.7).setAlpha(0.5));
-    const dial = this.textures.exists('rendered-ui-dial') ? this.add.image(cx, cy, 'rendered-ui-dial').setDisplaySize(400, 400) : this.add.image(cx, cy, 'orbit-dial').setScale(0.9);
-    c.add(dial);
-    this.tweens.add({ targets: dial, angle: 360, duration: 9000, repeat: -1 });
-    c.add(addText(this, cx, cy + 2, '7', 120, { color: '#ffffff', weight: 700, stroke: '#06141a', strokeThickness: 10 }));
-    c.add(addText(this, cx, cy + 260, 'The Orbit Dial', 30, { color: '#ffffff', weight: 700 }));
+    const cube = this.add.graphics();
+    drawDiceCube(cube, COLORS.teal);
+    const block = this.add.container(cx, cy, [cube, addText(this, 0, -2, '7', 86, { color: '#1f2940', weight: 700 })]).setScale(2);
+    c.add(block);
+    this.tweens.add({ targets: block, y: cy - 14, angle: { from: -3, to: 3 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+    c.add(addText(this, cx, cy + 260, 'The Dice Block', 30, { color: '#ffffff', weight: 700 }));
     c.add(addText(this, cx, cy + 300, 'Wingstep Boots add +3!', 21, { color: CSS.creamDark, weight: 500 }));
   }
 
@@ -272,7 +274,7 @@ export class HowToPlayScene extends Phaser.Scene {
   pageRelics(c: Phaser.GameObjects.Container): void {
     const x = PX + 60;
     const y0 = PY + HEADER + 40;
-    this.para(c, x, y0, 'Packsprout, the Star Keeper, waits on one of the Star Coin spaces — look for the tall beam of light.', 28, 820);
+    this.para(c, x, y0, 'Nami, the Star Keeper, waits on one of the Star Coin spaces — look for the tall beam of light.', 28, 820);
     const steps: [string, string][] = [
       ['Reach the Keeper', 'You can trade just by passing him — you don\'t have to land on his space.'],
       [`Pay ${ECONOMY.relicPrice} coins`, 'You\'ll be asked whether you want to buy. Save up so you\'re ready!'],
@@ -294,7 +296,7 @@ export class HowToPlayScene extends Phaser.Scene {
     c.add(keeper);
     const relic = this.icon(c, 'prism-relic', undefined, cx + 150, cy - 250, 150);
     if (relic) this.tweens.add({ targets: relic, y: relic.y - 14, angle: 6, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
-    c.add(addText(this, cx, cy + 60, 'Packsprout', 30, { color: '#ffffff', weight: 700 }));
+    c.add(addText(this, cx, cy + 60, 'Nami', 30, { color: '#ffffff', weight: 700 }));
     c.add(addText(this, cx, cy + 98, 'Star Keeper', 21, { color: CSS.creamDark, weight: 500 }));
   }
 

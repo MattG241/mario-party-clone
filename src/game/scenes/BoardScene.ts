@@ -7,13 +7,13 @@ import { BoardPresenter } from '../board/BoardPresenter';
 import { freshTurn, type FlowContext } from '../board/flowTypes';
 import { Lighting } from '../board/Lighting';
 import { MovementController } from '../board/MovementController';
-import { OrbitDial } from '../board/OrbitDial';
+import { DiceBlock } from '../board/DiceBlock';
 import { PathChooser } from '../board/PathChooser';
 import { runMatch } from '../board/TurnManager';
 import type { Character } from '../characters/Character';
 import { CAMERA_ZOOM, COLORS, CSS, DEPTH, GAME_HEIGHT, GAME_WIDTH } from '../constants';
 import type { BoardDef } from '../board/types';
-import { findBoard, SUNCOIL } from '../data/boards';
+import { BOARDS, findBoard } from '../data/boards';
 import { queueBoardArt } from '../data/rendered';
 import { ITEM_IDS } from '../data/items';
 import { clearDebugInfo, DEBUG_ENABLED, logError, setDebugInfo, URL_PARAMS } from '../debug/debug';
@@ -53,7 +53,7 @@ export class BoardScene extends Phaser.Scene {
   fx!: EffectsManager;
   ui!: BoardUIScene;
   bg!: BoardBgScene;
-  dial!: OrbitDial;
+  dial!: DiceBlock;
   paths!: PathChooser;
   presenter!: BoardPresenter;
   /** Time of day, ambient life and the big-beat effects of a turn. */
@@ -63,7 +63,7 @@ export class BoardScene extends Phaser.Scene {
   ctx!: FlowContext;
   private data0: BoardSceneData = {};
   /** The board being played. */
-  private def: BoardDef = SUNCOIL;
+  private def: BoardDef = BOARDS[0];
   private offDebug: (() => void) | null = null;
   private running = false;
   private pauseOpen = false;
@@ -90,8 +90,8 @@ export class BoardScene extends Phaser.Scene {
   init(data: BoardSceneData): void {
     this.data0 = data ?? {};
     // The match's board (a saved match's, when continuing), Suncoil if it's unknown.
-    const boardId = (this.data0.continue ? saves.load() : session.match)?.config.boardId ?? 'suncoil';
-    this.def = findBoard(boardId) ?? SUNCOIL;
+    const boardId = (this.data0.continue ? saves.load() : session.match)?.config.boardId ?? BOARDS[0].id;
+    this.def = findBoard(boardId) ?? BOARDS[0];
     this.running = false;
     this.pauseOpen = false;
     this.following = null;
@@ -136,7 +136,7 @@ export class BoardScene extends Phaser.Scene {
     this.moves = new MovementController(this, this.board, this.fx, dur);
     this.moves.createTokens(state);
     for (const p of state.players) this.moves.setShield(p.slot, p.shielded);
-    this.dial = new OrbitDial(this, this.fx);
+    this.dial = new DiceBlock(this, this.fx);
     this.paths = new PathChooser(this, this.board);
     this.presenter = new BoardPresenter(this);
     this.juice = new BoardJuice(this);
@@ -193,7 +193,7 @@ export class BoardScene extends Phaser.Scene {
     } catch (err) {
       const msg = err instanceof Error ? `${err.message}\n${err.stack ?? ''}` : String(err);
       logError(`Board flow: ${msg}`);
-      console.error('[Gleamtrail] board flow error', err);
+      console.error('[All-Star Party] board flow error', err);
     }
   }
 
@@ -240,12 +240,12 @@ export class BoardScene extends Phaser.Scene {
     const sweep = this.tweens.add({ targets: this.cameras.main, scrollX: '+=200', duration: 6000, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
     // Every board's own name (the world boards share Suncoil's guide and rules).
     const name = this.def.name;
-    await this.ui.banner({ title: name.toUpperCase(), subtitle: 'WELCOME TO THE FESTIVAL', color: COLORS.teal, sound: 'fanfare', hold: 1400, size: 96 });
+    await this.ui.banner({ title: name.toUpperCase(), subtitle: 'WELCOME TO THE PARTY', color: COLORS.teal, sound: 'fanfare', hold: 1400, size: 96 });
     await this.ui.dialogLines(
       [
-        { npc: 'ora', pose: 'welcome', text: `Welcome to ${name}, adventurers! I'm Ora, your festival guide.` },
-        { npc: 'ora', pose: 'point', text: 'Spin the Orbit Dial to travel. Land on blue Gleam Spaces for coins, and watch out for purple Mischief!' },
-        { npc: 'ora', pose: 'flag', text: 'Most Star Coins wins the festival — coins break ties. Press Y for items, X for the map and VIEW for scores.' },
+        { npc: 'ora', pose: 'welcome', text: `Welcome to ${name}, everybody! I'm SpongeBob, and I'm your host!` },
+        { npc: 'ora', pose: 'point', text: 'Hit the Dice Block to move. Blue Spaces give you coins, and watch out for Bad Luck Spaces!' },
+        { npc: 'ora', pose: 'flag', text: 'Most Star Coins wins the party — coins break ties. Press Y for items, X for the map and VIEW for scores.' },
       ],
       humans,
       humans.length === 0,
