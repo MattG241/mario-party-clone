@@ -200,6 +200,8 @@ export interface PromptSpec {
 
 /** A row of "glyph + label" prompts, centred on its position. */
 export class PromptBar extends Phaser.GameObjects.Container {
+  /** Width of the prompts themselves (unscaled), so a tight spot can shrink the bar to fit. */
+  contentWidth = 0;
   private size: number;
   private fontSize: number;
   private color: string;
@@ -233,6 +235,7 @@ export class PromptBar extends Phaser.GameObjects.Container {
       parts.push(item);
     }
     const total = Math.max(0, x - 34);
+    this.contentWidth = total;
     if (!dark && parts.length) {
       const h = this.size + 18;
       const pill = this.scene.add.graphics();
