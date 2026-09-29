@@ -365,7 +365,7 @@ export class RingRushScene extends BaseMinigame {
   }
 
   private art(kind: Kind): { key: string; frame?: string } {
-    const f = kind === 'scatter' ? 'ring' : kind === 'crawler' ? 'turtle' : kind === 'buzzer' ? 'heli' : kind;
+    const f = kind === 'scatter' ? 'ring' : kind === 'bigring' ? 'ring_big' : kind === 'crawler' ? 'turtle' : kind === 'buzzer' ? 'heli' : kind;
     if (this.hasArt && hasFrame(this, ATLAS, f)) return { key: ATLAS, frame: f };
     return { key: `rr-${kind === 'scatter' ? 'ring' : kind}` };
   }
