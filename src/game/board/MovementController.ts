@@ -229,6 +229,14 @@ export class MovementController {
     }
   }
 
+  /** World point just above a token's player badge (the map view hangs its name tags here). */
+  tagTop(slot: number): { x: number; y: number } {
+    const tag = this.tags.get(slot);
+    const c = this.tokens.get(slot)!;
+    if (!tag) return { x: c.x, y: c.y - 200 };
+    return { x: tag.container.x, y: tag.container.y - 26 * tag.container.scale };
+  }
+
   /** Resting sprite scale of a character's current animation (squash and stretch scale around it). */
   private baseScale(c: Character): number {
     return CHARACTER_ANIMATIONS[c.charId][c.current]?.scale ?? 1;
