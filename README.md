@@ -1,8 +1,8 @@
 # Gleamtrail: Festival of the Spiral Isles
 
 An original local-multiplayer party game for the browser. Up to four players (controllers or
-keyboard, CPUs fill empty seats) travel a floating-island board, collect coins, trade them for
-Star Coins and battle it out in minigames between rounds.
+keyboard, CPUs fill empty seats) travel one of seven floating-island boards, collect coins, trade
+them for Star Coins and battle it out in 25 minigames between rounds.
 
 Built with TypeScript, Vite and Phaser 3. Environment art and the four heroes are modelled and
 pre-rendered from code in Blender (see [Art pipeline](#art-pipeline)).
@@ -131,7 +131,26 @@ free controller takes over (press A), or the player carries on with the keyboard
 | Tumble Tower | 1–4 | Climb a tower of moving, tipping platforms |
 
 Every minigame opens with an instruction card (rules, controls and a live preview); this can be
-set to full, quick or off in Settings. **Minigame Mode** lets you play any of them on their own.
+set to full, quick or off in Settings. **Minigame Mode** lets you play any of them on their own;
+its tabs (LB / RB) sort them by world.
+
+### Worlds: themed boards and the guests' minigames
+
+Pick the board in **Board Game → Board**. Each guest world has its own board (with its own spaces,
+events and time of day) and minigames starring its guests; on a world's board, its minigames come
+up more often. The festival (Suncoil Sanctuary and the eight minigames above) is the original set.
+
+| World | Board | Minigames |
+| --- | --- | --- |
+| Pirate Cove | Islands round a cove, a galleon shortcut, a lighthouse (day to night) | Stretch & Snatch (Luffy), Triple Slash (Zoro), Storm Navigator (Nami) |
+| Dojo Summit | Misty peaks, a rope bridge, a pagoda and training falls (day to night) | Cloud Rider (Goku), Clone Chaos (Naruto) |
+| Hero Heights | Night-time rooftops, subway portals, a clock tower and tech spire | Rooftop Glide (Batman), Web Swing (Spider-Man), Repulsor Range (Iron Man) |
+| Cartoon Coast | A boardwalk, a loop-the-loop, checkered hills and Bubble Bay | Ring Rush (Sonic), Patty Panic (SpongeBob), Donut Dash (Homer) |
+| Showtime Strip | A neon figure of eight: theatre, diner, café, saloon, drive-in (night) | Hip-Shake Hustle (Elvis), Coffee Rush (Sabrina), Rhinestone Rodeo (Chappell), Slapshot Showdown (Adam Sandler) |
+| Capitol Gardens | A park island: domed hall, reflecting pool, court and putting green | Free Throw Frenzy (Obama), Fairway Frenzy (Trump) |
+
+The guests are fan-made tributes for private, non-commercial play; every world, board and
+minigame is original. Code for a world lives in `src/game/worlds/<id>/` (see `types.ts` there).
 
 ## Settings and accessibility
 
