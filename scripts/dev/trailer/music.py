@@ -2,17 +2,21 @@
 
     python3 scripts/dev/trailer/music.py <out.wav>
 
-A bright festival piece in G major at 124 BPM, arranged to the trailer edit (see edit.py, which
-imports BPM/BAR from here so cuts land on the beat):
+A bright festival piece in G major at 124 BPM, arranged to the trailer edit (edit.py imports
+BPM/BAR and the section bars from here, so cuts land on the beat):
 
-    bars  0-1   sparkle intro, riser into the title hit
-    bars  2-3   title hit: brass chord, pad, glockenspiel twinkles
-    bars  4-11  groove A (heroes, board): marimba hook, bass, claps, pizzicato offbeats
-    bars 12-13  build: pedal bass, snare roll, riser
-    bars 14-21  chorus (minigame montage): brass hook, four-on-the-floor, crashes
-    bars 22-23  breakdown: pad, glockenspiel, riser
-    bars 24-27  final chorus
-    bar  28     final hit, rings out to the end card
+    bars  0-1   cold open: the countdown. A hit on each number (beats 2, 3, 4), GO! on bar 1,
+                two more hits, a snare pickup
+    bars  2-3   title hit: brass chord, crash, pad, glockenspiel twinkles
+    bars  4-15  groove (the guests, the select screen, the board): marimba hook, bass, claps,
+                pizzicato offbeats; glockenspiel and tambourine join as it goes
+    bars 16-17  build (final round, minigame time): pedal bass, snare roll, riser
+    bars 18-27  chorus (minigame montage): brass hook, four-on-the-floor, crashes; the last two
+                bars are fills for the rapid-fire cuts
+    bar  28     FINISH!: one big hit and the band stops
+    bars 29-30  drumroll under the ceremony, a riser
+    bar  31     the winner lands: cymbal and a brass fanfare
+    bars 32-35  end card: the final chord rings out
 
 Instruments are simple physical/additive models (modal marimba and glockenspiel, additive plucks,
 detuned additive brass and pad, synthesised drums) mixed through a convolution reverb and a gentle
@@ -31,7 +35,9 @@ BPM = 124.0
 BEAT = 60.0 / BPM
 BAR = 4 * BEAT
 EIGHTH = BEAT / 2
-N_BARS = 31  # 28 bars of music + the final hit ringing out
+# Section starts (bars), shared with edit.py.
+COLD, TITLE, GROOVE, BUILD, CHORUS, FINISH, ROLL, WINNER, END = 0, 2, 4, 16, 18, 28, 29, 31, 32
+N_BARS = 37  # 36 bars of music + the final chord ringing out
 RNG = np.random.default_rng(7)
 
 
@@ -322,8 +328,18 @@ CHORDS = {'G': (43, [55, 59, 62]), 'Em': (40, [52, 55, 59]), 'C': (48, [52, 55, 
           'Am': (45, [57, 60, 64]), 'Bm': (47, [54, 59, 62])}
 
 # per-bar chords: a name, or two names for a split bar (beats 1-2, beats 3-4)
-CHART = (['G', 'D'] + ['G', 'Em'] + ['G', 'Em', 'C', 'D', 'G', 'Em', ('C', 'D'), 'G'] + ['C', 'D'] +
-         ['G', 'D', 'Em', 'C', 'G', 'D', ('C', 'D'), 'G'] + ['C', 'D'] + ['G', 'D', 'Em', ('C', 'D')] + ['G', 'G', 'G'])
+CHART = (['Em', ('C', 'D')] +                                     # 0-1 cold open
+         ['G', ('C', 'D')] +                                       # 2-3 title
+         ['G', 'Em', 'C', 'D', 'G', 'Em', ('C', 'D'), 'G'] +       # 4-11 groove
+         ['G', 'Em', 'C', 'D'] +                                   # 12-15 groove
+         ['C', 'D'] +                                              # 16-17 build
+         ['G', 'D', 'Em', 'C', 'G', 'D', ('C', 'D'), 'G'] +        # 18-25 chorus
+         ['G', ('C', 'D')] +                                       # 26-27 chorus fills
+         ['G'] +                                                   # 28 FINISH!
+         ['Em', ('C', 'D')] +                                      # 29-30 drumroll
+         ['G'] +                                                   # 31 the winner
+         ['G'] * 5)                                                # 32-36 end card
+assert len(CHART) == N_BARS
 
 # hook melodies: (eighth position, midi, length in eighths)
 HOOK_A = [
@@ -345,6 +361,12 @@ HOOK_C = [
     [(0, 81, 2), (2, Fs, 2), (4, D, 1), (5, E, 1), (6, Fs, 2)],
     [(0, E, 1), (1, 79, 1), (2, 84, 2), (4, 81, 2), (6, Fs, 1), (7, 81, 1)],
     [(0, 79, 6), (6, D, 1), (7, B, 1)],
+]
+# The winner's fanfare (bar 31): three voices of "da-da-da-DAAA" and a climb.
+FANFARE = [
+    [(0, D, 1), (1, D, 1), (2, D, 1), (3, 79, 3), (6, 81, 1), (7, 83, 1)],
+    [(0, B, 1), (1, B, 1), (2, B, 1), (3, D, 3), (6, Fs, 1), (7, 79, 1)],
+    [(0, 67, 1), (1, 67, 1), (2, 67, 1), (3, B, 3), (6, D, 1), (7, D, 1)],
 ]
 
 
@@ -379,7 +401,7 @@ def build() -> np.ndarray:
             m = root + {0: 0, 5: 7, 8: 12}[deg]
             mix.add('bass', bass(m, ln * EIGHTH * 0.9), t_of(bar, pos))
 
-    def pads(bar, beats=4.0, vel=1.0):
+    def pads(bar, vel=1.0):
         for half in ((0, 4),) if not isinstance(CHART[bar], tuple) else ((0, 2), (2, 2)):
             name = chord_at(bar, half[0] * 2)
             _, tri = CHORDS[name]
@@ -392,7 +414,7 @@ def build() -> np.ndarray:
             for k, m in enumerate(tri):
                 mix.add('pluck', pluck(m + 12, vel * (0.9 if k else 1.0), tau=0.18), t_of(bar, pos) + k * 0.004)
 
-    def drums_groove(bar, full=False, fill=False):
+    def drums_groove(bar, full=False, fill=False, tamb_on=False):
         for b in range(4):
             if full or b in (0, 2):
                 mix.add('kick', kick(1.0 if b % 2 == 0 else 0.9), t_of(bar, b * 2))
@@ -406,8 +428,8 @@ def build() -> np.ndarray:
                     mix.add('hat', hat(0.9, open_=True), t_of(bar, e))
             else:
                 mix.add('hat', hat(0.85 if e % 2 else 0.55), t_of(bar, e))
-        for s16 in range(16):
-            if full or bar >= 8:
+        if full or tamb_on:
+            for s16 in range(16):
                 mix.add('tamb', tamb(0.9 if s16 % 4 == 2 else 0.5), t_of(bar, s16 / 2))
         if not full and bar % 2 == 1:
             mix.add('kick', kick(0.7), t_of(bar, 7))
@@ -415,118 +437,173 @@ def build() -> np.ndarray:
             for k, m in enumerate((50, 47, 45, 43)):
                 mix.add('tom', tom(m, 0.9), t_of(bar, 6 + k * 0.5))
 
-    # --- bars 0-1: sparkle intro + riser into the hit
-    arp_g = [67, 71, 74, 79, 83, 86, 91, 86]
-    arp_d = [66, 69, 74, 78, 81, 86, 90, 86]
-    for bar, arp in ((0, arp_g), (1, arp_d)):
-        for i in range(16):
-            m = arp[i % 8] + (0 if i < 8 else 0)
-            mix.add('harp', pluck(m - 12, 0.55 + 0.02 * i, tau=1.2, bright=1.4), t_of(bar, i / 2))
-            if i % 2 == 0:
-                mix.add('glock', glock(m, 0.35 + 0.02 * i), t_of(bar, i / 2), pan=RNG.uniform(-0.6, 0.6))
-    pads(0, vel=0.7)
-    pads(1, vel=0.8)
-    mix.add('fx', riser(2 * BAR, 0.9), t_of(0))
-    rev = crash(1.0, 1.4)[::-1]
-    mix.add('crash', rev, t_of(2) - len(rev) / SR, gain=0.8)
-    for k in range(8):
-        mix.add('tom', tom(43, 0.25 + 0.08 * k), t_of(1, 4 + k * 0.5))
+    def stab(t, chord, vel=1.0, low=True):
+        """An orchestral hit: kick, a timpani-ish low tom, a short brass chord and the bass."""
+        root, tri = CHORDS[chord]
+        mix.add('kick', kick(vel), t)
+        if low:
+            mix.add('tom', tom(root + 12, 0.9 * vel), t)
+        for m in tri + [tri[0] + 12]:
+            mix.add('brass', brass(m, 0.3, 0.75 * vel), t)
+        mix.add('bass', bass(root, 0.35, vel), t)
+
+    def reverse_crash(into_bar, length=1.3, gain=0.75):
+        rev = crash(1.0, length)[::-1]
+        mix.add('crash', rev, t_of(into_bar) - len(rev) / SR, gain=gain)
+
+    # --- bars 0-1: cold open. A shimmer out of black, then the countdown: 3, 2, 1 on beats 2-4,
+    # each hit a step higher; GO! lands on bar 1, two more hits carry the flurry of cuts.
+    for i, m in enumerate([79, 83, 86, 91, 95]):
+        mix.add('glock', glock(m, 0.22 + 0.05 * i), t_of(COLD, i * 0.35), pan=-0.5 + 0.25 * i)
+    mix.add('fx', riser(2 * BAR, 0.75), t_of(COLD))
+    pads(COLD, vel=0.55)
+    pads(COLD + 1, vel=0.7)
+    for k, e in enumerate((2, 4, 6)):
+        stab(t_of(COLD, e), chord_at(COLD, e), 0.72 + 0.1 * k)
+        mix.add('crash', crash(0.3 + 0.1 * k, 0.9), t_of(COLD, e))
+        mix.add('hat', hat(0.6), t_of(COLD, e + 1))
+    mix.add('fx', impact(0.9), t_of(COLD + 1))
+    mix.add('crash', crash(1.0, 2.0), t_of(COLD + 1))
+    stab(t_of(COLD + 1), 'C', 1.0)
+    mix.add('clap', clap(0.8), t_of(COLD + 1, 2))
+    for e in (4, 6):
+        stab(t_of(COLD + 1, e), 'D', 0.85, low=False)
+        mix.add('crash', crash(0.45, 0.8), t_of(COLD + 1, e))
+    for i in range(4):  # a sixteenth-note snare pickup into the title
+        mix.add('snare', snare(0.45 + 0.13 * i), t_of(COLD + 1, 6 + i * 0.5))
+    reverse_crash(TITLE, 1.4, 0.7)
 
     # --- bars 2-3: title hit
-    mix.add('fx', impact(1.0), t_of(2))
-    mix.add('crash', crash(1.1, 2.6), t_of(2))
-    mix.add('kick', kick(1.0), t_of(2))
+    mix.add('fx', impact(1.0), t_of(TITLE))
+    mix.add('crash', crash(1.1, 2.6), t_of(TITLE))
+    mix.add('kick', kick(1.0), t_of(TITLE))
     for m in (55, 59, 62, 67, 71):
-        mix.add('brass', brass(m, BEAT * 1.6, 0.95), t_of(2))
-    pads(2, vel=1.0)
-    pads(3, vel=0.9)
-    for bar in (2, 3):
+        mix.add('brass', brass(m, BEAT * 1.6, 0.95), t_of(TITLE))
+    mix.add('bass', bass(43, BEAT * 1.8, 1.0), t_of(TITLE))
+    pads(TITLE, vel=1.0)
+    pads(TITLE + 1, vel=0.9)
+    for bar in (TITLE, TITLE + 1):
         for i in range(6):
             pos = RNG.choice([1, 2, 3, 4, 5, 6, 7]) + RNG.uniform(-0.1, 0.1)
             mix.add('glock', glock(RNG.choice([79, 83, 86, 91, 88]), 0.4), t_of(bar, pos), pan=RNG.uniform(-0.7, 0.7))
         for pos in (0, 2, 4, 6):
             _, tri = CHORDS[chord_at(bar, pos)]
             mix.add('pluck', pluck(tri[0] + 12, 0.5, tau=0.25), t_of(bar, pos))
-    mix.add('kick', kick(0.7), t_of(3))
+    mix.add('kick', kick(0.7), t_of(TITLE + 1))
+    for k, m in enumerate((50, 47, 45, 43)):
+        mix.add('tom', tom(m, 0.7), t_of(TITLE + 1, 6 + k * 0.5))
 
-    # --- bars 4-11: groove A
-    play_hook(4, HOOK_A, 'marimba', 0, 1.0)
-    play_hook(8, HOOK_A[4:], 'glock', 12, 0.35)
-    for bar in range(4, 12):
+    # --- bars 4-15: groove (the guests, the select screen, the board)
+    play_hook(GROOVE, HOOK_A, 'marimba', 0, 1.0)
+    play_hook(GROOVE + 4, HOOK_A[4:], 'glock', 12, 0.35)
+    play_hook(GROOVE + 8, HOOK_A[:4], 'marimba', 0, 1.0)
+    play_hook(GROOVE + 8, HOOK_A[:4], 'glock', 12, 0.4)
+    for bar in range(GROOVE, BUILD):
         bass_bar(bar, [(0, 0, 2), (2, 0, 1), (3, 5, 1), (4, 0, 2), (6, 8, 1), (7, 5, 1)])
         offbeat_pluck(bar, 0.4)
-        drums_groove(bar, full=False, fill=(bar == 11))
-        if bar >= 8:
+        drums_groove(bar, full=False, fill=(bar in (GROOVE + 3, GROOVE + 7, BUILD - 1)), tamb_on=bar >= GROOVE + 4)
+        if bar >= GROOVE + 4:
             pads(bar, vel=0.6)
 
-    # --- bars 12-13: build
-    for bar in (12, 13):
+    # --- bars 16-17: build
+    for bar in (BUILD, BUILD + 1):
         for e in range(8):
-            mix.add('bass', bass(50 if bar == 13 else 48, EIGHTH * 0.8, 0.9), t_of(bar, e))
+            mix.add('bass', bass(50 if bar == BUILD + 1 else 48, EIGHTH * 0.8, 0.9), t_of(bar, e))
         for b in range(4):
             mix.add('kick', kick(0.9), t_of(bar, b * 2))
         pads(bar, vel=0.8)
     for i in range(8):
-        mix.add('snare', snare(0.3 + 0.03 * i), t_of(12, i))
+        mix.add('snare', snare(0.3 + 0.03 * i), t_of(BUILD, i))
     for i in range(16):
-        mix.add('snare', snare(0.5 + 0.03 * i), t_of(13, i / 2))
+        mix.add('snare', snare(0.5 + 0.03 * i), t_of(BUILD + 1, i / 2))
     for k, m in enumerate([67, 69, 71, 72, 74, 76, 78, 79, 81, 83, 84, 86, 88, 90, 91, 93]):
-        mix.add('marimba', marimba(m, 0.7 + 0.02 * k), t_of(12, k))
-    mix.add('fx', riser(2 * BAR, 1.0), t_of(12))
-    rev = crash(1.0, 1.2)[::-1]
-    mix.add('crash', rev, t_of(14) - len(rev) / SR, gain=0.7)
+        mix.add('marimba', marimba(m, 0.7 + 0.02 * k), t_of(BUILD, k))
+    mix.add('fx', riser(2 * BAR, 1.0), t_of(BUILD))
+    reverse_crash(CHORUS, 1.2, 0.7)
 
-    # --- bars 14-21 chorus, 24-27 final chorus
-    def chorus(start, hook):
+    # --- bars 18-27: chorus (the minigame montage); the last two bars are fills for fast cuts
+    def chorus(start, hook, fill_last=True):
         play_hook(start, hook, 'brass', 0, 1.0)
         play_hook(start, hook, 'marimba', 12, 0.55)
         for i, bar in enumerate(range(start, start + len(hook))):
             bass_bar(bar, [(e, 0 if e % 2 == 0 else 8, 1) for e in range(6)] + [(6, 5, 1), (7, 8, 1)])
             pads(bar, vel=1.0)
-            drums_groove(bar, full=True, fill=(i == len(hook) - 1))
+            drums_groove(bar, full=True, fill=fill_last and i == len(hook) - 1)
             if i % 2 == 0:
                 mix.add('crash', crash(0.9), t_of(bar))
             for pos in (0, 3, 6):
                 _, tri = CHORDS[chord_at(bar, pos)]
                 mix.add('glock', glock(tri[-1] + 24, 0.22), t_of(bar, pos), pan=0.4)
-    chorus(14, HOOK_C)
+    chorus(CHORUS, HOOK_C)
+    chorus(CHORUS + 8, [HOOK_C[0], HOOK_C[6]])
+    for bar in (CHORUS + 8, CHORUS + 9):  # a tom on every beat: one per rapid-fire cut
+        for b in range(4):
+            mix.add('tom', tom(55 - b * 2, 0.55), t_of(bar, b * 2))
+    reverse_crash(FINISH, 1.0, 0.8)
 
-    # --- bars 22-23 breakdown
-    for bar in (22, 23):
-        pads(bar, vel=1.0)
-        root, tri = CHORDS[chord_at(bar, 0)]
-        mix.add('bass', bass(root, BAR * 0.95, 0.8), t_of(bar))
-        for e in range(8):
-            mix.add('harp', pluck(tri[e % 3] + (12 if e >= 3 else 0), 0.5, tau=0.9, bright=1.3), t_of(bar, e))
-        for e in range(8):
-            mix.add('hat', hat(0.4), t_of(bar, e))
-    mix.add('fx', riser(BAR, 0.9), t_of(23))
+    # --- bar 28: FINISH! One big hit, then the band stops (a heartbeat under the tails).
+    mix.add('fx', impact(1.0), t_of(FINISH))
+    mix.add('crash', crash(1.2, 3.0), t_of(FINISH))
+    mix.add('kick', kick(1.0), t_of(FINISH))
+    for m in (55, 59, 62, 67, 71, 74):
+        mix.add('brass', brass(m, BEAT * 1.1, 1.0), t_of(FINISH))
+    mix.add('bass', bass(43, BEAT * 1.6, 1.0), t_of(FINISH))
+    for e in (4, 6):
+        mix.add('tom', tom(40, 0.45), t_of(FINISH, e))
+
+    # --- bars 29-30: the ceremony's drumroll, the lights racing; a riser into the winner
+    pads(ROLL, vel=0.9)
+    pads(ROLL + 1, vel=1.0)
+    mix.add('bass', bass(40, BAR * 0.95, 0.7), t_of(ROLL))
+    mix.add('bass', bass(48, BAR * 0.45, 0.8), t_of(ROLL + 1))
+    mix.add('bass', bass(50, BAR * 0.45, 0.9), t_of(ROLL + 1, 4))
     for i in range(16):
-        mix.add('snare', snare(0.3 + 0.04 * i), t_of(23, i / 2))
-    rev = crash(1.0, 1.2)[::-1]
-    mix.add('crash', rev, t_of(24) - len(rev) / SR, gain=0.7)
-    chorus(24, [HOOK_C[0], HOOK_C[1], HOOK_C[2], HOOK_C[6]])
+        mix.add('snare', snare(0.18 + 0.02 * i), t_of(ROLL, i / 2))
+    for i in range(32):
+        mix.add('snare', snare(0.34 + 0.015 * i), t_of(ROLL + 1, i / 4))
+    for b in range(8):
+        mix.add('tom', tom(40 + (b // 4) * 2, 0.35 + 0.05 * b), t_of(ROLL + b // 4, (b % 4) * 2))
+    mix.add('fx', riser(2 * BAR, 0.9), t_of(ROLL))
+    reverse_crash(WINNER, 1.2, 0.8)
 
-    # --- bar 28: final hit, ringing out
-    mix.add('fx', impact(1.0), t_of(28))
-    mix.add('crash', crash(1.2, 3.2), t_of(28))
-    mix.add('kick', kick(1.0), t_of(28))
+    # --- bar 31: the winner lands: cymbal, fanfare, the band back for one bar
+    mix.add('fx', impact(0.9), t_of(WINNER))
+    mix.add('crash', crash(1.1, 2.4), t_of(WINNER))
+    for voice in FANFARE:
+        for (pos, m, ln) in voice:
+            mix.add('brass', brass(m, ln * EIGHTH * 0.9, 0.95), t_of(WINNER, pos))
+    pads(WINNER, vel=1.0)
+    bass_bar(WINNER, [(e, 0 if e % 2 == 0 else 8, 1) for e in range(8)])
+    drums_groove(WINNER, full=True, fill=True)
+    for i, m in enumerate((79, 83, 86, 91)):
+        mix.add('glock', glock(m, 0.35), t_of(WINNER, 3 + i * 0.5), pan=-0.4 + 0.25 * i)
+
+    # --- bars 32-36: end card, the final chord ringing out
+    mix.add('fx', impact(1.0), t_of(END))
+    mix.add('crash', crash(1.2, 3.4), t_of(END))
+    mix.add('kick', kick(1.0), t_of(END))
     for m in (55, 59, 62, 67, 71, 74, 79):
-        mix.add('brass', brass(m, BAR * 1.2, 0.9), t_of(28))
-    for m in (55, 59, 62):
-        mix.add('pad', pad(m, BAR * 2.0, 1.1), t_of(28))
-    mix.add('bass', bass(43, BAR * 1.4, 1.0), t_of(28))
+        note = brass(m, BAR * 2.0, 0.9)
+        mix.add('brass', note * np.exp(-np.arange(len(note)) / SR / 2.2), t_of(END))  # dies away under the pad
+    for m in (55, 59, 62, 67):
+        mix.add('pad', pad(m, BAR * 3.4, 1.2), t_of(END))
+    mix.add('bass', bass(43, BAR * 2.0, 1.0), t_of(END))
     for i, m in enumerate((79, 83, 86, 91, 95)):
-        mix.add('glock', glock(m, 0.5), t_of(28, 1 + i * 0.5), pan=-0.5 + 0.25 * i)
+        mix.add('glock', glock(m, 0.5), t_of(END, 1 + i * 0.5), pan=-0.5 + 0.25 * i)
+    # a soft twinkle as the end card's lines appear, and one last chime
+    for i, m in enumerate((86, 91, 95, 98)):
+        mix.add('glock', glock(m, 0.28), t_of(END + 1, 2 + i), pan=0.5 - 0.3 * i)
+    for m in (79, 86, 91):
+        mix.add('harp', pluck(m - 12, 0.5, tau=1.4, bright=1.3), t_of(END + 2, 4))
     if REPORT:
-        print('groove A levels:')
-        mix.report(t_of(4), t_of(12))
+        print('groove levels:')
+        mix.report(t_of(GROOVE), t_of(BUILD))
         print('chorus levels:')
-        mix.report(t_of(14), t_of(22))
+        mix.report(t_of(CHORUS), t_of(FINISH))
 
-    # section dynamics (dB by bar, linear in between): quiet intro and breakdown, full choruses
-    points = [(0, -7.0), (1.9, -4.0), (2, -1.5), (4, -3.0), (12, -3.0), (14, 0.0), (21.9, 0.0), (22, -6.0), (23.8, -3.0), (24, 0.5),
-              (28, 0.5), (N_BARS, 0.5)]
+    # section dynamics (dB by bar, linear in between): quiet open, full choruses, a dip for the roll
+    points = [(0, -6.0), (0.9, -4.0), (1, -2.0), (2, -1.5), (4, -3.0), (16, -3.0), (18, 0.0), (27.9, 0.0), (28, 0.5), (28.5, -1.5),
+              (29, -5.0), (30.9, -2.0), (31, 0.0), (32, 0.5), (34, 0.5), (36.5, -9.0), (N_BARS, -14.0)]
 
     def automation(n):
         tb = np.arange(n) / SR / BAR

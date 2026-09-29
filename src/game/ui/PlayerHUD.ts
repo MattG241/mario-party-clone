@@ -27,6 +27,10 @@ const PCX = 52; // portrait centre x (from the outer edge)
 /** Item slots: spacing, and where the first sits (local x from the outer edge). */
 const ITEM_STEP = 64;
 const ITEM_X = 150;
+/** The TURN tab and, under it, the steps-to-the-Star-Coin tab, stacked at the capsule's inner end. */
+const TURN_Y = PLATE_Y + 34;
+const STEPS_Y = PLATE_Y + PLATE_H - 14;
+const STEPS_H = 30;
 
 interface PanelView {
   slot: number;
@@ -52,6 +56,13 @@ interface PanelView {
   chipIcon: Phaser.GameObjects.Sprite;
   relicIcon: Phaser.GameObjects.Image;
   itemKey: string;
+  /** Steps to the Star Coin (see syncSteps). */
+  steps: Phaser.GameObjects.Container;
+  stepsG: Phaser.GameObjects.Graphics;
+  stepsIcon: Phaser.GameObjects.Image;
+  stepsNum: Phaser.GameObjects.Text;
+  stepsWord: Phaser.GameObjects.Text;
+  shownSteps: number;
 }
 
 /** Top-left corner of each slot's HUD block: P1 top-left, P2 top-right, P3 bottom-left, P4 bottom-right. */
@@ -126,7 +137,7 @@ export class PlayerHUD {
 
     // "TURN" tab at the capsule's inner end (hidden until this player's turn).
     const tabW = 86;
-    const turnTab = s.add.container(flip ? -6 : W + 6, PLATE_Y + PLATE_H / 2).setAlpha(0);
+    const turnTab = s.add.container(flip ? -6 : W + 6, TURN_Y).setAlpha(0);
     const tg = s.add.graphics();
     tg.fillStyle(0x0a1120, 0.3);
     tg.fillRoundedRect(flip ? -tabW : 0, -15, tabW, 34, 17);
@@ -136,6 +147,13 @@ export class PlayerHUD {
     tg.fillRoundedRect((flip ? -tabW : 0) + 6, -15, tabW - 12, 11, 5);
     const tt = addText(s, flip ? -tabW / 2 : tabW / 2, -2, 'TURN', 18, { color: '#ffffff', weight: 700, fixed: true }).setShadow(0, 2, 'rgba(8,14,28,0.45)', 0, false, true);
     turnTab.add([tg, tt]);
+    // How many steps to the Star Coin, in a small tab under it (always shown on the board).
+    const steps = s.add.container(flip ? -6 : W + 6, STEPS_Y).setVisible(false);
+    const stepsG = s.add.graphics();
+    const stepsIcon = s.add.image(0, 0, 'prism-relic').setScale(0.1);
+    const stepsNum = addText(s, 0, -1, '', 22, { color: '#ffffff', weight: 700, align: 'left', fixed: true }).setShadow(0, 2, NUM_SHADOW, 3, false, true);
+    const stepsWord = addText(s, 0, 1, '', 14, { color: UI.focusCss, weight: 700, align: 'left', fixed: true });
+    steps.add([stepsG, stepsIcon, stepsNum, stepsWord]);
 
     // Portrait: character on its colour disc inside a white ring with a slim player-colour ring.
     const pcx = this.lx(f, PCX);
@@ -202,7 +220,7 @@ export class PlayerHUD {
     // Owned items in slots on the tray below (top row) or above (bottom row) the capsule.
     const items = s.add.container(this.lx(f, ITEM_X), top ? H + 22 : -22);
     portraitRoot.add(medal);
-    root.add([tray, glow, activeRim, plate, turnTab, ...parts, relicIcon, relicText, chipIcon, chipsText, items, portraitRoot]);
+    root.add([tray, glow, activeRim, plate, turnTab, steps, ...parts, relicIcon, relicText, chipIcon, chipsText, items, portraitRoot]);
     return {
       slot: p.slot,
       flip,
@@ -224,6 +242,12 @@ export class PlayerHUD {
       chipIcon,
       relicIcon,
       itemKey: '',
+      steps,
+      stepsG,
+      stepsIcon,
+      stepsNum,
+      stepsWord,
+      shownSteps: NaN,
     };
   }
 
@@ -324,6 +348,62 @@ export class PlayerHUD {
         if (!instant) this.scene.tweens.add({ targets: v.medal, scale: { from: 1.4, to: 1 }, duration: 260, ease: 'Back.Out' });
       }
     }
+  }
+
+  /**
+   * Show how many steps each player is from the Star Coin (called every frame; redraws only on a
+   * change). A step closer punches the number; a jump (the Star Coin moved, a warp) pops the tab.
+   */
+  syncSteps(state: MatchState, stepsTo: (p: PlayerState) => number): void {
+    for (const p of state.players) {
+      const v = this.panels.get(p.slot);
+      if (!v) continue;
+      const n = stepsTo(p);
+      if (n === v.shownSteps || (Number.isNaN(n) && Number.isNaN(v.shownSteps))) continue;
+      const prev = v.shownSteps;
+      v.shownSteps = n;
+      this.drawSteps(v, n);
+      if (Number.isNaN(prev) || settings.get().reducedMotion) continue;
+      const tw = this.scene.tweens;
+      if (n === prev - 1) {
+        tw.killTweensOf(v.stepsNum);
+        v.stepsNum.setScale(1.3);
+        tw.add({ targets: v.stepsNum, scale: 1, duration: 160, ease: 'Quad.Out' });
+      } else {
+        tw.killTweensOf(v.steps);
+        v.steps.setScale(1);
+        tw.add({ targets: v.steps, scale: { from: 1.25, to: 1 }, duration: 260, ease: 'Back.Out' });
+      }
+    }
+  }
+
+  private drawSteps(v: PanelView, n: number): void {
+    v.steps.setVisible(!Number.isNaN(n));
+    if (Number.isNaN(n)) return;
+    const here = n === 0;
+    v.stepsNum.setText(!Number.isFinite(n) ? '–' : here ? '' : String(n));
+    v.stepsWord.setText(!Number.isFinite(n) ? '' : here ? 'HERE!' : n === 1 ? 'STEP' : 'STEPS');
+    // Laid out left to right from 0, then shifted to hang left of the capsule on right-hand panels.
+    const pad = 10;
+    const iconW = 24;
+    let x = pad + iconW + 6;
+    const numX = x;
+    x += v.stepsNum.width + (v.stepsNum.text ? 4 : 0);
+    const wordX = x;
+    x += v.stepsWord.width;
+    const w = Math.max(64, x + pad + 2);
+    const off = v.flip ? -w : 0;
+    v.stepsIcon.setPosition(off + pad + iconW / 2, 0);
+    v.stepsNum.setPosition(off + numX, -1);
+    v.stepsWord.setPosition(off + wordX, 1);
+    const g = v.stepsG;
+    g.clear();
+    g.fillStyle(0x0a1120, 0.3);
+    g.fillRoundedRect(off, -STEPS_H / 2 + 3, w, STEPS_H, STEPS_H / 2);
+    g.fillStyle(UI.slate, UI.slateAlpha);
+    g.fillRoundedRect(off, -STEPS_H / 2, w, STEPS_H, STEPS_H / 2);
+    g.lineStyle(2, UI.focus, here ? 1 : 0.75);
+    g.strokeRoundedRect(off + 1, -STEPS_H / 2 + 1, w - 2, STEPS_H - 2, STEPS_H / 2 - 1);
   }
 
   /** "+3" / "-5" popping out beside a counter and drifting away. */

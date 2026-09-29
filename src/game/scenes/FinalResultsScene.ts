@@ -292,7 +292,7 @@ export class FinalResultsScene extends Phaser.Scene {
         const top = floorY + animHeadTop(col.p.characterId) * K - 60;
         this.tweens.add({ targets: relic, x: col.x, y: top, scale: 0.32, duration: 520, ease: 'Cubic.Out' });
         if (!settings.get().reducedMotion) this.tweens.add({ targets: relic, y: top - 12, duration: 900, delay: 520, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
-        const plus = addTitle(this, col.x, top - 68, '+1 RELIC', 30, CSS.goldLight);
+        const plus = addTitle(this, col.x, top - 68, '+1 STAR COIN', 30, CSS.goldLight);
         plus.setScale(0.3);
         this.tweens.add({ targets: plus, scale: 1, duration: 300, delay: 420, ease: 'Back.Out' });
         this.front.add(plus);
@@ -305,7 +305,7 @@ export class FinalResultsScene extends Phaser.Scene {
       }
     }
     const names = award.winners.map((s) => CHARACTERS[this.player(s).characterId].name).join(' & ');
-    const who = addText(this, GAME_WIDTH / 2, CARD.y + 124, award.winners.length > 1 ? `Tie! ${names} each earn a Prism Relic` : `${names} earns a Prism Relic!`, 32, { color: CSS.goldLight, weight: 700 });
+    const who = addText(this, GAME_WIDTH / 2, CARD.y + 124, award.winners.length > 1 ? `Tie! ${names} each earn a Star Coin` : `${names} earns a Star Coin!`, 32, { color: CSS.goldLight, weight: 700 });
     who.setScale(0.6);
     this.tweens.add({ targets: who, scale: 1, duration: 260, ease: 'Back.Out' });
     this.layer.add(who);
@@ -338,7 +338,7 @@ export class FinalResultsScene extends Phaser.Scene {
     const rowH = 118;
     const h = 180 + players.length * rowH;
     this.stageCard('THE FINAL COUNT', COLORS.teal, h);
-    const heads = ['Gleam Chips', 'Board Relics', 'Bonus Relics', 'Total Relics'];
+    const heads = ['Coins', 'Star Coins', 'Bonus', 'Total'];
     const colX = [880, 1100, 1320, 1540];
     heads.forEach((hname, i) => this.layer.add(addText(this, colX[i], CARD.y + 88, hname.toUpperCase(), 22, { color: i === 3 ? CSS.goldLight : CSS.creamDark, weight: 700 })));
     const rows = players.map((p, i) => {
@@ -386,7 +386,7 @@ export class FinalResultsScene extends Phaser.Scene {
       }
     }
     this.spots.forEach((l) => l.light(false, 400));
-    this.layer.add(addText(this, GAME_WIDTH / 2, CARD.y + h + 40, 'Most Prism Relics wins · Gleam Chips break ties', 26, { color: CSS.cream, weight: 600, stroke: '#1b1530', strokeThickness: 5 }));
+    this.layer.add(addText(this, GAME_WIDTH / 2, CARD.y + h + 40, 'Most Star Coins wins · coins break ties', 26, { color: CSS.cream, weight: 600, stroke: '#1b1530', strokeThickness: 5 }));
   }
 
   // --- Podium ----------------------------------------------------------------------------------------
@@ -419,7 +419,7 @@ export class FinalResultsScene extends Phaser.Scene {
       const badge = new PlayerBadge(this, x, base - h + 8 + animHeadTop(p.characterId) * k - 40, s.slot, 24).setDepth(11).setAlpha(0);
       // Name and haul on a chip under the podium.
       const chip = this.add.container(x, base + 62).setDepth(12).setAlpha(0);
-      const label = addText(this, 0, 0, `${CHARACTERS[p.characterId].short.toUpperCase()} · ${plural(p.relics, 'relic')} · ${plural(p.chips, 'chip')}`, 20, { color: UI.inkCss, weight: 700 });
+      const label = addText(this, 0, 0, `${CHARACTERS[p.characterId].short.toUpperCase()} · ${plural(p.relics, 'Star Coin')} · ${plural(p.chips, 'coin')}`, 20, { color: UI.inkCss, weight: 700 });
       const lw = label.width + 44;
       const cg = this.add.graphics();
       cg.fillStyle(0x0a1120, 0.2);
@@ -549,7 +549,7 @@ export class FinalResultsScene extends Phaser.Scene {
       title: tie ? "IT'S A TIE!" : `${names[0]} WINS!`,
       color,
       portraits: winCols.map((w) => ({ characterId: w.p.characterId, slot: w.p.slot })),
-      subtitle: tie ? names.join(' & ') : `FESTIVAL CHAMPION · ${first.p.relics} PRISM RELIC${first.p.relics === 1 ? '' : 'S'}`,
+      subtitle: tie ? names.join(' & ') : `FESTIVAL CHAMPION · ${first.p.relics} STAR COIN${first.p.relics === 1 ? '' : 'S'}`,
       size: 66,
       depth: 50,
     });
