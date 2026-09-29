@@ -114,6 +114,9 @@ interface Strike {
   y: number;
   t: number;
   hit: boolean;
+  /** CPUs (bit per slot) that have spotted this strike, and those of them that chose to get clear. */
+  seen: number;
+  dodge: number;
 }
 
 /**
@@ -225,7 +228,7 @@ export class StormNavigatorScene extends BaseMinigame {
       this.add.container(LIGHT.x, LIGHT.y, [this.vane]).setScale(1, K).setDepth(D_OBJ + 5);
     }
     for (let i = 0; i < 26; i++) this.loot.push(this.makeLoot());
-    for (let i = 0; i < 4; i++) this.strikes.push({ active: false, x: 0, y: 0, t: 0, hit: false });
+    for (let i = 0; i < 4; i++) this.strikes.push({ active: false, x: 0, y: 0, t: 0, hit: false, seen: 0, dodge: 0 });
     this.buildWeather();
     this.buildDial();
     this.crowd = new Crowd(
@@ -792,6 +795,8 @@ export class StormNavigatorScene extends BaseMinigame {
     st.y = this.tmp.y / K;
     st.t = 0;
     st.hit = false;
+    st.seen = 0;
+    st.dodge = 0;
     audio.play('rumble', { volume: 0.3, rate: 1.2 });
     audio.play('warn', { volume: 0.3, rate: 1.4 });
   }
@@ -1017,21 +1022,24 @@ export class StormNavigatorScene extends BaseMinigame {
     let bearing = Math.atan2(t.y - b.y, t.x - b.x);
     // hazards first: a lightning ring about to strike, or the whirlpool's pull
     let fleeing = false;
+    const bit = 1 << p.slot;
     for (const st of this.strikes) {
-      if (!st.active || st.t < STRIKE_WARN * (0.55 - sk.accuracy * 0.25)) continue;
+      if (!st.active || st.t < sk.reaction + 200) continue;
       const d = Math.hypot(b.x - st.x, b.y - st.y);
-      if (d < STRIKE_R + 60 && (br.n ?? 0) !== 1) {
-        if (br.mode !== 'flee' && Math.random() < sk.accuracy) br.mode = 'flee';
+      if (d < STRIKE_R + 60 && !(st.seen & bit)) {
+        // one look per strike: a sharp CPU gets clear, a careless one sails on
+        st.seen |= bit;
+        if (Math.random() < sk.accuracy) st.dodge |= bit;
       }
-      if (br.mode === 'flee' && d < STRIKE_R + 70) {
+      if (st.dodge & bit && d < STRIKE_R + 70) {
         bearing = Math.atan2(b.y - st.y, b.x - st.x);
         fleeing = true;
       }
     }
-    if (!fleeing && br.mode === 'flee') br.mode = 'seek';
+    // the whirlpool: sharper CPUs steer round it from further out (its pull is weak at the rim)
     if (this.whirlOn) {
       const d = Math.hypot(b.x - this.whirlX, b.y - this.whirlY);
-      if (d < WHIRL_R * 0.95 && Math.random() < 0.4 + sk.accuracy * 0.6) {
+      if (d < WHIRL_R * (0.55 + 0.45 * sk.accuracy)) {
         bearing = Math.atan2(b.y - this.whirlY, b.x - this.whirlX) + 0.5;
         fleeing = true;
       }
@@ -1060,7 +1068,7 @@ export class StormNavigatorScene extends BaseMinigame {
     // the stick points on screen, so squash the heading's depth back down
     vc.setMove(Math.cos(h), Math.sin(h) * K);
     const dist = Math.hypot(t.x - b.x, t.y - b.y);
-    if (b.boostCd <= 0 && (fleeing || (dist > 260 && b.eff > 0.75)) && Math.random() < sk.accuracy * 0.08) vc.tap('A');
+    if (b.boostCd <= 0 && (fleeing || (dist > 260 && b.eff > 0.75)) && Math.random() < (dt / (sk.reaction * 2.5)) * sk.accuracy) vc.tap('A');
   }
 
   private boatOf(p: MgPlayer): Boat | undefined {
@@ -1086,7 +1094,7 @@ export class StormNavigatorScene extends BaseMinigame {
       }
       for (const st of this.strikes) if (st.active && Math.hypot(l.x - st.x, l.y - st.y) < STRIKE_R + 30) score -= 8 * sk.accuracy;
       if (this.whirlOn && Math.hypot(l.x - this.whirlX, l.y - this.whirlY) < WHIRL_R * 0.7) score -= 6 * sk.accuracy;
-      score += (Math.random() - 0.5) * 8 * sk.mistake;
+      score += (Math.random() - 0.5) * 16 * sk.mistake;
       if (score > bestScore) {
         bestScore = score;
         best = l;
