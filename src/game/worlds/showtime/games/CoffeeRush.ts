@@ -556,6 +556,11 @@ export class CoffeeRushScene extends BaseMinigame {
           if (c.pressed('A')) this.startPour(st);
           break;
         case 'pouring': {
+          // A release is judged at the level on screen (before this frame's pour).
+          if (!c.held('A')) {
+            this.release(st);
+            break;
+          }
           st.level += dt * pourRate(this.elapsed);
           const d = Math.abs(st.level - st.target);
           const band: 0 | 1 | 2 = d <= SHOT.perfect ? 2 : d <= SHOT.good ? 1 : 0;
@@ -572,7 +577,7 @@ export class CoffeeRushScene extends BaseMinigame {
           if (st.level >= 1) {
             st.level = 1;
             this.release(st);
-          } else if (!c.held('A')) this.release(st);
+          }
           break;
         }
         case 'graded':
@@ -586,10 +591,14 @@ export class CoffeeRushScene extends BaseMinigame {
           }
           break;
         case 'swirl': {
+          // A tap is judged where the milk is on screen (before this frame's turn).
+          if (st.swirlT > SWIRL_GRACE_MS && c.pressed('A')) {
+            this.tapSwirl(st);
+            break;
+          }
           st.swirlT += dt;
           st.swirlAng = (st.swirlAng + (dt / st.period) * 360) % 360;
-          if (st.swirlT > SWIRL_GRACE_MS && c.pressed('A')) this.tapSwirl(st);
-          else if (st.swirlT > st.period * SWIRL_LAPS + SWIRL_GRACE_MS) this.tapSwirl(st, true);
+          if (st.swirlT > st.period * SWIRL_LAPS + SWIRL_GRACE_MS) this.tapSwirl(st, true);
           break;
         }
         case 'art':
@@ -884,7 +893,7 @@ export class CoffeeRushScene extends BaseMinigame {
       return;
     }
     if (st.state === 'pouring') {
-      // Release a frame early at speed (the level moves ~1% a frame).
+      // Let go on the frame whose level is nearest the aim (so the frame rate doesn't make CPUs late).
       vc.hold('A', st.level + pourRate(this.elapsed) * dt * 0.5 < st.cpuRelease);
       return;
     }
@@ -898,7 +907,8 @@ export class CoffeeRushScene extends BaseMinigame {
         st.cpuTapAt = at + gauss() * (14 + sk.aimNoise * 105) + (Math.random() < sk.mistake * 0.5 ? st.period * 0.3 : 0);
       }
       vc.hold('A', false);
-      if (st.swirlT >= st.cpuTapAt) vc.tap('A');
+      // (tap on the frame nearest the aim)
+      if (st.swirlT + dt * 0.5 >= st.cpuTapAt) vc.tap('A');
       return;
     }
     vc.hold('A', false);
