@@ -180,7 +180,7 @@ const DOJO_GAMES = ['cloud-rider', 'clone-chaos'].filter((id) => DOJO_INFO.infos
  * The Blender diorama exists (scripts/art/worlds/dojo/board.py → public/assets/rendered/dojo and its
  * Lite copy): it replaces the placeholder islands and landmarks wholesale.
  */
-const RENDERED = false;
+const RENDERED = true;
 
 export const DOJO_BOARD: BoardDef | null = {
   id: 'dojo',

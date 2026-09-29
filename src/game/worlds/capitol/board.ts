@@ -153,7 +153,7 @@ const CAPITOL_GAMES = ['free-throw', 'fairway'].filter((id) => CAPITOL_INFO.info
  * The Blender diorama exists (scripts/art/worlds/capitol/board.py → public/assets/rendered/capitol and
  * its Lite copy): it replaces the placeholder islands and landmarks wholesale.
  */
-const RENDERED = false;
+const RENDERED = true;
 
 export const CAPITOL_BOARD: BoardDef | null = {
   id: 'capitol',

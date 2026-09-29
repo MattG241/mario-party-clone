@@ -89,7 +89,6 @@ LANDMARKS = [
     dict(id='lantern-peak', kind='lantern', x=1705, y=1540, s=1.4, tex='lantern', style='stone'),
     dict(id='lantern-ring-w', kind='lantern', x=2630, y=556, s=1.4, tex='lantern', style='paper'),
     dict(id='lantern-ring-e', kind='lantern', x=3190, y=770, s=1.4, tex='lantern', style='paper'),
-    dict(id='lantern-village', kind='lantern', x=1090, y=1948, s=1.4, tex='lantern', style='paper'),
     dict(id='lantern-village-2', kind='lantern', x=640, y=1985, s=1.4, tex='lantern', style='paper'),
     dict(id='lantern-falls', kind='lantern', x=600, y=1345, s=1.4, tex='lantern', style='stone'),
     dict(id='lantern-terrace', kind='lantern', x=2700, y=1760, s=1.4, tex='lantern', style='stone'),
