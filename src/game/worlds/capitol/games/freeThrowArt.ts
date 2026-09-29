@@ -13,7 +13,7 @@ const RIM_RY = HOOP.rimR * COSB;
  * of the screen region x 780..1240, y 150..590: the ground point under the rim's centre is its pixel
  * (180, 410). The rim's front half is a 100x60 render centred on the rim (its pixel (50, 27)).
  */
-export const HOOP_ART = { w: 460, h: 440, ax: 180, ay: 410 };
+export const HOOP_ART = { w: 540, h: 440, ax: 180, ay: 410 };
 export const RIM_ART = { ax: 50, ay: 27 };
 /** Rendered ball images are 64 px across; they are drawn 2 * BALL_R across. */
 export const BALL_ART = 64;

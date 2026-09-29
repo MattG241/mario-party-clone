@@ -33,12 +33,12 @@ export const CAPITOL_INFO: WorldMinigameInfo = {
       id: 'fairway',
       sceneKey: 'mg-fairway',
       name: 'Fairway Frenzy',
-      tagline: 'Chip and putt on the rolling green!',
+      tagline: 'Pitch and putt on the rolling green!',
       description:
-        'Chip and putt on a rolling green in the gardens. Aim, hold A to power up and let go — the tee shot rides the wind and the ball rolls with the slopes. Hole out in fewer strokes for more points; when time runs out on a hole, the ball closest to the pin scores too.',
+        'Pitch and putt on a rolling green in the gardens. Aim, hold A to power up and let go — the tee shot rides the wind and the ball rolls with the slopes. Hole out in fewer strokes for more points; when time runs out on a hole, the ball closest to the pin scores too.',
       instructions: [
         'Stick aims, hold A to power up, let go to hit',
-        'Tee shots chip through the wind; then the ball rolls with the slope',
+        'Tee shots fly through the wind; then the ball rolls with the slope',
         'Hole out in 1 stroke for 5, in 2 for 3, in 3 for 2',
         'Closest to the pin when a hole ends scores 2 — last 10 s double',
       ],

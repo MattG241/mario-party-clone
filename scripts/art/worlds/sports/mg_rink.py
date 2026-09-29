@@ -380,7 +380,7 @@ def sprites():
             continue
         path = os.path.join(C.OUT, f'goal_{side}.png')
         lib.render_to(path)
-        C.publish_sprite(path, f'rink_goal_{side}', A.preview)
+        C.publish_sprite(path, f'rink_goal_{side}', A.preview, feather=14)
     # The puck: a black rubber disc with a soft sheen.
     start_night(40)
     c = board_to_world(960, 540, 0)

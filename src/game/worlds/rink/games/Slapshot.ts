@@ -719,6 +719,9 @@ export class SlapshotScene extends BaseMinigame {
   }
 
   private daze(s: Skater, kx: number, ky: number): void {
+    // A dazed skater shrugs off further checks for a moment after getting up (no chain stuns).
+    if (!this.canHit(s.p)) return;
+    this.markHit(s.p, STUN_MS + 500);
     s.stunT = STUN_MS;
     s.charging = false;
     s.charge = 0;

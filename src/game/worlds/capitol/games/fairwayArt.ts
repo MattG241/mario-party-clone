@@ -37,7 +37,7 @@ export function drawTee(g: Phaser.GameObjects.Graphics, x: number, y: number, co
 }
 
 export const WORD_STYLES: [string, string, readonly [string, string]][] = [
-  ['cap-fw-chipin', 'CHIP-IN!', ['#fff7c2', '#ffc93a']],
+  ['cap-fw-chipin', 'HOLE IN ONE!', ['#fff7c2', '#ffc93a']],
   ['cap-fw-putt', 'NICE PUTT!', ['#eaffe0', '#7ed957']],
   ['cap-fw-in', 'IN THE HOLE!', ['#ffffff', '#bde8ff']],
   ['cap-fw-lip', 'LIPPED OUT', ['#ffffff', '#c9d2dc']],

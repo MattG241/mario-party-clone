@@ -395,14 +395,14 @@ def sprites():
     # The hoop, over a shadow catcher (its shadow slides with it).
     C.start(ELEV, 24, A.preview, **SUN)
     hoop_parts()
-    C.shadow_catcher((700, 120, 1300, 640))
-    C.sprite_camera(780, 150, 460, 440, scale=1.0)
+    C.shadow_catcher((700, 120, 1400, 640))
+    C.sprite_camera(780, 150, 540, 440, scale=1.0)
     if A.dry:
         print('hoop built (dry run)')
     else:
         path = os.path.join(C.OUT, 'hoop.png')
         lib.render_to(path)
-        C.publish_sprite(path, 'capitol_hoop', A.preview)
+        C.publish_sprite(path, 'capitol_hoop', A.preview, feather=12)
     # The rim's front half on its own.
     C.start(ELEV, 24, A.preview, **SUN)
     hoop_parts(front_only=True)

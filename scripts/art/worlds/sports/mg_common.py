@@ -146,12 +146,22 @@ def publish(path, name, preview, blur=False):
         print('wrote', f'scene_{name}_blur.webp')
 
 
-def publish_sprite(path, name, preview, crop=None):
+def publish_sprite(path, name, preview, crop=None, feather=0):
+    """Publish a sprite render; `feather` px fades the alpha out towards the edges, so a broad soft
+    shadow caught around the object never shows the render's rectangle on the ground."""
     if preview:
         return
     im = Image.open(path).convert('RGBA')
     if crop:
         im = im.crop(crop)
+    if feather > 0:
+        a = np.asarray(im).astype(np.float32)
+        h, w = a.shape[:2]
+        yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+        d = np.minimum(np.minimum(xx + 0.5, w - 0.5 - xx), np.minimum(yy + 0.5, h - 0.5 - yy))
+        t = np.clip(d / feather, 0, 1)
+        a[..., 3] *= t * t * (3 - 2 * t)
+        im = Image.fromarray(np.clip(a + 0.5, 0, 255).astype(np.uint8), 'RGBA')
     im.save(os.path.join(PUB_MG, f'{name}.webp'), 'WEBP', quality=92, method=6)
     print('wrote', f'mg/{name}.webp', im.size)
 
