@@ -17,7 +17,7 @@ export const RINK_INFO: WorldMinigameInfo = {
         'Skate into the puck to pick it up',
         'Hold A to wind up a slapshot, let go to fire',
         'Score in a rival goal for +2 — letting one in costs 1',
-        'No puck? A is a body check. A second puck joins at the end',
+        'No puck? A checks. Last 10 s: a second puck!',
       ],
       controls: [
         { button: 'STICK', label: 'Skate / aim' },

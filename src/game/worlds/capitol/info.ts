@@ -16,8 +16,8 @@ export const CAPITOL_INFO: WorldMinigameInfo = {
       instructions: [
         'Press A to stop the power bar in the green',
         'Press A again to stop the aim needle in the green',
-        'A basket scores 2, a swish 3 — the golden ball doubles it',
-        'Last 10 seconds: the hoop slides, baskets +1 — most points wins',
+        'Basket 2, swish 3 — the golden ball doubles it',
+        'Last 10 s: the hoop slides, every basket +1',
       ],
       controls: [{ button: 'A', label: 'Power, then aim' }],
       players: '1–4 players',
@@ -38,9 +38,9 @@ export const CAPITOL_INFO: WorldMinigameInfo = {
         'Pitch and putt on a rolling green in the gardens. Aim, hold A to power up and let go — the tee shot rides the wind and the ball rolls with the slopes. Hole out in fewer strokes for more points; when time runs out on a hole, the ball closest to the pin scores too.',
       instructions: [
         'Stick aims, hold A to power up, let go to hit',
-        'Tee shots fly through the wind; then the ball rolls with the slope',
+        'Wind pushes tee shots; the ball rolls downhill',
         'Hole out in 1 stroke for 5, in 2 for 3, in 3 for 2',
-        'Closest to the pin when a hole ends scores 2 — last 10 s double',
+        'Closest to the pin scores 2 — last 10 s double',
       ],
       controls: [
         { button: 'STICK', label: 'Aim' },

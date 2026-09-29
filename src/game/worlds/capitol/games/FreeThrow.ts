@@ -982,7 +982,8 @@ export class FreeThrowScene extends BaseMinigame {
   private cpuArm(s: Shooter): void {
     if (!s.p.isCpu) return;
     const sk = this.skill(s.p);
-    const sigma = 0.25 + 1.3 * sk.aimNoise;
+    // Error in green half-widths: hard ~0.58 (about a strong player's touch), normal ~0.73, easy ~1.0.
+    const sigma = 0.45 + 1.0 * sk.aimNoise;
     let e = gauss() * sigma;
     if (Math.random() < sk.mistake) e += (Math.random() < 0.5 ? -1 : 1) * (1.4 + Math.random() * 1.6);
     s.goal = e;
