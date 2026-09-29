@@ -64,18 +64,23 @@ def loop_the_loop(bx, by, R=1.55, s=1.0, tall=1.75) -> list:
         rim = [(pt(t, -0.02 * s)[0], y + dy, pt(t, -0.02 * s)[1]) for t in ts]
         v, f = lib.tube(rim, 0.04 * s, 6)
         P.b['metal'].add(v, f, GOLD)
-    # lattice towers under both sides of the oval
+    # lattice towers under both sides of the oval, set back behind the track so their feet stay
+    # clear of the spaces either side of the loop (the trail runs through its foot)
+    back = 0.6 * s
     for sgn in (-1, 1):
         tx = x + sgn * Rx * 1.02
         top = Rz * 0.95
-        for dy in (-0.16 * s, 0.16 * s):
+        for dy in (back - 0.16 * s, back + 0.16 * s):
             v, f = lib.cylinder((tx, y + dy, 0.0), 0.05 * s, 0.045 * s, top, 8)
             P.b['paint'].add(v, f, col('#e8483b'))
         for k in range(5):
             z0 = k * top / 5
-            v, f = lib.tube([(tx, y - 0.16 * s, z0), (tx, y + 0.16 * s, z0 + top / 5)], 0.018 * s, 5)
+            v, f = lib.tube([(tx, y + back - 0.16 * s, z0), (tx, y + back + 0.16 * s, z0 + top / 5)], 0.018 * s, 5)
             P.b['paint'].add(v, f, col('#c83a30'))
-        v, f = lib.lathe([(0.26 * s, 0.0), (0.26 * s, 0.1 * s), (0.0, 0.1 * s)], 14, (tx, y, 0.0))
+        # an arm from the tower's top forward to the side of the track
+        v, f = lib.tube([(tx, y + back, top), (tx, y + width / 2, top)], 0.035 * s, 6)
+        P.b['paint'].add(v, f, col('#e8483b'))
+        v, f = lib.lathe([(0.26 * s, 0.0), (0.26 * s, 0.1 * s), (0.0, 0.1 * s)], 14, (tx, y + back, 0.0))
         P.b['stone'].add(v, f, col('#d8cbb8'))
     # run-in ramps along the trail at both feet
     for sgn in (-1, 1):
