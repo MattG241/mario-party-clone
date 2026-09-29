@@ -1,4 +1,4 @@
-// Rendered arenas for the minigames (scripts/art/scenes.py, mg_arenas.py, orbit_arms.py). They are
+// Rendered arenas for the minigames (each world's scripts/art/worlds/<id>/mg_*.py). They are
 // the largest images in the game, so instead of loading them all at start each minigame's set is
 // loaded while its intro card comes up, and the previous set is released. Lite (on WebGL) loads the
 // half-size copies from public/assets/lite and stretches them back to full size (inflateTexture).
@@ -10,28 +10,15 @@ import { WORLD_MINIGAME_RENDERS } from '../worlds/infos';
 export interface RenderSet {
   /** Full-screen images: texture `rendered-scene-<name>` from scene_<name>.webp. */
   images: string[];
-  /** The Orbit Dodge arm frames (an atlas). */
-  arms?: boolean;
-  /** Arena geometry for the 3D Gleam Grab stage (JSON cache `rendered-gleam3d`). */
-  gleamMeta?: boolean;
 }
 
-export const MINIGAME_RENDERS: Record<string, RenderSet> = {
-  'gleam-grab': { images: ['gleam3d', 'gleam3d_wall', 'gleam3d_blur'], gleamMeta: true },
-  'orbit-dodge': { images: ['orbit', 'orbit_blur'], arms: true },
-  'crate-craze': { images: ['crate', 'crate_wall'] },
-  'totem-tug': { images: ['totem'] },
-  'spiral-splash': { images: ['pond'] },
-  'relic-relay': { images: ['relay'] },
-  // The guests' worlds (src/game/worlds/<id>/info.ts).
-  ...(WORLD_MINIGAME_RENDERS as Record<string, RenderSet>),
-};
+/** Each world's minigames (src/game/worlds/<id>/info.ts). */
+export const MINIGAME_RENDERS: Record<string, RenderSet> = { ...(WORLD_MINIGAME_RENDERS as Record<string, RenderSet>) };
 
-const ARMS = 'rendered-orbit-arms';
 const sceneKey = (name: string) => `rendered-scene-${name}`;
 
 function textureKeys(set: RenderSet): string[] {
-  return [...set.images.map(sceneKey), ...(set.arms ? [ARMS] : [])];
+  return set.images.map(sceneKey);
 }
 
 function halfSize(scene: Phaser.Scene): boolean {
@@ -61,8 +48,6 @@ export function queueMinigameRenders(scene: Phaser.Scene, id: string): void {
   for (const name of set.images) {
     if (!scene.textures.exists(sceneKey(name))) scene.load.image(sceneKey(name), `${dir}/scene_${name}.webp`);
   }
-  if (set.arms && !scene.textures.exists(ARMS)) scene.load.atlas(ARMS, `${dir}/orbit_arms.webp`, 'assets/rendered/orbit_arms.json');
-  if (set.gleamMeta && !scene.cache.json.exists('rendered-gleam3d')) scene.load.json('rendered-gleam3d', 'assets/rendered/scene_gleam3d.json');
 }
 
 /** After loading (call from create): stretch Lite's half-size textures back to full size. */

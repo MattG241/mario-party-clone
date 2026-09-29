@@ -1,3 +1,4 @@
+import { session } from '../state/Session';
 import { drawDiceCube } from '../board/DiceBlock';
 import Phaser from 'phaser';
 import { audio } from '../audio/AudioManager';
@@ -5,7 +6,7 @@ import { Character } from '../characters/Character';
 import { COLORS, CSS, ECONOMY, GAME_HEIGHT, GAME_WIDTH } from '../constants';
 import { CHARACTER_IDS } from '../data/characters';
 import { ITEM_IDS, ITEMS } from '../data/items';
-import { NPC_ATLAS, npcFrame } from '../data/npcs';
+import { NPC_ATLAS, npcFrame, setCast, npcName } from '../data/npcs';
 import { input } from '../input/InputManager';
 import { glyphKindFor, makeGlyph, PromptBar, type PromptButton } from '../ui/ControllerPrompt';
 import { buildBackdrop, drawNavyPanel } from '../ui/Screen';
@@ -61,6 +62,8 @@ export class HowToPlayScene extends Phaser.Scene {
   }
 
   create(): void {
+    // The guide is a side character from the chosen players' shows (the default line-up otherwise).
+    setCast(session.participants().flatMap((p) => (p.characterId ? [p.characterId] : [])));
     enterScene(this);
     audio.playMusic('menu');
     buildBackdrop(this, 'golden', 0.3);
@@ -100,10 +103,10 @@ export class HowToPlayScene extends Phaser.Scene {
 
   private definePages(): Page[] {
     return [
-      { title: 'THE GOAL', color: COLORS.teal, ora: 'welcome', line: 'Hi there, I\'m SpongeBob, your host! Here\'s how the party works.', build: (s, c) => s.pageGoal(c) },
+      { title: 'THE GOAL', color: COLORS.teal, ora: 'welcome', line: `Hi there, I'm ${npcName('ora')}, your host! Here's how the party works.`, build: (s, c) => s.pageGoal(c) },
       { title: 'YOUR TURN', color: COLORS.gold, ora: 'point', line: 'Hit the Dice Block and follow the trail. Every fork is a choice!', build: (s, c) => s.pageTurn(c) },
-      { title: 'BOARD SPACES', color: 0x39c7ea, ora: 'point', line: 'Where you land matters. Blue is good — purple, not so much!', build: (s, c) => s.pageSpaces(c) },
-      { title: 'STAR COINS', color: 0x7fb4e6, ora: 'flag', line: 'Nami trades Star Coins for coins. Follow the beam of light to find her.', build: (s, c) => s.pageRelics(c) },
+      { title: 'BOARD SPACES', color: 0x3b7cf0, ora: 'point', line: 'Where you land matters. Blue is good — red, not so much!', build: (s, c) => s.pageSpaces(c) },
+      { title: 'STAR COINS', color: 0x7fb4e6, ora: 'flag', line: `${npcName('packsprout')} trades Star Coins for coins. Follow the beam of light!`, build: (s, c) => s.pageRelics(c) },
       { title: 'ITEMS', color: COLORS.coral, ora: 'wave', line: 'Item Shops sell handy items. Carry up to three and use them before you roll.', build: (s, c) => s.pageItems(c) },
       { title: 'MINIGAMES', color: 0x8e5cd9, ora: 'cheer', line: 'After everyone moves, it\'s minigame time! Win for a big coin prize.', build: (s, c) => s.pageMinigames(c) },
       { title: 'CONTROLS', color: 0x6cc24a, ora: 'idle', line: 'Controllers or keyboard — up to four players on one screen. Have fun!', build: (s, c) => s.pageControls(c) },
@@ -206,7 +209,7 @@ export class HowToPlayScene extends Phaser.Scene {
     const relic = this.icon(c, 'prism-relic', undefined, cols[1] + w / 2, y + 140, 190);
     if (relic) this.tweens.add({ targets: relic, y: relic.y - 12, duration: 1300, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
     c.add(addText(this, cols[1] + w / 2, y + 290, `${ECONOMY.relicPrice} coins = 1 Star Coin`, 30, { color: '#ffffff', weight: 700 }));
-    c.add(addText(this, cols[1] + w / 2, y + 340, 'Trade with Nami, the\nStar Keeper, as you pass her', 21, { color: CSS.creamDark, weight: 500 }));
+    c.add(addText(this, cols[1] + w / 2, y + 340, `Trade with ${npcName('packsprout')}, the\nStar Keeper, as you pass by`, 21, { color: CSS.creamDark, weight: 500 }));
     // 3: winner
     glow(cols[2] + w / 2, y + 150, COLORS.goldLight);
     const hero = new Character(this, cols[2] + w / 2, y + 240, CHARACTER_IDS[0], { scale: 0.62 });
@@ -274,7 +277,7 @@ export class HowToPlayScene extends Phaser.Scene {
   pageRelics(c: Phaser.GameObjects.Container): void {
     const x = PX + 60;
     const y0 = PY + HEADER + 40;
-    this.para(c, x, y0, 'Nami, the Star Keeper, waits on one of the Star Coin spaces — look for the tall beam of light.', 28, 820);
+    this.para(c, x, y0, `${npcName('packsprout')}, the Star Keeper, waits on one of the Star Coin spaces — look for the tall beam of light.`, 28, 820);
     const steps: [string, string][] = [
       ['Reach the Keeper', 'You can trade just by passing him — you don\'t have to land on his space.'],
       [`Pay ${ECONOMY.relicPrice} coins`, 'You\'ll be asked whether you want to buy. Save up so you\'re ready!'],
@@ -296,7 +299,7 @@ export class HowToPlayScene extends Phaser.Scene {
     c.add(keeper);
     const relic = this.icon(c, 'prism-relic', undefined, cx + 150, cy - 250, 150);
     if (relic) this.tweens.add({ targets: relic, y: relic.y - 14, angle: 6, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
-    c.add(addText(this, cx, cy + 60, 'Nami', 30, { color: '#ffffff', weight: 700 }));
+    c.add(addText(this, cx, cy + 60, npcName('packsprout'), 30, { color: '#ffffff', weight: 700 }));
     c.add(addText(this, cx, cy + 98, 'Star Keeper', 21, { color: CSS.creamDark, weight: 500 }));
   }
 

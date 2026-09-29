@@ -1,3 +1,4 @@
+import { npcName } from '../data/npcs';
 import Phaser from 'phaser';
 import { audio } from '../audio/AudioManager';
 import { CAMERA_ZOOM, COLORS, CSS, PLAYER_COLORS } from '../constants';
@@ -334,7 +335,7 @@ export class BoardPresenter implements FlowIO {
     this.scene.board.keeperSprite().setFrame('26');
     const idx = await this.ui.listMenu({
       title: 'Star Coin',
-      subtitle: `Nami offers a Star Coin for ${price} coins. You have ${p.chips}.`,
+      subtitle: `${npcName('packsprout')} offers a Star Coin for ${price} coins. You have ${p.chips}.`,
       npc: { id: 'packsprout', pose: 'gift' },
       options: [
         { label: 'Buy the Star Coin!', right: `${price}`, icon: { texture: 'prism-relic', scale: 0.5 } },

@@ -3,7 +3,8 @@ import { BoardGraph } from '../../src/game/board/BoardGraph';
 import { createFlowContext, HeadlessIO } from '../../src/game/board/HeadlessIO';
 import { runMatch } from '../../src/game/board/TurnManager';
 import type { BoardDef } from '../../src/game/board/types';
-import { findBoard, SUNCOIL } from '../../src/game/data/boards';
+import { findBoard } from '../../src/game/data/boards';
+import { SUNCOIL } from './suncoilBoard';
 import { createMatch } from '../../src/game/state/MatchState';
 import { CONFIG, FOUR } from './fixtures';
 

@@ -233,9 +233,8 @@ export class Wipe {
   }
 
   private emblemImage(): Phaser.GameObjects.Image | null {
-    // The Star Coin once it has loaded (the drawn emblem before that).
-    const key = this.scene.textures.exists('prism-relic') ? 'prism-relic' : 'emblem';
-    if (!this.emblem && this.scene.textures.exists(key)) this.emblem = this.scene.add.image(0, GAME_HEIGHT / 2, key).setDepth(this.depth + 1).setScale(0.9).setVisible(false);
+    // The Star Coin (once it has loaded).
+    if (!this.emblem && this.scene.textures.exists('prism-relic')) this.emblem = this.scene.add.image(0, GAME_HEIGHT / 2, 'prism-relic').setDepth(this.depth + 1).setScale(0.9).setVisible(false);
     return this.emblem;
   }
 

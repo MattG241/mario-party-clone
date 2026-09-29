@@ -1,15 +1,16 @@
-# Gleamtrail: Festival of the Spiral Isles
+# All-Star Party: The Crossover Board Game
 
-An original local-multiplayer party game for the browser. Up to four players (controllers or
-keyboard, CPUs fill empty seats) travel one of seven floating-island boards, collect coins, trade
-them for Star Coins and battle it out in 25 minigames between rounds.
+A local-multiplayer, Mario-Party-style board game for the browser with a crossover cast. Up to four
+players (controllers or keyboard, CPUs fill empty seats) pick from the roster, hit the Dice Block
+round one of six themed world boards, collect coins, trade them for Star Coins and battle it out in
+17 minigames between rounds.
 
-Built with TypeScript, Vite and Phaser 3. Environment art and the four heroes are modelled and
+Built with TypeScript, Vite and Phaser 3. Environment art and every character are modelled and
 pre-rendered from code in Blender (see [Art pipeline](#art-pipeline)).
 
-> Gleamtrail's world, rules, art and audio, and its four heroes, are original. The **guest
-> characters** (Luffy, Goku, Naruto, Batman, Spider-Man, Iron Man, Sonic and SpongeBob) are fan-made
-> models for private, non-commercial play at home; the characters belong to their respective owners.
+> The rules, boards, art and audio are made for this project. The **characters** (the roster and the
+> side characters who host the boards) are fan-made models for private, non-commercial play at
+> home; they belong to their respective owners, as does the Mario Party format this game follows.
 
 ## Play now
 
@@ -83,20 +84,20 @@ load the assets.
 1. **Title → Board Game** (or **Minigames**). Everyone presses **A** to join on the character
    select screen, browses the roster along the bottom (left/right) and picks with **A**; each pick
    stands on that player's pedestal. Empty seats can be filled by CPUs, who pick at random.
-   Before the first turn everyone spins the Orbit Dial: the highest spin goes first.
+   Before the first turn everyone hits the Dice Block: the highest roll goes first.
 2. **Your turn:** optionally open your items (**Y**) or look around the board (**X**: the map —
-   pan with the stick, zoom with LB / RB, **B** to go back), then stop the **Orbit Dial** (**A**)
+   pan with the stick, zoom with LB / RB, **B** to go back), then hit the **Dice Block** (**A**)
    and move 1–10 spaces. At forks, tilt the stick toward the path you want. Each player's corner
    shows how many steps they are from the Star Coin.
-3. **Spaces:** Gleam (+coins), Mischief (something sneaky), Festival (a lucky surprise), Market
-   (buy items), Portal (warp), Star Coin, Event and Start. Now and then an ordinary space turns
+3. **Spaces:** Blue (+coins), Bad Luck (red: something sneaky), Lucky (a lucky surprise), Item
+   Shop, Warp, Star Coin, Happening (green: the board's own event) and Start. Now and then an ordinary space turns
    up a hidden block with 10 coins, or even a Star Coin.
-4. **Star Coins:** pass Packsprout, the Star Keeper, with 20 coins to buy a Star Coin. He moves to
+4. **Star Coins:** pass the Star Keeper with 20 coins to buy a Star Coin. The Keeper moves to
    a new spot after every sale — follow the beam of light.
 5. **Minigames:** every round ends with a minigame for everyone; placings pay 10 / 6 / 3 / 1 coins.
-   **Final stretch:** three rounds from the end, the player in last gets 10 coins and the festival
-   wheel picks a twist that lasts to the end: a Star Coin sale, double Gleam Spaces or a gift.
-6. **Winning:** most Star Coins after the final round (coins break ties). Festival Awards hand out
+   **Final stretch:** three rounds from the end, the player in last gets 10 coins and the party
+   wheel picks a twist that lasts to the end: a Star Coin sale, double Blue Spaces or a gift.
+6. **Winning:** most Star Coins after the final round (coins break ties). Bonus Stars hand out
    bonus Star Coins at the end.
 
 The in-game **How to Play** screen covers the same ground with pictures.
@@ -123,26 +124,23 @@ free controller takes over (press A), or the player carries on with the keyboard
 
 ### Minigames
 
-| Minigame | Players | Idea |
-| --- | --- | --- |
-| Gleam Grab | 1–4 | Catch falling coins; dodge the wobbly fake capsules |
-| Orbit Dodge | 1–4 | Jump the low arm, duck the high arm; last one standing |
-| Crate Craze | 1–4 | Shove festival crates into your corner zone |
-| Skybridge Scramble | 1–4 | Keep your footing as platforms shake and fall |
-| Totem Tug | 2–4 (teams) | Alternate triggers on the beat to win the tug-of-war |
-| Spiral Splash | 1–4 | Blast rivals off drifting lily pads |
-| Relic Relay | 1–4 | Race your parcel through an obstacle course |
-| Tumble Tower | 1–4 | Climb a tower of moving, tipping platforms |
-
 Every minigame opens with an instruction card (rules, controls and a live preview); this can be
 set to full, quick or off in Settings. **Minigame Mode** lets you play any of them on their own;
-its tabs (LB / RB) sort them by world.
+its tabs (LB / RB) sort them by world. The 17 minigames are listed by world below.
+
+### The board cast
+
+The boards are hosted by side characters from the players' own shows, films and games: the host,
+the Star Keeper, two shopkeepers and a helper are cast from whoever is playing (then the board's
+world, then a default line-up). Chopper (One Piece), Krillin (Dragon Ball), Kakashi (Naruto),
+Alfred (Batman), Venom (Spider-Man), War Machine (Iron Man), Tails (Sonic), Patrick (SpongeBob)
+and Bart (The Simpsons). The same cast fills the minigame crowds.
 
 ### Worlds: themed boards and the guests' minigames
 
 Pick the board in **Board Game → Board**. Each guest world has its own board (with its own spaces,
 events and time of day) and minigames starring its guests; on a world's board, its minigames come
-up more often. The festival (Suncoil Sanctuary and the eight minigames above) is the original set.
+up more often.
 
 | World | Board | Minigames |
 | --- | --- | --- |
@@ -173,8 +171,7 @@ builds opened with `?debug`; the URL shortcuts work in any build:
   F7 move to the Star Coin · F8 finish the round.
 - **URL shortcuts** (never reachable from menus):
   `?quick` starts a board match immediately; `?minigame=<id>` jumps into a minigame
-  (`gleam-grab`, `orbit-dodge`, `crate-craze`, `skybridge-scramble`, `totem-tug`, `spiral-splash`,
-  `relic-relay`, `tumble-tower`); `?scene=<Key>` opens any scene (e.g. `Settings`).
+  (e.g. `ring-rush`, `triple-slash`, `cloud-rider`: the ids are in `src/game/worlds/<world>/info.ts`); `?scene=<Key>` opens any scene (e.g. `Settings`).
   Modifiers: `&humans=0..4`, `&players=2..4`, `&rounds=N`, `&seed=N`, `&cpu=easy|normal|hard`,
   `&instructions=on|quick|off`, `&intro`, `&midgame` (round 4 with players spread out),
   `&board=<id>` (a world's board), `&boardgame=<id>` (the minigame the board plays, dev builds) and
@@ -234,8 +231,8 @@ they are unit-tested directly; scenes only present them.
 ## Art pipeline
 
 All environment art — the board terrain and landmarks, board spaces, skies, minigame arenas,
-title/select/results stages and gameplay sprites — the four playable heroes and the five festival
-NPCs are modelled and lit in code and rendered with Blender's Cycles renderer, then saved under
+title/select/results stages and gameplay sprites — the playable characters and the side-character
+cast are modelled and lit in code and rendered with Blender's Cycles renderer, then saved under
 `public/assets/`. The characters are posed on a small skeleton for every animation and rendered with
 the board's key light, so they share the world's lighting and materials. Nothing needs to be
 re-rendered to run or build the game; the scripts are only needed to change the art.
@@ -257,6 +254,7 @@ python3.11 -m venv .artenv
 | `gleam3d.py` | Gleam Grab arena (perspective) and its floor mapping |
 | `mg_arenas.py yard\|pond\|relay\|totem\|tower\|sprites\|islets\|fg` | Arenas and sprites for the other minigames, sky islets, board foreground foliage |
 | `characters.py` | Every playable character: models (`char_models.py`, `char_<id>.py`), poses (`char_anims.py`), rendered and packed into `public/assets/atlases/hero_<id>.webp/.json` plus `src/game/data/heroSprites.generated.ts` (`--hero kip --anims idle --preview` for quick looks; `--hero luffy --pack-only` re-packs). A guest joins the roster once its sheet is packed |
+| `cast.py` | The board cast: side characters (`side_<id>.py`, each derived from its franchise hero's model) in six poses, packed into `public/assets/atlases/npcs3d.webp/.json` plus `src/game/data/npcSprites.generated.ts` (`--side tails --preview --sheet` for a quick contact sheet) |
 | `logo.py` | The extruded 3D title wordmark (`ui_logo.webp`) |
 | `orbit_arms.py`, `ui.py`, `blur_backdrops.py` | Orbit Dodge arm frames, the dial, blurred intro backdrops |
 | `bloom.py` | Bakes a soft highlight bloom into finished renders |

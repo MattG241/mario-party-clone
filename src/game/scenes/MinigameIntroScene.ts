@@ -13,11 +13,11 @@ import { TitleLockup } from '../ui/Lockup';
 import { addPortrait } from '../ui/Portrait';
 import { addText } from '../ui/theme';
 import { enterScene, goTo } from '../ui/Transition';
-import { centerOrigin, solidHeight, standOrigin } from '../util/spriteUtil';
+import { centerOrigin, solidHeight } from '../util/spriteUtil';
 import { drawCard, drawRibbon, drawSlate, innerShadow, shade, UI } from '../ui/Style';
 import { HIDE_CPU_TAGS } from '../debug/debug';
 import { finishMinigameRenders, queueMinigameRenders } from '../data/minigameRenders';
-import { NPC_ATLAS, npcFrame, type NpcId } from '../data/npcs';
+import { setCastForWorld } from '../data/npcs';
 
 /** Card geometry: the live preview on the left, the rules card on the right. */
 const PX = 150;
@@ -50,6 +50,7 @@ export class MinigameIntroScene extends Phaser.Scene {
   }
 
   init(data: MinigameLaunch): void {
+    if (data.mode === 'free') setCastForWorld(data.players.map((p) => p.characterId), minigameInfo(data.id)?.world);
     this.launchData = data;
     this.info = minigameInfo(data.id)!;
     this.ready.clear();
@@ -198,9 +199,8 @@ export class MinigameIntroScene extends Phaser.Scene {
     root.add(inner);
     holder.add(root);
     const skyKey = ['rendered-sky-clear', 'rendered-sky-day'].find((k) => this.textures.exists(k));
-    if (skyKey) inner.add(this.add.image(w / 2, h / 2, skyKey).setDisplaySize(w * 1.2, h * 1.2).setFlipX(this.info.id === 'gleam-grab'));
+    if (skyKey) inner.add(this.add.image(w / 2, h / 2, skyKey).setDisplaySize(w * 1.2, h * 1.2));
     inner.add(this.add.image(0, (h - GAME_HEIGHT * scale) / 2, key).setOrigin(0).setScale(scale));
-    if (key === 'rendered-scene-gleam3d') this.previewCrowd(inner, scale, (h - GAME_HEIGHT * scale) / 2);
     const maskG = this.make.graphics({ x: 0, y: 0 }, false);
     maskG.fillStyle(0xffffff);
     maskG.fillRoundedRect(x0, y0, w, h, 22);
@@ -224,7 +224,6 @@ export class MinigameIntroScene extends Phaser.Scene {
         onRepeat: () => c.face(!!(i % 2)),
       });
     });
-    this.previewProps(inner, scale, cy);
     if (!settings.get().reducedMotion) {
       // A slow camera drift (a gentle push in and out), and a sheen crossing the glass now and then.
       this.tweens.add({ targets: root, scale: 1.045, x: root.x - 10, duration: 6000, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
@@ -267,71 +266,6 @@ export class MinigameIntroScene extends Phaser.Scene {
       if (!settings.get().reducedMotion) this.tweens.add({ targets: art, y: art.y - 15, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
     }
     return holder;
-  }
-
-  /**
-   * Gleam Grab's bleachers filled with festival folk, as in the game (placed from the arena's own
-   * tier data), with the arena's front wall drawn back over them.
-   */
-  private previewCrowd(root: Phaser.GameObjects.Container, scale: number, cy: number): void {
-    const meta = this.cache.json.get('rendered-gleam3d') as { tiers?: { y: number; x0: number; x1: number; scale: number }[] } | undefined;
-    if (!meta?.tiers?.length) return;
-    const ids: NpcId[] = ['ora', 'pipper', 'packsprout', 'wrench', 'mimi'];
-    const poses = ['cheer', 'happy', 'wave', 'laugh'];
-    const calm = settings.get().reducedMotion;
-    let n = 0;
-    meta.tiers.forEach((t, ti) => {
-      const count = Math.max(5, (LITE ? 9 : 12) - ti * 2);
-      const step = (t.x1 - t.x0) / count;
-      for (let k = 0; k < count; k++) {
-        const id = ids[(n * 2 + ti) % ids.length];
-        let frame = npcFrame(id, poses[(n + ti) % poses.length]);
-        if (!this.textures.get(NPC_ATLAS).has(frame)) frame = npcFrame(id, 'happy');
-        const x = (t.x0 + (k + 0.5) * step) * scale;
-        const y = cy + (t.y - 2) * scale;
-        const spr = this.add.sprite(x, y, NPC_ATLAS, frame);
-        const o = standOrigin(NPC_ATLAS, frame);
-        spr.setOrigin(o.x, o.y).setScale(0.28 * t.scale * scale * (1 + ((n * 37) % 7) * 0.02)).setFlipX(x > (GAME_WIDTH * scale) / 2);
-        if (ti > 0) spr.setTint(ti === 1 ? 0xf1f4fa : 0xe4e9f2);
-        root.add(spr);
-        if (!calm) this.tweens.add({ targets: spr, y: y - 3, duration: 380 + (n % 4) * 70, yoyo: true, repeat: -1, ease: 'Sine.InOut', delay: (n * 53) % 400 });
-        n++;
-      }
-    });
-    if (this.textures.exists('rendered-scene-gleam3d_wall')) root.add(this.add.image(0, cy, 'rendered-scene-gleam3d_wall').setOrigin(0).setScale(scale));
-  }
-
-  /** The minigame's own objects in the preview (so it illustrates the rules, not just the arena). */
-  private previewProps(root: Phaser.GameObjects.Container, scale: number, cy: number): void {
-    if (this.info.id === 'gleam-grab') {
-      const spots: [number, number, string][] = [
-        [720, 640, '0'],
-        [1180, 560, '0'],
-        [1340, 780, '12'],
-        [900, 820, '0'],
-        [1500, 600, '0'],
-      ];
-      spots.forEach(([ax, ay, frame], i) => {
-        const fx = ax * scale;
-        const fy = cy + ay * scale;
-        const sh = this.add.image(fx, fy, 'fx-contact').setScale(0.09, 0.035).setAlpha(0.5);
-        const spr = this.add.sprite(fx, fy - 40, 'items', frame);
-        const o = centerOrigin('items', frame);
-        spr.setOrigin(o.x, o.y).setScale(0.2);
-        spr.play(frame === '12' ? 'capsule-idle' : 'chip-spin');
-        root.add([sh, spr]);
-        // fall, bounce, rest, repeat
-        this.tweens.add({ targets: spr, y: { from: fy - 170, to: fy - 12 }, duration: 700, ease: 'Bounce.Out', delay: i * 380, hold: 1500, repeat: -1, repeatDelay: 600 });
-      });
-    } else if (this.info.id === 'orbit-dodge' && this.textures.exists('rendered-orbit-arms')) {
-      const tex = this.textures.get('rendered-orbit-arms');
-      const n = tex.getFrameNames().filter((f) => f.startsWith('low_')).length;
-      const meta = (tex.customData as { meta?: { scale?: number } }).meta;
-      const arm = this.add.sprite(0, cy, 'rendered-orbit-arms', 'low_00').setOrigin(0).setScale((1 / (meta?.scale ?? 0.6)) * scale);
-      root.add(arm);
-      let f = 0;
-      this.time.addEvent({ delay: 60, loop: true, callback: () => arm.setFrame(`low_${String((f = (f + 1) % n)).padStart(2, '0')}`) });
-    }
   }
 
   // --- Rules card --------------------------------------------------------------------------------

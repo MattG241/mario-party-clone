@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BoardGraph } from '../../src/game/board/BoardGraph';
 import { createFlowContext, HeadlessIO } from '../../src/game/board/HeadlessIO';
 import { finalStretch, isFinalStretchStart, rollTurnOrder, STRETCH_BOOST, STRETCH_SALE_PRICE } from '../../src/game/board/MatchBeats';
-import { SUNCOIL } from '../../src/game/data/boards';
+import { SUNCOIL } from './suncoilBoard';
 import { createMatch, currentRelicPrice } from '../../src/game/state/MatchState';
 import { CONFIG, FOUR } from './fixtures';
 

@@ -252,7 +252,7 @@ function cap(s: string): string {
 
 /** A board's setup-screen picture: its world's preview, or Suncoil's (when rendered). */
 function previewPath(b: BoardDef): string | undefined {
-  return b.theme?.preview ?? (b.id === 'suncoil' ? 'assets/lite/previews/suncoil.webp' : undefined);
+  return b.theme?.preview;
 }
 
 function previewKey(b: BoardDef): string {

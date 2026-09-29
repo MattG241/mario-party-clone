@@ -1,3 +1,4 @@
+import { setCastForWorld, npcName } from '../data/npcs';
 import Phaser from 'phaser';
 import { audio } from '../audio/AudioManager';
 import { Ambient, ensureAmbientTextures } from '../board/Ambient';
@@ -89,7 +90,7 @@ export class BoardScene extends Phaser.Scene {
 
   init(data: BoardSceneData): void {
     this.data0 = data ?? {};
-    // The match's board (a saved match's, when continuing), Suncoil if it's unknown.
+    // The match's board (a saved match's, when continuing), the first board if it's unknown.
     const boardId = (this.data0.continue ? saves.load() : session.match)?.config.boardId ?? BOARDS[0].id;
     this.def = findBoard(boardId) ?? BOARDS[0];
     this.running = false;
@@ -101,8 +102,8 @@ export class BoardScene extends Phaser.Scene {
   }
 
   preload(): void {
-    // World boards' art loads on demand (Suncoil's comes with start-up); other boards' terrain is released.
-    if (this.def.id === 'suncoil' || this.def.theme?.rendered) queueBoardArt(this, this.def.id);
+    // The board's art loads on demand; other boards' terrain is released.
+    if (this.def.theme?.rendered) queueBoardArt(this, this.def.id);
   }
 
   create(): void {
@@ -121,6 +122,8 @@ export class BoardScene extends Phaser.Scene {
     session.match = state;
     session.mode = 'board';
     this.state = state;
+    // The board's side characters come from the players' own shows and games.
+    setCastForWorld(state.players.map((p) => p.characterId), def.theme?.world);
     this.cameras.main.setBackgroundColor('rgba(0,0,0,0)');
     this.scene.launch('BoardBg');
     this.scene.launch('BoardUI', { state });
@@ -243,7 +246,7 @@ export class BoardScene extends Phaser.Scene {
     await this.ui.banner({ title: name.toUpperCase(), subtitle: 'WELCOME TO THE PARTY', color: COLORS.teal, sound: 'fanfare', hold: 1400, size: 96 });
     await this.ui.dialogLines(
       [
-        { npc: 'ora', pose: 'welcome', text: `Welcome to ${name}, everybody! I'm SpongeBob, and I'm your host!` },
+        { npc: 'ora', pose: 'welcome', text: `Welcome to ${name}, everybody! I'm ${npcName('ora')}, and I'm your host!` },
         { npc: 'ora', pose: 'point', text: 'Hit the Dice Block to move. Blue Spaces give you coins, and watch out for Bad Luck Spaces!' },
         { npc: 'ora', pose: 'flag', text: 'Most Star Coins wins the party — coins break ties. Press Y for items, X for the map and VIEW for scores.' },
       ],

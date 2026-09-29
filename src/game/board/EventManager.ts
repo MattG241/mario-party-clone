@@ -1,3 +1,4 @@
+import { npcName } from '../data/npcs';
 import { ITEMS } from '../data/items';
 import { ItemManager } from '../items/ItemManager';
 import { isFinalRound, logMatch, type PlayerState } from '../state/MatchState';
@@ -34,7 +35,7 @@ const bridgeBreak: BoardEventDef = {
   id: 'bridge_break',
   title: 'BRIDGE BREAK',
   kind: 'board',
-  summary: 'The Sky Bridge snaps! The Cloud Steps detour opens until Iron Man repairs it.',
+  summary: 'The Sky Bridge snaps! The Cloud Steps detour opens until it is repaired.',
   async run(ctx, p) {
     const bridge = ctx.graph.def.bridges[0];
     if (!bridge) return;
@@ -126,7 +127,7 @@ const cannonBlast: BoardEventDef = {
   id: 'cannon_blast',
   title: 'CANNON BLAST',
   kind: 'board',
-  summary: "Iron Man's party cannon launches you far ahead along the trail.",
+  summary: 'A party cannon launches you far ahead along the trail.',
   async run(ctx, p) {
     if (!p) return;
     await present(ctx, this, [{ npc: 'wrench', pose: 'laugh', text: 'Climb in! My party cannon is perfectly safe. Mostly!' }], { fx: 'cannon', focus: p.nodeId });
@@ -234,7 +235,7 @@ const delivery: BoardEventDef = {
   title: 'SPECIAL DELIVERY',
   kind: 'festival',
   weight: 1.2,
-  summary: 'Nami tosses you a parcel containing a random item.',
+  summary: 'The Star Keeper tosses you a parcel containing a random item.',
   async run(ctx, p) {
     if (!p) return;
     const item = ItemManager.randomItem(ctx.rng);
@@ -247,7 +248,7 @@ const tailwind: BoardEventDef = {
   id: 'mimi_tailwind',
   title: "MIMI'S TAILWIND",
   kind: 'festival',
-  summary: 'Sonic zooms in and rushes you 3 spaces forward.',
+  summary: 'A helper rushes you 3 spaces forward.',
   async run(ctx, p) {
     if (!p) return;
     await present(ctx, this, [{ npc: 'mimi', pose: 'happy', text: 'Hold still… FLAP FLAP! Off you go!' }], { fx: 'tailwind', player: p });
@@ -260,7 +261,7 @@ const oraGuide: BoardEventDef = {
   title: "ORA'S SHORTCUT",
   kind: 'festival',
   weight: 0.7,
-  summary: 'SpongeBob whisks you to a spot a few steps before the Star Keeper.',
+  summary: 'The host whisks you to a spot a few steps before the Star Keeper.',
   available: (ctx, p) => !!p && ctx.graph.distance(p.nodeId, ctx.board.relicGate, ctx.board) > 6,
   async run(ctx, p) {
     if (!p) return;
@@ -283,11 +284,11 @@ const popupShop: BoardEventDef = {
   title: 'POP-UP SHOP',
   kind: 'festival',
   weight: 0.8,
-  summary: 'Homer sets up a travelling stall right where you landed.',
+  summary: 'A travelling merchant sets up a stall right where you landed.',
   available: (_ctx, p) => !!p && p.chips >= 4,
   async run(ctx, p) {
     if (!p) return;
-    await present(ctx, this, [{ npc: 'pipper', pose: 'wave', text: 'Psst! Homer\'s pop-up shop is open — just for you!' }], { fx: 'popup', player: p });
+    await present(ctx, this, [{ npc: 'pipper', pose: 'wave', text: `Psst! ${npcName('pipper')}'s pop-up shop is open — just for you!` }], { fx: 'popup', player: p });
     await visitShop(ctx, p, 'pipper');
   },
 };
@@ -419,7 +420,7 @@ const bridgeRepair: BoardEventDef = {
   id: 'bridge_repair',
   title: 'BRIDGE REPAIRED',
   kind: 'global',
-  summary: 'Iron Man finishes repairing the Sky Bridge.',
+  summary: 'The Sky Bridge is repaired.',
   async run(ctx) {
     ctx.board.bridgeBroken = null;
     await present(ctx, this, [{ npc: 'wrench', pose: 'laugh', text: 'Good as new! The Sky Bridge is open again — the Cloud Steps are closing.' }], { fx: 'bridge-repair', focus: ctx.graph.def.bridges[0]?.nodes[1] });

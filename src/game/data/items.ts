@@ -117,14 +117,14 @@ export const SHOPS: Record<ShopId, ShopDef> = {
   wrench: {
     id: 'wrench',
     npc: 'wrench',
-    name: "Iron Man's Workshop",
+    name: 'Item Shop',
     stock: ['wingstep_boots', 'magnet_glove', 'prism_key', 'spring_bean'],
     finalRoundExtra: 'warp_charm',
   },
   pipper: {
     id: 'pipper',
     npc: 'pipper',
-    name: "Homer's Bargain Bin",
+    name: 'Bargain Stall',
     stock: ['mystery_capsule', 'bubble_shield', 'snare_seed', 'warp_charm'],
     finalRoundExtra: 'prism_key',
   },

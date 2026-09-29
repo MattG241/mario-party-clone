@@ -63,15 +63,14 @@ const heldBoards = new Set<string>(RENDERED_BOARDS);
 /**
  * Queue a board's rendered art on the scene's loader (call from preload): its manifest if it isn't
  * cached yet, then whichever tiles, props and shadow aren't in memory. Every other board's terrain
- * is released first, so only one board's tiles are held at a time (Suncoil's props stay: the
- * results screens borrow them).
+ * is released first, so only one board's tiles are held at a time.
  */
 export function queueBoardArt(scene: Phaser.Scene, board: string): void {
   for (const other of heldBoards) {
     if (other === board) continue;
     const man = scene.cache.json.get(renderedManifestKey(other)) as RenderedBoard | undefined;
     if (!man?.tiles) continue;
-    const files = [...man.tiles.map((t) => t.file), ...(man.shadow ? [man.shadow.file] : []), ...(other === 'suncoil' ? [] : (man.props ?? []).map((pr) => pr.file))];
+    const files = [...man.tiles.map((t) => t.file), ...(man.shadow ? [man.shadow.file] : []), ...(man.props ?? []).map((pr) => pr.file)];
     for (const f of files) {
       const k = renderedTileKey(other, f);
       if (scene.textures.exists(k)) scene.textures.remove(k);

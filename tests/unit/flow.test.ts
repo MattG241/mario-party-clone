@@ -5,7 +5,7 @@ import { FlowInterrupt, freshTurn, type FlowContext } from '../../src/game/board
 import { createFlowContext, HeadlessIO } from '../../src/game/board/HeadlessIO';
 import { applyMinigameRewards, expireRoundEffects, phaseAfterMinigame, phaseAfterTurn, runMatch } from '../../src/game/board/TurnManager';
 import { giveItem, offerRelic, relocateRelic, runTurn } from '../../src/game/board/TurnFlow';
-import { SUNCOIL } from '../../src/game/data/boards';
+import { SUNCOIL } from './suncoilBoard';
 import { createMatch, deserializeMatch, type MatchState } from '../../src/game/state/MatchState';
 import { CONFIG, FOUR } from './fixtures';
 

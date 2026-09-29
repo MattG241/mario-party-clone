@@ -4,6 +4,7 @@ import type { Character } from '../characters/Character';
 import type { AnimName } from '../characters/CharacterAnimations';
 import { COLORS, CSS, GAME_WIDTH, PLAYER_COLORS, PLAYER_COLORS_DARK, type CpuLevel } from '../constants';
 import { CHARACTERS, type CharacterId } from '../data/characters';
+import { setCastForWorld } from '../data/npcs';
 import { HIDE_CPU_TAGS, REALTIME_CLOCK, setDebugInfo } from '../debug/debug';
 import { EffectsManager } from '../effects/EffectsManager';
 import { applyGrade } from '../effects/GradePipeline';
@@ -222,6 +223,8 @@ export abstract class BaseMinigame extends Phaser.Scene {
   init(data: MinigameLaunch): void {
     this.launch = data;
     this.info = minigameInfo(data.id)!;
+    // Minigame Mode casts the crowd from the players' shows and games (a board match already has).
+    if (data.mode === 'free') setCastForWorld(data.players.map((p) => p.characterId), this.info.world);
     this.players = [];
     this.phase = 'countdown';
     this.elapsed = 0;

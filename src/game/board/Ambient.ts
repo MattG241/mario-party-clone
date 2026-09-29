@@ -25,7 +25,6 @@ const WATER_STEP = 16;
 const WATER_REF_SCALE = 1.25;
 /** Waterfall splash pools, in board coordinates (kept only if water is really there). */
 /** Suncoil's falls; world boards list theirs in their theme. */
-const SUNCOIL_FALLS: { x: number; y: number; lipX: number; lipY: number }[] = [{ x: 2290, y: 1000, lipX: 2250, lipY: 805 }];
 
 /** Depths: sparkles lie on the terrain; drifting things float over the world, under effects. */
 const D_WATER = DEPTH.islands + 2;
@@ -347,7 +346,7 @@ export class Ambient {
   // --- Waterfall mist ------------------------------------------------------------------------
   private buildMist(): void {
     const def = this.board.graph.def;
-    for (const f of def.theme ? (def.theme.waterfalls ?? []) : SUNCOIL_FALLS) {
+    for (const f of def.theme?.waterfalls ?? []) {
       if (this.waterNear(f.x, f.y, 55) < 2) continue;
       const n = this.lite ? 4 : 8;
       for (let i = 0; i < n; i++) {

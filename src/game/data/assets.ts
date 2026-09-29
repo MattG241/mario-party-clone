@@ -67,8 +67,6 @@ export const COMMON_SVGS: SvgAsset[] = [
   { key: 'item-warp-charm', path: `${P}items/warp_charm.svg`, width: 180, height: 180 },
   { key: 'item-magnet-glove', path: `${P}items/magnet_glove.svg`, width: 180, height: 180 },
   { key: 'item-spring-bean', path: `${P}items/spring_bean.svg`, width: 180, height: 180 },
-  { key: 'orbit-dial', path: `${P}ui/orbit_dial.svg`, width: 380, height: 380 },
-  { key: 'emblem', path: `${P}ui/spiral_emblem.svg`, width: 256, height: 256 },
   { key: 'icon-controller', path: `${P}ui/controller.svg`, width: 220, height: 150 },
   { key: 'icon-keyboard', path: `${P}ui/keyboard.svg`, width: 220, height: 150 },
   { key: 'podium', path: `${P}ui/podium.svg`, width: 320, height: 200 },

@@ -1,6 +1,6 @@
 import { CHARACTER_IDS } from '../../src/game/data/characters';
 import { describe, expect, it } from 'vitest';
-import { SUNCOIL } from '../../src/game/data/boards';
+import { SUNCOIL } from './suncoilBoard';
 import { SaveManager } from '../../src/game/save/SaveManager';
 import { SettingsManager } from '../../src/game/save/SettingsManager';
 import { createMatch, currentRelicPrice, deserializeMatch, isFinalRound, serializeMatch } from '../../src/game/state/MatchState';

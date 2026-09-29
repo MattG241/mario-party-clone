@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BoardGraph } from '../../src/game/board/BoardGraph';
-import { SUNCOIL } from '../../src/game/data/boards';
+import { SUNCOIL } from './suncoilBoard';
 import type { BoardState } from '../../src/game/state/MatchState';
 
 function boardState(over: Partial<BoardState> = {}): BoardState {
