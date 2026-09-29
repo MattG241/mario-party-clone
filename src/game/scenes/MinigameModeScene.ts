@@ -360,18 +360,21 @@ export class MinigameModeScene extends Phaser.Scene {
     this.detail.add(g);
     this.detail.add(addText(this, GRID_X + 36, y0 + 40, info.name.toUpperCase(), 32, { color: '#ffffff', weight: 700, align: 'left', stroke: '#06141a', strokeThickness: 4 }).setOrigin(0, 0.5));
     this.detail.add(addText(this, GRID_X + 36, y0 + 80, info.tagline, 22, { color: Phaser.Display.Color.IntegerToColor(info.color).lighten(25).rgba, weight: 700, align: 'left' }).setOrigin(0, 0.5));
-    const desc = addText(this, GRID_X + 36, y0 + 108, info.description, 20, { color: CSS.cream, weight: 500, align: 'left', wrap: 980 });
+    const desc = addText(this, GRID_X + 36, y0 + 108, info.description, 20, { color: CSS.cream, weight: 500, align: 'left', wrap: 880 });
     desc.setOrigin(0, 0);
     this.detail.add(desc);
-    // controls column
-    const cx = GRID_X + 1110;
+    // controls column (between the description and the PLAY pill)
+    const cx = GRID_X + 960;
     this.detail.add(addText(this, cx, y0 + 40, 'CONTROLS', 20, { color: CSS.creamDark, weight: 700, align: 'left' }).setOrigin(0, 0.5));
     const kind = glyphKindFor(0);
     // status / play pill (placed first: the control labels must stop short of it)
     const px = GAME_WIDTH - GRID_X - 36;
     const pw = 250;
-    info.controls.slice(0, 3).forEach((c, k) => {
-      const gy = y0 + 84 + k * 44;
+    const shown = info.controls.slice(0, 3);
+    // Three rows sit a little closer so the last stays inside the panel.
+    const rowGap = shown.length > 2 ? 38 : 44;
+    shown.forEach((c, k) => {
+      const gy = y0 + (shown.length > 2 ? 78 : 84) + k * rowGap;
       const glyph = makeGlyph(this, c.button, 34, kind);
       glyph.setPosition(cx + 24 + Math.max(0, glyph.width - 34) / 2, gy);
       this.detail.add(glyph);
