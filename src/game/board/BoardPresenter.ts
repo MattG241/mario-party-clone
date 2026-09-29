@@ -22,7 +22,7 @@ import { mapView } from './MapView';
 import type { DialogLineSpec, EventPresentation, FlowIO, JumpKind, MinigameRewardView, PathOption, PreRollDecision, ShopOffer, TargetOption } from './flowTypes';
 import type { BoardNodeDef } from './types';
 import { registeredMinigames } from '../minigames/registry';
-import { setDebugInfo } from '../debug/debug';
+import { DEBUG_ENABLED, setDebugInfo, URL_PARAMS } from '../debug/debug';
 
 const EVENT_COLORS: Record<EventPresentation['kind'], number> = {
   festival: 0xff9a2e,
@@ -573,7 +573,9 @@ export class BoardPresenter implements FlowIO {
   // --- Minigames and the end ----------------------------------------------------------------------
   async playMinigame(): Promise<Placement[]> {
     const pool = availableMinigames(registeredMinigames());
-    const info = pickMinigame(pool, this.state.minigameHistory, this.state.players.length, this.scene.ctx.rng, this.scene.board.graph.def.theme?.minigames);
+    // Dev builds: &boardgame=<id> forces the board's minigame (tests, art checks).
+    const forced = DEBUG_ENABLED ? pool.find((m) => m.id === URL_PARAMS.get('boardgame')) : undefined;
+    const info = forced ?? pickMinigame(pool, this.state.minigameHistory, this.state.players.length, this.scene.ctx.rng, this.scene.board.graph.def.theme?.minigames);
     this.state.minigameHistory.push(info.id);
     this.moves.activeSlot = null;
     this.ui.hud.setActive(null);

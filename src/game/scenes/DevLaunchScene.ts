@@ -26,7 +26,8 @@ interface DevLaunchData {
  *   ?minigame=<id>   jump straight into a minigame (P1 = keyboard / first pad, CPUs fill)
  *   ?quick           start a board match immediately (P1 human + 3 CPUs)
  * Modifiers: &humans=0..4 (0 = all CPU), &players=2..4, &rounds=N, &seed=N, &cpu=easy|normal|hard,
- *            &intro (play the board intro), &instructions=on|quick|off, &midgame (round 4, spread out).
+ *            &intro (play the board intro), &instructions=on|quick|off, &midgame (round 4, spread out),
+ *            &board=<id> (a world's board), &boardgame=<id> (the minigame the board plays).
  */
 export class DevLaunchScene extends Phaser.Scene {
   private data0: DevLaunchData = {};

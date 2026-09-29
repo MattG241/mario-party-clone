@@ -172,7 +172,8 @@ builds opened with `?debug`; the URL shortcuts work in any build:
   (`gleam-grab`, `orbit-dodge`, `crate-craze`, `skybridge-scramble`, `totem-tug`, `spiral-splash`,
   `relic-relay`, `tumble-tower`); `?scene=<Key>` opens any scene (e.g. `Settings`).
   Modifiers: `&humans=0..4`, `&players=2..4`, `&rounds=N`, `&seed=N`, `&cpu=easy|normal|hard`,
-  `&instructions=on|quick|off`, `&intro`, `&midgame` (round 4 with players spread out) and
+  `&instructions=on|quick|off`, `&intro`, `&midgame` (round 4 with players spread out),
+  `&board=<id>` (a world's board), `&boardgame=<id>` (the minigame the board plays, dev builds) and
   `&realtime` (lock game time to wall time on slow software-GL machines, used by tests).
 
 ### Recording footage and the trailer
