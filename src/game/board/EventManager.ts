@@ -62,6 +62,8 @@ const crystalSurge: BoardEventDef = {
   id: 'crystal_surge',
   title: 'CRYSTAL SURGE',
   kind: 'board',
+  // Suncoil's crystal generators (its camera frames the works at c1); world boards have their own.
+  boards: ['suncoil'],
   summary: 'Crystal generators overcharge: several Gleam Spaces pay double for a round.',
   async run(ctx) {
     const gleams = ctx.graph.nodesOfType('gleam').map((n) => n.id);
@@ -94,6 +96,8 @@ const portalStorm: BoardEventDef = {
   id: 'portal_storm',
   title: 'PORTAL STORM',
   kind: 'board',
+  // Suncoil's observatory (framed at o3); world boards reroute their portals in their own way.
+  boards: ['suncoil'],
   summary: 'The observatory sparks and every portal reshuffles where it leads.',
   async run(ctx) {
     const ids = Object.keys(ctx.board.portalLinks).sort();
