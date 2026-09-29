@@ -25,7 +25,7 @@ import { minigameInfo, type MinigameLaunch, type MinigameResult } from '../minig
 import { LITE } from '../perf';
 import { saves } from '../save/SaveManager';
 import { settings } from '../save/SettingsManager';
-import { isFinalRound, type MatchState } from '../state/MatchState';
+import { isFinalRound, type MatchState, type PlayerState } from '../state/MatchState';
 import type { BonusAward } from '../state/scoring';
 import { session } from '../state/Session';
 import { drawPanel } from '../ui/Panel';
@@ -126,6 +126,8 @@ export class BoardScene extends Phaser.Scene {
     this.scene.launch('BoardUI', { state });
     this.bg = this.scene.get('BoardBg') as BoardBgScene;
     this.ui = this.scene.get('BoardUI') as BoardUIScene;
+    // The HUD shows how far each player is from the Star Coin.
+    this.ui.stepsTo = (p) => (this.board ? this.stepsToStarCoin(p) : NaN);
     this.fx = new EffectsManager(this);
     ensureAmbientTextures(this);
     this.board = new BoardManager(this, def);
@@ -240,8 +242,8 @@ export class BoardScene extends Phaser.Scene {
     await this.ui.dialogLines(
       [
         { npc: 'ora', pose: 'welcome', text: 'Welcome to Suncoil Sanctuary, adventurers! I\'m Ora, your festival guide.' },
-        { npc: 'ora', pose: 'point', text: 'Spin the Orbit Dial to travel. Land on blue Gleam Spaces for chips, and watch out for purple Mischief!' },
-        { npc: 'ora', pose: 'flag', text: 'Most Prism Relics wins the festival — Gleam Chips break ties. Press Y for items and VIEW for scores.' },
+        { npc: 'ora', pose: 'point', text: 'Spin the Orbit Dial to travel. Land on blue Gleam Spaces for coins, and watch out for purple Mischief!' },
+        { npc: 'ora', pose: 'flag', text: 'Most Star Coins wins the festival — coins break ties. Press Y for items, X for the map and VIEW for scores.' },
       ],
       humans,
       humans.length === 0,
@@ -250,9 +252,14 @@ export class BoardScene extends Phaser.Scene {
     const rp = this.board.relicPos();
     await this.focus(rp.x, rp.y + 80, 0.95, 900);
     this.board.keeperSprite().setFrame('27');
-    await this.ui.dialogLines([{ npc: 'packsprout', pose: 'cheer', text: 'Bring me 20 Gleam Chips and I\'ll trade you a Prism Relic! I move to a new gate after every sale.' }], humans, humans.length === 0);
+    await this.ui.dialogLines([{ npc: 'packsprout', pose: 'cheer', text: 'Bring me 20 coins and I\'ll trade you a Star Coin! I move to a new spot after every sale.' }], humans, humans.length === 0);
     this.board.keeperSprite().setFrame('26');
     await this.overview(900);
+  }
+
+  /** Steps from a player's space to the Star Coin, walking forward (Infinity if there's no way now). */
+  stepsToStarCoin(p: PlayerState): number {
+    return this.board.graph.distance(p.nodeId, this.state.board.relicGate, this.state.board, ItemManager.has(p, 'prism_key'));
   }
 
   // --- Camera -------------------------------------------------------------------------------------

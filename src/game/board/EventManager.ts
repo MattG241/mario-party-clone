@@ -39,7 +39,7 @@ const bridgeBreak: BoardEventDef = {
     const bridge = ctx.graph.def.bridges[0];
     if (!bridge) return;
     if (ctx.board.bridgeBroken) {
-      await present(ctx, this, [{ npc: 'wrench', pose: 'tool', text: "The bridge is already in pieces — I'm on it! Here, a few chips for your patience." }]);
+      await present(ctx, this, [{ npc: 'wrench', pose: 'tool', text: "The bridge is already in pieces — I'm on it! Here, a few coins for your patience." }]);
       if (p) await gainChips(ctx, p, 3, 'event');
       return;
     }
@@ -186,10 +186,10 @@ const parade: BoardEventDef = {
   id: 'festival_parade',
   title: 'FESTIVAL PARADE',
   kind: 'festival',
-  summary: 'A parade marches past and everyone receives 5 Gleam Chips.',
+  summary: 'A parade marches past and everyone receives 5 coins.',
   async run(ctx) {
     await present(ctx, this, [
-      { npc: 'mimi', pose: 'laugh', text: 'Parade time! Drums, banners and chips for EVERYONE!' },
+      { npc: 'mimi', pose: 'laugh', text: 'Parade time! Drums, banners and coins for EVERYONE!' },
     ], { fx: 'parade' });
     for (const pl of ctx.state.players) await gainChips(ctx, pl, 5, 'parade');
   },
@@ -197,15 +197,15 @@ const parade: BoardEventDef = {
 
 const relicRush: BoardEventDef = {
   id: 'relic_rush',
-  title: 'RELIC RUSH',
+  title: 'STAR COIN SALE',
   kind: 'festival',
   weight: 0.8,
-  summary: 'Festival discount! Prism Relics cost 15 chips until the end of next round.',
+  summary: 'Festival discount! Star Coins cost 15 coins until the end of next round.',
   available: (ctx) => !ctx.board.relicPrice,
   async run(ctx) {
     ctx.board.relicPrice = { price: 15, untilRound: ctx.state.round + 1 };
     await present(ctx, this, [
-      { npc: 'packsprout', pose: 'cheer', text: 'Festival special! Prism Relics cost just 15 chips until the end of next round!' },
+      { npc: 'packsprout', pose: 'cheer', text: 'Festival special! Star Coins cost just 15 coins until the end of next round!' },
     ], { fx: 'relic-rush', focus: ctx.board.relicGate });
     ctx.io.boardChanged();
   },
@@ -216,11 +216,11 @@ const lanternShower: BoardEventDef = {
   title: 'LANTERN SHOWER',
   kind: 'festival',
   weight: 1.4,
-  summary: 'Floating lanterns burst open and shower you with chips.',
+  summary: 'Floating lanterns burst open and shower you with coins.',
   async run(ctx, p) {
     if (!p) return;
     const n = scale(ctx, ctx.rng.int(4, 8));
-    await present(ctx, this, [{ npc: 'ora', pose: 'cheer', text: `The festival lanterns are raining chips on you!` }], { fx: 'lanterns', player: p });
+    await present(ctx, this, [{ npc: 'ora', pose: 'cheer', text: `The festival lanterns are raining coins on you!` }], { fx: 'lanterns', player: p });
     await gainChips(ctx, p, n, 'festival');
   },
 };
@@ -256,7 +256,7 @@ const oraGuide: BoardEventDef = {
   title: "ORA'S SHORTCUT",
   kind: 'festival',
   weight: 0.7,
-  summary: 'Ora whisks you to a spot a few steps before the Relic Keeper.',
+  summary: 'Ora whisks you to a spot a few steps before the Star Keeper.',
   available: (ctx, p) => !!p && ctx.graph.distance(p.nodeId, ctx.board.relicGate, ctx.board) > 6,
   async run(ctx, p) {
     if (!p) return;
@@ -269,7 +269,7 @@ const oraGuide: BoardEventDef = {
         const d = ctx.graph.distance(id, target, ctx.board);
         return d >= 2 && d <= 4;
       });
-    await present(ctx, this, [{ npc: 'ora', pose: 'flag', text: 'Follow my flag! I know a secret path to the Relic Keeper.' }], { fx: 'guide', player: p });
+    await present(ctx, this, [{ npc: 'ora', pose: 'flag', text: 'Follow my flag! I know a secret path to the Star Keeper.' }], { fx: 'guide', player: p });
     if (candidates.length) await teleport(ctx, p, ctx.rng.pick(candidates), 'guide');
   },
 };
@@ -318,7 +318,7 @@ const butterfingers: BoardEventDef = {
   id: 'butterfingers',
   title: 'BUTTERFINGERS',
   kind: 'mischief',
-  summary: 'Oops! You drop one of your items (or a few chips if your bag is empty).',
+  summary: 'Oops! You drop one of your items (or a few coins if your bag is empty).',
   async run(ctx, p) {
     if (!p) return;
     await present(ctx, this, [{ npc: 'mimi', pose: 'alert', text: 'Uh-oh… something just slipped out of your bag!' }], { fx: 'drop', player: p });
@@ -339,11 +339,11 @@ const leakyPouch: BoardEventDef = {
   title: 'LEAKY POUCH',
   kind: 'mischief',
   weight: 1.3,
-  summary: 'Your chip pouch springs a leak.',
+  summary: 'Your coin pouch springs a leak.',
   async run(ctx, p) {
     if (!p) return;
     const n = scale(ctx, ctx.rng.int(3, 6));
-    await present(ctx, this, [{ npc: 'pipper', pose: 'point', text: 'Your pouch has a hole in it! Chips everywhere!' }], { fx: 'leak', player: p });
+    await present(ctx, this, [{ npc: 'pipper', pose: 'point', text: 'Your pouch has a hole in it! Coins everywhere!' }], { fx: 'leak', player: p });
     if (await shieldBlocks(ctx, p)) return;
     await loseChips(ctx, p, n, 'mischief');
   },
@@ -366,11 +366,11 @@ const generousGust: BoardEventDef = {
   id: 'generous_gust',
   title: 'GENEROUS GUST',
   kind: 'mischief',
-  summary: 'The wind scatters your chips: every rival catches 2.',
+  summary: 'The wind scatters your coins: every rival catches 2.',
   available: (_ctx, p) => !!p && p.chips > 0,
   async run(ctx, p) {
     if (!p) return;
-    await present(ctx, this, [{ npc: 'packsprout', pose: 'surprised', text: 'Your chips are flying to everyone else! How generous!' }], { fx: 'leak', player: p });
+    await present(ctx, this, [{ npc: 'packsprout', pose: 'surprised', text: 'Your coins are flying to everyone else! How generous!' }], { fx: 'leak', player: p });
     if (await shieldBlocks(ctx, p)) return;
     for (const o of ctx.state.players) {
       if (o.slot === p.slot || p.chips <= 0) continue;
@@ -404,7 +404,7 @@ const keeperStroll: BoardEventDef = {
   id: 'keeper_stroll',
   title: "KEEPER'S STROLL",
   kind: 'global',
-  summary: 'The Relic Keeper wanders off to a different gate.',
+  summary: 'The Star Keeper wanders off to a different spot.',
   async run(ctx) {
     await present(ctx, this, [{ npc: 'packsprout', pose: 'happy', text: "I fancy a change of scenery. Follow me to my new gate!" }]);
     await relocateRelic(ctx, null);
