@@ -189,5 +189,8 @@ export const SHOWTIME_BOARD: BoardDef = {
     minigames: ['hip-shake', 'coffee-rush', 'rhinestone-rodeo', 'slapshot'].filter((id) => [...SHOWTIME_INFO.infos, ...RINK_INFO.infos].some((m) => m.id === id)),
     // Crystal Surge and Portal Storm frame Suncoil's landmarks; the strip's Neon Surge stands in.
     skipEvents: ['crystal_surge', 'portal_storm'],
+    preview: 'assets/lite/previews/showtime.webp',
+    // Blender art: scripts/art/worlds/showtime/board.py (+ citykit/post.py, build-lite.py --board showtime, board_preview.py showtime).
+    rendered: true,
   },
 };

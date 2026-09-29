@@ -197,5 +197,8 @@ export const HEROES_BOARD: BoardDef = {
     minigames: ['rooftop-glide', 'web-swing', 'repulsor-range'].filter((id) => HEROES_INFO.infos.some((m) => m.id === id)),
     // Crystal Surge and Portal Storm frame Suncoil's landmarks; the Sky Rail's own events stand in.
     skipEvents: ['crystal_surge', 'portal_storm'],
+    preview: 'assets/lite/previews/heroes.webp',
+    // Blender art: scripts/art/worlds/heroes/board.py (+ citykit/post.py, build-lite.py --board heroes, board_preview.py heroes).
+    rendered: true,
   },
 };
