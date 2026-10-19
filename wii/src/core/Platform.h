@@ -12,6 +12,7 @@
 // The game draws on a 16:9 canvas of 854x480; Gfx maps it onto the real framebuffer.
 constexpr int VW = 854;
 constexpr int VH = 480;
+constexpr int BORDER_MAX = 15, SHIFT_MAX = 6;  // screen options, percent of the screen
 
 struct Color {
   unsigned char r = 255, g = 255, b = 255, a = 255;
@@ -43,7 +44,7 @@ enum Align { LEFT = 0, CENTER = 1, RIGHT = 2 };
 class Gfx {
  public:
   bool init(SDL_Window* win);
-  // Map the 854x480 canvas onto the screen (16:9 stretch or 4:3 letterbox, shrunk by app.screenSize).
+  // Map the 854x480 canvas onto the screen (16:9 stretch or 4:3 letterbox, inside the TV borders).
   void layout();
   void shutdown();
   void begin(Color clear);
@@ -158,8 +159,9 @@ struct App {
   bool widescreen = true;  // the picture shape in use (see screenShape)
   bool tvWide = true;      // the console's own 16:9 / 4:3 setting
   // Screen options (title menu, saved in settings.txt next to the data folder)
-  int screenSize = 100;    // percent: smaller for TVs that cut off the edges
-  int screenShape = 0;     // 0 the console's setting, 1 16:9, 2 4:3
+  int borderX = 0, borderY = 0;  // TV borders, percent of the screen on each side (for TVs that cut off the edges)
+  int shiftX = 0, shiftY = 0;    // nudge the picture, percent of the screen (+ right / down)
+  int screenShape = 0;           // 0 the console's setting, 1 16:9, 2 4:3
   void applyScreen();      // after changing the options
   void saveSettings() const;
   bool headless = false;  // tests: no vsync waits

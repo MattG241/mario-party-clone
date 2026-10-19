@@ -649,11 +649,19 @@ class Board : public ui::Scene, public IO {
   // --- frame update -----------------------------------------------------------------------------
   void update(float dt) override {
     if (paused_) {
-      if (app.input.anyPress(B_UP) || app.input.anyPress(B_DOWN)) pauseSel_ ^= 1, app.audio.sfx("move");
+      if (screen_.isOpen()) {
+        screen_.update();
+        return;
+      }
+      if (app.input.anyPress(B_UP)) pauseSel_ = (pauseSel_ + 2) % 3, app.audio.sfx("move");
+      if (app.input.anyPress(B_DOWN)) pauseSel_ = (pauseSel_ + 1) % 3, app.audio.sfx("move");
       if (app.input.anyPress(B_START) || app.input.anyPress(B_B) || (app.input.anyPress(B_A) && pauseSel_ == 0)) {
         paused_ = false;
         co::Scheduler::get().setPaused(false);
       } else if (app.input.anyPress(B_A) && pauseSel_ == 1) {
+        screen_.open();
+        app.audio.sfx("confirm");
+      } else if (app.input.anyPress(B_A) && pauseSel_ == 2) {
         co::Scheduler::get().setPaused(false);
         co::Scheduler::get().clear();
         leaving_ = true;
@@ -1165,11 +1173,15 @@ class Board : public ui::Scene, public IO {
     if (banT_ >= 0) ui::banner(banTitle_, banSub_, banColor_, banT_, banHold_);
     if (paused_) {
       ui::fadeRect(0.5f);
-      ui::card(VW / 2 - 150, 150, 300, 170, col::cream, 20);
-      app.gfx.text("Paused", VW / 2, 164, 28, col::ink, CENTER, false);
-      static const char* items[2] = {"Resume", "Quit to title"};
-      for (int i = 0; i < 2; i++) {
-        float y = 210 + i * 50;
+      if (screen_.isOpen()) {
+        screen_.draw();
+        return;
+      }
+      ui::card(VW / 2 - 150, 130, 300, 220, col::cream, 20);
+      app.gfx.text("Paused", VW / 2, 144, 28, col::ink, CENTER, false);
+      static const char* items[3] = {"Resume", "TV borders", "Quit to title"};
+      for (int i = 0; i < 3; i++) {
+        float y = 190 + i * 50;
         if (i == pauseSel_) app.gfx.panel(VW / 2 - 120, y, 240, 40, col::gold, 14);
         app.gfx.text(items[i], VW / 2, y + 8, 21, col::ink, CENTER, false);
       }
@@ -1182,6 +1194,7 @@ class Board : public ui::Scene, public IO {
   bool anyHuman_ = false, over_ = false, leaving_ = false, introDone_ = false;
   bool paused_ = false;
   int pauseSel_ = 0;
+  ui::ScreenEditor screen_;
   const char* boardMusic_ = "board";
   float t_ = 0;
   Random rng_{(uint32_t)SDL_GetTicks() + 99};

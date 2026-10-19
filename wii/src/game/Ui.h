@@ -18,6 +18,20 @@ void prompts(float cx, float y, const std::vector<std::pair<Btn, std::string>>& 
 void banner(const std::string& title, const std::string& sub, Color accent, float t, float hold);
 void fadeRect(float alpha);
 
+// The TV border editor (title menu and pause menu): borders, position and shape, with a frame drawn at the
+// picture's edges so you can line it up with the TV. Saves to settings.txt when it closes.
+class ScreenEditor {
+ public:
+  void open() { open_ = true, row_ = 0; }
+  bool isOpen() const { return open_; }
+  void update();
+  void draw();
+
+ private:
+  bool open_ = false;
+  int row_ = 0;
+};
+
 // Scenes ------------------------------------------------------------------------------------------
 class Scene {
  public:

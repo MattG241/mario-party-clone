@@ -1,6 +1,8 @@
 #include "Ui.h"
 
+#include <algorithm>
 #include <cmath>
+#include <cstdlib>
 
 #include "../core/Util.h"
 
@@ -115,6 +117,90 @@ void tick(float dt) {
 void render() {
   if (g_cur) g_cur->draw();
   if (g_fade > 0) fadeRect(g_fade);
+}
+
+// ---------------------------------------------------------------------------------------------
+// TV borders
+
+enum { SE_BX, SE_BY, SE_SX, SE_SY, SE_SHAPE, SE_RESET, SE_DONE, SE_ROWS };
+
+void ScreenEditor::update() {
+  if (!open_) return;
+  auto& in = app.input;
+  if (in.anyPress(B_UP)) row_ = (row_ + SE_ROWS - 1) % SE_ROWS, app.audio.sfx("move");
+  if (in.anyPress(B_DOWN)) row_ = (row_ + 1) % SE_ROWS, app.audio.sfx("move");
+  int d = in.anyPress(B_RIGHT) ? 1 : (in.anyPress(B_LEFT) ? -1 : 0);
+  auto step = [d](int& v, int lo, int hi) {
+    int n = std::max(lo, std::min(hi, v + d));
+    bool changed = n != v;
+    v = n;
+    return changed;
+  };
+  bool changed = false;
+  if (d) switch (row_) {
+      case SE_BX: changed = step(app.borderX, 0, BORDER_MAX); break;
+      case SE_BY: changed = step(app.borderY, 0, BORDER_MAX); break;
+      case SE_SX: changed = step(app.shiftX, -SHIFT_MAX, SHIFT_MAX); break;
+      case SE_SY: changed = step(app.shiftY, -SHIFT_MAX, SHIFT_MAX); break;
+      case SE_SHAPE:
+        app.screenShape = (app.screenShape + d + 3) % 3;
+        changed = true;
+        break;
+    }
+  if (in.anyPress(B_A) && row_ == SE_RESET) {
+    app.borderX = app.borderY = app.shiftX = app.shiftY = 0;
+    app.screenShape = 0;
+    changed = true;
+  }
+  if (changed) {
+    app.applyScreen();
+    app.audio.sfx("move");
+  }
+  if ((in.anyPress(B_A) && row_ != SE_RESET) || in.anyPress(B_B)) {
+    app.saveSettings();
+    open_ = false;
+    app.audio.sfx("confirm");
+  }
+}
+
+void ScreenEditor::draw() {
+  if (!open_) return;
+  fadeRect(0.4f);
+  // a frame along the very edge of the picture, with arrows pointing at the TV's edges
+  Color m = col::gold;
+  app.gfx.rect(0, 0, VW, 4, m);
+  app.gfx.rect(0, VH - 4, VW, 4, m);
+  app.gfx.rect(0, 0, 4, VH, m);
+  app.gfx.rect(VW - 4, 0, 4, VH, m);
+  app.gfx.text("^", VW / 2, 6, 30, m, CENTER, false);
+  app.gfx.text("v", VW / 2, VH - 34, 26, m, CENTER, false);
+  app.gfx.text("<", 10, VH / 2 - 18, 30, m, LEFT, false);
+  app.gfx.text(">", VW - 10, VH / 2 - 18, 30, m, RIGHT, false);
+
+  float w = 500, x = VW / 2 - w / 2, y = 52;
+  card(x, y, w, 370, col::cream, 22);
+  app.gfx.text("TV borders", VW / 2, y + 10, 28, col::ink, CENTER, false);
+  app.gfx.textBox("Line the yellow frame up with the edges of your TV: add borders until you can see all of it.", x + 30, y + 46, w - 60, 15,
+                  col::grey, CENTER);
+  static const char* shapes[3] = {"Wii setting", "16:9", "4:3"};
+  std::string shape = shapes[app.screenShape];
+  if (app.screenShape == 0) shape += app.tvWide ? " (16:9)" : " (4:3)";
+  auto pct = [](int v) { return v == 0 ? std::string("None") : std::to_string(v) + "%"; };
+  auto move = [](int v, const char* neg, const char* pos) {
+    return v == 0 ? std::string("Centre") : std::to_string(std::abs(v)) + " " + (v < 0 ? neg : pos);
+  };
+  std::string values[SE_ROWS] = {pct(app.borderX), pct(app.borderY), move(app.shiftX, "left", "right"), move(app.shiftY, "up", "down"),
+                                 shape, "", ""};
+  static const char* labels[SE_ROWS] = {"Left & right borders", "Top & bottom borders", "Move left / right", "Move up / down",
+                                        "Picture shape", "Reset to full screen", "Done"};
+  for (int i = 0; i < SE_ROWS; i++) {
+    float ry = y + 92 + i * 38;
+    if (i == row_) app.gfx.panel(x + 20, ry, w - 40, 34, col::gold.alpha(0.85f), 12);
+    bool action = i >= SE_RESET;
+    app.gfx.text(labels[i], action ? VW / 2 : x + 38, ry + 7, 19, col::ink, action ? CENTER : LEFT, false);
+    if (!action) app.gfx.text("<  " + values[i] + "  >", x + w - 38, ry + 7, 19, col::ink, RIGHT, false);
+  }
+  prompts(VW / 2, y + 374, {{B_A, "OK"}, {B_B, "Done"}});
 }
 
 }  // namespace ui

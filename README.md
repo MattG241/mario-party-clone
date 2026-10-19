@@ -178,10 +178,15 @@ Channel (no browser needed).
 CPUs (press **B** on the character screen to change their level). **HOME** returns to the Homebrew
 Channel.
 
-**Screen.** The picture fills the TV at the shape the Wii is set to (Wii Settings → Screen → Widescreen
-Settings): 16:9 fills a widescreen TV, 4:3 shows the game letterboxed. If your TV cuts off the edges, open
-**Screen** on the title menu and shrink the picture until all four yellow corner marks show; you can also
-force 16:9 or 4:3 there. The choice is saved on the USB stick or SD card.
+**Multiplayer.** Up to four players on one Wii, in the board game and in the minigames: each player presses
+**2** (or **A**) on the character screen to join with their own controller (Wii Remotes in player order 1-4, or
+GameCube controllers in ports 1-4). Seats nobody joins are played by the CPU.
+
+**TV borders.** The picture fills the TV at the shape the Wii is set to (Wii Settings → Screen → Widescreen
+Settings): 16:9 fills a widescreen TV, 4:3 shows the game letterboxed. **TV Borders** on the title menu (or
+**+** → TV borders during a game) shows a yellow frame at the picture's edges: add left/right and top/bottom
+borders until the whole frame is visible, nudge the picture left/right/up/down, or force 16:9 or 4:3. The
+settings are saved on the USB stick or SD card.
 
 **Build it yourself** (Linux):
 

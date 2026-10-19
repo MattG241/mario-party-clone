@@ -2,6 +2,7 @@
 
 #include <SDL_image.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdarg>
 #include <cstdio>
@@ -58,7 +59,7 @@ static void onPower() {
 static void onRemotePower(s32) { onPower(); }
 #endif
 
-// settings.txt sits next to the data folder: "screen_size=95", "screen_shape=1"
+// settings.txt sits next to the data folder: "border_x=3", "screen_shape=1", ...
 static std::string settingsPath() { return app.dataDir.size() > 5 ? app.dataDir.substr(0, app.dataDir.size() - 5) + "settings.txt" : ""; }
 
 static void loadSettings() {
@@ -68,8 +69,12 @@ static void loadSettings() {
   char line[128];
   int v;
   while (fgets(line, sizeof line, f)) {
-    if (sscanf(line, "screen_size=%d", &v) == 1) app.screenSize = v < 80 ? 80 : (v > 100 ? 100 : v);
-    if (sscanf(line, "screen_shape=%d", &v) == 1) app.screenShape = v < 0 || v > 2 ? 0 : v;
+    auto clampi = [](int x, int lo, int hi) { return x < lo ? lo : (x > hi ? hi : x); };
+    if (sscanf(line, "border_x=%d", &v) == 1) app.borderX = clampi(v, 0, BORDER_MAX);
+    if (sscanf(line, "border_y=%d", &v) == 1) app.borderY = clampi(v, 0, BORDER_MAX);
+    if (sscanf(line, "shift_x=%d", &v) == 1) app.shiftX = clampi(v, -SHIFT_MAX, SHIFT_MAX);
+    if (sscanf(line, "shift_y=%d", &v) == 1) app.shiftY = clampi(v, -SHIFT_MAX, SHIFT_MAX);
+    if (sscanf(line, "screen_shape=%d", &v) == 1) app.screenShape = clampi(v, 0, 2);
   }
   fclose(f);
 }
@@ -78,7 +83,7 @@ void App::saveSettings() const {
   std::string p = settingsPath();
   FILE* f = p.empty() ? nullptr : fopen(p.c_str(), "w");
   if (!f) return;
-  fprintf(f, "screen_size=%d\nscreen_shape=%d\n", screenSize, screenShape);
+  fprintf(f, "border_x=%d\nborder_y=%d\nshift_x=%d\nshift_y=%d\nscreen_shape=%d\n", borderX, borderY, shiftX, shiftY, screenShape);
   fflush(f);
 #ifdef HW_RVL
   fsync(fileno(f));
@@ -112,7 +117,8 @@ bool platformInit(int argc, char** argv) {
   app.tvWide = CONF_GetAspectRatio() == CONF_ASPECT_16_9;
   loadSettings();
   app.widescreen = app.screenShape == 0 ? app.tvWide : app.screenShape == 1;
-  logf("data dir: %s (tv 16:9 %d, screen %d%% shape %d)", app.dataDir.c_str(), app.tvWide, app.screenSize, app.screenShape);
+  logf("data dir: %s (tv 16:9 %d, borders %d/%d, shift %d/%d, shape %d)", app.dataDir.c_str(), app.tvWide, app.borderX, app.borderY,
+       app.shiftX, app.shiftY, app.screenShape);
 #else
   const char* env = getenv("ASP_DATA");
   if (env) app.dataDir = std::string(env) + "/";
@@ -257,20 +263,24 @@ void Gfx::shutdown() {
 void Gfx::layout() {
   int ow = 0, oh = 0;
   SDL_GetRendererOutputSize(r_, &ow, &oh);
-  float k = app.screenSize / 100.0f;
+  // the TV borders shrink the picture from each side
+  float kx = 1 - app.borderX / 50.0f, ky = 1 - app.borderY / 50.0f;
   if (app.widescreen) {
     // 16:9: fill the framebuffer (the TV stretches the Wii's picture back out to 16:9)
-    sx = (float)ow / VW * k;
-    sy = (float)oh / VH * k;
+    sx = (float)ow / VW * kx;
+    sy = (float)oh / VH * ky;
   } else {
     // 4:3: letterbox the 16:9 canvas
-    sx = sy = (float)ow / VW * k;
+    sx = (float)ow / VW * kx;
+    sy = (float)ow / VW * ky;
   }
-  ox = (ow - VW * sx) * 0.5f;
-  oy = (oh - VH * sy) * 0.5f;
+  ox = (ow - VW * sx) * 0.5f + app.shiftX * ow / 100.0f;
+  oy = (oh - VH * sy) * 0.5f + app.shiftY * oh / 100.0f;
   // keep everything inside the picture when it doesn't fill the screen
-  SDL_Rect clip{(int)std::floor(ox), (int)std::floor(oy), (int)std::ceil(VW * sx), (int)std::ceil(VH * sy)};
-  if (clip.x > 0 || clip.y > 0) SDL_RenderSetClipRect(r_, &clip);
+  int x0 = std::max(0, (int)std::floor(ox)), y0 = std::max(0, (int)std::floor(oy));
+  int x1 = std::min(ow, (int)std::ceil(ox + VW * sx)), y1 = std::min(oh, (int)std::ceil(oy + VH * sy));
+  SDL_Rect clip{x0, y0, x1 - x0, y1 - y0};
+  if (x0 > 0 || y0 > 0 || x1 < ow || y1 < oh) SDL_RenderSetClipRect(r_, &clip);
   else SDL_RenderSetClipRect(r_, nullptr);
   // text was rasterised for the old scale
   for (auto& t : text_)
