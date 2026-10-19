@@ -1019,7 +1019,7 @@ class CloudRider : public Minigame {
         // the charge gauge round the rider
         bool full = r.charge >= 1;
         float gx = SX(r.x), gy = SX(cy + HIT_DY - 4), R = SX(GAUGE_R);
-        const int segs = 20;
+        const int segs = 12;  // each segment is a draw call
         int lit = (int)(r.charge * segs + 0.5f);
         for (int k = 0; k < segs; k++) {
           float a0 = -PI / 2 + k * PI * 2 / segs, a1 = a0 + PI * 2 / segs;

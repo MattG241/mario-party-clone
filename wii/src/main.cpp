@@ -10,6 +10,7 @@
 #include "game/Session.h"
 
 Session session;
+static int testChars[4] = {-1, -1, -1, -1};  // --chars: the demo's characters
 
 int main(int argc, char** argv) {
   bool ok = platformInit(argc, argv);
@@ -17,6 +18,11 @@ int main(int argc, char** argv) {
   for (int i = 1; i < argc; i++) {
     if (!strcmp(argv[i], "--demo")) session.demo = true;
     if (!strcmp(argv[i], "--tour")) session.tour = true;
+    if (!strcmp(argv[i], "--chars") && i + 1 < argc) {
+      int c[4] = {-1, -1, -1, -1};
+      sscanf(argv[++i], "%d,%d,%d,%d", &c[0], &c[1], &c[2], &c[3]);
+      for (int k = 0; k < 4; k++) testChars[k] = c[k];
+    }
     if (!strcmp(argv[i], "--event") && i + 1 < argc) session.testEvent = argv[++i];
     if (!strcmp(argv[i], "--mg") && i + 1 < argc) session.forceMinigame = argv[++i];
     if (!strcmp(argv[i], "--frames") && i + 1 < argc) session.frameLimit = atoi(argv[++i]);
@@ -59,7 +65,7 @@ int main(int argc, char** argv) {
   }
   if (session.demo || session.tour || !session.forceMinigame.empty()) {
     // tests: four CPUs straight into a match (or one minigame)
-    for (int i = 0; i < 4; i++) session.slots[i] = Slot{true, false, (i * 5 + 2) % data::CHARACTER_COUNT, 2};
+    for (int i = 0; i < 4; i++) session.slots[i] = Slot{true, false, testChars[i] >= 0 ? testChars[i] : (i * 5 + 2) % data::CHARACTER_COUNT, 2};
     session.rounds = 2;
     ui::go(session.forceMinigame.empty() && !session.tour ? makeBoard() : makeMinigameMenu());
   } else ui::go(makeTitle());
@@ -96,8 +102,10 @@ int main(int argc, char** argv) {
     app.gfx.end();
     frame++;
     if (frame % 120 == 0) {
-      logf("frame %d dt %.4f ticks %u work %.1f ms (max %.1f)", frame, dt, (unsigned)SDL_GetTicks(), work * 1000 / 120, workMax * 1000);
+      logf("frame %d dt %.4f ticks %u work %.1f ms (max %.1f) draws %d/f text %d loads %d", frame, dt, (unsigned)SDL_GetTicks(), work * 1000 / 120,
+           workMax * 1000, app.gfx.statDraws / 120, app.gfx.statText, app.gfx.statLoads);
       work = workMax = 0;
+      app.gfx.statDraws = app.gfx.statText = app.gfx.statLoads = 0;
     }
     if (session.frameLimit && frame >= session.frameLimit) break;
   }

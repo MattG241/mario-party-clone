@@ -65,7 +65,14 @@ static std::string settingsPath() { return app.dataDir.size() > 5 ? app.dataDir.
 static void loadSettings() {
   std::string p = settingsPath();
   FILE* f = p.empty() ? nullptr : fopen(p.c_str(), "r");
-  if (!f) return;
+  if (!f) {
+    // first run: most TVs crop the edges of a Wii's picture, so start inside the safe area and let the
+    // title screen offer the TV border screen
+    app.firstRun = true;
+    app.borderX = 5;
+    app.borderY = 3;
+    return;
+  }
   char line[128];
   int v;
   while (fgets(line, sizeof line, f)) {
@@ -79,7 +86,8 @@ static void loadSettings() {
   fclose(f);
 }
 
-void App::saveSettings() const {
+void App::saveSettings() {
+  firstRun = false;
   std::string p = settingsPath();
   FILE* f = p.empty() ? nullptr : fopen(p.c_str(), "w");
   if (!f) return;
@@ -256,6 +264,8 @@ void Gfx::shutdown() {
   cache_.clear();
   for (auto& kv : text_) SDL_DestroyTexture(kv.second.tex.t);
   text_.clear();
+  for (auto& kv : panels_) SDL_DestroyTexture(kv.second.t);
+  panels_.clear();
   for (auto& kv : fonts_) TTF_CloseFont(kv.second);
   fonts_.clear();
   if (r_) SDL_DestroyRenderer(r_);
@@ -306,11 +316,20 @@ void Gfx::end() {
       } else ++it;
     }
   }
+  // panel textures not drawn for a while (animated sizes make one-off ones)
+  if (frame_ % 120 == 0)
+    for (auto it = panels_.begin(); it != panels_.end();) {
+      if (frame_ - it->second.used > 240) {
+        SDL_DestroyTexture(it->second.t);
+        it = panels_.erase(it);
+      } else ++it;
+    }
   // Character sheets are big (about 3 MB each in texture memory): free the ones not drawn lately, so
   // browsing all 17 on the select screen never holds them all at once.
   if (frame_ % 60 == 0)
     for (auto it = cache_.begin(); it != cache_.end();) {
-      if (it->second.t && it->first.compare(0, 6, "chars/") == 0 && frame_ - it->second.used > 90) {
+      if (it->second.t && it->first.compare(0, 6, "chars/") == 0 && frame_ - it->second.used > 90 && !isPinned(it->first)) {
+        logf("freed %s", it->first.c_str());
         SDL_DestroyTexture(it->second.t);
         it = cache_.erase(it);
       } else ++it;
@@ -319,6 +338,7 @@ void Gfx::end() {
 }
 
 SDL_Texture* Gfx::load(const std::string& rel) {
+  statLoads++;
   SDL_Texture* t = IMG_LoadTexture(r_, app.path(rel).c_str());
   // opaque art (board tiles, arenas, backdrops) ships as JPEG to keep the download small
   if (!t && rel.size() > 4 && rel.compare(rel.size() - 4, 4, ".png") == 0)
@@ -326,10 +346,12 @@ SDL_Texture* Gfx::load(const std::string& rel) {
   return t;
 }
 
+bool Gfx::isPinned(const std::string& rel) const { return std::find(pinned_.begin(), pinned_.end(), rel) != pinned_.end(); }
+
 // Free every texture that wasn't drawn this frame or the last (they reload when they're needed again).
 void Gfx::purgeIdle() {
   for (auto it = cache_.begin(); it != cache_.end();) {
-    if (it->second.t && frame_ - it->second.used > 1) {
+    if (it->second.t && frame_ - it->second.used > 1 && !isPinned(it->first)) {
       SDL_DestroyTexture(it->second.t);
       it = cache_.erase(it);
     } else ++it;
@@ -392,6 +414,7 @@ void Gfx::sprite(Tex* t, SDL_Rect src, float x, float y, float scx, float scy, f
   SDL_Point c{(int)(w * ox_ * sx), (int)(h * oy_ * sy)};
   SDL_RendererFlip f = (flip != (scx < 0)) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
   if (scy < 0) f = (SDL_RendererFlip)(f | SDL_FLIP_VERTICAL);
+  statDraws++;
   if (angle == 0 && f == SDL_FLIP_NONE) SDL_RenderCopy(r_, t->t, &src, &d);
   else SDL_RenderCopyEx(r_, t->t, &src, &d, angle, &c, f);
 }
@@ -410,12 +433,49 @@ void Gfx::rect(float x, float y, float w, float h, Color c) {
   SDL_RenderFillRect(r_, &d);
 }
 
+// A rounded rectangle of exactly pw x ph screen pixels (white, tinted when drawn), made once and reused:
+// one draw call per panel instead of seven, which matters on the Wii's CPU.
+Tex* Gfx::panelTex(int pw, int ph, int pr) {
+  PanelKey k{pw, ph, pr};
+  auto it = panels_.find(k);
+  if (it != panels_.end()) {
+    it->second.used = frame_;
+    return &it->second;
+  }
+  SDL_Surface* s = SDL_CreateRGBSurfaceWithFormat(0, pw, ph, 32, SDL_PIXELFORMAT_RGBA32);
+  if (!s) return nullptr;
+  for (int y = 0; y < ph; y++) {
+    Uint32* row = (Uint32*)((Uint8*)s->pixels + y * s->pitch);
+    for (int x = 0; x < pw; x++) {
+      float fx = x + 0.5f, fy = y + 0.5f;
+      float cx = std::fmax((float)pr, std::fmin((float)(pw - pr), fx)), cy = std::fmax((float)pr, std::fmin((float)(ph - pr), fy));
+      float a = std::fmax(0.0f, std::fmin(1.0f, (pr - std::hypot(fx - cx, fy - cy)) * 1.2f + 0.5f));
+      row[x] = SDL_MapRGBA(s->format, 255, 255, 255, (Uint8)(a * 255));
+    }
+  }
+  Tex t;
+  t.t = SDL_CreateTextureFromSurface(r_, s);
+  SDL_FreeSurface(s);
+  if (!t.t) return nullptr;
+  SDL_SetTextureBlendMode(t.t, SDL_BLENDMODE_BLEND);
+  t.w = pw, t.h = ph, t.used = frame_;
+  return &(panels_[k] = t);
+}
+
 void Gfx::panel(float x, float y, float w, float h, Color c, float rad) {
   if (c.a == 0) return;
   rad = std::fmin(rad, std::fmin(w, h) * 0.5f);
   if (rad < 1) {
     rect(x, y, w, h, c);
     return;
+  }
+  int pw = (int)std::lround(w * sx), ph = (int)std::lround(h * sy), pr = (int)std::lround(rad * sy);
+  if (pw > 0 && ph > 0 && pw <= 1024 && ph <= 1024 && pw * ph <= 110000) {
+    if (Tex* t = panelTex(pw, ph, pr)) {
+      SDL_Rect src{0, 0, pw, ph};
+      sprite(t, src, x, y, w / pw, h / ph, 0, 0, 0, false, c);
+      return;
+    }
   }
   float k = rad / 32.0f;
   SDL_Rect q[4] = {{0, 0, 32, 32}, {32, 0, 32, 32}, {0, 32, 32, 32}, {32, 32, 32, 32}};
@@ -473,6 +533,7 @@ Gfx::TextTex* Gfx::textTex(const std::string& s, int size) {
   }
   TTF_Font* f = font(size);
   if (!f || s.empty()) return nullptr;
+  statText++;
   SDL_Surface* surf = TTF_RenderUTF8_Blended(f, s.c_str(), SDL_Color{255, 255, 255, 255});
   if (!surf) return nullptr;
   TextTex tt;

@@ -14,6 +14,9 @@ class MinigameMenu : public ui::Scene {
  public:
   void enter() override {
     app.audio.music("board");
+    std::vector<int> chars;
+    for (int s : session.activeSlots()) chars.push_back(session.slots[s].character);
+    spr::pinCharacters(chars);
     if (!session.forceMinigame.empty()) {
       int i = minigameIndex(session.forceMinigame.c_str());
       if (i >= 0) sel_ = i;

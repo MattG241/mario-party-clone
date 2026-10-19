@@ -66,6 +66,9 @@ class Setup : public ui::Scene {
     t_ += dt;
     for (int i = 0; i < 4; i++) anim_[i] += dt;
     fixCpus();
+    std::vector<int> seats;
+    for (int i = 0; i < 4; i++) seats.push_back(session.slots[i].character);
+    spr::pinCharacters(seats);
     bool allLocked = true;
     for (int i = 0; i < 4; i++)
       if (session.slots[i].human && !locked_[i]) allLocked = false;

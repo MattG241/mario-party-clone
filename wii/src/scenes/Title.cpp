@@ -20,6 +20,11 @@ class Title : public ui::Scene {
       if (app.input.anyPress(B_A) || app.input.anyPress(B_START)) {
         menu_ = true;
         app.audio.sfx("confirm");
+        // the first time, fit the picture to the TV before anything else
+        if (app.firstRun) {
+          sel_ = 3;
+          screen_.open();
+        }
       }
       return;
     }

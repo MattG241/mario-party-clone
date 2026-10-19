@@ -51,6 +51,9 @@ class Gfx {
   void end();
 
   Tex* tex(const std::string& rel);  // cached, from the data folder; "x.png" falls back to "x.jpg"
+  // Textures that are never freed while idle (the sheets of the characters in play: a player walking
+  // off-screen must not lose their sprite).
+  void pin(const std::vector<std::string>& rels) { pinned_ = rels; }
   void drop(const std::string& prefix);
   // Draw part of a texture. (x, y) is where the origin (ox, oy in 0..1 of the drawn size) lands.
   void sprite(Tex* t, SDL_Rect src, float x, float y, float sx, float sy, float ox = 0.5f, float oy = 0.5f, float angle = 0, bool flip = false,
@@ -91,6 +94,14 @@ class Gfx {
 
   SDL_Renderer* r_ = nullptr;
   std::map<std::string, Tex> cache_;
+  struct PanelKey {
+    int w, h, r;
+    bool operator<(const PanelKey& o) const { return w != o.w ? w < o.w : (h != o.h ? h < o.h : r < o.r); }
+  };
+  std::map<PanelKey, Tex> panels_;
+  Tex* panelTex(int pw, int ph, int pr);
+  std::vector<std::string> pinned_;
+  bool isPinned(const std::string& rel) const;
   std::map<std::string, int> failed_;  // textures that failed to load: retry after this frame
   Tex blank_;                           // what a texture that couldn't load draws (nothing)
   SDL_Texture* load(const std::string& rel);
@@ -98,6 +109,12 @@ class Gfx {
   std::map<int, TTF_Font*> fonts_;
   std::map<TextKey, TextTex> text_;
   int frame_ = 0;
+
+ public:
+  // per-frame costs, for the log (draw calls, text rasterised, images loaded)
+  int statDraws = 0, statText = 0, statLoads = 0;
+
+ private:
   Tex white_, disc_, round_, ringTex_;
 };
 
@@ -168,8 +185,9 @@ struct App {
   int borderX = 0, borderY = 0;  // TV borders, percent of the screen on each side (for TVs that cut off the edges)
   int shiftX = 0, shiftY = 0;    // nudge the picture, percent of the screen (+ right / down)
   int screenShape = 0;           // 0 the console's setting, 1 16:9, 2 4:3
+  bool firstRun = false;         // no settings.txt yet: the title screen opens the TV border screen
   void applyScreen();      // after changing the options
-  void saveSettings() const;
+  void saveSettings();
   bool headless = false;  // tests: no vsync waits
   std::string shotDir;    // tests: save screenshots here
   float time = 0;

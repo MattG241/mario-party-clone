@@ -1,11 +1,15 @@
 // Drawing the game's sprites: characters (feet-anchored cells), the board cast, spaces, coins, items.
 #pragma once
+#include <vector>
+
 #include "../core/Platform.h"
 
 namespace spr {
 constexpr int CELL = 96;
 constexpr float FEET_X = 48, FEET_Y = 75;
 
+// Keep these characters' sprite sheets loaded (the players in the current game or on screen).
+void pinCharacters(const std::vector<int>& characters);
 int animIndex(int character, const char* anim);
 int animLength(int character, const char* anim);         // frames
 float animSeconds(int character, const char* anim);      // one pass

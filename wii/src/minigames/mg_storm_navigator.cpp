@@ -753,7 +753,7 @@ class StormNavigator : public Minigame {
   }
 
   // --- drawing -----------------------------------------------------------------------------------
-  static void ellipseRing(float x, float y, float rx, float ry, float w, Color c, int segs = 18) {
+  static void ellipseRing(float x, float y, float rx, float ry, float w, Color c, int segs = 12) {
     float px = x + rx, py = y;
     for (int i = 1; i <= segs; i++) {
       float a = i * PI * 2 / segs, nx = x + std::cos(a) * rx, ny = y + std::sin(a) * ry;

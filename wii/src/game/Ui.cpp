@@ -188,7 +188,7 @@ void ScreenEditor::draw() {
 
   float w = 500, x = VW / 2 - w / 2, y = 52;
   card(x, y, w, 370, col::cream, 22);
-  app.gfx.text("TV borders", VW / 2, y + 10, 28, col::ink, CENTER, false);
+  app.gfx.text(app.firstRun ? "First, fit the picture to your TV" : "TV borders", VW / 2, y + 10, app.firstRun ? 24 : 28, col::ink, CENTER, false);
   app.gfx.textBox("Line the yellow frame up with the edges of your TV: add borders until you can see all of it.", x + 30, y + 46, w - 60, 15,
                   col::grey, CENTER);
   static const char* shapes[3] = {"Wii setting", "16:9", "4:3"};

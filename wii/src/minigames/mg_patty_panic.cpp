@@ -214,7 +214,7 @@ class PattyPanic : public Minigame {
     app.gfx.sprite(arena, front, 0, FRONT_CUT, 1, 1, 0, 0);
     Tex* atlas = app.gfx.tex("mg/toons_patty.png");
     for (int i = 0; i < count(); i++) {
-      drawLegend(i, atlas);
+      if (!isCpu(i)) drawLegend(i, atlas);  // CPUs don't need the controls legend (and it's ~25 draws each)
       drawStack(st_[i], atlas);
       drawTicket(i, atlas);
       drawPlayerTag(i, st_[i].x + COOK_DX, COOK_FEET_Y - 106);
@@ -487,7 +487,7 @@ class PattyPanic : public Minigame {
       Color c = u > 0.55f ? mixc(Color::hex(0xffd23f), Color::hex(0x3fcf6a), (u - 0.55f) / 0.45f)
                           : (u > 0.28f ? mixc(Color::hex(0xff5a4a), Color::hex(0xffd23f), (u - 0.28f) / 0.27f)
                                        : ((int)(clock_ / 0.14f) % 2 ? col::white : Color::hex(0xff4a3a)));
-      int segs = std::max(1, (int)std::ceil(u * 22));
+      int segs = std::max(1, (int)std::ceil(u * 12));  // few segments: each is a draw call on the Wii
       float a0 = -PI / 2, step = u * PI * 2 / segs;
       for (int k = 0; k < segs; k++) {
         float t0 = a0 + k * step, t1 = t0 + step;

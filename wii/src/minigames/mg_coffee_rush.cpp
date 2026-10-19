@@ -586,7 +586,7 @@ class CoffeeRush : public Minigame {
     app.gfx.ring(bx + 7 * sc, by + 1 * sc, 3 * sc, Color::hex(0xff8fb8));
     app.gfx.ring(bx, by, r + 1, Color(26, 15, 36, 140));
     Color c = k > 0.6f ? Color::hex(0x8bd346) : (k > 0.35f ? Color::hex(0xffb020) : Color::hex(0xff5a4a));
-    if (k > 0) arc(bx, by, r, -PI / 2, -PI / 2 + k * PI * 2, 3.5f, c, std::max(1, (int)std::ceil(k * 18)));
+    if (k > 0) arc(bx, by, r, -PI / 2, -PI / 2 + k * PI * 2, 3.5f, c, std::max(1, (int)std::ceil(k * 10)));
   }
 
   void drawPanel(int i) const {

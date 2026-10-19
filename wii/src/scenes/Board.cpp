@@ -78,6 +78,11 @@ class Board : public ui::Scene, public IO {
       if (!p.cpu) anyHuman_ = true;
     }
     m.init(session.board, session.rounds, ps, SDL_GetTicks() * 2654435761u + 17);
+    {
+      std::vector<int> chars;
+      for (auto& p : ps) chars.push_back(p.character);
+      spr::pinCharacters(chars);
+    }
     m.io = this;
     m.testEvent = session.testEvent;
     def_ = m.g.def;

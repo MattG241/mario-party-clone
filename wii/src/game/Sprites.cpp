@@ -24,6 +24,13 @@ float animSeconds(int c, const char* anim) {
   return a->count / (float)(a->fps > 0 ? a->fps : 8);
 }
 
+void pinCharacters(const std::vector<int>& characters) {
+  std::vector<std::string> rels;
+  for (int c : characters)
+    if (c >= 0 && c < CHARACTER_COUNT) rels.push_back(std::string("chars/") + CHARACTERS[c].id + ".png");
+  app.gfx.pin(rels);
+}
+
 void character(int c, const char* anim, float t, float x, float y, float scale, bool flip, Color tint) {
   if (c < 0 || c >= CHARACTER_COUNT) return;
   const AnimDef* a = findAnim(c, anim);
