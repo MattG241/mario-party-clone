@@ -183,10 +183,10 @@ class Setup : public ui::Scene {
       if (session.slots[i].human && !locked_[i]) allLocked = false;
     if (allLocked) {
       float a = 0.6f + 0.4f * std::sin(t_ * 4);
-      ui::card(VW / 2 - 130, 416, 260, 34, col::gold.alpha(a), 17);
-      ui::prompt(VW / 2 - 70, 421, B_A, "Let's party!", col::ink);
+      ui::card(VW / 2 - 130, 402, 260, 34, col::gold.alpha(a), 17);
+      ui::prompt(VW / 2 - 70, 407, B_A, "Let's party!", col::ink);
     }
-    ui::prompts(VW / 2, VH - 22, {{B_X, std::string("CPU: ") + LEVELS[level_]}, {B_B, "Back"}});
+    ui::prompts(VW / 2, VH - 38, {{B_X, std::string("CPU: ") + LEVELS[level_]}, {B_B, "Back"}});
   }
 
  private:
@@ -243,12 +243,12 @@ class BoardSelect : public ui::Scene {
     app.gfx.text(b.subtitle, x + w / 2, y + ph + 14, 16, col::teal, CENTER, false);
     app.gfx.textBox(b.description, x + 16, y + ph + 38, w - 32, 14, col::ink);
     // rounds
-    float ry = 394;
+    float ry = 392;
     ui::card(VW / 2 - 150, ry, 300, 36, col::cream, 18);
     app.gfx.text("<", VW / 2 - 130, ry + 3, 24, col::teal, CENTER, false);
     app.gfx.text(std::to_string(ROUNDS[r_]) + " rounds", VW / 2, ry + 5, 22, col::ink, CENTER, false);
     app.gfx.text(">", VW / 2 + 130, ry + 3, 24, col::teal, CENTER, false);
-    ui::prompts(VW / 2, VH - 22, {{B_A, "Start"}, {B_B, "Back"}});
+    ui::prompts(VW / 2, VH - 38, {{B_A, "Start"}, {B_B, "Back"}});
   }
 
  private:

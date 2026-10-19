@@ -13,3 +13,4 @@ scripts/dev/tmp/
 .claude/worktrees/
 wii/build-*/
 wii/data/
+wii/settings.txt

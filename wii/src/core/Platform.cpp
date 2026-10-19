@@ -58,6 +58,39 @@ static void onPower() {
 static void onRemotePower(s32) { onPower(); }
 #endif
 
+// settings.txt sits next to the data folder: "screen_size=95", "screen_shape=1"
+static std::string settingsPath() { return app.dataDir.size() > 5 ? app.dataDir.substr(0, app.dataDir.size() - 5) + "settings.txt" : ""; }
+
+static void loadSettings() {
+  std::string p = settingsPath();
+  FILE* f = p.empty() ? nullptr : fopen(p.c_str(), "r");
+  if (!f) return;
+  char line[128];
+  int v;
+  while (fgets(line, sizeof line, f)) {
+    if (sscanf(line, "screen_size=%d", &v) == 1) app.screenSize = v < 80 ? 80 : (v > 100 ? 100 : v);
+    if (sscanf(line, "screen_shape=%d", &v) == 1) app.screenShape = v < 0 || v > 2 ? 0 : v;
+  }
+  fclose(f);
+}
+
+void App::saveSettings() const {
+  std::string p = settingsPath();
+  FILE* f = p.empty() ? nullptr : fopen(p.c_str(), "w");
+  if (!f) return;
+  fprintf(f, "screen_size=%d\nscreen_shape=%d\n", screenSize, screenShape);
+  fflush(f);
+#ifdef HW_RVL
+  fsync(fileno(f));
+#endif
+  fclose(f);
+}
+
+void App::applyScreen() {
+  widescreen = screenShape == 0 ? tvWide : screenShape == 1;
+  gfx.layout();
+}
+
 bool platformInit(int argc, char** argv) {
 #ifdef HW_RVL
   app.wii = true;
@@ -76,8 +109,10 @@ bool platformInit(int argc, char** argv) {
       app.dataDir = t;
       break;
     }
-  app.widescreen = CONF_GetAspectRatio() == CONF_ASPECT_16_9;
-  logf("data dir: %s (widescreen %d)", app.dataDir.c_str(), app.widescreen);
+  app.tvWide = CONF_GetAspectRatio() == CONF_ASPECT_16_9;
+  loadSettings();
+  app.widescreen = app.screenShape == 0 ? app.tvWide : app.screenShape == 1;
+  logf("data dir: %s (tv 16:9 %d, screen %d%% shape %d)", app.dataDir.c_str(), app.tvWide, app.screenSize, app.screenShape);
 #else
   const char* env = getenv("ASP_DATA");
   if (env) app.dataDir = std::string(env) + "/";
@@ -90,15 +125,23 @@ bool platformInit(int argc, char** argv) {
   for (int i = 1; i < argc; i++) {
     if (!strcmp(argv[i], "--headless")) app.headless = true;
     if (!strcmp(argv[i], "--shots") && i + 1 < argc) app.shotDir = argv[++i];
-    if (!strcmp(argv[i], "--43")) app.widescreen = false;
+    if (!strcmp(argv[i], "--43")) app.tvWide = false;
   }
+  loadSettings();
+  app.widescreen = app.screenShape == 0 ? app.tvWide : app.screenShape == 1;
 #endif
   if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER) != 0) {
     logf("SDL_Init: %s\n", SDL_GetError());
     return false;
   }
 #ifdef HW_RVL
-  g_window = SDL_CreateWindow("All-Star Party", 0, 0, 640, 480, 0);
+  {
+    // the whole framebuffer of the console's video mode (640x480, or taller in some PAL modes)
+    SDL_DisplayMode dm{};
+    int ww = 640, wh = 480;
+    if (SDL_GetDesktopDisplayMode(0, &dm) == 0 && dm.w > 0 && dm.h > 0) ww = dm.w, wh = dm.h;
+    g_window = SDL_CreateWindow("All-Star Party", 0, 0, ww, wh, 0);
+  }
 #else
   g_window = SDL_CreateWindow("All-Star Party", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, app.widescreen ? VW : 640, 480, 0);
 #endif
@@ -110,6 +153,20 @@ bool platformInit(int argc, char** argv) {
   IMG_Init(IMG_INIT_PNG);
   TTF_Init();
   if (!app.gfx.init(g_window)) return false;
+#ifdef HW_RVL
+  {
+    // libogc's video modes put the 640-pixel picture in the middle of a 720-pixel TV line, which leaves
+    // black bars at the sides and squeezes the picture. Stretch it to 704 so it fills the screen width.
+    GXRModeObj* vm = VIDEO_GetPreferredMode(NULL);
+    vm->viWidth = 704;
+    vm->viXOrigin = (VI_MAX_WIDTH_NTSC - 704) / 2;
+    VIDEO_Configure(vm);
+    VIDEO_Flush();
+    VIDEO_WaitVSync();
+    if (vm->viTVMode & VI_NON_INTERLACE) VIDEO_WaitVSync();
+    logf("video %dx%d (xfb %d, vi %dx%d)", vm->fbWidth, vm->efbHeight, vm->xfbHeight, vm->viWidth, vm->viHeight);
+  }
+#endif
   logf("gfx up: scale %.3f %.3f", app.gfx.sx, app.gfx.sy);
   app.input.init();
   bool au = app.audio.init();
@@ -167,19 +224,7 @@ bool Gfx::init(SDL_Window* win) {
   SDL_SetRenderDrawBlendMode(r_, SDL_BLENDMODE_BLEND);
   SDL_ShowCursor(SDL_DISABLE);
   SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
-  int ow = 0, oh = 0;
-  SDL_GetRendererOutputSize(r_, &ow, &oh);
-  if (app.widescreen) {
-    // 16:9: fill the framebuffer (the TV stretches a 4:3 Wii picture back to 16:9).
-    sx = (float)ow / VW;
-    sy = (float)oh / VH;
-    ox = oy = 0;
-  } else {
-    // 4:3: letterbox the 16:9 canvas.
-    sx = sy = (float)ow / VW;
-    ox = 0;
-    oy = (oh - VH * sy) * 0.5f;
-  }
+  layout();
   white_ = makeTex(r_, 4, 4, [](float, float, int, int) { return 1.0f; });
   disc_ = makeTex(r_, 64, 64, [](float x, float y, int w, int) {
     float d = std::hypot(x - w * 0.5f, y - w * 0.5f);
@@ -207,6 +252,30 @@ void Gfx::shutdown() {
   for (auto& kv : fonts_) TTF_CloseFont(kv.second);
   fonts_.clear();
   if (r_) SDL_DestroyRenderer(r_);
+}
+
+void Gfx::layout() {
+  int ow = 0, oh = 0;
+  SDL_GetRendererOutputSize(r_, &ow, &oh);
+  float k = app.screenSize / 100.0f;
+  if (app.widescreen) {
+    // 16:9: fill the framebuffer (the TV stretches the Wii's picture back out to 16:9)
+    sx = (float)ow / VW * k;
+    sy = (float)oh / VH * k;
+  } else {
+    // 4:3: letterbox the 16:9 canvas
+    sx = sy = (float)ow / VW * k;
+  }
+  ox = (ow - VW * sx) * 0.5f;
+  oy = (oh - VH * sy) * 0.5f;
+  // keep everything inside the picture when it doesn't fill the screen
+  SDL_Rect clip{(int)std::floor(ox), (int)std::floor(oy), (int)std::ceil(VW * sx), (int)std::ceil(VH * sy)};
+  if (clip.x > 0 || clip.y > 0) SDL_RenderSetClipRect(r_, &clip);
+  else SDL_RenderSetClipRect(r_, nullptr);
+  // text was rasterised for the old scale
+  for (auto& t : text_)
+    if (t.second.tex.t) SDL_DestroyTexture(t.second.tex.t);
+  text_.clear();
 }
 
 void Gfx::begin(Color c) {

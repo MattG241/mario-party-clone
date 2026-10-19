@@ -43,6 +43,8 @@ enum Align { LEFT = 0, CENTER = 1, RIGHT = 2 };
 class Gfx {
  public:
   bool init(SDL_Window* win);
+  // Map the 854x480 canvas onto the screen (16:9 stretch or 4:3 letterbox, shrunk by app.screenSize).
+  void layout();
   void shutdown();
   void begin(Color clear);
   void end();
@@ -153,7 +155,13 @@ struct App {
   Audio audio;
   std::string dataDir;
   bool wii = false;
-  bool widescreen = true;
+  bool widescreen = true;  // the picture shape in use (see screenShape)
+  bool tvWide = true;      // the console's own 16:9 / 4:3 setting
+  // Screen options (title menu, saved in settings.txt next to the data folder)
+  int screenSize = 100;    // percent: smaller for TVs that cut off the edges
+  int screenShape = 0;     // 0 the console's setting, 1 16:9, 2 4:3
+  void applyScreen();      // after changing the options
+  void saveSettings() const;
   bool headless = false;  // tests: no vsync waits
   std::string shotDir;    // tests: save screenshots here
   float time = 0;

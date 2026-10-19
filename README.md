@@ -165,8 +165,8 @@ Channel (no browser needed).
 
 **Install** (a Wii with the [Homebrew Channel](https://wiibrew.org/wiki/Homebrew_Channel)):
 
-1. Get `AllStarParty-Wii.zip`, either from the repository's
-   [Releases](https://github.com/MattG241/mario-party-clone/releases) or by building it (below).
+1. Download [`AllStarParty-Wii.zip`](https://github.com/MattG241/mario-party-clone/raw/main/downloads/AllStarParty-Wii.zip)
+   (or build it yourself, below).
 2. Unzip it to the root of a USB stick or SD card (FAT32), so you get `apps/allstarparty/` with
    `boot.dol`, `meta.xml`, `icon.png` and `data/` inside. Copy the whole folder; the game needs `data/`.
 3. Put the stick in one of the Wii's back USB ports (or the SD card in the front slot), open the Homebrew
@@ -176,7 +176,12 @@ Channel (no browser needed).
 (trigger) is the extra button some menus and minigames use, **+** pauses and starts. A Nunchuk (stick +
 **A**/**B**), Classic Controller or GameCube controller works too. Up to four players; empty seats are
 CPUs (press **B** on the character screen to change their level). **HOME** returns to the Homebrew
-Channel. The game uses 16:9 if the Wii is set to widescreen, otherwise 4:3 with borders.
+Channel.
+
+**Screen.** The picture fills the TV at the shape the Wii is set to (Wii Settings → Screen → Widescreen
+Settings): 16:9 fills a widescreen TV, 4:3 shows the game letterboxed. If your TV cuts off the edges, open
+**Screen** on the title menu and shrink the picture until all four yellow corner marks show; you can also
+force 16:9 or 4:3 there. The choice is saved on the USB stick or SD card.
 
 **Build it yourself** (Linux):
 

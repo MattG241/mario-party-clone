@@ -931,14 +931,14 @@ class Board : public ui::Scene, public IO {
     Match& m = M();
     auto places = standings(m.players);
     int n = (int)m.players.size();
-    float w = 200, gap = (VW - 16 - w * n) / std::max(1, n - 1);
+    float w = 198, gap = (VW - 32 - w * n) / std::max(1, n - 1);
     // panels in seat order
     std::vector<int> order(n);
     for (int i = 0; i < n; i++) order[i] = i;
     std::sort(order.begin(), order.end(), [&](int a, int b) { return m.players[a].slot < m.players[b].slot; });
     for (int k = 0; k < n; k++) {
       const Player& p = m.players[order[k]];
-      float x = 8 + k * (w + gap), y = 6;
+      float x = 16 + k * (w + gap), y = 12;
       bool active = turn_ == &p;
       if (active) app.gfx.panel(x - 3, y - 3, w + 6, 58, PLAYER_COLORS[p.slot], 18);
       ui::card(x, y, w, 52, col::cream.alpha(0.95f), 16);
@@ -960,8 +960,8 @@ class Board : public ui::Scene, public IO {
     }
     // round counter
     if (talking_ || (menu_.open && !menu_.path)) return;
-    ui::card(VW - 128, VH - 40, 120, 32, col::cream.alpha(0.92f), 16);
-    app.gfx.text(fmt("Round %d/%d", m.round, m.rounds), VW - 68, VH - 37, 18, col::ink, CENTER, false);
+    ui::card(VW - 140, VH - 48, 120, 32, col::cream.alpha(0.92f), 16);
+    app.gfx.text(fmt("Round %d/%d", m.round, m.rounds), VW - 80, VH - 45, 18, col::ink, CENTER, false);
   }
 
   void drawDialogue() {

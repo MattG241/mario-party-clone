@@ -38,8 +38,8 @@ void Minigame::drawArena() const {
 
 void Minigame::drawTimer(float left) const {
   int s = (int)std::ceil(left < 0 ? 0 : left);
-  ui::card(VW / 2 - 40, 8, 80, 40, s <= 5 ? col::coral : col::cream, 20);
-  app.gfx.text(std::to_string(s), VW / 2, 12, 30, s <= 5 ? col::white : col::ink, CENTER, false);
+  ui::card(VW / 2 - 40, 12, 80, 40, s <= 5 ? col::coral : col::cream, 20);
+  app.gfx.text(std::to_string(s), VW / 2, 16, 30, s <= 5 ? col::white : col::ink, CENTER, false);
 }
 
 void Minigame::drawScores(const std::vector<int>& sc, const char* unit) const {
@@ -47,7 +47,7 @@ void Minigame::drawScores(const std::vector<int>& sc, const char* unit) const {
   float w = 150, gap = 10, total = n * w + (n - 1) * gap;
   float x0 = VW / 2 - total / 2;
   for (int i = 0; i < n; i++) {
-    float x = x0 + i * (w + gap), y = VH - 46;
+    float x = x0 + i * (w + gap), y = VH - 52;
     ui::card(x, y, w, 38, col::cream.alpha(0.95f), 19);
     app.gfx.circle(x + 19, y + 19, 17, color(i));
     spr::portrait(player(i).character, x + 19, y + 19, 32);

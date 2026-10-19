@@ -134,7 +134,7 @@ class MinigameMenu : public ui::Scene {
     if (!hasMinigame(m.id)) app.gfx.text("Coming soon", x + w / 2, ty + 64, 18, col::grey, CENTER, false);
     else if (m.teamGame) app.gfx.text("2 vs 2", x + w / 2, ty + 64, 18, col::grey, CENTER, false);
 
-    ui::prompts(VW / 2, VH - 30, {{B_A, "Play"}, {B_X, "Random"}, {B_B, "Back"}});
+    ui::prompts(VW / 2, VH - 38, {{B_A, "Play"}, {B_X, "Random"}, {B_B, "Back"}});
   }
 
  private:
