@@ -174,9 +174,11 @@ void Match::init(int board, int rounds_, const std::vector<Player>& ps, uint32_t
     if (n >= 0 && n != start) gates.push_back(n);
   }
   b.starGate = gates.empty() ? start : rng.pick(gates);
-  std::vector<int> cats{0, 1, 2, 3, 4, 5, 6};
-  rng.shuffle(cats);
-  for (int i = 0; i < 3; i++) bonus[i] = cats[i];
+  // the classic three bonus stars
+  bonus[0] = 7;
+  bonus[1] = 8;
+  bonus[2] = 4;
+  for (auto& p : players) p.st.peakCoins = p.coins;
   std::vector<int> chars;
   for (auto& p : players) chars.push_back(p.character);
   castRoles(chars, g.def->world);
@@ -200,10 +202,11 @@ std::vector<int> standings(const std::vector<Player>& ps) {
   return placesFromScores(sc);
 }
 
-static const char* BONUS_NAMES[7][2] = {{"Trailblazer", "Most spaces travelled"}, {"Treasure Keeper", "Most coins earned"},
+static const char* BONUS_NAMES[9][2] = {{"Trailblazer", "Most spaces travelled"}, {"Treasure Keeper", "Most coins earned"},
                                         {"Game Champion", "Most minigame wins"},    {"Item Expert", "Most items used"},
-                                        {"Event Explorer", "Most Happening Spaces"}, {"Big Spender", "Most coins spent"},
-                                        {"Lucky Landing", "Most Lucky Spaces"}};
+                                        {"Happening Star", "Most Happening Spaces"}, {"Big Spender", "Most coins spent"},
+                                        {"Lucky Landing", "Most Lucky Spaces"},     {"Minigame Star", "Most coins won in minigames"},
+                                        {"Coin Star", "Most coins held at one time"}};
 const char* bonusName(int id) { return BONUS_NAMES[id][0]; }
 
 static int statOf(const Player& p, int id) {
@@ -214,6 +217,8 @@ static int statOf(const Player& p, int id) {
     case 3: return p.st.itemsUsed;
     case 4: return p.st.events;
     case 5: return p.st.spent;
+    case 7: return p.st.mgCoins;
+    case 8: return p.st.peakCoins;
     default: return p.st.lucky;
   }
 }
@@ -333,6 +338,7 @@ static Task<> gainCoins(Match& m, Player& p, int n) {
   if (n <= 0) co_return;
   p.coins += n;
   p.st.earned += n;
+  p.st.peakCoins = std::max(p.st.peakCoins, p.coins);
   co_await m.io->coins(p, n);
 }
 
@@ -502,8 +508,10 @@ static Task<> runEvent(Match& m, const std::string& id, Player* p);
 
 static Task<> evLucky(Match& m, Player& p) {
   p.st.lucky++;
-  std::vector<std::string> ids{"parade", "sale", "lanterns", "delivery", "tailwind", "guide", "popup"};
-  std::vector<float> w{1, m.b.saleUntil >= m.round ? 0.f : 0.8f, 1.4f, 1.2f, 1, m.distance(p.node, m.b.starGate, false) > 6 ? 0.7f : 0.f, p.coins >= 4 ? 0.8f : 0.f};
+  bool rivals = m.players.size() > 1;
+  std::vector<std::string> ids{"parade", "sale", "lanterns", "delivery", "tailwind", "guide", "popup", "chance", "duel", "battle"};
+  std::vector<float> w{1, m.b.saleUntil >= m.round ? 0.f : 0.8f, 1.4f, 1.2f, 1, m.distance(p.node, m.b.starGate, false) > 6 ? 0.7f : 0.f, p.coins >= 4 ? 0.8f : 0.f,
+                       rivals ? 1.1f : 0.f, rivals && p.coins > 0 ? 0.7f : 0.f, rivals ? 0.6f : 0.f};
   co_await runEvent(m, ids[m.rng.weighted(w)], &p);
 }
 
@@ -511,15 +519,147 @@ static Task<> evBadLuck(Match& m, Player& p) {
   bool rivalElsewhere = false;
   for (auto& o : m.players)
     if (&o != &p && o.node != p.node) rivalElsewhere = true;
-  std::vector<std::string> ids{"swap", "butterfingers", "leak", "backwind", "gust", "topsy"};
-  std::vector<float> w{rivalElsewhere ? 1.f : 0.f, 1, 1.3f, 1, p.coins > 0 ? 1.f : 0.f, 0.8f};
+  std::vector<std::string> ids{"swap", "butterfingers", "leak", "backwind", "gust", "topsy", "battle"};
+  std::vector<float> w{rivalElsewhere ? 1.f : 0.f, 1, 1.3f, 1, p.coins > 0 ? 1.f : 0.f, 0.8f, m.players.size() > 1 ? 0.7f : 0.f};
   co_await runEvent(m, ids[m.rng.weighted(w)], &p);
+}
+
+// Chance Time: three blocks pick who gives, what, and who receives.
+static Task<> chanceTime(Match& m, Player& lander) {
+  int n = (int)m.players.size();
+  if (n < 2) co_return;
+  co_await present(m, "CHANCE TIME!", 3, {{R_HOST, P_CHEER, "It's CHANCE TIME! Stop the blocks to see who gives what to whom!"}}, -1, &lander);
+  int gi = m.rng.range(0, n - 1), ri = m.rng.range(0, n - 2);
+  if (ri >= gi) ri++;
+  Player &g = m.players[gi], &r = m.players[ri];
+  std::vector<float> w{1.2f, 0.8f, g.stars > 0 ? 0.6f : 0.f, 0.7f, g.stars != r.stars ? 0.5f : 0.f};
+  int act = m.rng.weighted(w);
+  co_await m.io->chanceTime(lander, gi, ri, act);
+  switch (act) {
+    case CH_GIVE10:
+    case CH_GIVE20: {
+      int amount = co_await loseCoins(m, g, act == CH_GIVE10 ? 10 : 20);
+      if (amount > 0) co_await gainCoins(m, r, amount);
+      else co_await m.io->say({{R_HOST, P_SURPRISED, fmt("%s has no coins to give!", g.name())}}, &g);
+      break;
+    }
+    case CH_GIVESTAR:
+      g.stars--;
+      r.stars++;
+      co_await m.io->say({{R_HOST, P_SURPRISED, fmt("%s hands a Star Coin to %s!", g.name(), r.name())}}, &g);
+      co_await m.io->starGained(r, 1);
+      break;
+    case CH_SWAPCOINS: {
+      int gc = g.coins, rc = r.coins;
+      co_await m.io->say({{R_HOST, P_SURPRISED, fmt("%s and %s swap coins!", g.name(), r.name())}}, nullptr);
+      g.coins = rc;
+      r.coins = gc;
+      g.st.peakCoins = std::max(g.st.peakCoins, g.coins);
+      r.st.peakCoins = std::max(r.st.peakCoins, r.coins);
+      if (rc != gc) {
+        co_await m.io->coins(g, rc - gc);
+        co_await m.io->coins(r, gc - rc);
+      }
+      break;
+    }
+    case CH_SWAPSTARS:
+      std::swap(g.stars, r.stars);
+      co_await m.io->say({{R_HOST, P_SURPRISED, fmt("%s and %s swap their Star Coins! %s now has %d, %s has %d.", g.name(), r.name(), g.name(), g.stars, r.name(),
+                                                     r.stars)}},
+                         nullptr);
+      break;
+  }
+  m.io->boardChanged();
+}
+
+// A Battle: everyone puts coins in a pot, then plays a minigame for it (70% to the winner, 30% to second).
+static Task<> battle(Match& m, Player* lander) {
+  static const int ANTES[3] = {5, 10, 20};
+  int ante = ANTES[m.rng.weighted({1.2f, 1.0f, 0.6f})];
+  co_await present(m, "BATTLE MINIGAME!", 3, {{R_HOST, P_CHEER, fmt("It's a BATTLE! Everyone puts up to %d coins in the pot, and the minigame winner takes most of it!", ante)}}, -1,
+                   lander);
+  int pot = 0;
+  for (auto& p : m.players) pot += co_await loseCoins(m, p, ante);
+  if (pot == 0) {
+    co_await m.io->say({{R_HOST, P_SURPRISED, "Nobody has a single coin? Then the battle's off!"}}, nullptr);
+    co_return;
+  }
+  co_await m.io->say({{R_HOST, P_POINT, fmt("There are %d coins in the pot. Let the battle begin!", pot)}}, nullptr);
+  std::vector<int> who;
+  for (size_t i = 0; i < m.players.size(); i++) who.push_back((int)i);
+  auto places = co_await m.io->playMinigame(MG_BATTLE, who, {});
+  std::vector<int> firsts, seconds;
+  for (size_t i = 0; i < places.size(); i++) {
+    if (places[i] == 1) firsts.push_back((int)i);
+    if (places[i] == 2) seconds.push_back((int)i);
+  }
+  int firstPot = seconds.empty() ? pot : pot * 7 / 10, secondPot = pot - firstPot;
+  std::vector<int> share(m.players.size(), 0);
+  for (int i : firsts) share[i] += firstPot / (int)firsts.size();
+  for (int i : seconds) share[i] += secondPot / (int)seconds.size();
+  int given = 0;
+  for (int s : share) given += s;
+  // coins that don't divide evenly go to a lucky random player
+  if (pot > given) share[m.rng.range(0, (int)share.size() - 1)] += pot - given;
+  for (size_t i = 0; i < share.size(); i++)
+    if (share[i] > 0) co_await gainCoins(m, m.players[i], share[i]);
+}
+
+// A Duel: pick a rival and a stake, then a two-player minigame; the winner takes the stake.
+static Task<> duel(Match& m, Player& p) {
+  std::vector<Target> opts;
+  std::vector<int> who;
+  for (size_t i = 0; i < m.players.size(); i++)
+    if (&m.players[i] != &p) {
+      who.push_back((int)i);
+      opts.push_back({fmt("%s (%d coins)", m.players[i].name(), m.players[i].coins), -1, m.players[i].slot});
+    }
+  if (who.empty()) co_return;
+  co_await present(m, "DUEL!", 3, {{R_HOST, P_POINT, "A DUEL! Pick a rival and a stake. The winner takes it all!"}}, -1, &p);
+  int cpu = -1;
+  if (p.cpu) {
+    cpu = 0;
+    for (size_t k = 0; k < who.size(); k++)
+      if (m.players[who[k]].coins > m.players[who[cpu]].coins) cpu = (int)k;
+  }
+  int pick = co_await m.io->chooseTarget(p, "Duel which rival?", opts, cpu);
+  if (pick < 0) pick = 0;
+  Player& o = m.players[who[pick]];
+  int most = std::min(p.coins, o.coins);
+  std::vector<int> stakes;
+  std::vector<Target> sopts;
+  for (int s : {5, 10, 20})
+    if (s <= most) stakes.push_back(s);
+  if (stakes.empty() || stakes.back() != most) stakes.push_back(most);
+  for (int s : stakes) sopts.push_back({s == most && s > 20 ? fmt("Everything: %d coins", s) : fmt("%d coins", s), -1, -1});
+  int scpu = p.cpu ? (m.rng.chance(0.5) ? (int)stakes.size() - 1 : 0) : -1;
+  int sp = co_await m.io->chooseTarget(p, "Stake how many coins?", sopts, scpu);
+  int stake = stakes[std::max(0, sp)];
+  if (stake <= 0) {
+    co_await m.io->say({{R_HOST, P_SURPRISED, "No coins to stake? Then it's a duel for glory!"}}, nullptr);
+  } else co_await m.io->say({{R_HOST, P_CHEER, fmt("%s versus %s, for %d coins!", p.name(), o.name(), stake)}}, nullptr);
+  auto places = co_await m.io->playMinigame(MG_DUEL, {m.playerIndex(p), m.playerIndex(o)}, {});
+  if (places.size() < 2 || places[0] == places[1]) {
+    co_await m.io->say({{R_HOST, P_SURPRISED, "A draw! Everyone keeps their coins."}}, nullptr);
+    co_return;
+  }
+  Player& winner = places[0] < places[1] ? p : o;
+  Player& loser = places[0] < places[1] ? o : p;
+  int won = co_await loseCoins(m, loser, stake);
+  co_await m.io->say({{R_HOST, P_CHEER, fmt("%s wins the duel!", winner.name())}}, &winner);
+  if (won > 0) co_await gainCoins(m, winner, won);
 }
 
 static Task<> runEvent(Match& m, const std::string& id, Player* p) {
   IO& io = *m.io;
   (void)io;
-  if (id == "parade") {
+  if (id == "chance" && p) {
+    co_await chanceTime(m, *p);
+  } else if (id == "battle") {
+    co_await battle(m, p);
+  } else if (id == "duel" && p) {
+    co_await duel(m, *p);
+  } else if (id == "parade") {
     co_await present(m, "PARTY PARADE", 0, {{R_HELPER, P_HAPPY, "Parade time! Drums, banners and coins for EVERYONE!"}}, -1, p);
     for (auto& pl : m.players) co_await gainCoins(m, pl, 5);
   } else if (id == "sale") {
@@ -933,6 +1073,8 @@ static Task<> land(Match& m, Player& p) {
       }
       break;
     }
+  // the space's colour splits the players for the round's minigame
+  p.color = (n.type == SP_BLUE || n.type == SP_START || n.type == SP_LUCKY) ? SC_BLUE : (n.type == SP_BADLUCK ? SC_RED : SC_GREEN);
   switch (n.type) {
     case SP_START:
     case SP_BLUE: {
@@ -942,7 +1084,14 @@ static Task<> land(Match& m, Player& p) {
       break;
     }
     case SP_LUCKY: co_await evLucky(m, p); break;
-    case SP_BADLUCK: co_await evBadLuck(m, p); break;
+    case SP_BADLUCK:
+      // a red space costs 3 coins (6 in the final round), and sometimes worse
+      co_await loseCoins(m, p, m.finalRound() ? 6 : 3);
+      if (m.rng.chance(0.4)) {
+        co_await m.io->say({{R_HELPER, P_SURPRISED, "Oh no, that's not all..."}}, &p);
+        co_await evBadLuck(m, p);
+      }
+      break;
     case SP_HAPPENING:
       p.st.events++;
       co_await runEvent(m, n.eventId[0] ? n.eventId : "lanterns", &p);
@@ -1038,14 +1187,15 @@ static Task<> rollTurnOrder(Match& m) {
 
 static Task<> finalStretch(Match& m) {
   m.stretchDone = true;
-  co_await m.io->headline("FINAL STRETCH!", "3 ROUNDS TO GO");
+  int left = m.rounds - m.round + 1;
+  co_await m.io->headline(fmt("LAST %d TURNS!", left), "THE FINAL STRETCH");
   auto pl = standings(m.players);
   int worst = *std::max_element(pl.begin(), pl.end());
   std::vector<int> lasts;
   for (size_t i = 0; i < pl.size(); i++)
     if (pl[i] == worst) lasts.push_back((int)i);
   Player& last = m.players[m.rng.pick(lasts)];
-  co_await m.io->say({{R_HOST, P_CHEER, "Only three rounds left, and it's still anyone's party!"}, {R_HOST, P_HAPPY, fmt("%s, you're trailing, so here's a boost to catch up!", last.name())}}, nullptr);
+  co_await m.io->say({{R_HOST, P_CHEER, fmt("Only %d turns left, and it's still anyone's party!", left)}, {R_HOST, P_HAPPY, fmt("%s, you're trailing, so here's a boost to catch up!", last.name())}}, nullptr);
   co_await gainCoins(m, last, 10);
   int twist = m.rng.range(0, 2);
   if (twist == 0) {
@@ -1076,8 +1226,11 @@ Task<> runMatch(Match& m) {
     if (m.b.saleUntil >= 0 && m.round > m.b.saleUntil) m.b.saleUntil = -1;
     m.io->boardChanged();
     co_await m.io->roundStart(m.round, m.rounds, m.finalRound());
-    if (m.round == 1 && !m.orderRolled) co_await rollTurnOrder(m);
-    if (m.rounds >= 5 && m.round == m.rounds - 2 && !m.stretchDone) co_await finalStretch(m);
+    if (m.round == 1 && !m.orderRolled) {
+      co_await rollTurnOrder(m);
+      if (!m.testEvent.empty()) co_await runEvent(m, m.testEvent, &m.players[0]);
+    }
+    if (m.rounds >= 5 && m.round == m.rounds - (m.rounds >= 10 ? 4 : 2) && !m.stretchDone) co_await finalStretch(m);
     if (repaired) co_await runEvent(m, "bridge_repair", nullptr);
     if (m.finalRound()) {
       co_await m.io->say({{R_HOST, P_CHEER, "The final round is here! Last chance to grab those Star Coins!"},
@@ -1086,14 +1239,34 @@ Task<> runMatch(Match& m) {
       co_await runGlobalEvent(m);
     }
     for (size_t i = 0; i < m.players.size(); i++) co_await runTurn(m, m.players[i]);
-    // the round's minigame
-    std::vector<int> places = co_await m.io->playMinigame();
+    // the round's minigame: with four players, the colours of the spaces they ended on split them up
+    // (green spaces join a side at random): all one colour is everyone for themselves, 3 and 1 is 1 vs 3,
+    // 2 and 2 is 2 vs 2
+    MgMode mode = MG_FFA;
+    std::vector<int> teams;
+    if (m.players.size() == 4) {
+      int blues = 0;
+      for (auto& p : m.players) {
+        int c = p.color == SC_GREEN ? (m.rng.chance(0.5) ? SC_BLUE : SC_RED) : p.color;
+        teams.push_back(c == SC_BLUE ? 0 : 1);
+        blues += c == SC_BLUE;
+      }
+      mode = blues == 2 ? MG_2V2 : (blues == 1 || blues == 3 ? MG_1V3 : MG_FFA);
+      if (mode == MG_FFA) teams.clear();
+    }
+    co_await m.io->minigameType(mode, teams);
+    std::vector<int> who;
+    for (size_t i = 0; i < m.players.size(); i++) who.push_back((int)i);
+    std::vector<int> places = co_await m.io->playMinigame(mode, who, teams);
     std::vector<int> coins(m.players.size());
     for (size_t i = 0; i < m.players.size(); i++) {
       int pl = i < places.size() ? places[i] : 4;
-      coins[i] = REWARDS[std::max(0, std::min(3, pl - 1))];
+      // free-for-all pays by place; in team games every winner gets 10 coins
+      coins[i] = mode == MG_FFA ? REWARDS[std::max(0, std::min(3, pl - 1))] : (pl == 1 ? 10 : 0);
       m.players[i].coins += coins[i];
       m.players[i].st.earned += coins[i];
+      m.players[i].st.mgCoins += coins[i];
+      m.players[i].st.peakCoins = std::max(m.players[i].st.peakCoins, m.players[i].coins);
       if (pl == 1) m.players[i].st.wins++;
     }
     co_await m.io->minigameRewards(places, coins);

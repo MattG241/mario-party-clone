@@ -179,6 +179,13 @@ title menu) is written for the Wii Remote. Hold it sideways: the D-pad moves, **
 CPUs (press **B** on the character screen to change their level). **HOME** returns to the Homebrew
 Channel.
 
+**Party rules.** Mario-Party-style: where each player's turn ends (blue, red, or green for a random side)
+splits the four players into a 4-player, 1 vs 3 or 2 vs 2 minigame after every round (team winners get 10 coins
+each); red spaces cost 3 coins; lucky spaces can start Chance Time (three blocks decide who gives what to whom),
+a Duel (bet coins in a one-on-one minigame) or a Battle (everyone pays into a pot, the winner takes 70%); the
+last 5 turns bring a catch-up boost; and the Minigame Star, Coin Star and Happening Star are awarded at the end.
+Every minigame's rules card has a **Practice** option (press **1**).
+
 **Multiplayer.** Up to four players on one Wii, in the board game and in the minigames: each player presses
 **2** (or **A**) on the character screen to join with their own controller (Wii Remotes in player order 1-4, or
 GameCube controllers in ports 1-4). Seats nobody joins are played by the CPU.

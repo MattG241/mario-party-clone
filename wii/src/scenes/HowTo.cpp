@@ -7,7 +7,7 @@
 
 namespace {
 
-constexpr int PAGES = 3;
+constexpr int PAGES = 4;
 
 class HowTo : public ui::Scene {
  public:
@@ -119,6 +119,21 @@ class HowTo : public ui::Scene {
     }
   }
 
+  void pageRules() {
+    app.gfx.text("Teams, surprises and bonus stars", VW / 2, 76, 24, col::white, CENTER, true);
+    float y = 112;
+    auto line = [&](Color dot, const std::string& s) {
+      app.gfx.circle(70, y + 10, 7, dot);
+      y += app.gfx.textBox(s, 88, y, VW - 170, 16, col::white) + 9;
+    };
+    line(Color::hex(0x3b7cf0), "Where your turn ends picks your side for the round's minigame: blue spaces make you blue, red spaces red, and any other space joins a side at random.");
+    line(Color::hex(0xe5484d), "All one colour: everyone for themselves. Three and one: 1 vs 3. Two and two: 2 vs 2. Every team winner gets 10 coins.");
+    line(col::coral, "Red spaces cost 3 coins (sometimes worse!). Lucky spaces can start CHANCE TIME, a DUEL or a BATTLE.");
+    line(col::gold, "Chance Time: stop the three blocks with 2 to see who gives what to whom: coins, Star Coins, or a swap!");
+    line(col::purple, "Battle: everyone pays into a pot; the winner takes 70% and second place 30%. Duel: bet coins against one rival.");
+    line(col::green, "Last 5 turns: the trailing player gets a boost and the party wheel spins. At the end: Minigame Star, Coin Star and Happening Star!");
+  }
+
   void pageParty() {
     app.gfx.text("Players and minigames", VW / 2, 76, 24, col::white, CENTER, true);
     float y = 118;
@@ -142,6 +157,7 @@ class HowTo : public ui::Scene {
     app.gfx.text("How to Play", VW / 2, 18, 34, col::white, CENTER, true);
     if (page_ == 0) pageControls();
     else if (page_ == 1) pageBoard();
+    else if (page_ == 2) pageRules();
     else pageParty();
     for (int i = 0; i < PAGES; i++) app.gfx.circle(VW / 2 - 20 + i * 20, 62, 5, i == page_ ? col::gold : col::white.alpha(0.5f));
     ui::prompts(VW / 2, VH - 40, {{B_A, page_ + 1 < PAGES ? "Next" : "Done"}, {B_B, page_ > 0 ? "Previous" : "Back"}});

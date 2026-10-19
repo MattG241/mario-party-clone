@@ -23,6 +23,7 @@ struct Session {
   bool demo = false;
   bool tour = false;  // play every minigame once (tests)
   std::string forceMinigame;
+  std::string testEvent;  // --event: run a board event straight after the turn order
   int frameLimit = 0;
   Match match;
   std::vector<int> activeSlots() const {

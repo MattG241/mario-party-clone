@@ -27,7 +27,15 @@ constexpr int REWARDS[4] = {10, 6, 3, 1};
 
 struct Stats {
   int moved = 0, earned = 0, spent = 0, wins = 0, itemsUsed = 0, events = 0, lucky = 0, starsBought = 0;
+  int mgCoins = 0, peakCoins = 0;  // coins won in minigames, most coins held at once
 };
+
+// The colour of the space a player's turn ended on, which splits the players for the round's minigame.
+enum SpaceColor { SC_GREEN, SC_BLUE, SC_RED };
+// Minigame kinds: the round's minigame (everyone, 1 vs 3, 2 vs 2), a Battle for a coin pot, a Duel.
+enum MgMode { MG_FFA, MG_1V3, MG_2V2, MG_BATTLE, MG_DUEL };
+// Chance Time outcomes
+enum ChanceAction { CH_GIVE10, CH_GIVE20, CH_GIVESTAR, CH_SWAPCOINS, CH_SWAPSTARS, CH_COUNT };
 
 struct Player {
   int slot = 0;       // controller / colour
@@ -39,6 +47,7 @@ struct Player {
   int coins = START_COINS, stars = 0;
   std::vector<int> items;
   bool shielded = false;
+  int color = SC_GREEN;  // the space this player's last turn ended on
   Stats st;
   const char* name() const { return data::CHARACTERS[character].name; }
   bool has(int it) const;
@@ -131,7 +140,13 @@ class IO {
   virtual co::Task<> say(std::vector<Line> lines, Player* p) = 0;
   virtual co::Task<> hiddenBlock(Player& p, bool star) = 0;
   virtual co::Task<> orderDecided() = 0;
-  virtual co::Task<std::vector<int>> playMinigame() = 0;  // place (1-4) per player index
+  // Show how the players split up for the round's minigame (teams: 0 blue, 1 red per player; empty for everyone).
+  virtual co::Task<> minigameType(MgMode mode, std::vector<int> teams) = 0;
+  // Play a minigame with the players in `who` (indices); teams per player in `who` (0 blue / 1 red) or empty.
+  // Returns a place (1-4) per player in `who`.
+  virtual co::Task<std::vector<int>> playMinigame(MgMode mode, std::vector<int> who, std::vector<int> teams) = 0;
+  // Chance Time: the lander stops three blocks that pick who gives, what, and who receives.
+  virtual co::Task<> chanceTime(Player& lander, int giver, int receiver, int action) = 0;
   virtual co::Task<> minigameRewards(std::vector<int> places, std::vector<int> coins) = 0;
   virtual co::Task<> bonusAwards(std::vector<Award> awards) = 0;
   virtual co::Task<> finalResults() = 0;
@@ -147,6 +162,7 @@ struct Match {
   Graph g;
   Random rng;
   std::vector<std::string> mgHistory;
+  std::string testEvent;  // tests: run this event for the first player right after the turn order
   bool orderRolled = false, stretchDone = false;
   int bonus[3] = {0, 1, 2};
   // per-turn scratch

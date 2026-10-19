@@ -81,23 +81,49 @@ const char* minigameRule(const data::MinigameDef* d, int k);
 const char* minigameControls(const data::MinigameDef* d);
 
 // ---------------------------------------------------------------------------------------------
-// The host: rules card -> countdown -> play -> finish -> placings.
+// The host: rules card (-> optional practice -> rules card) -> countdown -> play -> finish -> placings.
+//
+// Team games: pass teams (one entry per player, 0 = blue, 1 = red) to begin(); empty means free-for-all.
+// The minigame still scores each player; the host turns that into a team result: 2-vs-2 compares the
+// teams' sums, 1-vs-3 compares the solo score with the trio's average. The winning side gets place 1,
+// the other place 2; a draw gives everyone place 2.
 class MinigameHost {
  public:
-  void begin(const char* id, const std::vector<MgPlayer>& players, uint32_t seed);
+  void begin(const char* id, const std::vector<MgPlayer>& players, uint32_t seed, std::vector<int> teams = {});
   void update(float dt);
   void draw();
   bool done() const { return phase_ == DONE; }
   std::vector<int> places() const { return places_; }  // per player, 1-4
   const char* id() const { return id_.c_str(); }
+  bool teamGame() const { return !teams_.empty(); }
+  int winningTeam() const { return winTeam_; }  // 0 blue, 1 red, -1 draw or free-for-all
 
  private:
-  enum Phase { CARD, COUNTDOWN, PLAY, FINISH, RESULTS, DONE } phase_ = DONE;
+  enum Phase { CARD, PRACTICE, COUNTDOWN, PLAY, FINISH, RESULTS, DONE } phase_ = DONE;
+  bool anyHuman() const;
+  int teamSize(int team) const;
+  int soloTeam() const;  // the team with a single member facing a bigger team, or -1
+  void freshGame();      // (re)create game_ for the real run
+  void startPractice();
+  void endPractice();
+  void computePlaces();
+  void drawCard();
+  void drawReadyRow();
+  void drawTeamLabels();
+  void drawResults();
+  void drawTeamResults();
+  void drawCelebration();
+
   std::unique_ptr<Minigame> game_;
   std::vector<MgPlayer> players_;
   std::vector<int> places_;
   std::vector<bool> ready_;
+  std::vector<int> teams_;
   std::string id_;
   const data::MinigameDef* def_ = nullptr;
+  uint32_t seed_ = 0;
+  int winTeam_ = -1;
+  float teamScore_[2] = {0, 0};  // sum (equal teams) or average (1-vs-3) per team
   float t_ = 0;
+  float practiceEnd_ = -1;  // practice: time the practice game finished, or -1
 };

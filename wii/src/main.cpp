@@ -17,6 +17,7 @@ int main(int argc, char** argv) {
   for (int i = 1; i < argc; i++) {
     if (!strcmp(argv[i], "--demo")) session.demo = true;
     if (!strcmp(argv[i], "--tour")) session.tour = true;
+    if (!strcmp(argv[i], "--event") && i + 1 < argc) session.testEvent = argv[++i];
     if (!strcmp(argv[i], "--mg") && i + 1 < argc) session.forceMinigame = argv[++i];
     if (!strcmp(argv[i], "--frames") && i + 1 < argc) session.frameLimit = atoi(argv[++i]);
     // --press FRAME:PLAYER:BUTTON (a b x y start select up down left right), for driving menus in tests

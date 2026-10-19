@@ -57,7 +57,9 @@ struct Menu {
   std::vector<int> pathTo;
 };
 
-enum Overlay { OV_NONE, OV_ORDER, OV_REWARDS, OV_AWARD, OV_RESULTS };
+enum Overlay { OV_NONE, OV_ORDER, OV_REWARDS, OV_AWARD, OV_RESULTS, OV_TYPE };
+const Color TEAM_COLOR[2] = {Color::hex(0x3b7cf0), Color::hex(0xe5484d)};
+const Color SPACE_COLOR[3] = {Color::hex(0x3ec35c), Color::hex(0x3b7cf0), Color::hex(0xe5484d)};
 
 class Board : public ui::Scene, public IO {
  public:
@@ -77,6 +79,7 @@ class Board : public ui::Scene, public IO {
     }
     m.init(session.board, session.rounds, ps, SDL_GetTicks() * 2654435761u + 17);
     m.io = this;
+    m.testEvent = session.testEvent;
     def_ = m.g.def;
     boardMusic_ = pickMusic("board");
     app.audio.music(boardMusic_.c_str());
@@ -581,10 +584,10 @@ class Board : public ui::Scene, public IO {
     for (auto& r : orderRoll_) r = 0;
   }
 
-  Task<std::vector<int>> playMinigame() override {
+  // The pool: the board's own world first, then any; avoid the last few played.
+  std::string pickMinigame(std::vector<std::string>& pool) {
     Match& m = M();
-    // choose: the board's own world first, then any; avoid the last few played
-    std::vector<std::string> pool, local;
+    std::vector<std::string> local;
     for (int i = 0; i < data::MINIGAME_COUNT; i++) {
       const char* id = data::MINIGAMES[i].id;
       if (!hasMinigame(id)) continue;
@@ -598,10 +601,28 @@ class Board : public ui::Scene, public IO {
     if (pool.empty())
       for (int i = 0; i < data::MINIGAME_COUNT; i++)
         if (hasMinigame(data::MINIGAMES[i].id)) pool.push_back(data::MINIGAMES[i].id);
-    if (pool.empty()) co_return std::vector<int>(m.players.size(), 1);
+    if (pool.empty()) return "";
     std::string id = (!local.empty() && rng_.chance(0.55)) ? rng_.pick(local) : rng_.pick(pool);
     if (!session.forceMinigame.empty() && hasMinigame(session.forceMinigame.c_str())) id = session.forceMinigame;
     m.mgHistory.push_back(id);
+    return id;
+  }
+
+  Task<> minigameType(MgMode mode, std::vector<int> teams) override {
+    mgMode_ = mode;
+    mgTeams_ = teams;
+    overlay_ = OV_TYPE;
+    ovT_ = 0;
+    app.audio.sfx("event");
+    co_await waitAdvance(3.2f);
+    overlay_ = OV_NONE;
+  }
+
+  Task<std::vector<int>> playMinigame(MgMode mode, std::vector<int> who, std::vector<int> teams) override {
+    Match& m = M();
+    std::vector<std::string> pool;
+    std::string id = pickMinigame(pool);
+    if (id.empty()) co_return std::vector<int>(who.size(), 1);
     int idx = minigameIndex(id.c_str());
     // roulette
     roulette_ = true;
@@ -610,17 +631,46 @@ class Board : public ui::Scene, public IO {
     rouletteId_ = id;
     app.audio.sfx("event");
     co_await co::wait(2.2f);
-    showBanner("MINIGAME TIME!", idx >= 0 ? data::MINIGAMES[idx].name : id, col::coral, 1.0f);
+    static const char* titles[5] = {"MINIGAME TIME!", "1 VS 3!", "2 VS 2!", "BATTLE!", "DUEL!"};
+    showBanner(titles[mode], idx >= 0 ? data::MINIGAMES[idx].name : id, mode == MG_BATTLE || mode == MG_DUEL ? col::purple : col::coral, 1.0f);
     co_await co::wait(1.6f);
     roulette_ = false;
     std::vector<MgPlayer> mp;
-    for (auto& p : m.players) mp.push_back(MgPlayer{p.slot, p.character, p.cpu, p.cpuLevel});
-    host_.begin(id.c_str(), mp, m.rng.state() ^ (uint32_t)(m.round * 7919));
+    for (int i : who) {
+      const Player& p = m.players[i];
+      mp.push_back(MgPlayer{p.slot, p.character, p.cpu, p.cpuLevel});
+    }
+    host_.begin(id.c_str(), mp, m.rng.state() ^ (uint32_t)(m.round * 7919 + mode), teams);
     mg_ = true;
     co_await co::until([this] { return host_.done(); });
     mg_ = false;
     app.audio.music(boardMusic_.c_str());
     co_return host_.places();
+  }
+
+  Task<> chanceTime(Player& lander, int giver, int receiver, int action) override {
+    Match& m = M();
+    chance_ = true;
+    chanceT_ = 0;
+    chanceStop_ = 0;
+    chanceGiver_ = giver, chanceReceiver_ = receiver, chanceAction_ = action;
+    app.audio.music("minigame");
+    for (int k = 0; k < 3; k++) {
+      // each block spins until the lander stops it (a CPU waits a moment)
+      if (lander.cpu) co_await co::wait(1.0f + 0.4f * (float)rng_.next());
+      else {
+        co_await co::wait(0.4f);
+        co_await co::until([&lander] { return app.input.pad[lander.slot].press(B_A); });
+      }
+      chanceStop_ = k + 1;
+      app.audio.sfx("dice");
+      co_await co::wait(0.45f);
+    }
+    app.audio.sfx("fanfare");
+    co_await co::wait(1.6f);
+    chance_ = false;
+    app.audio.music(boardMusic_.c_str());
+    (void)m;
   }
 
   Task<> minigameRewards(std::vector<int> places, std::vector<int> coins) override {
@@ -704,6 +754,21 @@ class Board : public ui::Scene, public IO {
     diceT_ += dt;
     flashT_ += dt;
     rouletteT_ += dt;
+    chanceT_ += dt;
+    // coin counters tick up (or down) to the real totals, a coin at a time
+    coinTick_ -= dt;
+    for (auto& p : M().players) {
+      float& s = shownCoins_[p.slot];
+      if (s < 0) s = (float)p.coins;
+      float diff = p.coins - s;
+      if (std::fabs(diff) < 0.01f) continue;
+      float step = std::max(14.0f, std::fabs(diff) * 2.5f) * dt;
+      s = std::fabs(diff) <= step ? (float)p.coins : s + (diff > 0 ? step : -step);
+      if (diff > 0 && coinTick_ <= 0) {
+        app.audio.sfx("tick", 0.35f);
+        coinTick_ = 0.06f;
+      }
+    }
     if (banT_ >= 0) {
       banT_ += dt;
       if (banT_ > banHold_ + 0.8f) banT_ = -1;
@@ -967,7 +1032,11 @@ class Board : public ui::Scene, public IO {
       spr::star(x + 62, y + 15, 0.26f);
       app.gfx.text(std::to_string(p.stars), x + 76, y + 3, 20, col::ink, LEFT, false);
       spr::coin(x + 116, y + 15, 0.36f, 0);
-      app.gfx.text(std::to_string(p.coins), x + 130, y + 3, 20, col::ink, LEFT, false);
+      int shown = shownCoins_[p.slot] < 0 ? p.coins : (int)std::lround(shownCoins_[p.slot]);
+      app.gfx.text(std::to_string(shown), x + 130, y + 3, 20, col::ink, LEFT, false);
+      // the colour of the space this player's turn ended on (it decides the minigame teams)
+      app.gfx.circle(x + 44, y + 9, 8, col::white);
+      app.gfx.circle(x + 44, y + 9, 6, SPACE_COLOR[p.color]);
       for (int i = 0; i < MAX_ITEMS; i++) {
         float ix = x + 64 + i * 26, iy = y + 39;
         app.gfx.circle(ix, iy, 10, col::ink.alpha(0.12f));
@@ -1063,7 +1132,17 @@ class Board : public ui::Scene, public IO {
     } else if (overlay_ == OV_REWARDS) {
       ui::fadeRect(0.35f);
       ui::card(VW / 2 - 220, 80, 440, 70 + n * 60, col::cream, 20);
-      app.gfx.text("Minigame rewards", VW / 2, 92, 26, col::ink, CENTER, false);
+      bool team = mgMode_ == MG_1V3 || mgMode_ == MG_2V2;
+      std::string title = "Minigame rewards";
+      Color tc = col::ink;
+      if (team && (int)mgTeams_.size() == n) {
+        int win = -1;
+        for (int i = 0; i < n; i++)
+          if (rewardPlaces_[i] == 1) win = mgTeams_[i];
+        title = win < 0 ? "It's a draw!" : (win == 0 ? "Blue team wins!" : "Red team wins!");
+        if (win >= 0) tc = TEAM_COLOR[win];
+      }
+      app.gfx.text(title, VW / 2, 92, 26, tc, CENTER, false);
       std::vector<int> ord(n);
       for (int i = 0; i < n; i++) ord[i] = i;
       std::stable_sort(ord.begin(), ord.end(), [&](int a, int b) { return rewardPlaces_[a] < rewardPlaces_[b]; });
@@ -1071,7 +1150,9 @@ class Board : public ui::Scene, public IO {
         int i = ord[k];
         const Player& p = m.players[i];
         float y = 134 + k * 60;
-        app.gfx.text(ORD[std::min(3, rewardPlaces_[i] - 1)], VW / 2 - 190, y + 12, 24, col::ink, LEFT, false);
+        if (team && (int)mgTeams_.size() == n) app.gfx.panel(VW / 2 - 200, y + 4, 8, 44, TEAM_COLOR[mgTeams_[i]], 4);
+        if (team) app.gfx.text(rewardPlaces_[i] == 1 ? "WIN" : "-", VW / 2 - 180, y + 12, 24, col::ink, LEFT, false);
+        else app.gfx.text(ORD[std::min(3, rewardPlaces_[i] - 1)], VW / 2 - 190, y + 12, 24, col::ink, LEFT, false);
         app.gfx.circle(VW / 2 - 110, y + 25, 22, PLAYER_COLORS[p.slot]);
         spr::portrait(p.character, VW / 2 - 110, y + 25, 40);
         app.gfx.text(p.name(), VW / 2 - 78, y + 13, 20, col::ink, LEFT, false);
@@ -1096,6 +1177,44 @@ class Board : public ui::Scene, public IO {
         spr::portrait(p.character, x, VH / 2 + 34, 54);
         app.gfx.text(p.name(), x, VH / 2 + 70, 15, col::ink, CENTER, false);
       }
+    } else if (overlay_ == OV_TYPE) {
+      ui::fadeRect(0.45f);
+      static const char* names[3] = {"4-Player Minigame!", "1 vs 3 Minigame!", "2 vs 2 Minigame!"};
+      float k = easeBack(clampf(ovT_ / 0.35f, 0, 1));
+      ui::card(VW / 2 - 300 * k, 96, 600 * k, 290, col::cream, 22);
+      if (k < 0.95f) return;
+      app.gfx.text(names[std::min(2, (int)mgMode_)], VW / 2, 110, 32, col::ink, CENTER, false);
+      app.gfx.text("The spaces you ended on pick the teams", VW / 2, 152, 16, col::grey, CENTER, false);
+      if (mgMode_ == MG_FFA || mgTeams_.size() != m.players.size()) {
+        for (int i = 0; i < n; i++) {
+          const Player& p = m.players[i];
+          float x = VW / 2 + (i - (n - 1) / 2.0f) * 130;
+          app.gfx.circle(x, 260, 44, SPACE_COLOR[p.color]);
+          spr::portrait(p.character, x, 260, 74);
+          app.gfx.text(data::CHARACTERS[p.character].shortName, x, 312, 17, col::ink, CENTER, false);
+        }
+        app.gfx.text("Everyone for themselves!", VW / 2, 346, 18, col::teal, CENTER, false);
+        return;
+      }
+      // two sides: blue on the left, red on the right
+      for (int side = 0; side < 2; side++) {
+        std::vector<int> mem;
+        for (int i = 0; i < n; i++)
+          if (mgTeams_[i] == side) mem.push_back(i);
+        float cx = side == 0 ? VW / 2 - 150 : VW / 2 + 150;
+        app.gfx.panel(cx - 130, 182, 260, 170, TEAM_COLOR[side].alpha(0.22f), 18);
+        app.gfx.text(side == 0 ? "BLUE" : "RED", cx, 190, 20, TEAM_COLOR[side], CENTER, false);
+        for (size_t k2 = 0; k2 < mem.size(); k2++) {
+          const Player& p = m.players[mem[k2]];
+          float x = cx + (k2 - (mem.size() - 1) / 2.0f) * 82;
+          // green spaces show their random pick
+          app.gfx.circle(x, 268, 34, p.color == SC_GREEN ? SPACE_COLOR[SC_GREEN] : TEAM_COLOR[side]);
+          app.gfx.circle(x, 268, 30, TEAM_COLOR[side]);
+          spr::portrait(p.character, x, 268, 56);
+          app.gfx.text(data::CHARACTERS[p.character].shortName, x, 308, 15, col::ink, CENTER, false);
+        }
+      }
+      app.gfx.text("VS", VW / 2, 250, 30, col::coral, CENTER, true);
     } else if (overlay_ == OV_RESULTS) {
       app.gfx.image(app.gfx.tex("ui/results.png"), 0, 0, VW, VH);
       auto places = standings(m.players);
@@ -1130,6 +1249,36 @@ class Board : public ui::Scene, public IO {
       }
       if (anyHuman_ && ovT_ > 1.5f) ui::prompts(VW / 2, 62, {{B_A, "Back to title"}});
     }
+  }
+
+  void drawChance() {
+    if (!chance_) return;
+    Match& m = M();
+    ui::fadeRect(0.5f);
+    float k = easeBack(clampf(chanceT_ / 0.4f, 0, 1));
+    ui::card(VW / 2 - 330 * k, 104, 660 * k, 260, col::cream, 24);
+    if (k < 0.95f) return;
+    app.gfx.text("CHANCE TIME!", VW / 2, 116, 36, col::coral, CENTER, true);
+    static const char* acts[CH_COUNT] = {"gives 10 coins to", "gives 20 coins to", "gives a Star Coin to", "swaps coins with", "swaps Star Coins with"};
+    int n = (int)m.players.size();
+    for (int b = 0; b < 3; b++) {
+      float x = VW / 2 + (b - 1) * 210, y = 248;
+      bool stopped = chanceStop_ > b;
+      ui::card(x - 90, y - 70, 180, 140, stopped ? col::gold : col::white, 18);
+      app.gfx.text("?", x - 74, y - 66, 18, col::grey, LEFT, false);
+      if (b == 1) {
+        int a = stopped ? chanceAction_ : ((int)(chanceT_ * 9)) % CH_COUNT;
+        app.gfx.textBox(acts[a], x - 76, y - 24, 152, 19, col::ink, CENTER);
+      } else {
+        int who = stopped ? (b == 0 ? chanceGiver_ : chanceReceiver_) : ((int)(chanceT_ * (b == 0 ? 7 : 8)) + b) % n;
+        const Player& p = m.players[who];
+        app.gfx.circle(x, y - 6, 42, PLAYER_COLORS[p.slot]);
+        spr::portrait(p.character, x, y - 6, 74);
+        app.gfx.text(data::CHARACTERS[p.character].shortName, x, y + 44, 17, col::ink, CENTER, false);
+      }
+    }
+    const Player* l = turn_;
+    if (chanceStop_ < 3 && l && !l->cpu) ui::prompts(VW / 2, 330, {{B_A, "Stop!"}}, col::ink);
   }
 
   void drawRoulette() {
@@ -1179,6 +1328,7 @@ class Board : public ui::Scene, public IO {
     drawMenu();
     drawDialogue();
     drawRoulette();
+    drawChance();
     if (overlay_ != OV_NONE) drawOverlay();
     if (banT_ >= 0) ui::banner(banTitle_, banSub_, banColor_, banT_, banHold_);
     if (paused_) {
@@ -1243,6 +1393,15 @@ class Board : public ui::Scene, public IO {
   // minigames
   MinigameHost host_;
   bool mg_ = false, roulette_ = false;
+  MgMode mgMode_ = MG_FFA;
+  std::vector<int> mgTeams_;
+  // Chance Time
+  bool chance_ = false;
+  float chanceT_ = 0;
+  int chanceStop_ = 0, chanceGiver_ = 0, chanceReceiver_ = 1, chanceAction_ = 0;
+  // the HUD's coin counters tick toward the real totals
+  float shownCoins_[4] = {-1, -1, -1, -1};
+  float coinTick_ = 0;
   float rouletteT_ = 0;
   std::vector<std::string> roulettePool_;
   std::string rouletteId_;
