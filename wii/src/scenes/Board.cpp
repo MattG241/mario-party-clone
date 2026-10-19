@@ -63,7 +63,6 @@ class Board : public ui::Scene, public IO {
  public:
   void enter() override {
     app.gfx.drop("boards/");
-    app.audio.music("board");
     Match& m = session.match;
     m = Match();
     std::vector<Player> ps;
@@ -79,6 +78,8 @@ class Board : public ui::Scene, public IO {
     m.init(session.board, session.rounds, ps, SDL_GetTicks() * 2654435761u + 17);
     m.io = this;
     def_ = m.g.def;
+    boardMusic_ = pickMusic("board");
+    app.audio.music(boardMusic_.c_str());
     for (auto& p : m.players) {
       V2 a = nodeArt(p.node);
       tok_[p.slot].x = a.x;
@@ -89,6 +90,12 @@ class Board : public ui::Scene, public IO {
     zoom_ = zoomTgt_ = fitZoom();
     run_ = runMatch(m);
     run_.start();
+  }
+
+  // This board's own track (music/board_pirates.mp3, final_pirates.ogg...) if there is one, else the shared one.
+  std::string pickMusic(const char* base) const {
+    std::string own = std::string(base) + "_" + def_->id;
+    return app.audio.hasMusic(own.c_str()) ? own : base;
   }
 
   // --- geometry ---------------------------------------------------------------------------------
@@ -200,8 +207,8 @@ class Board : public ui::Scene, public IO {
     }
     focusPlayer(M().players[0]);
     if (final) {
-      boardMusic_ = "final";
-      app.audio.music(boardMusic_);
+      boardMusic_ = pickMusic("final");
+      app.audio.music(boardMusic_.c_str());
     }
     if (final) showBanner("FINAL ROUND!", "Make it count", col::coral, 1.2f);
     else showBanner(fmt("ROUND %d", round), fmt("of %d", total), col::teal, 1.0f);
@@ -609,7 +616,7 @@ class Board : public ui::Scene, public IO {
     mg_ = true;
     co_await co::until([this] { return host_.done(); });
     mg_ = false;
-    app.audio.music(boardMusic_);
+    app.audio.music(boardMusic_.c_str());
     co_return host_.places();
   }
 
@@ -1195,7 +1202,7 @@ class Board : public ui::Scene, public IO {
   bool paused_ = false;
   int pauseSel_ = 0;
   ui::ScreenEditor screen_;
-  const char* boardMusic_ = "board";
+  std::string boardMusic_ = "board";
   float t_ = 0;
   Random rng_{(uint32_t)SDL_GetTicks() + 99};
   // camera

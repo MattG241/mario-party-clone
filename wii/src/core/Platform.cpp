@@ -711,11 +711,23 @@ void Audio::music(const char* name) {
   if (!ok_ || current_ == name) return;
   stopMusic();
   current_ = name;
-  music_ = Mix_LoadMUS(app.path(std::string("music/") + name + ".ogg").c_str());
+  for (const char* ext : {".ogg", ".mp3", ".wav"}) {
+    std::string p = app.path(std::string("music/") + name + ext);
+    if (!fileExists(p)) continue;
+    music_ = Mix_LoadMUS(p.c_str());
+    logf("music %s%s: %s", name, ext, music_ ? "playing" : Mix_GetError());
+    if (music_) break;
+  }
   if (music_) {
     Mix_VolumeMusic(MIX_MAX_VOLUME * 6 / 10);
     Mix_PlayMusic(music_, -1);
   }
+}
+
+bool Audio::hasMusic(const char* name) const {
+  for (const char* ext : {".ogg", ".mp3", ".wav"})
+    if (fileExists(app.path(std::string("music/") + name + ext))) return true;
+  return false;
 }
 
 void Audio::stopMusic() {

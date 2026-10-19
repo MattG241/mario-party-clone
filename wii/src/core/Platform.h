@@ -139,7 +139,9 @@ class Audio {
  public:
   bool init();
   void sfx(const char* name, float volume = 1.0f);
+  // Plays music/<name>.ogg, .mp3 or .wav on a loop (so tracks made elsewhere can simply be dropped in).
   void music(const char* name);
+  bool hasMusic(const char* name) const;
   void stopMusic();
 
  private:

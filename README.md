@@ -188,6 +188,14 @@ Settings): 16:9 fills a widescreen TV, 4:3 shows the game letterboxed. **TV Bord
 borders until the whole frame is visible, nudge the picture left/right/up/down, or force 16:9 or 4:3. The
 settings are saved on the USB stick or SD card.
 
+**Your own music.** Put MP3, OGG or WAV files in `apps/allstarparty/data/music/` on the USB stick with
+these names (each loops; a file you add replaces the built-in track of the same name):
+`title` (title and menus), `board` (every board), `final` (the last round), `minigame`, `results`.
+A board can have its own tracks too, used instead of the shared ones on that board: `board_pirates`,
+`board_dojo`, `board_heroes`, `board_toons`, `board_showtime`, `board_capitol` (and `final_<board>`).
+Delete the built-in `.ogg` of the same name, since `.ogg` is tried first (e.g. replace `board.ogg` with
+`board.mp3`). Songs that fade out at the end loop more smoothly.
+
 **Build it yourself** (Linux):
 
 - Assets: `python3 wii/tools/build_assets.py` (needs `npm install` and Pillow) exports the game data
