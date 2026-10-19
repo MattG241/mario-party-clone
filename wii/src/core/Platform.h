@@ -35,6 +35,7 @@ extern const Color PLAYER_COLORS[4];
 struct Tex {
   SDL_Texture* t = nullptr;
   int w = 0, h = 0;
+  int used = 0;  // frame last asked for (Gfx frees idle character sheets)
 };
 
 enum Align { LEFT = 0, CENTER = 1, RIGHT = 2 };

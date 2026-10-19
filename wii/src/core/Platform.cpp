@@ -226,12 +226,24 @@ void Gfx::end() {
       } else ++it;
     }
   }
+  // Character sheets are big (about 3 MB each in texture memory): free the ones not drawn lately, so
+  // browsing all 17 on the select screen never holds them all at once.
+  if (frame_ % 60 == 0)
+    for (auto it = cache_.begin(); it != cache_.end();) {
+      if (it->second.t && it->first.compare(0, 6, "chars/") == 0 && frame_ - it->second.used > 180) {
+        SDL_DestroyTexture(it->second.t);
+        it = cache_.erase(it);
+      } else ++it;
+    }
   SDL_RenderPresent(r_);
 }
 
 Tex* Gfx::tex(const std::string& rel) {
   auto it = cache_.find(rel);
-  if (it != cache_.end()) return &it->second;
+  if (it != cache_.end()) {
+    it->second.used = frame_;
+    return &it->second;
+  }
   Tex t;
   t.t = IMG_LoadTexture(r_, app.path(rel).c_str());
   // opaque art (board tiles, arenas, backdrops) ships as JPEG to keep the download small
@@ -245,6 +257,7 @@ Tex* Gfx::tex(const std::string& rel) {
     SDL_QueryTexture(t.t, nullptr, nullptr, &t.w, &t.h);
     SDL_SetTextureBlendMode(t.t, SDL_BLENDMODE_BLEND);
   }
+  t.used = frame_;
   return &(cache_[rel] = t);
 }
 
