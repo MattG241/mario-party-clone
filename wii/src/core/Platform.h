@@ -91,6 +91,10 @@ class Gfx {
 
   SDL_Renderer* r_ = nullptr;
   std::map<std::string, Tex> cache_;
+  std::map<std::string, int> failed_;  // textures that failed to load: retry after this frame
+  Tex blank_;                           // what a texture that couldn't load draws (nothing)
+  SDL_Texture* load(const std::string& rel);
+  void purgeIdle();
   std::map<int, TTF_Font*> fonts_;
   std::map<TextKey, TextTex> text_;
   int frame_ = 0;

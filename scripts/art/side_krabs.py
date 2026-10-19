@@ -2,19 +2,20 @@
 
 Patrick's model (side_patrick.py, on SpongeBob's skeleton: the body is the 'head', with the arms on its
 sides) as the crab: a broad red egg of a body with two tall eye stalks on top (white eyes, small black
-pupils, red lids), a wide toothy grin, a light blue short-sleeved shirt with a collar
-over the lower half, a dark belt with a brass buckle and short brown trousers, thin red arms ending in
-big two-jawed claws (they open for 'open' hands) and thin red legs tapering to points.
+pupils, red lids), a wide toothy grin, a light blue short-sleeved shirt over the lower half (a collar
+dipping into a V at the front, two buttons), a dark belt with a brass buckle and short brown trousers,
+thin red arms ending in big two-jawed claws (they open for 'open' hands) and thin red legs tapering to
+points.
 """
 from __future__ import annotations
 
 import math
 
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 from char_homer import EggHead
 from char_models import DEFAULT_FACE
-from char_rig import HeadShape, R, T, arc_points, ellipsoid, flat_sweep, superellipsoid, sweep
+from char_rig import HeadShape, R, T, arc_points, ellipsoid, superellipsoid, sweep
 from char_spongebob import strip
 from side_patrick import Patrick
 
@@ -100,18 +101,20 @@ class Krabs(Patrick):
         p, n = self.surf(0.0, bz, 0.05)
         self.add('buckle', superellipsoid(0.05, 0.014, 0.036, 3.2, 16, 8), M['buckle'], 'head', T(*p) @ self.facing(n))
         self.add('buckle_in', superellipsoid(0.032, 0.014, 0.019, 3.2, 14, 8), M['belt'], 'head', T(*(p + n * 0.004)) @ self.facing(n))
-        # the collar: a rolled band along the neckline and two pointed flaps at the front
-        ring = self.ring(st, 0.018)
-        self.add('collar', sweep(ring + ring[:1], 0.022, 8, cap0=False, cap1=False), M['shirt'], 'head')
-        for sd in (1, -1):
-            pts = []
-            for k in range(9):
-                t = k / 8
-                x = sd * (0.02 + 0.11 * t)
-                z = st + 0.01 - 0.1 * t
-                pts.append(self.surf(x, z, 0.03 + 0.006 * math.sin(math.pi * t))[0])
-            n = self.surf(sd * 0.07, st - 0.04)[1]
-            self.add('flap', flat_sweep(pts, lambda t: 0.055 * (1 - t) ** 0.85 + 0.008, n, 0.3, 10), M['shirt'], 'head')
+        # the collar: a rolled band along the neckline, dipping into a small V at the front
+        ring = []
+        for v in self.ring(st, 0.018, 64):
+            a = math.degrees(math.atan2(v.y, v.x)) + 90.0  # 0 at the front
+            dip = 0.07 * max(0.0, 1.0 - abs(a) / 26.0) ** 1.5
+            ring.append(self.surf(v.x, st - dip, 0.018)[0] if v.y < 0 else v)
+        self.add('collar', sweep(ring + ring[:1], 0.024, 8, cap0=False, cap1=False), M['shirt_d'], 'head')
+        # the V of red chest showing inside it (a decal on the shirt)
+        g = 0.019
+        sh = EggHead(rx + g, ryf + g, ryb + g, rzt + g, rzb + g, center=ctr)
+        fr = sh.frame(0.0, math.degrees(math.atan2(st - ctr[2], ryf)), 0.0)
+        hw = 0.052
+        self.feat('vneck', strip(lambda x: 0.004, lambda x: -0.07 * max(0.0, 1.0 - abs(x) / hw) + 0.002, -hw, hw, 16, 4, 0.003), M['red'], 'head',
+                  sh, fr)
         # two buttons down the shirt front
         for k, z in enumerate((st - 0.07, st - 0.13)):
             p, n = self.surf(0.0, z, 0.02)
@@ -147,7 +150,6 @@ class Krabs(Patrick):
             x = Vector((1.0, 0.0, 0.0))
         x.normalize()
         z = x.cross(fwd).normalized()
-        from mathutils import Matrix
         return Matrix((x, fwd, z)).transposed().to_4x4()
 
     def legs(self):

@@ -310,12 +310,30 @@ void Gfx::end() {
   // browsing all 17 on the select screen never holds them all at once.
   if (frame_ % 60 == 0)
     for (auto it = cache_.begin(); it != cache_.end();) {
-      if (it->second.t && it->first.compare(0, 6, "chars/") == 0 && frame_ - it->second.used > 180) {
+      if (it->second.t && it->first.compare(0, 6, "chars/") == 0 && frame_ - it->second.used > 90) {
         SDL_DestroyTexture(it->second.t);
         it = cache_.erase(it);
       } else ++it;
     }
   SDL_RenderPresent(r_);
+}
+
+SDL_Texture* Gfx::load(const std::string& rel) {
+  SDL_Texture* t = IMG_LoadTexture(r_, app.path(rel).c_str());
+  // opaque art (board tiles, arenas, backdrops) ships as JPEG to keep the download small
+  if (!t && rel.size() > 4 && rel.compare(rel.size() - 4, 4, ".png") == 0)
+    t = IMG_LoadTexture(r_, app.path(rel.substr(0, rel.size() - 4) + ".jpg").c_str());
+  return t;
+}
+
+// Free every texture that wasn't drawn this frame or the last (they reload when they're needed again).
+void Gfx::purgeIdle() {
+  for (auto it = cache_.begin(); it != cache_.end();) {
+    if (it->second.t && frame_ - it->second.used > 1) {
+      SDL_DestroyTexture(it->second.t);
+      it = cache_.erase(it);
+    } else ++it;
+  }
 }
 
 Tex* Gfx::tex(const std::string& rel) {
@@ -324,19 +342,24 @@ Tex* Gfx::tex(const std::string& rel) {
     it->second.used = frame_;
     return &it->second;
   }
+  // a texture that failed to load is retried a little later, not given up on
+  auto f = failed_.find(rel);
+  if (f != failed_.end() && frame_ < f->second) return &blank_;
   Tex t;
-  t.t = IMG_LoadTexture(r_, app.path(rel).c_str());
-  // opaque art (board tiles, arenas, backdrops) ships as JPEG to keep the download small
-  if (!t.t && rel.size() > 4 && rel.compare(rel.size() - 4, 4, ".png") == 0)
-    t.t = IMG_LoadTexture(r_, app.path(rel.substr(0, rel.size() - 4) + ".jpg").c_str());
+  t.t = load(rel);
+  if (!t.t) {
+    // most likely out of memory: free the idle textures and try once more
+    purgeIdle();
+    t.t = load(rel);
+  }
   if (!t.t) {
     logf("missing texture %s: %s", rel.c_str(), IMG_GetError());
-    t = white_;
-    t.t = nullptr;
-  } else {
-    SDL_QueryTexture(t.t, nullptr, nullptr, &t.w, &t.h);
-    SDL_SetTextureBlendMode(t.t, SDL_BLENDMODE_BLEND);
+    failed_[rel] = frame_ + 90;
+    return &blank_;
   }
+  failed_.erase(rel);
+  SDL_QueryTexture(t.t, nullptr, nullptr, &t.w, &t.h);
+  SDL_SetTextureBlendMode(t.t, SDL_BLENDMODE_BLEND);
   t.used = frame_;
   return &(cache_[rel] = t);
 }

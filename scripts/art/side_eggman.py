@@ -118,7 +118,7 @@ class Eggman(Homer):
             hip, kn, an = f'hip{s_}', f'knee{s_}', f'ankle{s_}'
             self.limb('pleg' + s_, hip, kn, an, lambda t: 0.086 - 0.016 * t, M['pants'], 0.0, 0.8, 16, 14, cap0=True, cap1=False)
             self.limb('shaft' + s_, hip, kn, an, lambda t: 0.08 + 0.006 * t, M['shoe'], 0.66, 1.0, 16, 8, cap0=False, cap1=True)
-            self.limb('bband' + s_, hip, kn, an, 0.088, M['band'], 0.64, 0.71, 16, 3, cap0=True, cap1=True)
+            self.limb('bband' + s_, hip, kn, an, 0.087, M['band'], 0.655, 0.695, 16, 3, cap0=True, cap1=True)
             fm = self.J(an) @ R(0, 0, -8 * sd)
             self.add('boot' + s_, superellipsoid(0.1, 0.15, 0.072, 2.5, 22, 14, center=(0, -0.05, -0.05)), M['shoe'], None, fm)
             self.add('toe' + s_, ellipsoid(0.098, 0.09, 0.064, 18, 10, center=(0, -0.13, -0.066)), M['shoe'], None, fm)

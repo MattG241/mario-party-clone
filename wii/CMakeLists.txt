@@ -21,6 +21,10 @@ target_compile_options(allstarparty PRIVATE -Wall -Wno-unused-function -fno-exce
 if(ASP_AUTODEMO)
   target_compile_definitions(allstarparty PRIVATE ASP_AUTODEMO)
 endif()
+# -DASP_AUTOROSTER=ON: a test build that scrolls quickly through the roster on the select screen
+if(ASP_AUTOROSTER)
+  target_compile_definitions(allstarparty PRIVATE ASP_AUTOROSTER)
+endif()
 # -DASP_AUTOTOUR=ON: a test build that plays every minigame once with four CPUs
 if(ASP_AUTOTOUR)
   target_compile_definitions(allstarparty PRIVATE ASP_AUTOTOUR)

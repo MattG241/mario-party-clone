@@ -236,6 +236,7 @@ MODEL = Burns
 # Idle: the hands brought together in front of the chest, fingertips touching ("Excellent..."), a sly smirk.
 _idle = idle()[0]
 POSES = {
-    'idle': dict(_idle, armL=(30, 90, -15, 90), armR=(30, 90, -15, 90), handL='open', handR='open',
+    'idle': dict(_idle, armL=(30, 90, -15, 100), armR=(30, 90, -15, 100), wristL=(-10, 30, 70), wristR=(-10, -30, -70),
+                 handL='open', handR='open',
                  face=face('open', 'smirk', 'angry')),
 }

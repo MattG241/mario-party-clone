@@ -139,7 +139,7 @@ class Catwoman(Batman):
         mm = self.mat
         for s_, sd in (('L', 1), ('R', -1)):
             hip, kn, an = f'hip{s_}', f'knee{s_}', f'ankle{s_}'
-            self.limb('leg' + s_, hip, kn, an, lambda t: 0.096 - 0.03 * t + 0.006 * math.sin(math.pi * clamp((t - 0.4) / 0.4)), mm['suit'],
+            self.limb('leg' + s_, hip, kn, an, lambda t: 0.102 - 0.032 * t + 0.006 * math.sin(math.pi * clamp((t - 0.4) / 0.4)), mm['suit'],
                       0.0, 0.62, 16, 12, cap0=True, cap1=False)
             # glossy boots to just over the knee, a turned-down top
             self.limb('bootleg' + s_, hip, kn, an, lambda t: 0.07 - 0.008 * t + 0.006 * sstep(1 - t * 3.0), mm['boot'], 0.44, 1.0, 16, 12,
@@ -151,7 +151,7 @@ class Catwoman(Batman):
             self.add('toe' + s_, ellipsoid(0.06, 0.06, 0.04, 16, 10, center=(0.0, -0.14, -0.112)), mm['boot'], None, fm)
             sole_m = fm @ T(0, -0.07, -0.125) @ R(14, 0, 0)
             self.add('sole' + s_, superellipsoid(0.066, 0.12, 0.013, 3.2, 20, 8), mm['sole'], None, sole_m)
-            self.add('heel' + s_, sweep([Vector((0, 0.03, -0.11)), Vector((0, 0.038, -0.165))], lambda t: 0.024 - 0.01 * t, 10), mm['sole'], None,
+            self.add('heel' + s_, sweep([Vector((0, 0.028, -0.1)), Vector((0, 0.04, -0.162))], lambda t: 0.028 - 0.013 * t, 10), mm['silver'], None,
                      fm)
 
     def arms(self):

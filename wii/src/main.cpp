@@ -35,6 +35,13 @@ int main(int argc, char** argv) {
   // test builds for the emulator: start an all-CPU match straight away
   session.demo = true;
 #endif
+#ifdef ASP_AUTOROSTER
+  // test builds for the emulator: scroll quickly through every character on the select screen
+  app.input.script(30, 0, B_A);
+  app.input.script(60, 0, B_A);
+  for (int k = 0; k < 40; k++) app.input.script(120 + k * 8, 0, B_RIGHT);
+  session.frameLimit = 700;
+#endif
 #ifdef ASP_AUTOTOUR
   // test builds for the emulator: play every minigame once with four CPUs
   session.tour = true;

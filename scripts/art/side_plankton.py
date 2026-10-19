@@ -22,23 +22,23 @@ from side_patrick import Patrick
 
 class Plankton(Patrick):
     key = 'plankton'
-    ankle_h = 0.06
-    thigh = 0.12
-    shin = 0.12
-    hip_h = 0.34  # ankle_h + 0.04 + thigh + shin
-    hip_w = 0.085
-    shoulder = (0.28, 0.0, 0.15)  # on the body's sides (head frame)
-    upper_arm = 0.14
-    forearm = 0.13
-    sit_h = 0.1
+    ankle_h = 0.07
+    thigh = 0.14
+    shin = 0.14
+    hip_h = 0.39  # ankle_h + 0.04 + thigh + shin
+    hip_w = 0.1
+    shoulder = (0.32, 0.0, 0.17)  # on the body's sides (head frame)
+    upper_arm = 0.16
+    forearm = 0.15
+    sit_h = 0.12
     # the bean (head frame): rx, ry front / back, rz top / bottom, centre
-    BODY = (0.32, 0.275, 0.26, 0.54, 0.34, (0.0, 0.0, 0.1))
-    EYE = (0.3, 0.175, 0.1, 0.172)  # centre height, radii (x, depth, z)
+    BODY = (0.37, 0.315, 0.3, 0.62, 0.39, (0.0, 0.0, 0.11))
+    EYE = (0.345, 0.2, 0.115, 0.198)  # centre height, radii (x, depth, z)
     C = dict(green='#4aa245', green_d='#2f7c35', sclera='#f8e95e', iris='#d8322a', pupil='#121212', brow='#141414',
              mouth='#3a1013', tongue='#d9606e', teeth='#fbf8ec')
 
     def head_top(self) -> float:
-        return self.BODY[5][2] + self.BODY[3] + 0.3
+        return self.BODY[5][2] + self.BODY[3] + 0.36
 
     def face_state(self):
         f = dict(DEFAULT_FACE)
@@ -87,29 +87,29 @@ class Plankton(Patrick):
         spread = 0.3 + 0.25 * max(-0.3, min(1.0, ex.get('tail', 0.0)))
         wob = math.sin(ex.get('wave', 0.0))
         for sd in (1, -1):
-            base, n = self.bean.point(90.0 * sd, 74.0, -0.02)
+            base, n = self.bean.point(90.0 * sd, 74.0, -0.025)
             d = Vector((spread * sd, -0.06, 1.0)).normalized()
             bend = Vector((0.12 * sd, 0.02 * wob, -0.05))
-            pts = [base + d * (0.34 * t) + bend * (0.34 * t * t) for t in (k / 12 for k in range(13))]
-            self.add('antenna' + ('L' if sd > 0 else 'R'), sweep(pts, lambda t: 0.019 - 0.007 * t, 10), M['green'], 'head')
-            self.add('antip', ellipsoid(0.017, 0.017, 0.017, 10, 6, center=tuple(pts[-1])), M['green'], 'head')
+            pts = [base + d * (0.4 * t) + bend * (0.4 * t * t) for t in (k / 12 for k in range(13))]
+            self.add('antenna' + ('L' if sd > 0 else 'R'), sweep(pts, lambda t: 0.025 - 0.008 * t, 10), M['green'], 'head')
+            self.add('antip', ellipsoid(0.022, 0.022, 0.022, 10, 6, center=tuple(pts[-1])), M['green'], 'head')
 
     def legs(self):
         M = self.mat
         for s_, sd in (('L', 1), ('R', -1)):
             hip, kn, an = f'hip{s_}', f'knee{s_}', f'ankle{s_}'
-            self.limb('leg' + s_, hip, kn, an, 0.034, M['green'], 0.0, 1.0, 12, 12, cap0=True, cap1=True)
+            self.limb('leg' + s_, hip, kn, an, 0.04, M['green'], 0.0, 1.0, 12, 12, cap0=True, cap1=True)
             fm = self.J(an) @ R(0, 0, -10 * sd)
-            self.add('foot' + s_, ellipsoid(0.052, 0.085, 0.036, 16, 10, center=(0, -0.04, -0.026)), M['green'], None, fm)
+            self.add('foot' + s_, ellipsoid(0.06, 0.098, 0.042, 16, 10, center=(0, -0.046, -0.03)), M['green'], None, fm)
 
     def arms(self):
         M = self.mat
         for s_, sd in (('L', 1), ('R', -1)):
             sh, el, wr = f'shoulder{s_}', f'elbow{s_}', f'wrist{s_}'
-            self.limb('arm' + s_, sh, el, wr, 0.03, M['green'], 0.0, 1.0, 10, 14, cap0=True, extend=0.01)
+            self.limb('arm' + s_, sh, el, wr, 0.035, M['green'], 0.0, 1.0, 10, 14, cap0=True, extend=0.01)
             hand = self.pose.get('hand' + s_, 'fist')
             wm = self.J(wr)
-            for nm, mesh in hand_mitten(sd, hand, 0.66):
+            for nm, mesh in hand_mitten(sd, hand, 0.76):
                 self.add('hand' + nm + s_, mesh, M['green'], None, wm)
 
     # --- face -------------------------------------------------------------------------------------
@@ -137,7 +137,7 @@ class Plankton(Patrick):
         elif not shut:
             ir = 0.8 if kind == 'wide' else 1.0
             fr = eye.frame(lx * 18.0, -3.0 + lz * 14.0, 0.0)
-            ri = 0.086 * ir
+            ri = 0.099 * ir
             self.feat('iris', ellipsoid(ri, 0.006, ri * 1.04, 24, 8), M['iris'], 'head', eye, fr)
             self.feat('pupil', ellipsoid(ri * 0.46, 0.007, ri * 0.48, 18, 6, center=(0, -0.002, 0)), M['pupil'], 'head', eye, fr)
             self.feat('shine', ellipsoid(ri * 0.3, 0.004, ri * 0.3, 10, 5, center=(-ri * 0.38, -0.006, ri * 0.4)), M['shine'], 'head', eye, fr)
@@ -165,17 +165,17 @@ class Plankton(Patrick):
         """The thick black brow right across the top of the eye: a V when scheming (his default)."""
         brows, eyes = f['brows'], f['eyes']
         ez, ra, _rb, rc = self.EYE
-        zb = ez + rc + 0.03 + (0.02 if eyes == 'wide' else 0.0)
+        zb = ez + rc + 0.035 + (0.023 if eyes == 'wide' else 0.0)
         # height of the middle relative to the ends (negative: a V), and an overall arch
-        mid = {'neutral': -0.05, 'up': 0.0, 'worried': 0.05, 'sad': 0.05, 'angry': -0.085, 'determined': -0.07}.get(brows, -0.05)
-        arch = 0.035 if brows == 'up' else 0.012
-        lift = 0.03 if brows == 'up' else 0.0
+        mid = {'neutral': -0.06, 'up': 0.0, 'worried': 0.06, 'sad': 0.06, 'angry': -0.1, 'determined': -0.08}.get(brows, -0.06)
+        arch = 0.04 if brows == 'up' else 0.014
+        lift = 0.035 if brows == 'up' else 0.0
         pts = []
         for i in range(17):
             u = i / 16 * 2 - 1
             z = zb + lift + mid * (1 - abs(u)) ** 1.2 + arch * (1 - u * u) - 0.5 * mid
-            pts.append(self.front(u * ra * 1.08, z, 0.02))
-        self.add('brow', sweep(pts, lambda t: 0.027 + 0.014 * math.sin(math.pi * t), 10, squash=0.75), self.mat['brow'], 'head')
+            pts.append(self.front(u * ra * 1.08, z, 0.024))
+        self.add('brow', sweep(pts, lambda t: 0.032 + 0.016 * math.sin(math.pi * t), 10, squash=0.75), self.mat['brow'], 'head')
 
     def mouth(self, mouth: str):
         M = self.mat
@@ -185,18 +185,18 @@ class Plankton(Patrick):
         def feat(name, mesh, mat):
             self.feat(name, mesh, mat, 'head', bean, fr)
 
-        line = lambda t: 0.011 + 0.004 * math.sin(math.pi * t)  # noqa: E731
-        w = 0.34
+        line = lambda t: 0.013 + 0.005 * math.sin(math.pi * t)  # noqa: E731
+        w = 0.39
         if mouth in ('smile', 'smirk'):
             tilt = 0.03 if mouth == 'smirk' else 0.0
             pts = []
             for i in range(21):
                 t = i / 20 * 2 - 1
-                pts.append(Vector((t * w / 2, -0.006, -0.05 * (1 - t * t) + tilt * t + 0.03 * abs(t) ** 5)))
+                pts.append(Vector((t * w / 2, -0.006, -0.058 * (1 - t * t) + tilt * t + 0.035 * abs(t) ** 5)))
             feat('mouth', sweep(pts, line, 8), M['mouth'])
         elif mouth in ('grin', 'open', 'laugh'):
-            depth = {'grin': 0.09, 'open': 0.11, 'laugh': 0.13}[mouth]
-            ww = {'grin': 0.32, 'open': 0.24, 'laugh': 0.3}[mouth]
+            depth = {'grin': 0.1, 'open': 0.125, 'laugh': 0.15}[mouth]
+            ww = {'grin': 0.37, 'open': 0.28, 'laugh': 0.35}[mouth]
 
             def top(x):
                 t = x / (ww / 2)
@@ -212,10 +212,10 @@ class Plankton(Patrick):
                 tw = ww * 0.36
                 feat('teeth', strip(lambda x: top(x) - 0.003, lambda x: top(x) - 0.022, -tw, tw, 18, 2, 0.0055, 0.0045), M['teeth'])
         elif mouth == 'o':
-            feat('mouth', ellipsoid(0.04, 0.006, 0.048, 18, 6, center=(0, -0.002, -0.03)), M['mouth'])
+            feat('mouth', ellipsoid(0.046, 0.006, 0.055, 18, 6, center=(0, -0.002, -0.035)), M['mouth'])
         elif mouth == 'gasp':
-            feat('mouth', ellipsoid(0.065, 0.006, 0.07, 20, 6, center=(0, -0.002, -0.04)), M['mouth'])
-            feat('tongue', ellipsoid(0.032, 0.007, 0.02, 12, 6, center=(0, -0.005, -0.085)), M['tongue'])
+            feat('mouth', ellipsoid(0.075, 0.006, 0.08, 20, 6, center=(0, -0.002, -0.046)), M['mouth'])
+            feat('tongue', ellipsoid(0.037, 0.007, 0.023, 12, 6, center=(0, -0.005, -0.098)), M['tongue'])
         else:
             pts = []
             for i in range(17):
