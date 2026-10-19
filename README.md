@@ -165,8 +165,8 @@ Channel (no browser needed).
 
 **Install** (a Wii with the [Homebrew Channel](https://wiibrew.org/wiki/Homebrew_Channel)):
 
-1. Download `AllStarParty-Wii.zip` from the
-   [latest release](https://github.com/MattG241/mario-party-clone/releases/latest).
+1. Get `AllStarParty-Wii.zip`, either from the repository's
+   [Releases](https://github.com/MattG241/mario-party-clone/releases) or by building it (below).
 2. Unzip it to the root of a USB stick or SD card (FAT32), so you get `apps/allstarparty/` with
    `boot.dol`, `meta.xml`, `icon.png` and `data/` inside. Copy the whole folder; the game needs `data/`.
 3. Put the stick in one of the Wii's back USB ports (or the SD card in the front slot), open the Homebrew
