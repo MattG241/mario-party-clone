@@ -39,3 +39,4 @@ std::unique_ptr<ui::Scene> makeSetup(bool minigameMode);
 std::unique_ptr<ui::Scene> makeBoardSelect();
 std::unique_ptr<ui::Scene> makeBoard();
 std::unique_ptr<ui::Scene> makeMinigameMenu();
+std::unique_ptr<ui::Scene> makeHowTo();

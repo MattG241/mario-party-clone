@@ -132,7 +132,7 @@ class MinigameMenu : public ui::Scene {
     app.gfx.text(m.name, x + w / 2, ty, 26, accent.mix(col::ink, 0.35f), CENTER, false);
     app.gfx.textBox(m.tagline, x + 20, ty + 34, w - 40, 17, col::ink, CENTER);
     if (!hasMinigame(m.id)) app.gfx.text("Coming soon", x + w / 2, ty + 64, 18, col::grey, CENTER, false);
-    else if (m.teamGame) app.gfx.text("2 vs 2", x + w / 2, ty + 64, 18, col::grey, CENTER, false);
+    else app.gfx.text(minigameControls(&m), x + w / 2, ty + 68, 17, col::teal, CENTER, false);
 
     ui::prompts(VW / 2, VH - 38, {{B_A, "Play"}, {B_X, "Random"}, {B_B, "Back"}});
   }

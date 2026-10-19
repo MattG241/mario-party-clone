@@ -76,6 +76,9 @@ struct MinigameRegistrar {
 std::unique_ptr<Minigame> createMinigame(const char* id);
 bool hasMinigame(const char* id);
 int minigameIndex(const char* id);  // into data::MINIGAMES, -1 if unknown
+// The rules card's lines (0-3) and a one-line controls summary, worded for the Wii Remote (WiiRules.cpp).
+const char* minigameRule(const data::MinigameDef* d, int k);
+const char* minigameControls(const data::MinigameDef* d);
 
 // ---------------------------------------------------------------------------------------------
 // The host: rules card -> countdown -> play -> finish -> placings.

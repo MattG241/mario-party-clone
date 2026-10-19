@@ -203,6 +203,9 @@ class Board : public ui::Scene, public IO {
       co_await say({{R_HOST, P_WAVE, std::string("Welcome to ") + def_->name + "! Collect the most Star Coins to win the party!"},
                     {R_HOST, P_POINT, fmt("Each Star Coin costs %d coins. We'll play %d rounds, with a minigame after every round!", STAR_PRICE, total)}},
                    nullptr);
+      if (anyHuman_)
+        co_await say({{R_HOST, P_HAPPY, "Hold your Wii Remote sideways! On your turn press 2 to hit the Dice Block, pick paths with the D-pad, and press + to pause."}},
+                     nullptr);
       zoomTgt_ = 1;
     }
     focusPlayer(M().players[0]);
@@ -1005,7 +1008,7 @@ class Board : public ui::Scene, public IO {
       std::string s = menu_.rows[menu_.sel];
       float w = std::max(220.0f, app.gfx.textWidth(s, 20) + 40);
       ui::card(VW / 2 - w / 2, VH - 112, w, 70, col::cream, 18);
-      app.gfx.text(menu_.title, VW / 2, VH - 106, 16, col::grey, CENTER, false);
+      app.gfx.text(p.cpu ? menu_.title : menu_.title + "  Choose with the D-pad", VW / 2, VH - 106, 16, col::grey, CENTER, false);
       app.gfx.text(s, VW / 2, VH - 86, 20, menu_.enabled[menu_.sel] ? col::ink : col::grey, CENTER, false);
       if (!p.cpu) ui::prompts(VW / 2, VH - 36, {{B_A, "Go"}}, col::white);
       return;

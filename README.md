@@ -172,7 +172,8 @@ Channel (no browser needed).
 3. Put the stick in one of the Wii's back USB ports (or the SD card in the front slot), open the Homebrew
    Channel and choose **All-Star Party**.
 
-**Controls.** Hold the Wii Remote sideways: the D-pad moves, **2** confirms, **1** goes back, **B**
+**Controls.** Everything on screen (button prompts, every minigame's rules card, the How to Play guide on the
+title menu) is written for the Wii Remote. Hold it sideways: the D-pad moves, **2** confirms, **1** goes back, **B**
 (trigger) is the extra button some menus and minigames use, **+** pauses and starts. A Nunchuk (stick +
 **A**/**B**), Classic Controller or GameCube controller works too. Up to four players; empty seats are
 CPUs (press **B** on the character screen to change their level). **HOME** returns to the Homebrew

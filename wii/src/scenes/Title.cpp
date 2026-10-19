@@ -27,14 +27,15 @@ class Title : public ui::Scene {
       screen_.update();
       return;
     }
-    if (app.input.anyPress(B_UP)) sel_ = (sel_ + 3) % 4, app.audio.sfx("move");
-    if (app.input.anyPress(B_DOWN)) sel_ = (sel_ + 1) % 4, app.audio.sfx("move");
+    if (app.input.anyPress(B_UP)) sel_ = (sel_ + 4) % 5, app.audio.sfx("move");
+    if (app.input.anyPress(B_DOWN)) sel_ = (sel_ + 1) % 5, app.audio.sfx("move");
     if (app.input.anyPress(B_B)) menu_ = false;
     if (app.input.anyPress(B_A)) {
       app.audio.sfx("confirm");
       if (sel_ == 0) ui::go(makeSetup(false));
       else if (sel_ == 1) ui::go(makeSetup(true));
-      else if (sel_ == 2) screen_.open();
+      else if (sel_ == 2) ui::go(makeHowTo());
+      else if (sel_ == 3) screen_.open();
       else app.input.quit = true;
     }
   }
@@ -58,18 +59,18 @@ class Title : public ui::Scene {
       ui::prompt(VW / 2 - 92, 410, B_A, "Press to start", col::ink.alpha(a));
       return;
     }
-    static const char* items[4] = {"Board Game", "Minigames", "TV Borders", "Exit"};
-    for (int i = 0; i < 4; i++) {
-      float y = 228 + i * 52;
+    static const char* items[5] = {"Board Game", "Minigames", "How to Play", "TV Borders", "Exit"};
+    for (int i = 0; i < 5; i++) {
+      float y = 214 + i * 44;
       bool on = i == sel_;
-      ui::card(56, y, 260, 44, on ? col::gold : col::cream, 22);
-      app.gfx.text(items[i], 56 + 130, y + 9, 24, col::ink, CENTER, false);
+      ui::card(56, y, 260, 38, on ? col::gold : col::cream, 19);
+      app.gfx.text(items[i], 56 + 130, y + 7, 22, col::ink, CENTER, false);
     }
     if (screen_.isOpen()) {
       screen_.draw();
       return;
     }
-    ui::prompts(VW / 2, 438, {{B_A, "Select"}, {B_B, "Back"}});
+    ui::prompts(VW / 2, 440, {{B_A, "Select"}, {B_B, "Back"}});
   }
 
  private:

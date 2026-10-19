@@ -67,6 +67,15 @@ void faceButton(float x, float y, Btn b, float r, float a = 1) {
   Color c = b == B_X ? Color::hex(0x8a5530) : (b == B_A ? Color::hex(0x4fae3a) : (b == B_B ? Color::hex(0xe0412f) : Color::hex(0xf0a818)));
   app.gfx.circle(x, y, r, col::white.alpha(a));
   app.gfx.circle(x, y, r - 1.8f, c.alpha(a));
+  if (app.wii) {
+    // a sideways Wii Remote adds toppings with the D-pad: show the direction instead of a button
+    int k = 0;
+    while (k < 3 && BUTTON_FOR[k] != b) k++;
+    int dir = DIR_FOR[k];
+    float o = r * 0.32f, tx = x + (dir == 0 ? -o : (dir == 2 ? o : 0)), ty = y + (dir == 3 ? -o : (dir == 1 ? o : 0));
+    chevron(tx, ty, dir, r * 0.5f, std::max(2.0f, r * 0.26f), col::white.alpha(a));
+    return;
+  }
   const char* g = ui::glyph(b);
   int size = (int)(r * (g[1] ? 1.0f : 1.35f));
   app.gfx.text(g, x, y - size * 0.62f, size, col::white.alpha(a), CENTER, false);
@@ -376,7 +385,7 @@ class PattyPanic : public Minigame {
       app.gfx.panel(x - 44 * S, y - 46 * S, 88 * S, 96 * S, Color(10, 42, 51, 82), 8);
       app.gfx.sprite(atlas, R_ING[b], x, y - 10 * S, 0.44f, 0.44f, 0.5f, 0.6f);
       faceButton(x - 7, y + 12, BUTTON_FOR[b], 8);
-      chevron(x + (DIR_FOR[b] == 2 ? 15.0f : (DIR_FOR[b] == 0 ? 7.0f : 11.0f)), y + 12 + (DIR_FOR[b] == 1 ? 4.0f : (DIR_FOR[b] == 3 ? -4.0f : 0.0f)), DIR_FOR[b], 4,
+      if (!app.wii) chevron(x + (DIR_FOR[b] == 2 ? 15.0f : (DIR_FOR[b] == 0 ? 7.0f : 11.0f)), y + 12 + (DIR_FOR[b] == 1 ? 4.0f : (DIR_FOR[b] == 3 ? -4.0f : 0.0f)), DIR_FOR[b], 4,
               2, col::white.alpha(0.85f));
     }
   }

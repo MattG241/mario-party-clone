@@ -161,12 +161,18 @@ void MinigameHost::draw() {
     app.gfx.rect(70, 82, VW - 140, 22, accent);
     app.gfx.text(def_ ? def_->name : id_, VW / 2, 50, 34, col::white, CENTER, true);
     if (def_) {
-      app.gfx.text(def_->tagline, VW / 2, 116, 20, accent.mix(col::ink, 0.4f), CENTER, false);
-      float y = 152;
+      app.gfx.text(def_->tagline, VW / 2, 112, 20, accent.mix(col::ink, 0.4f), CENTER, false);
+      // the controls at a glance, for the Wii Remote held sideways
+      std::string ctl = std::string("Wii Remote sideways:  ") + minigameControls(def_);
+      float cw = app.gfx.textWidth(ctl, 16) + 28;
+      app.gfx.panel(VW / 2 - cw / 2, 138, cw, 26, accent.alpha(0.18f), 13);
+      app.gfx.text(ctl, VW / 2, 141, 16, col::ink, CENTER, false);
+      float y = 176;
       for (int k = 0; k < 4; k++) {
-        if (!def_->instructions[k] || !def_->instructions[k][0]) continue;
+        const char* line = minigameRule(def_, k);
+        if (!line[0]) continue;
         app.gfx.circle(110, y + 11, 6, accent);
-        y += app.gfx.textBox(def_->instructions[k], 126, y, VW - 260, 18, col::ink) + 8;
+        y += app.gfx.textBox(line, 126, y, VW - 260, 18, col::ink) + 6;
       }
     }
     // who's ready

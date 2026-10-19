@@ -132,6 +132,7 @@ bool platformInit(int argc, char** argv) {
     if (!strcmp(argv[i], "--headless")) app.headless = true;
     if (!strcmp(argv[i], "--shots") && i + 1 < argc) app.shotDir = argv[++i];
     if (!strcmp(argv[i], "--43")) app.tvWide = false;
+    if (!strcmp(argv[i], "--wii")) app.wii = true;  // preview the Wii's button names
   }
   loadSettings();
   app.widescreen = app.screenShape == 0 ? app.tvWide : app.screenShape == 1;

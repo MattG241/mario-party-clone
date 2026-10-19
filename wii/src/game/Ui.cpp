@@ -17,8 +17,17 @@ const char* glyph(Btn b) {
       case B_Y: return "Z";
       case B_START: return "+";
       case B_SELECT: return "-";
-      default: return "?";
+      case B_HOME: return "H";
+      default: break;
     }
+  }
+  // the D-pad (or arrow keys)
+  switch (b) {
+    case B_UP: return "^";
+    case B_DOWN: return "v";
+    case B_LEFT: return "<";
+    case B_RIGHT: return ">";
+    default: break;
   }
   switch (b) {
     case B_A: return "Z";
