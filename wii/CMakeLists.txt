@@ -41,6 +41,8 @@ if("${CMAKE_SYSTEM_NAME}" STREQUAL "NintendoWii")
   separate_arguments(SDL_CFLAGS)
   target_compile_options(allstarparty PRIVATE ${SDL_CFLAGS} -O2)
   target_link_libraries(allstarparty PRIVATE ${SDL_LIBS})
+  # big allocations go to their own pool (src/core/BigPool.cpp) so the heap doesn't fragment
+  target_link_options(allstarparty PRIVATE -Wl,--wrap=malloc,--wrap=free,--wrap=calloc,--wrap=realloc,--wrap=memalign)
   ogc_create_dol(allstarparty)
 else()
   pkg_check_modules(SDL REQUIRED sdl2 SDL2_image SDL2_mixer SDL2_ttf)

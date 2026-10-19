@@ -1,5 +1,7 @@
 #include "Platform.h"
 
+#include "BigPool.h"
+
 #include <SDL_image.h>
 
 #include <algorithm>
@@ -181,6 +183,14 @@ bool platformInit(int argc, char** argv) {
     if (vm->viTVMode & VI_NON_INTERLACE) VIDEO_WaitVSync();
     logf("video %dx%d (xfb %d, vi %dx%d)", vm->fbWidth, vm->efbHeight, vm->xfbHeight, vm->viWidth, vm->viHeight);
   }
+  {
+    // big images from now on come from their own pool in MEM2 (the framebuffers and GPU FIFO are already
+    // allocated in MEM1)
+    bigPoolInit(12 * 1024 * 1024);
+    size_t total, used, largest;
+    bigPoolStats(total, used, largest);
+    logf("big pool %u KB", (unsigned)(total / 1024));
+  }
 #endif
   logf("gfx up: scale %.3f %.3f", app.gfx.sx, app.gfx.sy);
   app.input.init();
@@ -341,9 +351,31 @@ SDL_Texture* Gfx::load(const std::string& rel) {
   statLoads++;
   SDL_Texture* t = IMG_LoadTexture(r_, app.path(rel).c_str());
   // opaque art (board tiles, arenas, backdrops) ships as JPEG to keep the download small
-  if (!t && rel.size() > 4 && rel.compare(rel.size() - 4, 4, ".png") == 0)
-    t = IMG_LoadTexture(r_, app.path(rel.substr(0, rel.size() - 4) + ".jpg").c_str());
+  if (!t && rel.size() > 4 && rel.compare(rel.size() - 4, 4, ".png") == 0) {
+    std::string jpg = app.path(rel.substr(0, rel.size() - 4) + ".jpg");
+#ifdef HW_RVL
+    // on the Wii it's held as a 16-bit texture: half the memory, and it has no transparency anyway
+    if (SDL_Surface* s = IMG_Load(jpg.c_str())) {
+      SDL_Surface* s16 = SDL_ConvertSurfaceFormat(s, SDL_PIXELFORMAT_RGB565, 0);
+      SDL_FreeSurface(s);
+      if (s16) {
+        t = SDL_CreateTextureFromSurface(r_, s16);
+        SDL_FreeSurface(s16);
+      }
+    }
+#else
+    t = IMG_LoadTexture(r_, jpg.c_str());
+#endif
+  }
   return t;
+}
+
+void Gfx::cacheStats(int& images, int& texts, int& panelsN, int& fontsN, long& bytes) const {
+  images = (int)cache_.size(), texts = (int)text_.size(), panelsN = (int)panels_.size(), fontsN = (int)fonts_.size();
+  bytes = 0;
+  for (auto& kv : cache_) bytes += (long)kv.second.w * kv.second.h * 4;
+  for (auto& kv : text_) bytes += (long)kv.second.tex.w * kv.second.tex.h * 4;
+  for (auto& kv : panels_) bytes += (long)kv.second.w * kv.second.h * 4;
 }
 
 bool Gfx::isPinned(const std::string& rel) const { return std::find(pinned_.begin(), pinned_.end(), rel) != pinned_.end(); }

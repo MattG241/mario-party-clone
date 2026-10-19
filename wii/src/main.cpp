@@ -2,6 +2,12 @@
 #include <SDL.h>
 
 #include <cstdio>
+#include <malloc.h>
+#ifdef HW_RVL
+#include <ogc/system.h>
+
+#include "core/BigPool.h"
+#endif
 #include <cstring>
 #include <string>
 
@@ -11,6 +17,7 @@
 
 Session session;
 static int testChars[4] = {-1, -1, -1, -1};  // --chars: the demo's characters
+static int testRounds = 2;                    // --rounds: the demo's length
 
 int main(int argc, char** argv) {
   bool ok = platformInit(argc, argv);
@@ -18,6 +25,7 @@ int main(int argc, char** argv) {
   for (int i = 1; i < argc; i++) {
     if (!strcmp(argv[i], "--demo")) session.demo = true;
     if (!strcmp(argv[i], "--tour")) session.tour = true;
+    if (!strcmp(argv[i], "--rounds") && i + 1 < argc) testRounds = atoi(argv[++i]);
     if (!strcmp(argv[i], "--chars") && i + 1 < argc) {
       int c[4] = {-1, -1, -1, -1};
       sscanf(argv[++i], "%d,%d,%d,%d", &c[0], &c[1], &c[2], &c[3]);
@@ -66,7 +74,7 @@ int main(int argc, char** argv) {
   if (session.demo || session.tour || !session.forceMinigame.empty()) {
     // tests: four CPUs straight into a match (or one minigame)
     for (int i = 0; i < 4; i++) session.slots[i] = Slot{true, false, testChars[i] >= 0 ? testChars[i] : (i * 5 + 2) % data::CHARACTER_COUNT, 2};
-    session.rounds = 2;
+    session.rounds = testRounds;
     ui::go(session.forceMinigame.empty() && !session.tour ? makeBoard() : makeMinigameMenu());
   } else ui::go(makeTitle());
 
@@ -102,8 +110,27 @@ int main(int argc, char** argv) {
     app.gfx.end();
     frame++;
     if (frame % 120 == 0) {
-      logf("frame %d dt %.4f ticks %u work %.1f ms (max %.1f) draws %d/f text %d loads %d", frame, dt, (unsigned)SDL_GetTicks(), work * 1000 / 120,
-           workMax * 1000, app.gfx.statDraws / 120, app.gfx.statText, app.gfx.statLoads);
+#if defined(__GLIBC__)
+      struct mallinfo2 mi = mallinfo2();
+#else
+      struct mallinfo mi = mallinfo();
+#endif
+      int nImg, nTxt, nPan, nFont;
+      long texBytes;
+      app.gfx.cacheStats(nImg, nTxt, nPan, nFont, texBytes);
+#ifdef HW_RVL
+      // free memory left in the two arenas (MEM1, MEM2) the heap grows into
+      unsigned free1 = (unsigned)((char*)SYS_GetArena1Hi() - (char*)SYS_GetArena1Lo()) / 1024;
+      unsigned free2 = (unsigned)((char*)SYS_GetArena2Hi() - (char*)SYS_GetArena2Lo()) / 1024;
+      size_t poolTotal, poolUsed, poolLargest;
+      bigPoolStats(poolTotal, poolUsed, poolLargest);
+      logf("big pool used %u of %u KB, largest free %u KB", (unsigned)(poolUsed / 1024), (unsigned)(poolTotal / 1024), (unsigned)(poolLargest / 1024));
+#else
+      unsigned free1 = 0, free2 = 0;
+#endif
+      logf("frame %d dt %.4f ticks %u work %.1f ms (max %.1f) draws %d/f text %d loads %d heap %d KB free %u+%u KB | cached img %d txt %d pan %d font %d = %ld KB",
+           frame, dt, (unsigned)SDL_GetTicks(), work * 1000 / 120, workMax * 1000, app.gfx.statDraws / 120, app.gfx.statText, app.gfx.statLoads,
+           (int)(mi.uordblks / 1024), free1, free2, nImg, nTxt, nPan, nFont, texBytes / 1024);
       work = workMax = 0;
       app.gfx.statDraws = app.gfx.statText = app.gfx.statLoads = 0;
     }

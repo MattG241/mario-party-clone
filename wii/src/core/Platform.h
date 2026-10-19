@@ -113,6 +113,8 @@ class Gfx {
  public:
   // per-frame costs, for the log (draw calls, text rasterised, images loaded)
   int statDraws = 0, statText = 0, statLoads = 0;
+  // what's held: cached images, text textures, panel textures, open fonts, and their pixel bytes
+  void cacheStats(int& images, int& texts, int& panels, int& fonts, long& bytes) const;
 
  private:
   Tex white_, disc_, round_, ringTex_;
