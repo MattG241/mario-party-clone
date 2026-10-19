@@ -11,3 +11,5 @@ __pycache__/
 *.pyc
 scripts/dev/tmp/
 .claude/worktrees/
+wii/build-*/
+wii/data/

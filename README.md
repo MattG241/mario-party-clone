@@ -39,6 +39,9 @@ The game starts in Lite on consoles (their browsers get little memory); Series X
 **Settings → Graphics → Full detail**. PlayStation and Switch have no browser that can run games, so there
 use a computer, a Steam Deck or a streaming stick plugged into the TV instead.
 
+**Nintendo Wii.** There is a native Wii edition for the Homebrew Channel: copy one folder to a USB stick
+or SD card and play with Wii Remotes. See [Wii edition](#wii-edition-homebrew-channel) below.
+
 **Controllers.** Up to four at once, plus the keyboard:
 
 - Xbox (One, Series, 360), PlayStation (DualShock 4, DualSense), Nintendo Switch Pro Controller
@@ -153,6 +156,41 @@ up more often.
 
 The guests are fan-made tributes for private, non-commercial play; every world, board and
 minigame is original. Code for a world lives in `src/game/worlds/<id>/` (see `types.ts` there).
+
+## Wii edition (Homebrew Channel)
+
+`wii/` holds a native port for the Nintendo Wii: the same boards, characters, side-character cast,
+rules and all 17 minigames, rewritten in C++ with SDL2 so it runs on the console from the Homebrew
+Channel (no browser needed).
+
+**Install** (a Wii with the [Homebrew Channel](https://wiibrew.org/wiki/Homebrew_Channel)):
+
+1. Download `AllStarParty-Wii.zip` from the
+   [latest release](https://github.com/MattG241/mario-party-clone/releases/latest).
+2. Unzip it to the root of a USB stick or SD card (FAT32), so you get `apps/allstarparty/` with
+   `boot.dol`, `meta.xml`, `icon.png` and `data/` inside. Copy the whole folder; the game needs `data/`.
+3. Put the stick in one of the Wii's back USB ports (or the SD card in the front slot), open the Homebrew
+   Channel and choose **All-Star Party**.
+
+**Controls.** Hold the Wii Remote sideways: the D-pad moves, **2** confirms, **1** goes back, **B**
+(trigger) is the extra button some menus and minigames use, **+** pauses and starts. A Nunchuk (stick +
+**A**/**B**), Classic Controller or GameCube controller works too. Up to four players; empty seats are
+CPUs (press **B** on the character screen to change their level). **HOME** returns to the Homebrew
+Channel. The game uses 16:9 if the Wii is set to widescreen, otherwise 4:3 with borders.
+
+**Build it yourself** (Linux):
+
+- Assets: `python3 wii/tools/build_assets.py` (needs `npm install` and Pillow) exports the game data
+  from the TypeScript sources (`wii/tools/export_data.ts`) and bakes the art, board tiles, arenas and
+  `wii/src/gen/GameData.cpp` into `wii/data/`. `python3 wii/tools/build_audio.py`
+  renders the procedural music and sound effects (numpy, soundfile).
+- Wii: install [devkitPro](https://devkitpro.org/wiki/Getting_Started) with `wii-dev` and the Wii
+  SDL2 portlibs (`wii-sdl2`, `wii-sdl2_image`, `wii-sdl2_mixer`, `wii-sdl2_ttf`), then run
+  `wii/build-wii.sh`. It writes `wii/dist/apps/allstarparty/` and `wii/dist/AllStarParty-Wii.zip`.
+- PC test build: `wii/build-linux.sh` (SDL2 dev packages and clang). Run
+  `ASP_DATA=wii/data wii/build-linux/allstarparty`; keys are Z/X/C, arrows, Enter. Use `--demo` for an
+  all-CPU match, `--mg <id>` for one minigame, and `--headless --shots <dir>` for screenshots.
+  `wii/tools/mgtest.sh <id> <file-stem>` builds and plays one minigame on its own.
 
 ## Settings and accessibility
 
