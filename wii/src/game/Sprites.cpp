@@ -38,8 +38,10 @@ void character(int c, const char* anim, float t, float x, float y, float scale, 
 }
 
 void cast(int castIdx, int pose, float x, float y, float scale, bool flip, Color tint) {
-  Tex* t = app.gfx.tex("cast.png");
-  int cell = castIdx * 6 + pose;
+  // the Wii edition's extra side characters (thief, banker, villain) have their own sheet
+  bool extra = castIdx >= CAST_COUNT;
+  Tex* t = app.gfx.tex(extra ? "cast_extra.png" : "cast.png");
+  int cell = (extra ? castIdx - CAST_COUNT : castIdx) * 6 + pose;
   SDL_Rect src{(cell % 6) * CELL, (cell / 6) * CELL, CELL, CELL};
   app.gfx.sprite(t, src, x, y, scale, scale, (flip ? CELL - FEET_X : FEET_X) / CELL, FEET_Y / CELL, 0, flip, tint);
 }

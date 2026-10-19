@@ -724,11 +724,16 @@ const ItemDef ITEMS[] = {
   {"wingstep_boots", "Wingstep Boots", "Adds +3 to your next roll.", 6, "preRoll", 6, 8},
   {"bubble_shield", "Bubble Shield", "Surrounds you with a bubble that blocks the next mishap.", 7, "preRoll", 5, 9},
   {"snare_seed", "Snare Seed", "Plants a trap on your space. The next rival to land there pays you 5 coins.", 5, "preRoll", 4, 10},
-  {"warp_charm", "Warp Charm", "Warp to a rival or to any Warp Space before you roll.", 10, "preRoll", 7, -1},
-  {"magnet_glove", "Magnet Glove", "Pulls up to 5 coins from a rival of your choice.", 8, "preRoll", 6, -1},
-  {"spring_bean", "Spring Bean", "Lets you re-roll the Dice Block once after seeing the result.", 4, "postRoll", 3, -1},
+  {"warp_charm", "Warp Charm", "Warp to a rival or to any Warp Space before you roll.", 10, "preRoll", 7, 11},
+  {"magnet_glove", "Magnet Glove", "Pulls up to 5 coins from a rival of your choice.", 8, "preRoll", 6, 12},
+  {"spring_bean", "Spring Bean", "Lets you re-roll the Dice Block once after seeing the result.", 4, "postRoll", 3, 13},
+  {"double_dice", "Double Dice", "Roll two Dice Blocks and move the total. Doubles win 10 coins!", 8, "preRoll", 6, 14},
+  {"triple_dice", "Triple Dice", "Roll three Dice Blocks and move the total. Doubles win 10 coins, triples 30!", 12, "preRoll", 8, 15},
+  {"custom_dice", "Custom Dice", "Choose your roll: any number from 1 to 10.", 7, "preRoll", 7, 16},
+  {"golden_pipe", "Golden Pipe", "Warps you straight to the Star Coin. Your turn ends there.", 20, "preRoll", 9, 17},
+  {"duel_glove", "Duelling Glove", "Challenge a rival to a Duel for coins before you roll.", 6, "preRoll", 5, 18},
 };
-const int ITEM_COUNT = 8;
+const int ITEM_COUNT = 13;
 const ShopDef SHOPS[] = {
   {"wrench", "Item Shop", {"wingstep_boots", "magnet_glove", "prism_key", "spring_bean"}, 4, "warp_charm"},
   {"pipper", "Bargain Stall", {"mystery_capsule", "bubble_shield", "snare_seed", "warp_charm"}, 4, "prism_key"},

@@ -243,7 +243,7 @@ class Board : public ui::Scene, public IO {
   }
 
   Task<int> preRoll(Player& p, std::vector<int> usable, int cpu) override {
-    if (p.cpu && cpu < 0) {
+    if (p.cpu && cpu == -1) {
       co_await co::wait(0.3f);
       co_return -1;
     }
@@ -253,7 +253,15 @@ class Board : public ui::Scene, public IO {
       mu.title = "Your move";
       mu.rows.push_back("Roll the dice");
       mu.icons.push_back(-1);
-      mu.notes.push_back("");
+      mu.notes.push_back("1-10");
+      mu.enabled.push_back(true);
+      // the character's own dice: six faces, steps or coins
+      const CharacterDice& cd = characterDice(p.character);
+      std::string faces;
+      for (auto& f : cd.faces) faces += (faces.empty() ? "" : " ") + (f.steps ? std::to_string(f.steps) : fmt("%+dc", f.coins));
+      mu.rows.push_back(cd.name);
+      mu.icons.push_back(-1);
+      mu.notes.push_back(faces);
       mu.enabled.push_back(true);
       for (int it : usable) {
         mu.rows.push_back(std::string("Use ") + data::ITEMS[it].name);
@@ -268,9 +276,9 @@ class Board : public ui::Scene, public IO {
         mu.notes.push_back("");
         mu.enabled.push_back(true);
       }
-      int cpuRow = 0;
+      int cpuRow = cpu == PRE_CHARACTER_DICE ? 1 : 0;
       for (size_t i = 0; i < usable.size(); i++)
-        if (usable[i] == cpu) cpuRow = (int)i + 1;
+        if (usable[i] == cpu) cpuRow = (int)i + 2;
       int r = co_await runMenu(mu, cpuRow);
       if (r == mapRow && !p.cpu) {
         mapView_ = true;
@@ -282,7 +290,8 @@ class Board : public ui::Scene, public IO {
         continue;
       }
       if (r <= 0) co_return -1;
-      co_return usable[r - 1];
+      if (r == 1) co_return PRE_CHARACTER_DICE;
+      co_return usable[r - 2];
     }
   }
 
@@ -323,27 +332,86 @@ class Board : public ui::Scene, public IO {
     co_return all[std::max(0, r)];
   }
 
-  Task<> rollDice(Player& p, int result, int bonus) override {
+  Task<> rollDice(Player& p, std::vector<int> results, int bonus, int kind, std::vector<int> faces) override {
     focusPlayer(p);
     dice_ = true;
     diceSlot_ = p.slot;
-    diceHit_ = false;
+    diceVals_ = results;
+    diceFaces_ = faces;
+    diceKind_ = kind;
+    diceChar_ = p.character;
+    diceHitN_ = 0;
     diceT_ = 0;
-    if (p.cpu) co_await co::wait(0.7f + 0.3f * (float)rng_.next());
-    else co_await co::until([&p] { return app.input.pad[p.slot].press(B_A); });
-    diceHit_ = true;
-    diceShown_ = result;
-    diceT_ = 0;
-    setPose(p.slot, "jump", 0.5f);
-    app.audio.sfx("dice");
-    co_await co::wait(0.75f);
+    for (size_t k = 0; k < results.size(); k++) {
+      if (p.cpu) co_await co::wait(0.6f + 0.3f * (float)rng_.next());
+      else co_await co::until([&p] { return app.input.pad[p.slot].press(B_A); });
+      diceHitN_ = (int)k + 1;
+      diceT_ = 0;
+      setPose(p.slot, "jump", 0.5f);
+      app.audio.sfx("dice");
+      co_await co::wait(0.4f);
+    }
+    co_await co::wait(0.45f);
+    int total = 0;
+    for (int r : results) total += r;
+    if (results.size() > 1) {
+      pop(fmt("= %d", total), p.slot, col::white);
+      co_await co::wait(0.6f);
+    }
     if (bonus > 0) {
       pop(fmt("+%d", bonus), p.slot, col::gold);
       co_await co::wait(0.5f);
     }
     dice_ = false;
-    if (turn_ == &p) stepsLeft_ = result + bonus, stepsSlot_ = p.slot;
-    else orderRoll_[p.slot] = result;
+    if (turn_ == &p) stepsLeft_ = total + bonus, stepsSlot_ = p.slot;
+    else orderRoll_[p.slot] = total;
+  }
+
+  Task<int> chooseNumber(Player& p, int lo, int hi, int cpu) override {
+    focusPlayer(p);
+    pickOn_ = true;
+    pickSlot_ = p.slot;
+    pickVal_ = (lo + hi) / 2;
+    pickLo_ = lo, pickHi_ = hi;
+    pickDone_ = false;
+    if (p.cpu) {
+      co_await co::wait(0.5f);
+      while (pickVal_ != cpu) {
+        pickVal_ += cpu > pickVal_ ? 1 : -1;
+        app.audio.sfx("move", 0.6f);
+        co_await co::wait(0.15f);
+      }
+      co_await co::wait(0.4f);
+    } else
+      co_await co::until([this] { return pickDone_; });
+    app.audio.sfx("confirm");
+    pickOn_ = false;
+    co_return pickVal_;
+  }
+
+  Task<> roulette(Player& p, std::string title, std::vector<std::string> labels, int chosen, Role host) override {
+    wheelOn_ = true;
+    wheelTitle_ = title;
+    wheelLabels_ = labels;
+    wheelHost_ = host;
+    wheelDone_ = false;
+    wheelT_ = 0;
+    int n = (int)labels.size();
+    if (n == 0) co_return;
+    // spin round a few times, slowing down, and stop on the chosen prize
+    int steps = n * 3 + ((chosen - 0) % n + n) % n;
+    for (int i = 0; i <= steps; i++) {
+      wheelHi_ = i % n;
+      app.audio.sfx("tick", 0.5f);
+      float k = (float)i / steps;
+      co_await co::wait(0.05f + 0.33f * k * k * k);
+    }
+    wheelHi_ = chosen;
+    wheelDone_ = true;
+    app.audio.sfx(host == R_VILLAIN ? "bad" : "fanfare");
+    co_await co::wait(1.3f);
+    wheelOn_ = false;
+    (void)p;
   }
 
   Task<bool> offerReroll(Player& p, int result, int cpu) override {
@@ -755,6 +823,7 @@ class Board : public ui::Scene, public IO {
     flashT_ += dt;
     rouletteT_ += dt;
     chanceT_ += dt;
+    wheelT_ += dt;
     // coin counters tick up (or down) to the real totals, a coin at a time
     coinTick_ -= dt;
     for (auto& p : M().players) {
@@ -791,6 +860,19 @@ class Board : public ui::Scene, public IO {
       }
     }
 
+    // Custom Dice picker input
+    if (pickOn_) {
+      Player* pp = bySlot(pickSlot_);
+      if (pp && !pp->cpu) {
+        const Pad& pad = app.input.pad[pickSlot_];
+        int d = (pad.press(B_RIGHT) || pad.press(B_UP)) ? 1 : ((pad.press(B_LEFT) || pad.press(B_DOWN)) ? -1 : 0);
+        if (d) {
+          pickVal_ = pickLo_ + ((pickVal_ - pickLo_ + d) % (pickHi_ - pickLo_ + 1) + (pickHi_ - pickLo_ + 1)) % (pickHi_ - pickLo_ + 1);
+          app.audio.sfx("move", 0.6f);
+        }
+        if (pad.press(B_A)) pickDone_ = true;
+      }
+    }
     // menu input
     if (menu_.open && !M().players[menu_.owner].cpu) {
       const Pad& pad = app.input.pad[M().players[menu_.owner].slot];
@@ -871,7 +953,15 @@ class Board : public ui::Scene, public IO {
       bool broken = m.b.bridgeUntil >= 0 && m.g.bridgeGroup(n) == 1;
       bool surged = std::find(m.b.surge.begin(), m.b.surge.end(), n) != m.b.surge.end();
       Color tint = broken ? Color(110, 110, 120, 150) : col::white;
+      if (m.b.isVillain(n)) {
+        // the villain's own space: dark, with the villain standing on it
+        app.gfx.ellipse(s.x, s.y, 22 * zoom_, 16 * zoom_, Color::hex(0xe5484d));
+        app.gfx.ellipse(s.x, s.y, 19 * zoom_, 13.5f * zoom_, Color::hex(0x2a1424));
+        spr::cast(castOf(R_VILLAIN), P_IDLE, s.x, s.y + 6 * zoom_, 0.36f * zoom_);
+        continue;
+      }
       spr::space(d.type, s.x, s.y, sc, tint);
+      if (n == m.b.bankNode || n == m.b.thiefNode) app.gfx.ring(s.x, s.y, 21 * zoom_, n == m.b.bankNode ? col::gold : col::purple);
       if (surged && !broken) app.gfx.ring(s.x, s.y, 20 * zoom_ + std::sin(t_ * 5) * 2, col::gold);
       if (n == flashNode_ && flashT_ < 0.6f) app.gfx.ring(s.x, s.y, (18 + flashT_ * 50) * zoom_, col::white.alpha(1 - flashT_ / 0.6f));
     }
@@ -915,6 +1005,15 @@ class Board : public ui::Scene, public IO {
       V2 a = nodeArt(n);
       list.push_back({a.y - 6, 1, castOf(!strcmp(s, "pipper") ? R_SHOP2 : R_SHOP1), P_IDLE, a.x - 32, false});
     }
+    // the thief and the banker at their spots
+    if (m.b.thiefNode >= 0) {
+      V2 a = nodeArt(m.b.thiefNode);
+      list.push_back({a.y - 6, 1, castOf(R_THIEF), P_IDLE, a.x + 32, true});
+    }
+    if (m.b.bankNode >= 0) {
+      V2 a = nodeArt(m.b.bankNode);
+      list.push_back({a.y - 6, 1, castOf(R_BANKER), P_IDLE, a.x - 32, false});
+    }
     for (auto& p : m.players) list.push_back({tok_[p.slot].y, 0, p.slot, p.character, tok_[p.slot].x, false});
     std::sort(list.begin(), list.end(), [](const Drawable& a, const Drawable& b) { return a.y < b.y; });
     for (auto& d : list) {
@@ -939,6 +1038,20 @@ class Board : public ui::Scene, public IO {
     }
   }
 
+  // The bank's savings, over the banker's head.
+  void drawBankTotal() {
+    Match& m = M();
+    if (m.b.bankNode < 0) return;
+    V2 a = nodeArt(m.b.bankNode);
+    V2 s = toScreen(a.x - 32, a.y - 6);
+    if (s.x < -40 || s.x > VW + 40 || s.y < 60 || s.y > VH + 60) return;
+    std::string t = std::to_string(m.b.bankCoins);
+    float w = app.gfx.textWidth(t, 16) + 34;
+    ui::card(s.x - w / 2, s.y - 92 * zoom_ - 14, w, 26, col::white.alpha(0.92f), 13);
+    spr::coin(s.x - w / 2 + 14, s.y - 92 * zoom_ - 1, 0.28f, t_);
+    app.gfx.text(t, s.x - w / 2 + 26, s.y - 92 * zoom_ - 12, 16, col::ink, LEFT, false);
+  }
+
   void bubble(float x, float y, const std::string& s, Color c) {
     app.gfx.circle(x, y, 17, c);
     app.gfx.circle(x, y, 14, col::white);
@@ -952,13 +1065,51 @@ class Board : public ui::Scene, public IO {
       const Token& t = tok_[diceSlot_];
       V2 s = toScreen(t.x, t.y);
       float y = s.y - 118 * zoom_ - t.hop * zoom_;
-      float bounce = diceHit_ ? -easeOut(clampf(diceT_ / 0.15f, 0, 1)) * 14 * (1 - clampf((diceT_ - 0.15f) / 0.3f, 0, 1)) : std::sin(t_ * 5) * 3;
-      int shown = diceHit_ ? diceShown_ : 1 + ((int)(t_ * 14)) % DICE_MAX;
-      ui::card(s.x - 28, y - 28 + bounce, 56, 56, diceHit_ ? col::gold : col::white, 12);
-      app.gfx.panel(s.x - 22, y - 22 + bounce, 44, 44, diceHit_ ? col::gold.mix(col::white, 0.4f) : col::blue.mix(col::white, 0.75f), 9);
-      app.gfx.text(std::to_string(shown), s.x, y - 18 + bounce, 30, col::ink, CENTER, false);
+      int n = (int)diceVals_.size();
+      const CharacterDice& cd = characterDice(diceChar_);
+      Color face = diceKind_ == DK_CHARACTER ? Color::hex(data::CHARACTERS[diceChar_].color).mix(col::white, 0.55f)
+                                             : (diceKind_ == DK_CUSTOM ? col::purple.mix(col::white, 0.6f) : col::blue.mix(col::white, 0.75f));
+      for (int k = 0; k < n; k++) {
+        float x = s.x + (k - (n - 1) / 2.0f) * 64;
+        bool hit = k < diceHitN_;
+        bool fresh = k == diceHitN_ - 1;
+        float bounce = hit ? (fresh ? -easeOut(clampf(diceT_ / 0.15f, 0, 1)) * 14 * (1 - clampf((diceT_ - 0.15f) / 0.3f, 0, 1)) : 0) : std::sin(t_ * 5 + k) * 3;
+        // what the face shows: the number, or a character-dice face (steps or coins)
+        std::string label;
+        int coinFace = 0;
+        if (diceKind_ == DK_CHARACTER) {
+          int f = hit && k < (int)diceFaces_.size() ? diceFaces_[k] : ((int)(t_ * 10) + k) % 6;
+          label = cd.faces[f].steps ? std::to_string(cd.faces[f].steps) : fmt("%+d", cd.faces[f].coins);
+          coinFace = cd.faces[f].steps ? 0 : cd.faces[f].coins;
+        } else if (diceKind_ == DK_CUSTOM)
+          label = std::to_string(diceVals_[k]);
+        else
+          label = std::to_string(hit ? diceVals_[k] : 1 + ((int)(t_ * 14) + k * 3) % DICE_MAX);
+        ui::card(x - 28, y - 28 + bounce, 56, 56, hit ? col::gold : col::white, 12);
+        app.gfx.panel(x - 22, y - 22 + bounce, 44, 44, hit ? col::gold.mix(col::white, 0.4f) : face, 9);
+        if (coinFace) {
+          spr::coin(x - 9, y + bounce, 0.3f, t_);
+          app.gfx.text(label, x + 9, y - 13 + bounce, 20, coinFace > 0 ? col::ink : col::red, CENTER, false);
+        } else
+          app.gfx.text(label, x, y - 18 + bounce, 30, col::ink, CENTER, false);
+      }
+      if (diceKind_ == DK_CHARACTER) app.gfx.text(cd.name, s.x, y + 32, 15, col::white, CENTER, true);
       Player* p = bySlot(diceSlot_);
-      if (p && !p->cpu && !diceHit_) ui::prompt(s.x - 34, y + 34, B_A, "Hit!", col::white);
+      if (p && !p->cpu && diceHitN_ < n) ui::prompt(s.x - 34, y + (diceKind_ == DK_CHARACTER ? 50 : 34), B_A, "Hit!", col::white);
+    }
+    // Custom Dice: pick the number
+    if (pickOn_) {
+      const Token& t = tok_[pickSlot_];
+      V2 s = toScreen(t.x, t.y);
+      float y = s.y - 118 * zoom_;
+      ui::card(s.x - 32, y - 32, 64, 64, col::white, 14);
+      app.gfx.panel(s.x - 26, y - 26, 52, 52, col::purple.mix(col::white, 0.6f), 10);
+      app.gfx.text(std::to_string(pickVal_), s.x, y - 20, 34, col::ink, CENTER, false);
+      float b = std::sin(t_ * 6) * 3;
+      app.gfx.text("<", s.x - 52 - b, y - 18, 30, col::white, CENTER, true);
+      app.gfx.text(">", s.x + 52 + b, y - 18, 30, col::white, CENTER, true);
+      Player* p = bySlot(pickSlot_);
+      if (p && !p->cpu) ui::prompt(s.x - 30, y + 40, B_A, "Roll it!", col::white);
     }
     // steps left
     if (stepsLeft_ > 0 && stepsSlot_ >= 0) {
@@ -1057,7 +1208,7 @@ class Board : public ui::Scene, public IO {
     float x = 70, y = VH - 128 + (1 - k) * 40, w = VW - 140, h = 104;
     ui::card(x, y, w, h, col::cream, 20);
     int c = castOf(line_.role);
-    Color cc = Color::hex(data::CAST[c].color);
+    Color cc = Color::hex(castDef(c).color);
     app.gfx.circle(x + 58, y + 50, 42, cc.mix(col::white, 0.55f));
     spr::cast(c, line_.pose, x + 58, y + 98, 1.05f);
     app.gfx.panel(x + 112, y - 14, app.gfx.textWidth(castName(line_.role), 18) + 24, 28, cc, 14);
@@ -1100,8 +1251,9 @@ class Board : public ui::Scene, public IO {
       }
       app.gfx.text(menu_.rows[i], tx, ry + 7, 19, menu_.enabled[i] ? col::ink : col::grey, LEFT, false);
       if (!menu_.notes[i].empty()) {
-        bool num = isdigit((unsigned char)menu_.notes[i][0]);
-        if (num) spr::coin(x + w - 66, ry + 18, 0.32f, 0);
+        // prices get a coin (only shops have them)
+        bool price = !shopItems_.empty() && isdigit((unsigned char)menu_.notes[i][0]);
+        if (price) spr::coin(x + w - 66, ry + 18, 0.32f, 0);
         app.gfx.text(menu_.notes[i], x + w - 24, ry + 7, 18, col::ink, RIGHT, false);
       }
     }
@@ -1251,6 +1403,29 @@ class Board : public ui::Scene, public IO {
     }
   }
 
+  // The lucky / villain roulette: six prizes around a card, the light stepping round and stopping.
+  void drawWheel() {
+    if (!wheelOn_) return;
+    ui::fadeRect(0.45f);
+    float k = easeBack(clampf(wheelT_ / 0.35f, 0, 1));
+    float w = 560 * k, h = 300 * k, x = VW / 2 - w / 2 + 40, y = 96;
+    bool villain = wheelHost_ == R_VILLAIN;
+    ui::card(x, y, w, h, villain ? Color::hex(0x2a1424) : col::cream, 22);
+    if (k < 0.95f) return;
+    // the host stands beside the wheel
+    spr::shadow(x - 50, y + h - 10, 70, 0.3f);
+    spr::cast(castOf(wheelHost_), wheelDone_ ? (villain ? P_HAPPY : P_CHEER) : P_POINT, x - 50, y + h - 10, 1.9f);
+    app.gfx.text(wheelTitle_, x + w / 2, y + 14, 24, villain ? Color::hex(0xff6a6a) : col::ink, CENTER, false);
+    int n = (int)wheelLabels_.size();
+    for (int i = 0; i < n; i++) {
+      float cx = x + 40 + (i % 3) * ((w - 80) / 3) + (w - 80) / 6, cy = y + 90 + (i / 3) * 96;
+      bool on = i == wheelHi_;
+      Color c = on ? (wheelDone_ ? col::gold : (villain ? Color::hex(0xe5484d) : col::teal)) : (villain ? Color::hex(0x4a2840) : col::white);
+      ui::card(cx - 74, cy - 34, 148, 68, c, 14);
+      app.gfx.textBox(wheelLabels_[i], cx - 66, cy - 22, 132, 18, on || villain ? col::white : col::ink, CENTER);
+    }
+  }
+
   void drawChance() {
     if (!chance_) return;
     Match& m = M();
@@ -1313,6 +1488,7 @@ class Board : public ui::Scene, public IO {
     drawBoard();
     drawSpaces();
     drawActors();
+    drawBankTotal();
     drawOverlaysOnBoard();
     drawHud();
     if (mapView_) {
@@ -1329,6 +1505,7 @@ class Board : public ui::Scene, public IO {
     drawDialogue();
     drawRoulette();
     drawChance();
+    drawWheel();
     if (overlay_ != OV_NONE) drawOverlay();
     if (banT_ >= 0) ui::banner(banTitle_, banSub_, banColor_, banT_, banHold_);
     if (paused_) {
@@ -1372,8 +1549,19 @@ class Board : public ui::Scene, public IO {
   int flashNode_ = -1;
   float flashT_ = 9;
   // dice
-  bool dice_ = false, diceHit_ = false;
-  int diceSlot_ = 0, diceShown_ = 1;
+  bool dice_ = false;
+  int diceSlot_ = 0, diceHitN_ = 0, diceKind_ = DK_NORMAL, diceChar_ = 0;
+  std::vector<int> diceVals_, diceFaces_;
+  // Custom Dice picker
+  bool pickOn_ = false, pickDone_ = false;
+  int pickSlot_ = 0, pickVal_ = 5, pickLo_ = 1, pickHi_ = 10;
+  // roulette
+  bool wheelOn_ = false, wheelDone_ = false;
+  float wheelT_ = 0;
+  int wheelHi_ = 0;
+  Role wheelHost_ = R_HELPER;
+  std::string wheelTitle_;
+  std::vector<std::string> wheelLabels_;
   float diceT_ = 0;
   int stepsLeft_ = -1, stepsSlot_ = -1;
   // boxes

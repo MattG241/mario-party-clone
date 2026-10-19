@@ -11,7 +11,7 @@ int animLength(int character, const char* anim);         // frames
 float animSeconds(int character, const char* anim);      // one pass
 // Draw a character with its feet at (x, y). t: seconds into the animation.
 void character(int c, const char* anim, float t, float x, float y, float scale = 1.0f, bool flip = false, Color tint = col::white);
-// A board cast member (data::CAST index) in one of its six poses.
+// A board cast member (castDef index: data::CAST, then the Wii's extra cast) in one of its six poses.
 void cast(int castIdx, int pose, float x, float y, float scale = 1.0f, bool flip = false, Color tint = col::white);
 void portrait(int c, float x, float y, float size, Color tint = col::white);
 void space(int type, float x, float y, float scale = 1.0f, Color tint = col::white);

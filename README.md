@@ -186,6 +186,17 @@ a Duel (bet coins in a one-on-one minigame) or a Battle (everyone pays into a po
 last 5 turns bring a catch-up boost; and the Minigame Star, Coin Star and Happening Star are awarded at the end.
 Every minigame's rules card has a **Practice** option (press **1**).
 
+**Board characters, items and dice.** Each board has a banker (passing pays 5 coins into the bank, landing on it
+wins the lot), a thief (pay 5 coins to steal coins from a rival or 50 to steal a Star Coin) and villain spaces
+where the villain spins a wheel of misfortune (coin tax, a coin revolution, a stolen Star Coin, back to the
+start...). They're side characters from the players' own franchises, like the rest of the cast: Mr. Krabs or
+Mr. Burns at the bank, Catwoman or Plankton as the thief, Dr. Eggman, Frieza or Venom as the villain. Lucky spaces
+spin a prize roulette. Shops sell Double and Triple Dice (doubles win 10 coins, triples 30), Custom Dice (choose
+your roll), the Golden Pipe (straight to the Star Coin) and the Duelling Glove, and every character has their
+own six-sided dice (e.g. Sonic's Speed Dice: 1, 1, 2, 9, 10, 10) to pick instead of the normal 1-10 Dice Block.
+CPUs use all of it: they aim Custom Dice at the Star Coin, save for Golden Pipes, avoid villain spaces and head
+for a full bank.
+
 **Multiplayer.** Up to four players on one Wii, in the board game and in the minigames: each player presses
 **2** (or **A**) on the character screen to join with their own controller (Wii Remotes in player order 1-4, or
 GameCube controllers in ports 1-4). Seats nobody joins are played by the CPU.

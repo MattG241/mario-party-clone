@@ -10,16 +10,34 @@
 #include "Data.h"
 
 // Items, in the order of data::ITEMS.
-enum ItemId { IT_KEY, IT_CAPSULE, IT_BOOTS, IT_SHIELD, IT_SNARE, IT_WARP, IT_MAGNET, IT_BEAN, IT_COUNT };
+enum ItemId { IT_KEY, IT_CAPSULE, IT_BOOTS, IT_SHIELD, IT_SNARE, IT_WARP, IT_MAGNET, IT_BEAN,
+              // the Wii edition's extra items (wii/tools/wii_items.py)
+              IT_DOUBLE, IT_TRIPLE, IT_CUSTOM, IT_PIPE, IT_GLOVE, IT_COUNT };
 int itemByName(const char* id);
 
 // The board cast's roles (dialogue speakers).
-enum Role { R_HOST, R_KEEPER, R_SHOP1, R_SHOP2, R_HELPER, R_COUNT };
+enum Role { R_HOST, R_KEEPER, R_SHOP1, R_SHOP2, R_HELPER, R_THIEF, R_BANKER, R_VILLAIN, R_COUNT };
 enum Pose { P_IDLE, P_WAVE, P_CHEER, P_POINT, P_SURPRISED, P_HAPPY };
 // Cast the roles from the players' characters (then the board's world, then a default line-up).
 void castRoles(const std::vector<int>& characters, const char* world);
-int castOf(Role r);           // index into data::CAST
+int castOf(Role r);           // index into the whole cast (castDef)
 const char* castName(Role r);
+// The whole cast: data::CAST (the web game's side characters, cast.png) then the Wii edition's extra
+// side characters for the thief, banker and villain (cast_extra.png).
+int castTotal();
+const data::CastDef& castDef(int idx);
+
+// Each character's own dice block: six faces, each a number of steps or (steps 0) coins won or lost.
+struct DieFace {
+  int steps, coins;
+};
+struct CharacterDice {
+  const char* name;
+  DieFace faces[6];
+};
+const CharacterDice& characterDice(int character);
+enum DiceKind { DK_NORMAL, DK_CHARACTER, DK_CUSTOM };
+constexpr int PRE_CHARACTER_DICE = -2;  // preRoll's answer for "roll my character's dice"
 
 constexpr int DICE_MIN = 1, DICE_MAX = 10, BOOTS_BONUS = 3;
 constexpr int START_COINS = 10, STAR_PRICE = 20, BLUE_COINS = 3, BLUE_FINAL = 5, MAX_ITEMS = 3, SNARE_STEAL = 5, MAGNET_STEAL = 5;
@@ -74,6 +92,10 @@ struct BoardState {
   std::map<int, int> portals;
   std::vector<std::pair<int, int>> traps;  // node, owner slot
   int gatesOpenUntil = -1;
+  // the board's special spots (chosen when the match starts)
+  int thiefNode = -1, bankNode = -1, bankCoins = 0;
+  std::vector<int> villainNodes;
+  bool isVillain(int n) const;
 };
 
 struct Exit {
@@ -122,7 +144,13 @@ class IO {
   virtual co::Task<int> preRoll(Player& p, std::vector<int> usable, int cpu) = 0;
   virtual co::Task<int> chooseTarget(Player& p, std::string prompt, std::vector<Target> opts, int cpu) = 0;  // index or -1
   virtual co::Task<int> chooseDiscard(Player& p, int incoming, int cpu) = 0;
-  virtual co::Task<> rollDice(Player& p, int result, int bonus) = 0;
+  // Hit the dice: one result per die (Double / Triple Dice roll several), kind DiceKind; for a character's
+  // dice, `faces` holds the face index rolled per die.
+  virtual co::Task<> rollDice(Player& p, std::vector<int> results, int bonus, int kind, std::vector<int> faces) = 0;
+  // Custom Dice: pick a number lo..hi (cpu: the CPU's pick).
+  virtual co::Task<int> chooseNumber(Player& p, int lo, int hi, int cpu) = 0;
+  // A roulette wheel (lucky spaces, the villain): spin and stop on `chosen`; the host speaks the title.
+  virtual co::Task<> roulette(Player& p, std::string title, std::vector<std::string> labels, int chosen, Role host) = 0;
   virtual co::Task<bool> offerReroll(Player& p, int result, int cpu) = 0;
   virtual co::Task<int> choosePath(Player& p, int at, std::vector<PathOpt> opts, int cpu) = 0;  // index
   virtual co::Task<int> shop(Player& p, int shopIdx, std::vector<int> items, int cpu) = 0;     // item or -1
@@ -167,6 +195,8 @@ struct Match {
   int bonus[3] = {0, 1, 2};
   // per-turn scratch
   int bootsBonus = 0;
+  int diceCount = 1, customRoll = 0;  // Double / Triple Dice, Custom Dice
+  bool characterDiceNext = false, turnOver = false;
   bool itemUsed = false, bounced = false;
   std::vector<int> starOffered;
   IO* io = nullptr;
@@ -181,6 +211,7 @@ struct Match {
   int stepBack(int at, const std::vector<int>& trail) const;
   bool isOpen(int n) const;
   int playerIndex(const Player& p) const { return (int)(&p - &players[0]); }
+  void placeSpots(int start);
 };
 
 // Places from scores (higher is better): ties share a place.

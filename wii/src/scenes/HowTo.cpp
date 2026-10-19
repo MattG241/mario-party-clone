@@ -1,5 +1,6 @@
 // How to Play: the Wii Remote's buttons, the board game, and minigames / multiplayer, one page each.
 #include <cmath>
+#include <cstring>
 
 #include "../core/Util.h"
 #include "../game/Session.h"
@@ -7,7 +8,7 @@
 
 namespace {
 
-constexpr int PAGES = 4;
+constexpr int PAGES = 5;
 
 class HowTo : public ui::Scene {
  public:
@@ -134,6 +135,33 @@ class HowTo : public ui::Scene {
     line(col::green, "Last 5 turns: the trailing player gets a boost and the party wheel spins. At the end: Minigame Star, Coin Star and Happening Star!");
   }
 
+  // The board's characters, the special items and the character dice. The characters shown are the ones
+  // who usually play each role (who actually appears depends on who's playing).
+  void pageExtras() {
+    app.gfx.text("Board characters, items and dice", VW / 2, 76, 24, col::white, CENTER, true);
+    struct Who {
+      const char* id;
+      const char* role;
+      const char* what;
+    };
+    static const Who who[3] = {{"krabs", "The banker", "Passing the bank costs 5 coins. Land on it to win everything inside!"},
+                               {"catwoman", "The thief", "Pay 5 coins to steal coins from a rival, or 50 to steal a Star Coin."},
+                               {"eggman", "The villain", "Land on a villain space and the villain spins a wheel of misfortune!"}};
+    for (int i = 0; i < 3; i++) {
+      float x = 120 + i * 260, y = 236;
+      int idx = 0;
+      for (int k = 0; k < castTotal(); k++)
+        if (!strcmp(castDef(k).id, who[i].id)) idx = k;
+      spr::shadow(x, y, 60, 0.3f);
+      spr::cast(idx, P_WAVE, x, y, 1.5f);
+      app.gfx.text(who[i].role, x, y + 8, 19, col::gold, CENTER, true);
+      app.gfx.textBox(who[i].what, x - 112, y + 32, 224, 14, col::white, CENTER);
+    }
+    app.gfx.textBox("New items: Double and Triple Dice (doubles win 10 coins, triples 30), Custom Dice (pick your roll), the Golden Pipe "
+                    "(straight to the Star Coin) and the Duelling Glove. Every character also has their own dice: pick it from your turn menu.",
+                    80, 352, VW - 160, 15, col::white, CENTER);
+  }
+
   void pageParty() {
     app.gfx.text("Players and minigames", VW / 2, 76, 24, col::white, CENTER, true);
     float y = 118;
@@ -158,6 +186,7 @@ class HowTo : public ui::Scene {
     if (page_ == 0) pageControls();
     else if (page_ == 1) pageBoard();
     else if (page_ == 2) pageRules();
+    else if (page_ == 3) pageExtras();
     else pageParty();
     for (int i = 0; i < PAGES; i++) app.gfx.circle(VW / 2 - 20 + i * 20, 62, 5, i == page_ ? col::gold : col::white.alpha(0.5f));
     ui::prompts(VW / 2, VH - 40, {{B_A, page_ + 1 < PAGES ? "Next" : "Done"}, {B_B, page_ > 0 ? "Previous" : "Back"}});

@@ -22,9 +22,21 @@ bool Player::has(int it) const { return std::find(items.begin(), items.end(), it
 
 static int g_cast[R_COUNT] = {7, 6, 0, 1, 8};
 
+// The Wii edition's extra side characters for the special roles (scripts/art/side_<id>.py, rendered by
+// scripts/art/cast_wii.py into wii/art/cast_<id>.png and stacked into cast_extra.png in this order).
+static const CastDef EXTRA_CAST[] = {
+    {"eggman", "Dr. Eggman", {"sonic", "", ""}, 1, 0xd63a2f},  {"frieza", "Frieza", {"goku", "", ""}, 1, 0x8e5bd6},
+    {"catwoman", "Catwoman", {"batman", "", ""}, 1, 0x3a3a4a}, {"plankton", "Plankton", {"spongebob", "", ""}, 1, 0x4fae3a},
+    {"krabs", "Mr. Krabs", {"spongebob", "", ""}, 1, 0xe0412f}, {"burns", "Mr. Burns", {"homer", "", ""}, 1, 0x6f8f5a},
+};
+constexpr int EXTRA_COUNT = (int)(sizeof EXTRA_CAST / sizeof EXTRA_CAST[0]);
+
+int castTotal() { return CAST_COUNT + EXTRA_COUNT; }
+const CastDef& castDef(int i) { return i < CAST_COUNT ? CAST[std::max(0, i)] : EXTRA_CAST[std::min(EXTRA_COUNT - 1, i - CAST_COUNT)]; }
+
 static int castIndex(const char* id) {
-  for (int i = 0; i < CAST_COUNT; i++)
-    if (!strcmp(CAST[i].id, id)) return i;
+  for (int i = 0; i < castTotal(); i++)
+    if (!strcmp(castDef(i).id, id)) return i;
   return 0;
 }
 
@@ -43,11 +55,72 @@ void castRoles(const std::vector<int>& characters, const char* world) {
     int s = castIndex(d);
     if (std::find(picks.begin(), picks.end(), s) == picks.end()) picks.push_back(s);
   }
-  for (int r = 0; r < R_COUNT; r++) g_cast[r] = picks[r];
+  for (int r = 0; r < R_THIEF; r++) g_cast[r] = picks[r];
+  // the thief, the banker and the villain: whoever comes from a franchise in play, else one of them by lot
+  struct Pool {
+    Role role;
+    const char* ids[3];
+  };
+  static const Pool POOLS[] = {{R_VILLAIN, {"eggman", "frieza", "venom"}}, {R_THIEF, {"catwoman", "plankton", ""}}, {R_BANKER, {"krabs", "burns", ""}}};
+  int lot = 0;
+  for (int c : characters) lot = lot * 7 + c;
+  for (const auto& pool : POOLS) {
+    std::vector<int> cands;
+    int pick = -1;
+    for (const char* id : pool.ids) {
+      if (!id[0]) continue;
+      int s = castIndex(id);
+      bool used = false;
+      for (int r = 0; r < pool.role; r++) used |= g_cast[r] == s;
+      if (used) continue;
+      cands.push_back(s);
+      const CastDef& d = castDef(s);
+      for (int c : characters)
+        for (int k = 0; k < d.fromCount; k++)
+          if (pick < 0 && !strcmp(d.from[k], CHARACTERS[c].id)) pick = s;
+    }
+    if (pick < 0 && !cands.empty()) pick = cands[(lot >> 1) % cands.size()];
+    g_cast[pool.role] = pick < 0 ? castIndex(pool.ids[0]) : pick;
+  }
 }
 
 int castOf(Role r) { return g_cast[r]; }
-const char* castName(Role r) { return CAST[g_cast[r]].name; }
+const char* castName(Role r) { return castDef(g_cast[r]).name; }
+
+// ---------------------------------------------------------------------------------------------
+// Character dice (each character's own six-faced dice block)
+
+static const struct {
+  const char* character;
+  CharacterDice dice;
+} CHARACTER_DICE[] = {
+    {"luffy", {"Gum-Gum Dice", {{1, 0}, {1, 0}, {3, 0}, {8, 0}, {10, 0}, {10, 0}}}},
+    {"zoro", {"Three-Sword Dice", {{3, 0}, {3, 0}, {6, 0}, {6, 0}, {6, 0}, {9, 0}}}},
+    {"nami", {"Navigator Dice", {{0, 5}, {4, 0}, {4, 0}, {5, 0}, {6, 0}, {8, 0}}}},
+    {"goku", {"Saiyan Dice", {{0, -2}, {2, 0}, {6, 0}, {7, 0}, {8, 0}, {10, 0}}}},
+    {"naruto", {"Shadow Clone Dice", {{3, 0}, {3, 0}, {5, 0}, {5, 0}, {7, 0}, {7, 0}}}},
+    {"batman", {"Utility Dice", {{0, 4}, {4, 0}, {5, 0}, {5, 0}, {6, 0}, {7, 0}}}},
+    {"spiderman", {"Web Dice", {{2, 0}, {2, 0}, {6, 0}, {6, 0}, {8, 0}, {8, 0}}}},
+    {"ironman", {"Repulsor Dice", {{0, -3}, {5, 0}, {6, 0}, {7, 0}, {8, 0}, {9, 0}}}},
+    {"sonic", {"Speed Dice", {{1, 0}, {1, 0}, {2, 0}, {9, 0}, {10, 0}, {10, 0}}}},
+    {"spongebob", {"Fry Cook Dice", {{0, 3}, {0, 3}, {5, 0}, {5, 0}, {7, 0}, {9, 0}}}},
+    {"homer", {"Donut Dice", {{0, 6}, {1, 0}, {3, 0}, {6, 0}, {8, 0}, {10, 0}}}},
+    {"elvis", {"Rock and Roll Dice", {{4, 0}, {4, 0}, {4, 0}, {5, 0}, {5, 0}, {10, 0}}}},
+    {"sabrina", {"Encore Dice", {{2, 0}, {3, 0}, {5, 0}, {6, 0}, {7, 0}, {8, 0}}}},
+    {"chappell", {"Glitter Dice", {{0, 5}, {3, 0}, {3, 0}, {7, 0}, {7, 0}, {8, 0}}}},
+    {"sandler", {"Happy Dice", {{0, 3}, {1, 0}, {6, 0}, {6, 0}, {6, 0}, {9, 0}}}},
+    {"obama", {"Steady Dice", {{3, 0}, {4, 0}, {5, 0}, {5, 0}, {6, 0}, {7, 0}}}},
+    {"trump", {"Tower Dice", {{1, 0}, {2, 0}, {2, 0}, {8, 0}, {9, 0}, {10, 0}}}},
+};
+
+const CharacterDice& characterDice(int character) {
+  static const CharacterDice plain{"Dice", {{1, 0}, {2, 0}, {4, 0}, {6, 0}, {8, 0}, {10, 0}}};
+  for (const auto& d : CHARACTER_DICE)
+    if (!strcmp(d.character, CHARACTERS[character].id)) return d.dice;
+  return plain;
+}
+
+bool BoardState::isVillain(int n) const { return std::find(villainNodes.begin(), villainNodes.end(), n) != villainNodes.end(); }
 
 // ---------------------------------------------------------------------------------------------
 // Graph and board queries
@@ -148,6 +221,45 @@ int Match::stepBack(int at, const std::vector<int>& trail) const {
   return preds.empty() ? -1 : preds[0];
 }
 
+// The thief's and the banker's spots and the villain spaces: blue spaces well away from the start, the
+// shops and each other, and the board's bad-luck spaces (the same on every visit to a board).
+void Match::placeSpots(int start) {
+  auto apart = [&](int a, int c) { return std::min(distance(a, c, true), distance(c, a, true)); };
+  auto nearSpecial = [&](int n) {
+    auto check = [&](int x) { return x == start || g.node(x).type == SP_SHOP || g.node(x).type == SP_STAR; };
+    for (int x : g.next[n])
+      if (check(x)) return true;
+    for (int x : g.prev[n])
+      if (check(x)) return true;
+    return false;
+  };
+  std::vector<int> blues, reds;
+  for (int i = 0; i < g.count(); i++) {
+    if (i == start || nearSpecial(i)) continue;
+    if (g.node(i).type == SP_BLUE) blues.push_back(i);
+    if (g.node(i).type == SP_BADLUCK) reds.push_back(i);
+  }
+  auto farthest = [&](const std::vector<int>& from, std::function<int(int)> score, std::vector<int> skip) {
+    int best = -1, bs = -1;
+    for (int n : from) {
+      if (std::find(skip.begin(), skip.end(), n) != skip.end()) continue;
+      int s = score(n);
+      if (s > bs) bs = s, best = n;
+    }
+    return best;
+  };
+  b.bankNode = farthest(blues, [&](int n) { return std::min(distance(start, n, true), 60); }, {});
+  b.thiefNode = b.bankNode < 0 ? -1 : farthest(blues, [&](int n) { return std::min(apart(n, b.bankNode), 60); }, {b.bankNode});
+  b.villainNodes.clear();
+  const std::vector<int>& pool = reds.empty() ? blues : reds;
+  int v1 = farthest(pool, [&](int n) { return std::min(distance(start, n, true), 60); }, {b.bankNode, b.thiefNode});
+  if (v1 >= 0) {
+    b.villainNodes.push_back(v1);
+    int v2 = farthest(pool, [&](int n) { return std::min(apart(n, v1), 60); }, {b.bankNode, b.thiefNode, v1});
+    if (v2 >= 0 && apart(v2, v1) >= 6) b.villainNodes.push_back(v2);
+  }
+}
+
 void Match::init(int board, int rounds_, const std::vector<Player>& ps, uint32_t seed) {
   boardIndex = board;
   rounds = rounds_;
@@ -174,6 +286,7 @@ void Match::init(int board, int rounds_, const std::vector<Player>& ps, uint32_t
     if (n >= 0 && n != start) gates.push_back(n);
   }
   b.starGate = gates.empty() ? start : rng.pick(gates);
+  placeSpots(start);
   // the classic three bonus stars
   bonus[0] = 7;
   bonus[1] = 8;
@@ -248,10 +361,88 @@ static int bestWarpTarget(Match& m, Player& p) {
   return best;
 }
 
-static int aiPreRoll(Match& m, Player& p, const std::vector<int>& usable) {
-  if (usable.empty() || sloppy(m, p)) return -1;
-  auto has = [&](int it) { return std::find(usable.begin(), usable.end(), it) != usable.end(); };
+// What a CPU thinks of ending its move on a node.
+static float landValue(Match& m, Player& p, int n) {
+  if (m.b.isVillain(n)) return -12;
+  float v;
+  switch (m.g.node(n).type) {
+    case SP_BLUE: v = m.finalRound() ? 5 : 3; break;
+    case SP_LUCKY: v = 4; break;
+    case SP_BADLUCK: v = -5; break;
+    case SP_HAPPENING: v = 2; break;
+    case SP_SHOP: v = (p.items.size() < 3 && p.coins >= 6) ? 2 : 0; break;
+    case SP_WARP: v = 1; break;
+    default: v = 0;
+  }
+  if (n == m.b.bankNode) v += m.b.bankCoins;
+  if (n == m.b.thiefNode && p.coins >= 5) v += 1;
+  return v;
+}
+
+// The node `steps` ahead when heading for the Star Coin (the way a CPU walks).
+static int walkTowardStar(Match& m, Player& p, int steps, bool* passesStar = nullptr) {
+  bool key = p.has(IT_KEY);
+  int at = p.node;
+  if (passesStar) *passesStar = false;
+  for (int k = 0; k < steps; k++) {
+    auto ex = m.exits(at, key);
+    if (ex.empty()) break;
+    int nx = ex[0].to, nd = 1 << 30;
+    for (auto& e : ex) {
+      if (e.needsKey && !key) continue;
+      int d = m.distance(e.to, m.b.starGate, key);
+      if (d < nd) nd = d, nx = e.to;
+    }
+    at = nx;
+    if (passesStar && at == m.b.starGate) *passesStar = true;
+  }
+  return at;
+}
+
+// Custom Dice: reach the Star Coin when it can be bought, else the best landing within 1-10.
+static int aiCustomRoll(Match& m, Player& p) {
   int dist = starDist(m, p.node, p.has(IT_KEY));
+  if (p.coins >= m.starPrice() && dist >= DICE_MIN && dist <= DICE_MAX) return dist;
+  int best = DICE_MAX;
+  float bs = -1e9f;
+  for (int k = DICE_MIN; k <= DICE_MAX; k++) {
+    float v = landValue(m, p, walkTowardStar(m, p, k)) + k * 0.15f;
+    if (v > bs) bs = v, best = k;
+  }
+  return best;
+}
+
+// Whether a CPU rolls its character's own dice this turn.
+static bool aiCharacterDice(Match& m, Player& p, int dist) {
+  const CharacterDice& cd = characterDice(p.character);
+  float steps = 0, coins = 0;
+  int hi = 0;
+  for (auto& f : cd.faces) {
+    steps += f.steps / 6.0f;
+    coins += f.coins / 6.0f;
+    hi = std::max(hi, f.steps);
+  }
+  bool afford = p.coins >= m.starPrice();
+  if (afford && dist <= hi && dist > 0) return m.rng.chance(0.5);
+  if (!afford && coins > 0.5f) return m.rng.chance(0.4);
+  if (steps > 5.4f) return m.rng.chance(0.35);
+  return m.rng.chance(0.1);
+}
+
+static int aiPreRoll(Match& m, Player& p, const std::vector<int>& usable) {
+  int dist = starDist(m, p.node, p.has(IT_KEY));
+  int fallback = aiCharacterDice(m, p, dist) ? PRE_CHARACTER_DICE : -1;
+  if (usable.empty() || sloppy(m, p)) return fallback;
+  auto has = [&](int it) { return std::find(usable.begin(), usable.end(), it) != usable.end(); };
+  bool afford = p.coins >= m.starPrice();
+  if (has(IT_PIPE) && afford && dist > 3) return IT_PIPE;
+  if (has(IT_CUSTOM) && afford && dist >= DICE_MIN && dist <= DICE_MAX) return IT_CUSTOM;
+  if (has(IT_TRIPLE) && (dist > 14 || (afford && dist > 10 && dist <= 30))) return IT_TRIPLE;
+  if (has(IT_DOUBLE) && (dist > 9 || (afford && dist > 10 && dist <= 20))) return IT_DOUBLE;
+  if (has(IT_GLOVE) && p.coins >= 10) {
+    for (auto& o : m.players)
+      if (&o != &p && o.coins >= 15 && m.rng.chance(0.6)) return IT_GLOVE;
+  }
   if (has(IT_CAPSULE)) return IT_CAPSULE;
   if (has(IT_SHIELD) && !p.shielded) return IT_SHIELD;
   if (has(IT_MAGNET)) {
@@ -266,7 +457,8 @@ static int aiPreRoll(Match& m, Player& p, const std::vector<int>& usable) {
     if (aiming || m.rng.chance(0.2)) return IT_BOOTS;
   }
   if (has(IT_SNARE) && m.g.node(p.node).type != SP_START && m.rng.chance(0.5)) return IT_SNARE;
-  return -1;
+  if (has(IT_CUSTOM) && m.rng.chance(0.3)) return IT_CUSTOM;
+  return fallback;
 }
 
 static const int SPACE_VALUE[SP_COUNT] = {2, 3, 4, -3, 1, 2, 0, 2};
@@ -287,6 +479,8 @@ static int aiPath(Match& m, Player& p, const std::vector<PathOpt>& opts) {
       for (int k = 0; k < 4; k++) {
         auto& n = m.g.node(at);
         score += SPACE_VALUE[n.type] * (1 - k * 0.15f);
+        if (m.b.isVillain(at)) score -= 8 * (1 - k * 0.15f);
+        if (at == m.b.bankNode) score += m.b.bankCoins * 0.3f;
         if (n.type == SP_SHOP && p.items.size() < 3 && p.coins >= 6) score += 3;
         auto ex = m.exits(at, false);
         if (ex.empty()) break;
@@ -323,6 +517,8 @@ static int aiShop(Match& m, Player& p, const std::vector<int>& offer) {
   int pick = -1;
   for (int it : ok) {
     if (it == IT_SHIELD && (p.shielded || p.has(IT_SHIELD))) continue;
+    // a Golden Pipe is only worth it with a Star Coin's price left over
+    if (it == IT_PIPE && p.coins - ITEMS[it].price < m.starPrice()) continue;
     if (it == IT_KEY && p.has(IT_KEY)) continue;
     if (pick < 0 || ITEMS[it].value > ITEMS[pick].value) pick = it;
   }
@@ -388,7 +584,7 @@ static void removeItem(Player& p, int it) {
 }
 
 static int randomItem(Match& m) {
-  static const std::vector<float> w = {1.0f, 0.6f, 1.4f, 1.0f, 1.0f, 0.6f, 0.9f, 1.0f};
+  static const std::vector<float> w = {1.0f, 0.6f, 1.4f, 1.0f, 1.0f, 0.6f, 0.9f, 1.0f, 0.9f, 0.5f, 0.7f, 0.25f, 0.6f};
   return m.rng.weighted(w);
 }
 
@@ -471,6 +667,13 @@ static Task<> visitShop(Match& m, Player& p, int shopIdx) {
   const ShopDef& s = SHOPS[shopIdx];
   std::vector<int> offer;
   for (int i = 0; i < s.stockCount; i++) offer.push_back(itemByName(s.stock[i]));
+  // three of the usual stock and two of the special dice and gadgets, different every visit
+  m.rng.shuffle(offer);
+  if (offer.size() > 3) offer.resize(3);
+  std::vector<int> special{IT_DOUBLE, IT_TRIPLE, IT_CUSTOM, IT_PIPE, IT_GLOVE};
+  m.rng.shuffle(special);
+  offer.push_back(special[0]);
+  offer.push_back(special[1]);
   int extra = itemByName(s.finalRoundExtra);
   if (m.finalRound() && std::find(offer.begin(), offer.end(), extra) == offer.end()) offer.push_back(extra);
   int cpu = p.cpu ? aiShop(m, p, offer) : -1;
@@ -505,6 +708,9 @@ static Task<> swapPlaces(Match& m, Player& a, Player& c) {
 }
 
 static Task<> runEvent(Match& m, const std::string& id, Player* p);
+static Task<> villainSpace(Match& m, Player& p);
+static Task<> thiefVisit(Match& m, Player& p);
+static Task<> evLucky(Match& m, Player& p);
 
 static Task<> evLucky(Match& m, Player& p) {
   p.st.lucky++;
@@ -512,7 +718,25 @@ static Task<> evLucky(Match& m, Player& p) {
   std::vector<std::string> ids{"parade", "sale", "lanterns", "delivery", "tailwind", "guide", "popup", "chance", "duel", "battle"};
   std::vector<float> w{1, m.b.saleUntil >= m.round ? 0.f : 0.8f, 1.4f, 1.2f, 1, m.distance(p.node, m.b.starGate, false) > 6 ? 0.7f : 0.f, p.coins >= 4 ? 0.8f : 0.f,
                        rivals ? 1.1f : 0.f, rivals && p.coins > 0 ? 0.7f : 0.f, rivals ? 0.6f : 0.f};
-  co_await runEvent(m, ids[m.rng.weighted(w)], &p);
+  static const char* LABELS[] = {"Coin parade", "Star Coin sale", "Lantern coins", "Free item", "Tailwind", "Shortcut", "Pop-up shop", "Chance Time", "Duel", "Battle"};
+  int pick = m.rng.weighted(w);
+  // the wheel shows the prize and five other possibilities
+  std::vector<int> shown{pick};
+  std::vector<int> others;
+  for (size_t i = 0; i < ids.size(); i++)
+    if ((int)i != pick && w[i] > 0) others.push_back((int)i);
+  m.rng.shuffle(others);
+  for (int i : others)
+    if (shown.size() < 6) shown.push_back(i);
+  m.rng.shuffle(shown);
+  std::vector<std::string> labels;
+  int at = 0;
+  for (size_t k = 0; k < shown.size(); k++) {
+    labels.push_back(LABELS[shown[k]]);
+    if (shown[k] == pick) at = (int)k;
+  }
+  co_await m.io->roulette(p, "Lucky Space roulette!", labels, at, R_HELPER);
+  co_await runEvent(m, ids[pick], &p);
 }
 
 static Task<> evBadLuck(Match& m, Player& p) {
@@ -653,7 +877,21 @@ static Task<> duel(Match& m, Player& p) {
 static Task<> runEvent(Match& m, const std::string& id, Player* p) {
   IO& io = *m.io;
   (void)io;
-  if (id == "chance" && p) {
+  if (id == "villain" && p) {
+    co_await villainSpace(m, *p);
+  } else if (id == "thief" && p) {
+    co_await thiefVisit(m, *p);
+  } else if (id == "lucky" && p) {
+    co_await evLucky(m, *p);
+  } else if (id == "giveitems" && p) {
+    // tests: the special dice for everyone, and coins to use the thief
+    for (auto& o : m.players) {
+      o.items = {IT_DOUBLE, IT_TRIPLE, IT_CUSTOM};
+      o.coins += 60;
+      o.stars += 1;
+    }
+    m.io->boardChanged();
+  } else if (id == "chance" && p) {
     co_await chanceTime(m, *p);
   } else if (id == "battle") {
     co_await battle(m, p);
@@ -847,7 +1085,7 @@ static Task<> runEvent(Match& m, const std::string& id, Player* p) {
   } else if (id == "showtime_encore" && p) {
     co_await present(m, "ENCORE!", 2, {{R_HOST, P_POINT, "The crowd wants more! Roll again and dance on down the strip!"}}, -1, p);
     int n = m.rng.range(DICE_MIN, DICE_MAX);
-    co_await m.io->rollDice(*p, n, 0);
+    co_await m.io->rollDice(*p, {n}, 0, DK_NORMAL, {});
     co_await pushForward(m, *p, n);
   } else if (id == "showtime_spotlight" && p) {
     co_await present(m, "SPOTLIGHT SOLO", 2, {{R_HOST, P_CHEER, "The spotlight finds you! Take a bow!"}}, -1, p);
@@ -979,6 +1217,34 @@ static Task<bool> useItem(Match& m, Player& p, int it) {
       co_await teleport(m, p, opts[pick].node, J_WARP);
       break;
     }
+    case IT_DOUBLE:
+    case IT_TRIPLE:
+      removeItem(p, it);
+      m.diceCount = it == IT_DOUBLE ? 2 : 3;
+      co_await io.item(p, it, 1);
+      break;
+    case IT_CUSTOM: {
+      int cpu = -1;
+      if (p.cpu) cpu = aiCustomRoll(m, p);
+      removeItem(p, it);
+      co_await io.item(p, it, 1);
+      m.customRoll = co_await io.chooseNumber(p, DICE_MIN, DICE_MAX, cpu);
+      break;
+    }
+    case IT_PIPE:
+      removeItem(p, it);
+      co_await io.item(p, it, 1);
+      co_await io.say({{R_KEEPER, P_WAVE, "A Golden Pipe! Straight to the Star Coin, this way!"}}, &p);
+      co_await teleport(m, p, m.b.starGate, J_WARP);
+      m.starOffered.clear();
+      co_await offerStar(m, p);
+      m.turnOver = true;
+      break;
+    case IT_GLOVE:
+      removeItem(p, it);
+      co_await io.item(p, it, 1);
+      co_await duel(m, p);
+      break;
     default:
       co_return false;
   }
@@ -1008,6 +1274,144 @@ static std::vector<int> usableItems(Match& m, Player& p) {
 
 // ---------------------------------------------------------------------------------------------
 // Movement, landing, turns (TurnFlow)
+
+// ---------------------------------------------------------------------------------------------
+// The board's characters: the bank, the thief and the villain
+
+// Passing the bank costs 5 coins; landing on it wins everything in it.
+static Task<> bankToll(Match& m, Player& p) {
+  if (p.coins <= 0) {
+    co_await m.io->say({{R_BANKER, P_IDLE, "No coins? Then off you go, the bank only takes coins!"}}, &p);
+    co_return;
+  }
+  co_await m.io->say({{R_BANKER, P_POINT, fmt("Bank toll! 5 coins, please. The bank holds %d coins so far.", m.b.bankCoins)}}, &p);
+  m.b.bankCoins += co_await loseCoins(m, p, 5);
+}
+
+static Task<> bankPayout(Match& m, Player& p) {
+  if (m.b.bankCoins <= 0) {
+    co_await m.io->say({{R_BANKER, P_IDLE, "The bank is empty... for now. Everyone who passes pays 5 coins!"}}, &p);
+    co_return;
+  }
+  int won = m.b.bankCoins;
+  m.b.bankCoins = 0;
+  co_await m.io->say({{R_BANKER, P_SURPRISED, fmt("You landed on the bank! All %d coins are yours!", won)}}, &p);
+  co_await gainCoins(m, p, won);
+}
+
+// The thief "borrows" coins (5 coins) or a Star Coin (50 coins) from a rival.
+static Task<> thiefVisit(Match& m, Player& p) {
+  bool rivalCoins = false, rivalStars = false;
+  for (auto& o : m.players)
+    if (&o != &p) rivalCoins |= o.coins > 0, rivalStars |= o.stars > 0;
+  bool canCoins = p.coins >= 5 && rivalCoins, canStar = p.coins >= 50 && rivalStars;
+  if (!canCoins && !canStar) {
+    co_await m.io->say({{R_THIEF, P_IDLE, "Psst... come back with 5 coins and I'll pinch something from a rival for you!"}}, &p);
+    co_return;
+  }
+  co_await m.io->say({{R_THIEF, P_WAVE, "Psst! For a few coins I can 'borrow' something from a rival..."}}, &p);
+  std::vector<Target> opts;
+  std::vector<int> kinds;
+  if (canCoins) opts.push_back({"Steal coins (pay 5)", -1, -1}), kinds.push_back(0);
+  if (canStar) opts.push_back({"Steal a Star Coin (pay 50)", -1, -1}), kinds.push_back(1);
+  opts.push_back({"No thanks", -1, -1});
+  kinds.push_back(-1);
+  int cpu = -1;
+  if (p.cpu) {
+    cpu = (int)opts.size() - 1;
+    if (canStar && !sloppy(m, p)) cpu = canCoins ? 1 : 0;
+    else if (canCoins && m.rng.chance(0.6)) cpu = 0;
+  }
+  int pick = co_await m.io->chooseTarget(p, "What shall I steal?", opts, cpu);
+  int kind = pick < 0 ? -1 : kinds[pick];
+  if (kind < 0) {
+    co_await m.io->say({{R_THIEF, P_IDLE, "Suit yourself. You know where to find me!"}}, &p);
+    co_return;
+  }
+  std::vector<Target> who;
+  std::vector<int> idx;
+  for (size_t i = 0; i < m.players.size(); i++) {
+    Player& o = m.players[i];
+    if (&o == &p || (kind == 0 ? o.coins <= 0 : o.stars <= 0)) continue;
+    who.push_back({kind == 0 ? fmt("%s (%d coins)", o.name(), o.coins) : fmt("%s (%d Star Coins)", o.name(), o.stars), o.node, o.slot});
+    idx.push_back((int)i);
+  }
+  int tcpu = -1;
+  if (p.cpu) {
+    tcpu = 0;
+    for (size_t k = 0; k < idx.size(); k++) {
+      const Player &a = m.players[idx[k]], &c = m.players[idx[tcpu]];
+      if (kind == 0 ? a.coins > c.coins : a.stars > c.stars) tcpu = (int)k;
+    }
+  }
+  int t = co_await m.io->chooseTarget(p, kind == 0 ? "Steal coins from who?" : "Steal a Star Coin from who?", who, tcpu);
+  if (t < 0) t = 0;
+  Player& v = m.players[idx[t]];
+  co_await spendCoins(m, p, kind == 0 ? 5 : 50);
+  co_await m.io->say({{R_THIEF, P_CHEER, fmt("Leave it to me! Off to see %s...", v.name())}}, &p);
+  if (co_await shieldBlocks(m, v)) {
+    co_await m.io->say({{R_THIEF, P_SURPRISED, "A shield?! I couldn't get a thing!"}}, &p);
+    co_return;
+  }
+  if (kind == 0) {
+    int n = co_await loseCoins(m, v, m.rng.range(5, 15));
+    co_await m.io->say({{R_THIEF, P_HAPPY, fmt("Got away with %d coins!", n)}}, &p);
+    if (n > 0) co_await gainCoins(m, p, n);
+  } else {
+    v.stars--;
+    p.stars++;
+    co_await m.io->say({{R_THIEF, P_HAPPY, fmt("Swiped a Star Coin from %s!", v.name())}}, &p);
+    co_await m.io->starGained(p, 1);
+  }
+  m.io->boardChanged();
+}
+
+// A villain space: the board's villain spins the wheel of misfortune.
+static Task<> villainSpace(Match& m, Player& p) {
+  std::string name = castName(R_VILLAIN);
+  co_await present(m, (name + " APPEARS!").c_str(), 1,
+                   {{R_VILLAIN, P_POINT, "Ha! You've stepped into MY space! Let's spin my wheel of misfortune!"}}, -1, &p);
+  std::vector<std::string> labels{"Coin tax", "Revolution!", "Star snatch", "Everybody pays", "Back to start", "Good mood"};
+  int pick = m.rng.weighted({1.4f, 0.9f, p.stars > 0 ? 0.5f : 0.f, 1.0f, 0.6f, 0.35f});
+  co_await m.io->roulette(p, name + "'s wheel of misfortune", labels, pick, R_VILLAIN);
+  switch (pick) {
+    case 0: {
+      int n = co_await loseCoins(m, p, m.rng.range(10, 20));
+      co_await m.io->say({{R_VILLAIN, P_HAPPY, n > 0 ? fmt("%d coins for me! Mwa ha ha!", n) : std::string("No coins at all? How disappointing.")}}, &p);
+      break;
+    }
+    case 1: {
+      // everyone's coins pooled and shared out equally
+      int total = 0;
+      for (auto& o : m.players) total += o.coins;
+      int share = total / (int)m.players.size();
+      co_await m.io->say({{R_VILLAIN, P_CHEER, fmt("REVOLUTION! Everyone's coins are shared out: %d each!", share)}}, nullptr);
+      for (auto& o : m.players) {
+        int d = share - o.coins;
+        o.coins = share;
+        o.st.peakCoins = std::max(o.st.peakCoins, o.coins);
+        if (d) co_await m.io->coins(o, d);
+      }
+      break;
+    }
+    case 2:
+      p.stars--;
+      co_await m.io->say({{R_VILLAIN, P_HAPPY, "I'll be taking one of those Star Coins, thank you very much!"}}, &p);
+      m.io->boardChanged();
+      break;
+    case 3:
+      co_await m.io->say({{R_VILLAIN, P_CHEER, "Everybody pays! 5 coins each, hand them over!"}}, nullptr);
+      for (auto& o : m.players) co_await loseCoins(m, o, 5);
+      break;
+    case 4:
+      co_await m.io->say({{R_VILLAIN, P_POINT, "Back to the start with you!"}}, &p);
+      co_await teleport(m, p, m.g.id(m.g.def->startNode), J_FALL);
+      break;
+    default:
+      co_await m.io->say({{R_VILLAIN, P_IDLE, "Bah, I'm in a good mood today. Take 5 coins and go away!"}}, &p);
+      co_await gainCoins(m, p, 5);
+  }
+}
 
 static Task<> move(Match& m, Player& p, int steps) {
   int remaining = steps;
@@ -1043,6 +1447,8 @@ static Task<> move(Match& m, Player& p, int steps) {
     auto& n = m.g.node(p.node);
     if (n.type == SP_STAR && m.b.starGate == p.node) co_await offerStar(m, p);
     else if (n.type == SP_SHOP && remaining > 0 && n.shop[0]) co_await visitShop(m, p, shopIndex(n.shop));
+    if (p.node == m.b.bankNode && remaining > 0) co_await bankToll(m, p);
+    if (p.node == m.b.thiefNode && remaining > 0) co_await thiefVisit(m, p);
   }
 }
 
@@ -1075,6 +1481,13 @@ static Task<> land(Match& m, Player& p) {
     }
   // the space's colour splits the players for the round's minigame
   p.color = (n.type == SP_BLUE || n.type == SP_START || n.type == SP_LUCKY) ? SC_BLUE : (n.type == SP_BADLUCK ? SC_RED : SC_GREEN);
+  if (m.b.isVillain(node)) {
+    p.color = SC_RED;
+    co_await villainSpace(m, p);
+    co_return;
+  }
+  if (node == m.b.bankNode) co_await bankPayout(m, p);
+  if (node == m.b.thiefNode) co_await thiefVisit(m, p);
   switch (n.type) {
     case SP_START:
     case SP_BLUE: {
@@ -1120,6 +1533,10 @@ static Task<> land(Match& m, Player& p) {
 
 static Task<> runTurn(Match& m, Player& p) {
   m.bootsBonus = 0;
+  m.diceCount = 1;
+  m.customRoll = 0;
+  m.characterDiceNext = false;
+  m.turnOver = false;
   m.itemUsed = false;
   m.bounced = false;
   m.starOffered.clear();
@@ -1128,13 +1545,38 @@ static Task<> runTurn(Match& m, Player& p) {
     auto usable = usableItems(m, p);
     int cpu = p.cpu ? aiPreRoll(m, p, usable) : -1;
     int choice = co_await m.io->preRoll(p, usable, cpu);
+    if (choice == PRE_CHARACTER_DICE) {
+      m.characterDiceNext = true;
+      break;
+    }
     if (choice < 0) break;
     if (std::find(usable.begin(), usable.end(), choice) == usable.end()) continue;
     if (co_await useItem(m, p, choice)) m.itemUsed = true;
   }
-  int result = m.rng.range(DICE_MIN, DICE_MAX);
-  co_await m.io->rollDice(p, result, m.bootsBonus);
-  if (p.has(IT_BEAN)) {
+  if (m.turnOver) {
+    // the Golden Pipe ends the turn at the Star Coin
+    co_await m.io->turnEnd(p);
+    co_return;
+  }
+  // the roll: one Dice Block (1-10), two or three (Double / Triple Dice), the chosen number (Custom Dice)
+  // or a face of the character's own dice
+  std::vector<int> results, faces;
+  int kind = DK_NORMAL, faceCoins = 0;
+  if (m.customRoll > 0) {
+    results = {m.customRoll};
+    kind = DK_CUSTOM;
+  } else if (m.characterDiceNext) {
+    const CharacterDice& cd = characterDice(p.character);
+    int f = m.rng.range(0, 5);
+    faces = {f};
+    results = {cd.faces[f].steps};
+    faceCoins = cd.faces[f].coins;
+    kind = DK_CHARACTER;
+  } else
+    for (int k = 0; k < m.diceCount; k++) results.push_back(m.rng.range(DICE_MIN, DICE_MAX));
+  co_await m.io->rollDice(p, results, m.bootsBonus, kind, faces);
+  if (kind == DK_NORMAL && results.size() == 1 && p.has(IT_BEAN)) {
+    int result = results[0];
     int cpu = -1;
     if (p.cpu) {
       int dist = starDist(m, p.node, p.has(IT_KEY));
@@ -1146,12 +1588,29 @@ static Task<> runTurn(Match& m, Player& p) {
       removeItem(p, IT_BEAN);
       p.st.itemsUsed++;
       co_await m.io->item(p, IT_BEAN, 1);
-      result = m.rng.range(DICE_MIN, DICE_MAX);
-      co_await m.io->rollDice(p, result, m.bootsBonus);
+      results = {m.rng.range(DICE_MIN, DICE_MAX)};
+      co_await m.io->rollDice(p, results, m.bootsBonus, DK_NORMAL, {});
     }
   }
-  co_await move(m, p, result + m.bootsBonus);
-  co_await land(m, p);
+  int total = 0;
+  for (int r : results) total += r;
+  if (results.size() >= 2) {
+    bool triple = results.size() == 3 && results[0] == results[1] && results[1] == results[2];
+    bool dbl = !triple && (results[0] == results[1] || (results.size() == 3 && (results[0] == results[2] || results[1] == results[2])));
+    if (triple) {
+      co_await m.io->say({{R_HOST, P_CHEER, "TRIPLES! That's 30 bonus coins!"}}, &p);
+      co_await gainCoins(m, p, 30);
+    } else if (dbl) {
+      co_await m.io->say({{R_HOST, P_CHEER, "DOUBLES! 10 bonus coins!"}}, &p);
+      co_await gainCoins(m, p, 10);
+    }
+  }
+  if (faceCoins > 0) co_await gainCoins(m, p, faceCoins);
+  else if (faceCoins < 0) co_await loseCoins(m, p, -faceCoins);
+  if (total + m.bootsBonus > 0) {
+    co_await move(m, p, total + m.bootsBonus);
+    co_await land(m, p);
+  }
   co_await m.io->turnEnd(p);
 }
 
@@ -1167,7 +1626,7 @@ static Task<> rollTurnOrder(Match& m) {
   m.rng.shuffle(lots);
   std::vector<std::pair<int, int>> spin;  // roll, slot
   for (size_t i = 0; i < m.players.size(); i++) {
-    co_await m.io->rollDice(m.players[i], lots[i], 0);
+    co_await m.io->rollDice(m.players[i], {lots[i]}, 0, DK_NORMAL, {});
     spin.push_back({lots[i], m.players[i].slot});
   }
   std::stable_sort(m.players.begin(), m.players.end(), [&](const Player& a, const Player& c) {

@@ -17,6 +17,9 @@ import sys
 
 from PIL import Image
 
+sys.path.insert(0, os.path.dirname(__file__))
+import wii_items  # noqa: E402
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 WII = os.path.join(ROOT, 'wii')
 OUT = os.path.join(WII, 'data')
@@ -134,6 +137,22 @@ def build_spaces() -> list[str]:
     return types
 
 
+# The Wii edition's extra board cast (thief, banker, villain), in the order of EXTRA_CAST in Match.cpp:
+# strips rendered by scripts/art/cast_wii.py into wii/art/cast_<id>.png, stacked into one sheet.
+EXTRA_CAST = ['eggman', 'frieza', 'catwoman', 'plankton', 'krabs', 'burns']
+
+
+def build_cast_extra() -> None:
+    img = Image.new('RGBA', (6 * CELL, len(EXTRA_CAST) * CELL), (0, 0, 0, 0))
+    for r, cid in enumerate(EXTRA_CAST):
+        path = os.path.join(WII, 'art', f'cast_{cid}.png')
+        if os.path.exists(path):
+            img.alpha_composite(Image.open(path).convert('RGBA'), (0, r * CELL))
+        else:
+            print('missing cast strip', path, flush=True)
+    save(img, 'cast_extra.png')
+
+
 def build_items(data: dict) -> dict:
     sheet, frames = atlas_frames('items')
     out = {}
@@ -145,7 +164,8 @@ def build_items(data: dict) -> dict:
             keys.append(str(ic['frame']))
     keys = list(dict.fromkeys(keys))
     cell = 48
-    img = Image.new('RGBA', (cell * len(keys), cell), (0, 0, 0, 0))
+    extra = wii_items.icons()  # the Wii's extra items and the web items without an atlas icon
+    img = Image.new('RGBA', (cell * (len(keys) + len(extra)), cell), (0, 0, 0, 0))
     for i, k in enumerate(keys):
         f = full_frame(sheet, frames[k])
         bb = f.getbbox() or (0, 0, f.width, f.height)
@@ -154,6 +174,9 @@ def build_items(data: dict) -> dict:
         f = f.resize((max(1, int(f.width * s)), max(1, int(f.height * s))), Image.LANCZOS)
         img.alpha_composite(f, (i * cell + (cell - f.width) // 2, (cell - f.height) // 2))
         out[k] = i
+    for j, (kind, ic) in enumerate(extra):
+        img.alpha_composite(ic, ((len(keys) + j) * cell, 0))
+        out['wii:' + kind] = len(keys) + j
     save(img, 'items.png')
     star = Image.open(os.path.join(REN, 'items', 'star_coin.webp')).convert('RGBA')
     star = star.resize((int(star.width * 64 / star.height), 64), Image.LANCZOS)
@@ -286,12 +309,14 @@ def gen_cpp(data: dict, chars: dict, items_idx: dict, boards: dict, arenas: dict
     L.append('')
     # items
     L.append('const ItemDef ITEMS[] = {')
-    for it in data['items']:
+    for it in data['items'] + wii_items.EXTRA_ITEMS:
         ic = it.get('icon') or {}
         icon = items_idx.get(str(ic.get('frame')), -1) if ic.get('texture') == 'items' else -1
+        if icon < 0:
+            icon = items_idx.get('wii:' + it['id'], -1)
         L.append(f'  {{{cstr(it["id"])}, {cstr(it["name"])}, {cstr(it["description"])}, {it["price"]}, {cstr(it["timing"])}, {it.get("value", 1)}, {icon}}},')
     L.append('};')
-    L.append(f'const int ITEM_COUNT = {len(data["items"])};')
+    L.append(f'const int ITEM_COUNT = {len(data["items"]) + len(wii_items.EXTRA_ITEMS)};')
     L.append('const ShopDef SHOPS[] = {')
     for s in data['shops']:
         L.append(f'  {{{cstr(s["id"])}, {cstr(s["name"])}, {{{", ".join(cstr(x) for x in s["stock"])}}}, {len(s["stock"])}, {cstr(s["finalRoundExtra"])}}},')
@@ -361,6 +386,7 @@ def main():
     chars = build_characters(data)
     if not only or 'cast' in only:
         build_cast()
+        build_cast_extra()
     space_types = build_spaces()
     items_idx = build_items(data)
     boards = {}
